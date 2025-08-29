@@ -8,6 +8,7 @@ import { getOfferBySlug } from "@/features/offers/api/getOffers";
 export default function GoRedirect() {
   const { slug } = useParams<{ slug: string }>();
   const nav = useNavigate();
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
     const run = async () => {
@@ -31,7 +32,10 @@ export default function GoRedirect() {
         }
 
         // 3) редирект
-        window.location.replace(target);
+        if (!redirectedRef.current) {
+          redirectedRef.current = true;
+          window.location.replace(target);
+        }
       } catch {
         // мягкий фолбэк — на карточку оффера или compare
         if (slug) nav(`/offers/${encodeURIComponent(slug)}`, { replace: true });
