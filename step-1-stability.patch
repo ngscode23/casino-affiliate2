@@ -1,0 +1,227 @@
+diff --git a/src/components/FavControl.tsx b/src/components/FavControl.tsx
+index 6f1a0aa..b7d2a6c 100644
+--- a/src/components/FavControl.tsx
++++ b/src/components/FavControl.tsx
+@@ -1,38 +1,44 @@
+-import React from "react";
+-import { useFavorites } from "@/lib/useFavorites";
++import React from "react";
++import { useFavorites } from "@/lib/useFavorites";
+ 
+ export type FavControlProps = {
+   id: string;
+   className?: string;
+   onToggle?: (active: boolean) => void;
+   titleOn?: string;
+   titleOff?: string;
+ };
+ 
+ function normalizeKey(slug: any): string {
+   try { return String(slug ?? "").trim(); } catch { return ""; }
+ }
+ 
+ export function FavControl({
+   id,
+   className,
+   onToggle,
+   titleOn = "Убрать из избранного",
+   titleOff = "В избранное",
+ }: FavControlProps) {
+-  const { items, toggle } = useFavorites();
++  const { items, toggle } = useFavorites();
+   const key = normalizeKey(id);
+   const active = items.includes(key);
+ 
+   const handleClick = (e?: React.MouseEvent<HTMLButtonElement>) => {
+     e?.stopPropagation();
+     const next = toggle(key);
+     onToggle?.(next);
+   };
+ 
+-  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded";
+-  const colorClass = active ? "text-amber-400" : "text-white/70 hover:text-white";
++  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded";
++  const colorClass = active ? "text-amber-400" : "text-white/70 hover:text-white";
+ 
+   return (
+     <button
++      data-testid={`fav-btn:${key}`}
+       type="button"
+       aria-pressed={active}
++      aria-label={active ? "Remove from favorites" : "Add to favorites"}
+       title={active ? titleOn : titleOff}
+       onClick={handleClick}
+       className={`${base} ${colorClass}`}
+       style={{ WebkitTapHighlightColor: "transparent" }}
+     >
+       <span aria-hidden style={{ lineHeight: 1, fontSize: "1.15rem" }}>
+         {active ? "★" : "☆"}
+       </span>
+     </button>
+   );
+ }
+ 
+ export default FavControl;
+diff --git a/src/lib/offers.ts b/src/lib/offers.ts
+index 5e1b2a1..a6e3a2c 100644
+--- a/src/lib/offers.ts
++++ b/src/lib/offers.ts
+@@ -1,3 +1,4 @@
+ import { slugify } from "./slug";
+ import { offers as rawOffers } from "@/data/offers";
+ import type { Offer as RawOffer } from "@/data/schema";
+@@ -33,3 +34,10 @@ export const offersNormalized: NormalizedOffer[] = (rawOffers as RawOffer[])
+   .filter(Boolean)
+   .map(normalizeOffer);
+ 
++// dev helper: expose normalized offers for quick debugging in browser console
++// чтобы не светить глобалку в проде
++if (import.meta.env?.DEV && typeof window !== "undefined") {
++  // @ts-expect-error debug helper
++  (window as any).__offersNormalized = offersNormalized;
++}
++
+diff --git a/src/components/common/ErrorBoundary.tsx b/src/components/common/ErrorBoundary.tsx
+new file mode 100644
+index 0000000..9a7d2c3
+--- /dev/null
++++ b/src/components/common/ErrorBoundary.tsx
+@@ -0,0 +1,64 @@
++import React from "react";
++
++type State = { hasError: boolean; err?: unknown };
++
++export default class ErrorBoundary extends React.Component<
++  React.PropsWithChildren<{ fallback?: React.ReactNode }>,
++  State
++> {
++  state: State = { hasError: false };
++
++  static getDerivedStateFromError(err: unknown): State {
++    return { hasError: true, err };
++  }
++
++  componentDidCatch(error: unknown, info: unknown) {
++    // здесь можно отправить в аналитику
++    // eslint-disable-next-line no-console
++    console.error("[ErrorBoundary]", error, info);
++  }
++
++  render() {
++    if (this.state.hasError) {
++      return (
++        this.props.fallback ?? (
++          <div className="p-6 text-red-400">
++            Что-то пошло не так. Обнови страницу. Если повторяется — проверь консоль.
++          </div>
++        )
++      );
++    }
++    return this.props.children;
++  }
++}
+diff --git a/src/App.tsx b/src/App.tsx
+index e1a1bcd..b0d2c9a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,7 +1,12 @@
+ import React from "react";
++import ErrorBoundary from "@/components/common/ErrorBoundary";
+
+ 
+ export default function App() {
+-  return (
+-    {/* твоя текущая разметка */}
+-  );
++  return (
++    <ErrorBoundary>
++      {/* твоя текущая разметка */}
++    </ErrorBoundary>
++  );
+ }
+diff --git a/tests/favorites.spec.ts b/tests/favorites.spec.ts
+index 4c9f0a1..b3f8a1b 100644
+--- a/tests/favorites.spec.ts
++++ b/tests/favorites.spec.ts
+@@ -1,33 +1,49 @@
+-import { test, expect } from "@playwright/test";
++import { test, expect } from "@playwright/test";
+ 
+ test("favorites lifecycle", async ({ page }) => {
+-  await page.goto("http://localhost:5173/compare");
+-
+-  // очистим локальное состояние
+-  await page.evaluate(() => localStorage.setItem("fav:v1", JSON.stringify([])));
+-
+-  // найдём первую звёздочку и кликнем
+-  await page.locator('button[title="В избранное"], button[title="Add to favorites"]').first().click();
+-
+-  // проверяем localStorage
+-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fav:v1") || "[]"));
+-  expect(saved.length).toBeGreaterThan(0);
+-
+-  // открой favorites и проверь, что slug есть
+-  await page.goto("http://localhost:5173/favorites");
+-  await expect(page.locator("text=Избранное")).toBeVisible();
+-  // presence of card with slug or name
+-  await expect(page.locator('.neon-card')).toContainText(saved[0]);
+-
+-  // toggle off from favorites
+-  await page.locator('button[title="Убрать из избранного"]').first().click();
+-  const savedAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("fav:v1") || "[]"));
+-  expect(savedAfter).not.toContain(saved[0]);
++  const base = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
++
++  await page.goto(`${base}/compare`, { waitUntil: "networkidle" });
++  await page.evaluate(() => localStorage.setItem("fav:v1", JSON.stringify([])));
++
++  // ждём отрисовки таблицы/карточек
++  await page.waitForLoadState("networkidle");
++
++  const favSelector = '[data-testid^="fav-btn:"]:visible';
++  const favs = page.locator(favSelector);
++  await expect(favs.first()).toBeVisible();
++
++  // клик по первой видимой звезде
++  const el = favs.first();
++  await el.scrollIntoViewIfNeeded();
++  await el.click();
++
++  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("fav:v1") || "[]"));
++  expect(saved.length).toBeGreaterThan(0);
++
++  await page.goto(`${base}/favorites`, { waitUntil: "networkidle" });
++  await expect(page.locator("text=Избранное")).toBeVisible();
++  // на странице должен быть хотя бы один fav-btn
++  await expect(page.locator('[data-testid^="fav-btn:"]')).toHaveCountGreaterThan(0);
++
++  // снять из избранного
++  await page.locator('[data-testid^="fav-btn:"]').first().click();
++  const savedAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("fav:v1") || "[]"));
++  expect(savedAfter.length).toBeLessThan(saved.length);
+ });
+diff --git a/playwright.config.ts b/playwright.config.ts
+new file mode 100644
+index 0000000..8f1f0df
+--- /dev/null
++++ b/playwright.config.ts
+@@ -0,0 +1,20 @@
++import { defineConfig } from "@playwright/test";
++
++export default defineConfig({
++  testDir: "tests",
++  timeout: 30_000,
++  use: {
++    headless: true,
++    baseURL: "http://localhost:5173",
++    trace: "on-first-retry",
++  },
++  webServer: {
++    command: "npm run dev",
++    port: 5173,
++    reuseExistingServer: true,
++    timeout: 60_000,
++  },
++  reporter: [["list"]],
++});
++

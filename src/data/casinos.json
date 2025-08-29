@@ -1,0 +1,45 @@
+[
+  {
+    "slug": "skyspin",
+    "name": "SkySpin",
+    "rating": 4.6,
+    "license": "MGA",
+    "payout": "1–2 дня",
+    "payoutHours": 36,
+    "methods": ["Cards", "SEPA"],
+    "enabled": true,
+    "position": 1
+  },
+  {
+    "slug": "novawin",
+    "name": "NovaWin",
+    "rating": 4.4,
+    "license": "Curaçao",
+    "payout": "до 48 ч",
+    "payoutHours": 48,
+    "methods": ["Cards", "Crypto"],
+    "enabled": true,
+    "position": 2
+  },
+  {
+    "slug": "rapidpay",
+    "name": "RapidPay",
+    "rating": 4.3,
+    "license": "MGA",
+    "payout": "до 24 ч",
+    "payoutHours": 24,
+    "methods": ["SEPA", "Paypal"],
+    "enabled": true,
+    "position": 3
+  },
+  {
+    "slug": "casino-a",
+    "name": "Casino A",
+    "rating": 4.5,
+    "license": "MGA",
+    "payout": "1–2 дня",
+    "methods": ["Cards", "Paypal"],
+    "enabled": true,
+    "position": 4
+  }
+]

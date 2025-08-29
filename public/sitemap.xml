@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://localhost:5173/</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/offers</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/compare</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/favorites</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/contact</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/legal/privacy</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/legal/terms</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/legal/cookies</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/legal/responsible</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>http://localhost:5173/legal/affiliate-disclosure</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+</urlset>

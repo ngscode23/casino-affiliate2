@@ -1,0 +1,223 @@
+/* ---------- BASE: переменные, фон, типографика ---------- */
+
+
+@layer base {
+  :root {
+    /* Палитра (оба подхода — и hex, и rgb — для гибкости) */
+    --bg-0: 17 20 28;         /* #11141C */
+    --bg-1: 24 28 38;         /* #181C26 */
+    --bg-2: 30 36 48;         /* #1E2430 */
+    --text: 248 250 252;      /* #F8FAFC */
+    --text-dim: 148 163 184;  /* #94A3B8 */
+
+    --bg-950: #080b10;
+    --bg-900: #0b0f14;
+    --bg-850: #0f141b;
+    --text-100: #eef2f6;
+    --text-300: #c8d0da;
+    --text-500: #93a1b2;
+    --muted-700: #1a2230;
+    --muted-600: #1f2937;
+    --card-800: #121826;
+
+    --accent:   #d4af37; /* gold */
+    --accent-2: #8b5cf6; /* purple */
+    --success:  #22c55e;
+    --danger:   #ef4444;
+
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+
+    --shadow-soft: 0 10px 30px rgba(0,0,0,.35);
+    --shadow-ring: 0 0 0 1px rgba(255,255,255,.06) inset;
+    /* Motion tokens */
+    --dur-fast: .15s;
+    --dur-normal: .2s;
+    --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  }
+
+  html, body, #root {
+    background:
+      radial-gradient(60rem 60rem at 80% -10%, rgba(15,176,255,.08), transparent 60%),
+      radial-gradient(50rem 50rem at -10% 20%, rgba(168,85,247,.06), transparent 60%),
+      rgb(var(--bg-0));
+    color: rgb(var(--text));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100%;
+  }
+
+  .container,
+  .neon-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+}
+
+/* ---------- COMPONENTS: карточки, герой, кнопки, чипсы, таблицы, футер ---------- */
+@layer components {
+  /* Карточка (универсальная) */
+  .neon-card {
+    background: rgb(var(--bg-1) / .85);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-soft);
+    transition:
+      border-color var(--dur-normal) var(--ease-standard),
+      box-shadow var(--dur-normal) var(--ease-standard),
+      transform var(--dur-fast) var(--ease-standard);
+  }
+
+  /* Альтернативная карточка в стиле «металл/стекло» */
+  .card {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)),
+      var(--card-800);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-soft), var(--shadow-ring);
+    border: 1px solid rgba(255,255,255,.06);
+  }
+
+  /* Герой */
+  .neon-hero {
+    position: relative;
+    padding: 64px 0 32px;
+    background:
+      linear-gradient(140deg,
+        rgba(212,175,55,.10),
+        rgba(139,92,246,.12) 40%,
+        transparent 80%);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .neon-hero h1,
+  .neon-hero .title {
+    font-size: clamp(28px, 5vw, 46px);
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    margin: 8px 0 14px;
+  }
+  .neon-hero p {
+    color: var(--text-300);
+    max-width: 800px;
+    margin: 0;
+  }
+
+  /* Чипсы */
+  .neon-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem .6rem;
+    border-radius: 9999px;
+    font-size: 12px;
+    line-height: 1;
+    color: rgb(var(--text));
+    background:
+      linear-gradient(180deg, rgba(139,92,246,.18), rgba(139,92,246,.10) 70%, rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 6px 16px rgba(139,92,246,.20);
+  }
+  .neon-chip[data-glow] {
+    box-shadow:
+      0 0 0 2px rgba(212,175,55,.15),
+      0 8px 24px rgba(212,175,55,.20);
+    background: linear-gradient(180deg, rgba(212,175,55,.22), rgba(212,175,55,.10));
+  }
+
+  /* Кнопки: общая и вариации */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.12);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)),
+      linear-gradient(180deg, rgba(212,175,55,.25), rgba(212,175,55,.15));
+    color: #111;
+    font-weight: 700;
+    letter-spacing: .2px;
+    cursor: pointer;
+    transition:
+      transform var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-normal) var(--ease-standard),
+      filter var(--dur-fast) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard);
+    box-shadow: 0 10px 20px rgba(212,175,55,.20);
+  }
+  .btn:hover   { transform: translateY(-1px) scale(1.01); filter: brightness(1.05); }
+  .btn:active  { transform: translateY(0) scale(.995);    filter: brightness(.98);  }
+
+  .btn.secondary {
+    background:
+      linear-gradient(180deg, rgba(139,92,246,.25), rgba(139,92,246,.15));
+    color: #fff;
+    box-shadow: 0 10px 20px rgba(139,92,246,.20);
+  }
+
+  /* Хватает и утилитарной неон-кнопки (кто использует neon-btn) */
+  .neon-btn {
+    background: #0fb0ff;
+    color: #fff;
+    border-radius: .75rem;
+    padding: .75rem 1rem;
+    box-shadow: 0 10px 30px rgba(15,176,255,.25);
+    transition:
+      transform var(--dur-fast) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-normal) var(--ease-standard);
+  }
+  .neon-btn:hover  { background: #008fe5; transform: translateY(-1px) scale(1.01); }
+  .neon-btn:active { transform: translateY(0); }
+
+  /* Таблица */
+  .table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--card-800);
+    box-shadow: var(--shadow-soft), var(--shadow-ring);
+  }
+  .table th, .table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .table th {
+    text-align: left;
+    color: var(--text-500);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .table tr:hover td {
+    background: rgba(255,255,255,.02);
+  }
+
+  /* Бейдж для меток */
+  .badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .3px;
+    color: #111;
+    background: linear-gradient(180deg, rgba(212,175,55,.9), rgba(212,175,55,.75));
+  }
+
+  /* Футер */
+  .site-footer {
+    margin-top: 48px;
+    padding: 32px 0;
+    color: var(--text-500);
+    border-top: 1px solid rgba(255,255,255,.06);
+    background: linear-gradient(0deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+  }
+}

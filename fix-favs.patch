@@ -1,0 +1,237 @@
+*** Begin Patch
+*** Update File: src/lib/offers.ts
+@@
+ export const offersNormalized: NormalizedOffer[] = (rawOffers as RawOffer[])
+   .filter(Boolean)
+   .map(normalizeOffer);
+ 
++// dev helper: expose normalized offers for quick debugging in browser console (dev only)
++if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
++  // @ts-ignore - debug helper
++  (window as any).__offersNormalized = offersNormalized;
++}
+*** End Patch
+*** Begin Patch
+*** Add File: src/lib/useFavorites.ts
++import { useCallback, useEffect, useMemo, useState } from "react";
++import { supabase } from "@/lib/supabase";
++import { HAS_SUPABASE } from "@/config/config";
++
++const LS_KEY = "fav:v1";
++const bus = new EventTarget();
++let cache: string[] = [];
++
++function normalizeKey(slug: any): string {
++  try { return String(slug ?? "").trim(); } catch { return ""; }
++}
++
++function readLocalRaw(): string[] {
++  try {
++    const raw = localStorage.getItem(LS_KEY);
++    const arr = raw ? JSON.parse(raw) : [];
++    return Array.isArray(arr) ? arr.map(normalizeKey).filter(Boolean) : [];
++  } catch {
++    return [];
++  }
++}
++
++/** Отфильтровать сохранённые slug'и по известным текущим offers (если доступны в window) */
++function filterKnown(list: string[]): string[] {
++  try {
++    if (typeof window !== "undefined" && Array.isArray((window as any).__offersNormalized)) {
++      const known = (window as any).__offersNormalized.map((o: any) => String(o.slug ?? "").trim());
++      if (known.length) return list.filter(s => known.includes(s));
++    }
++    return list;
++  } catch {
++    return list;
++  }
++}
++
++function writeLocal(list: string[]) {
++  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch {}
++}
++
++function setCache(next: string[]) {
++  cache = Array.from(new Set(next.map(normalizeKey).filter(Boolean)));
++  writeLocal(cache);
++  bus.dispatchEvent(new CustomEvent("fav:update", { detail: cache }));
++}
++
++if (typeof window !== "undefined") {
++  if (cache.length === 0) {
++    const raw = readLocalRaw();
++    cache = filterKnown(raw);
++    writeLocal(cache);
++  }
++  window.addEventListener("storage", (e) => {
++    if (e.key === LS_KEY) setCache(readLocalRaw());
++  });
++}
++
++export type UseFavoritesReturn = {
++  items: string[];
++  isFavorite: (slug: string) => boolean;
++  add: (slug: string) => boolean;
++  remove: (slug: string) => boolean;
++  toggle: (slug: string) => boolean;
++  clear: () => void;
++  isLoading: boolean;
++  error: string | null;
++};
++
++export function useFavorites(userId?: string): UseFavoritesReturn {
++  const [items, setItems] = useState<string[]>(cache);
++  const [isLoading, setIsLoading] = useState<boolean>(!!(HAS_SUPABASE && userId));
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    const onUpdate = (e: Event) => {
++      const detail = (e as CustomEvent<string[]>).detail;
++      if (Array.isArray(detail)) setItems(detail);
++    };
++    bus.addEventListener("fav:update", onUpdate);
++    return () => bus.removeEventListener("fav:update", onUpdate);
++  }, []);
++
++  useEffect(() => {
++    if (!HAS_SUPABASE || !userId) {
++      setItems(cache);
++      setIsLoading(false);
++      return;
++    }
++    let cancelled = false;
++    (async () => {
++      try {
++        setIsLoading(true);
++        const { data, error } = await (supabase as any)
++          .from("favorites")
++          .select("offer_id")
++          .eq("user_id", userId)
++          .order("created_at", { ascending: false });
++        if (cancelled) return;
++        if (error) {
++          console.warn("[favorites] select error:", error);
++          setError(error.message ?? "favorites select error");
++          setItems(cache);
++        } else {
++          const remote: string[] = (data ?? []).map((r: any) => String(r.offer_id || "").trim());
++          setCache(remote);
++        }
++      } finally {
++        if (!cancelled) setIsLoading(false);
++      }
++    })();
++    return () => { cancelled = true; };
++  }, [userId]);
++
++  const isFavorite = useCallback((slug: string) => cache.includes(normalizeKey(slug)), []);
++
++  const add = useCallback((slug: string): boolean => {
++    const key = normalizeKey(slug);
++    if (!key) return false;
++    if (cache.includes(key)) return true;
++    const next = Array.from(new Set([...cache, key]));
++    setCache(next);
++    if (HAS_SUPABASE && userId) {
++      (async () => {
++        const { error } = await (supabase as any)
++          .from("favorites")
++          .upsert([{ user_id: userId, offer_id: key }], { onConflict: "user_id,offer_id" });
++        if (error) {
++          console.warn("[favorites] upsert error:", error);
++          setError(error.message ?? "favorites upsert error");
++        }
++      })();
++    }
++    return true;
++  }, [userId]);
++
++  const remove = useCallback((slug: string): boolean => {
++    const key = normalizeKey(slug);
++    if (!key) return false;
++    if (!cache.includes(key)) return false;
++    const next = cache.filter(x => x !== key);
++    setCache(next);
++    if (HAS_SUPABASE && userId) {
++      (async () => {
++        const { error } = await (supabase as any)
++          .from("favorites")
++          .delete()
++          .eq("user_id", userId)
++          .eq("offer_id", key);
++        if (error) {
++          console.warn("[favorites] delete error:", error);
++          setError(error.message ?? "favorites delete error");
++        }
++      })();
++    }
++    return false;
++  }, [userId]);
++
++  const toggle = useCallback((slug: string): boolean => {
++    const key = normalizeKey(slug);
++    if (!key) return false;
++    return cache.includes(key) ? remove(key) : add(key);
++  }, [add, remove]);
++
++  const clear = useCallback(() => setCache([]), []);
++
++  return useMemo(() => ({ items, isFavorite, add, remove, toggle, clear, isLoading, error }), [items, isFavorite, add, remove, toggle, clear, isLoading, error]);
++}
+*** End Patch
+*** Begin Patch
+*** Add File: src/components/FavControl.tsx
++import React from "react";
++import { useFavorites } from "@/lib/useFavorites";
++
++export type FavControlProps = {
++  id: string;
++  className?: string;
++  onToggle?: (active: boolean) => void;
++  titleOn?: string;
++  titleOff?: string;
++};
++
++function normalizeKey(slug: any): string {
++  try { return String(slug ?? "").trim(); } catch { return ""; }
++}
++
++export function FavControl({
++  id,
++  className,
++  onToggle,
++  titleOn = "Убрать из избранного",
++  titleOff = "В избранное",
++}: FavControlProps) {
++  const { items, toggle } = useFavorites();
++  const key = normalizeKey(id);
++  const active = items.includes(key);
++
++  const handleClick = (e?: React.MouseEvent<HTMLButtonElement>) => {
++    e?.stopPropagation();
++    const next = toggle(key);
++    onToggle?.(next);
++  };
++
++  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded";
++  const colorClass = active ? "text-amber-400" : "text-white/70 hover:text-white";
++
++  return (
++    <button
++      type="button"
++      aria-pressed={active}
++      title={active ? titleOn : titleOff}
++      onClick={handleClick}
++      className={`${base} ${colorClass}`}
++      style={{ WebkitTapHighlightColor: "transparent" }}
++    >
++      <span aria-hidden style={{ lineHeight: 1, fontSize: "1.15rem" }}>
++        {active ? "★" : "☆"}
++      </span>
++    </button>
++  );
++}
++
++export default FavControl;
+*** End Patch

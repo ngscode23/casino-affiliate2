@@ -1,0 +1,95 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+backup-inner-casino-affiliate.zip
+backup-inner-casino-affiliate.zip
+backup-inner-casino-affiliate.zip
+backup-inner-casino-affiliate.zip
+# build artifacts
+dist
+build
+.next
+.vite
+*.tsbuildinfo
+
+# dependencies
+node_modules/
+
+# builds
+dist/
+build/
+.vite/
+.next/
+
+# misc
+*.tsbuildinfo
+.tmp/
+.env
+.env.*
+
+backup_before_cleanup_*/
+# Local Netlify folder
+.netlify
+backup_before_cleanup_*/
+dist/
+node_modules/
+backup_before_cleanup_*/
+dist/
+node_modules/
+
+# local audit reports
+/audit-*.txt
+
+# local audit reports
+/audit-*.txt
+
+# local audit reports
+/audit-*.txt
+
+# local audit reports
+/audit-*.txt
+
+# local audit reports
+/audit-*.txt
+test-results/
+playwright-report/
+playwright/.cache/
+*.zip
+# junk
+node_modules
+dist
+build
+.vite
+.cache
+.next
+coverage
+_archive
+
+.netlify/
+playwright-report/
+coverage/
+# env
+.env
+.env.local
+.env.production

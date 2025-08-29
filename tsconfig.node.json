@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts"],
+  
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "playwright-report",
+    "test-results",
+    "_archive"
+  ]
+}
+

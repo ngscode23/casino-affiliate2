@@ -1,0 +1,9 @@
+  backup-main            [m 7d32608 fix: ensure Tailwind pipeline and css import
+  chore/folders-cleanup  [m f968ef7 [[34morigin/chore/folders-cleanup[m] temp
+  chore/folders-cleanup-2[m f968ef7 [[34morigin/chore/folders-cleanup-2[m] temp
+* [32mfeat/supabase-auth     [m e30210d [[34morigin/feat/supabase-auth[m] feat(auth): enable magic-link + favorites sync
+  main                   [m cd8e62f [[34morigin/main[m] temp
+  recovery               [m c596b8b chore: cleanup nested casino-affiliate folder, add drizzle config and db setup
+  rescue-ui              [m f8eaf0d feat: replace template with Tailwind starter
+  restore-frontend       [m e7900e0 apply gitignore and remove build artifacts
+  restore-ui             [m d15847a restore UI from 52ff116 (components, pages, schema)

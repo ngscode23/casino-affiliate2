@@ -1,0 +1,58 @@
+# netlify.toml
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# go/* — твоя функция уже есть
+[[redirects]]
+  from = "/go/*"
+  to = "/.netlify/functions/go/:splat"
+  status = 200
+  force = true
+
+# security headers (твоя текущая версия ок, оставляю минимум)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com;
+      script-src-elem 'self' https://www.googletagmanager.com https://www.google-analytics.com;
+      style-src 'self';
+      img-src 'self' data: https://www.google-analytics.com;
+      connect-src 'self' https://www.google-analytics.com https://*.supabase.co wss://*.supabase.co;
+      font-src 'self' data:;
+      object-src 'none';
+      base-uri 'self';
+      frame-ancestors 'none';
+      form-action 'self';
+      worker-src 'self' blob:;
+    """
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    Cross-Origin-Embedder-Policy = "credentialless"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+
+# кэш для статических ассетов
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# html не кэшируем
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
