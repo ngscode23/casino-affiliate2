@@ -69,12 +69,22 @@ E2E test
 ### Admin partners
 - Partners list supports client-side search on the current page (by name/email)
 - Manual pin/unpin panel: upserts partner by email+plan and pins/unpins provided slugs
+ - Server-side search (ilike) with pagination in admin list
 
 ### Admin analytics
 - Export CSV for selected period
 - Range presets: 7/30/90 days or Custom (date range)
 - Source summary groups by `utm_source` for the selected period
 - Per-slug mini sparklines (daily) for quick trend view
+
+### Webhooks page
+- `/admin/webhooks` shows `public.webhook_logs` (latest first)
+- Filter by `type`, pagination (50/page), and a button “Purge >30d” (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
+- Webhook payloads stored masked (emails masked, secrets removed).
+
+### Health function
+- Netlify Function `/.netlify/functions/health` returns JSON: `{ ok, time, commit, supabase: { ok }, duration_ms }`
+- Pings Supabase (light select) when server env is present
 
 ## Supabase policies summary
 - `public.settings`: RLS on; anon select; authenticated all (upsert)
