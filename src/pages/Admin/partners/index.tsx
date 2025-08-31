@@ -29,18 +29,24 @@ export default function PartnersPage() {
         setLoading(true); setError(null);
         const from = page * pageSize;
         const to = from + pageSize - 1;
-        const { data, error } = await (supabase as any)
+        let qbuilder = (supabase as any)
           .from("partners")
           .select("id,name,email,plan,expires_at")
-          .order("created_at",{ascending:false})
-          .range(from, to);
+          .order("created_at",{ascending:false});
+        if (q && q.trim()) {
+          const needle = `%${q.trim()}%`;
+          qbuilder = qbuilder.or(`name.ilike.${needle},email.ilike.${needle}`);
+        }
+        const { data, error } = await qbuilder.range(from, to);
         if (error) throw error;
         if (!cancelled) setRows((data as any) ?? []);
       } catch (e:any) { if(!cancelled)setError(String(e?.message||e)); }
       finally { if(!cancelled)setLoading(false); }
     })();
     return ()=>{cancelled=true};
-  }, [page]);
+  }, [page, q]);
+
+  useEffect(() => { setPage(0); }, [q]);
 
   const status = useMemo(() => new URLSearchParams(loc.search).get("status"), [loc.search]);
 
@@ -179,6 +185,51 @@ export default function PartnersPage() {
           <button className="neon-btn" onClick={manualUnpin}>Unpin</button>
         </div>
       </Card>
+
+      <WebhookLogsCard />
     </Section>
+  );
+}
+
+function WebhookLogsCard() {
+  const [rows, setRows] = useState<Array<{ type: string; created_at: string; payload: any }>>([] as any);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string|null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const { data, error } = await (supabase as any)
+          .from('webhook_logs')
+          .select('type,created_at,payload')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) throw error;
+        if (!cancelled) setRows((data as any) ?? []);
+      } catch (e:any) { if (!cancelled) setError(String(e?.message||e)); }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true };
+  }, []);
+
+  return (
+    <Card className="p-6">
+      <h2 className="font-semibold mb-3">Webhook logs (last 100)</h2>
+      {loading ? <div>Loading logs…</div> : error ? <div className="text-red-400">{error}</div> : (
+        <div className="text-sm space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="rounded border border-white/10 p-2">
+              <div className="flex justify-between"><span>{r.type}</span><span className="text-[var(--text-dim)]">{r.created_at}</span></div>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-[var(--text-dim)]">payload</summary>
+                <pre className="overflow-auto text-xs whitespace-pre-wrap">{JSON.stringify(r.payload, null, 2)}</pre>
+              </details>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

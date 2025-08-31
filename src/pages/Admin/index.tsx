@@ -6,7 +6,7 @@ import Section from "@/components/common/section";
 import Skeleton from "@/components/common/skeleton";
 
 // Если в requireAuth.tsx экспорт по умолчанию:
-import { RequireAuth } from "./requireAuth";
+import { RequireAdmin as RequireAuth } from "./requireAuth";
 // Если у тебя там именованный экспорт { RequireAuth }, то строку выше замени на:
 // import { RequireAuth } from "./requireAuth";
 

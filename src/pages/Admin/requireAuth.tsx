@@ -34,3 +34,36 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+export function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [ok, setOk] = useState(false);
+  const loc = useLocation();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user as any;
+        const role = user?.user_metadata?.role || user?.app_metadata?.role;
+        if (!cancelled) setOk(!!user && role === 'admin');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <Section className="p-6">
+        <div>Checking admin access.</div>
+      </Section>
+    );
+  }
+  if (!ok) {
+    // redirect non-admins to home (or show 403 page)
+    return <Navigate to={`/`} replace state={{ from: loc }} />;
+  }
+  return <>{children}</>;
+}
