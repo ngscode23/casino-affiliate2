@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 vi.mock('@/lib/supabase', () => {
   return {
     supabase: {
-      from(table: string) {
+      from() {
         return {
           select() { return this },
           order() { return this },
@@ -34,4 +34,3 @@ describe('Admin/Webhooks page', () => {
     expect(container).toMatchSnapshot()
   })
 })
-

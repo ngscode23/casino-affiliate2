@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
 import { supabase } from "@/lib/supabase";
@@ -80,4 +80,3 @@ export default function WebhooksPage() {
     </Section>
   );
 }
-
