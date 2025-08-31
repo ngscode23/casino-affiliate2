@@ -57,5 +57,5 @@ export async function trackImpression(slug: string): Promise<void> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ slug })
     }).catch(() => void 0);
-  } catch (_e) { void 0 }
+  } catch { void 0 }
 }
