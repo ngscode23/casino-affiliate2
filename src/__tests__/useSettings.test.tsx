@@ -6,7 +6,7 @@ import React from 'react'
 vi.mock('@/lib/supabase', () => {
   return {
     supabase: {
-      from(table: string) {
+      from() {
         return {
           select() {
             return {

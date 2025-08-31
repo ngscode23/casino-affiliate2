@@ -119,7 +119,7 @@ export default function Seo(props: Props) {
       upsertMeta("property", "og:locale", current);
       // Use a simple approach: write one alternate meta per call
       alternates.forEach((loc) => upsertMeta("property", "og:locale:alternate", loc));
-    } catch {}
+    } catch { /* noop */ }
 
     // Twitter
     upsertMeta("name", "twitter:card", "summary_large_image");

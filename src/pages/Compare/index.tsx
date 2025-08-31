@@ -24,7 +24,7 @@ function safeOrigin(): string | undefined {
 }
 
 export default function ComparePage() {
-  const { offers, isLoading, error } = useOffers();
+  const { offers, error } = useOffers();
 
   const [params, setParams] = useSearchParams();
   const initialQ = params.get("q") ?? "";
@@ -114,18 +114,18 @@ export default function ComparePage() {
 
   // Track filter changes (license/method) immediately
   useEffect(() => {
-    try { track("compare_filter", { license, method }); } catch {}
+    try { track("compare_filter", { license, method }); } catch { /* noop */ }
   }, [license, method]);
 
   // Debounced search tracking to avoid spamming
   const searchDebounceRef = useRef<number | null>(null);
   useEffect(() => {
-    try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch {}
+    try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch { /* noop */ }
     searchDebounceRef.current = (setTimeout(() => {
-      try { track("compare_search", { q_len: search.length, has_q: !!search }); } catch {}
+      try { track("compare_search", { q_len: search.length, has_q: !!search }); } catch { /* noop */ }
     }, 500) as unknown) as number;
     return () => {
-      try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch {}
+      try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch { /* noop */ }
     };
   }, [search]);
 

@@ -7,7 +7,7 @@ type Props = { className?: string };
 
 // Persist consent in localStorage and emit events; do not directly init analytics here
 function persistConsent(analytics: boolean, marketing: boolean) {
-  try { saveConsent({ analytics, marketing }); } catch {}
+  try { saveConsent({ analytics, marketing }); } catch { /* noop */ }
 }
 
 export default function CookieBar({ className = "" }: Props) {
@@ -22,7 +22,7 @@ export default function CookieBar({ className = "" }: Props) {
       applyStoredConsentToDom();
       const c = getStoredConsent();
       if (c) { setVisible(false); return; }
-    } catch {}
+    } catch { /* noop */ }
     setVisible(true);
   }, []);
 

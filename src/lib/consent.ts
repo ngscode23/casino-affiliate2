@@ -20,7 +20,7 @@ function setHtmlAttrs(c: ConsentValue) {
       "data-marketing-consent",
       c.marketing ? "granted" : "denied",
     );
-  } catch {}
+  } catch { /* noop */ }
 }
 
 export function getConsent(): ConsentValue | null {
@@ -38,7 +38,7 @@ export function getConsent(): ConsentValue | null {
 export function setConsent(value: ConsentValue): void {
   try {
     localStorage.setItem(CONSENT_KEY, JSON.stringify(value));
-  } catch {}
+  } catch { /* noop */ }
 
   setHtmlAttrs(value);
 
@@ -47,7 +47,7 @@ export function setConsent(value: ConsentValue): void {
     window.dispatchEvent(new CustomEvent(EVENT_CONSENT_CHANGED, detail));
     // Fire legacy event for existing listeners
     window.dispatchEvent(new CustomEvent(EVENT_CONSENT_CHANGED_LEGACY, detail));
-  } catch {}
+  } catch { /* noop */ }
 }
 
 export function applyStoredConsentToDom(): void {
@@ -57,7 +57,7 @@ export function applyStoredConsentToDom(): void {
 
 export function onConsentChanged(cb: (value: ConsentValue) => void): () => void {
   const handler = (e: Event) => {
-    try { cb((e as CustomEvent).detail as ConsentValue); } catch {}
+    try { cb((e as CustomEvent).detail as ConsentValue); } catch { /* noop */ }
   };
   window.addEventListener(EVENT_CONSENT_CHANGED, handler as EventListener);
   return () => window.removeEventListener(EVENT_CONSENT_CHANGED, handler as EventListener);
@@ -66,5 +66,5 @@ export function onConsentChanged(cb: (value: ConsentValue) => void): () => void 
 export function openConsent(): void {
   try {
     window.dispatchEvent(new CustomEvent('consent:open'));
-  } catch {}
+  } catch { /* noop */ }
 }

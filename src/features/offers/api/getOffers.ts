@@ -114,7 +114,7 @@ export async function getOffers(): Promise<NormalizedOffer[]> {
           if (!r.error && Array.isArray(r.data)) pinned = r.data as string[];
         }
         __pinnedCache = { data: pinned, ts: now };
-      } catch {}
+      } catch { /* noop */ }
     }
 
     const list = (data as DbOffer[]).map(rowToNormalized).map((o) => {

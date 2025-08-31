@@ -19,7 +19,7 @@ function readCache(): Settings | null {
 }
 
 function writeCache(s: Settings) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch {}
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch { /* noop */ }
 }
 
 export function useSettings() {
@@ -71,4 +71,3 @@ export async function upsertSettings(values: Settings) {
   const { error } = await (supabase as any).from("settings").upsert(rows, { onConflict: "key" });
   if (error) throw error;
 }
-

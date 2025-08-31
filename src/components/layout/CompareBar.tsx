@@ -143,7 +143,7 @@ export default function CompareBar() {
                         const base = typeof window !== "undefined" ? window.location.origin : "";
                         const share = `${base}/compare?set=${encodeURIComponent(slugs.join(","))}`;
                         navigator.clipboard?.writeText(share);
-                      } catch {}
+                      } catch { /* noop */ }
                     }}
                   >
                     {t("compare.share") || "Copy link"}
