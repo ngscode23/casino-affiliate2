@@ -14,7 +14,8 @@ export default defineConfig({
     reporters: ["verbose"],
     include: [
       "src/__tests__/**/*.{test,spec}.[jt]s?(x)",
-      "src/**/__tests__/**/*.{test,spec}.[jt]s?(x)"
+      "src/**/__tests__/**/*.{test,spec}.[jt]s?(x)",
+      "src/tests/**/*.{test,spec}.[jt]s?(x)"
     ],
     exclude: [
       "tests/**",
