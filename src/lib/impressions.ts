@@ -21,7 +21,7 @@ function getObserver(): IntersectionObserver {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ slug })
-        }).catch(()=>{});
+        }).catch(() => void 0);
       }
       if (io) io.unobserve(el);
       pending.delete(el);
@@ -56,6 +56,6 @@ export async function trackImpression(slug: string): Promise<void> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ slug })
-    });
+    }).catch(() => void 0);
   } catch {}
 }

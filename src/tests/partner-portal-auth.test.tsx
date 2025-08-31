@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 function Dummy() { return <div>OK</div>; }
 function Login() { return <div>LOGIN</div>; }
