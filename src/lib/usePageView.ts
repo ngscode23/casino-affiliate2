@@ -1,18 +1,8 @@
 // src/lib/usePageView.ts
-import { useEffect } from "react";
-import { useLocation, useNavigationType } from "react-router-dom";
-import { trackPageview } from "@/lib/analytics";
+// Replaced by <AnalyticsRouteListener /> in App.
+// Keep as a typed no-op to avoid duplicate tracking and router-context coupling.
 
-export function usePageView() {
-  const location = useLocation();
-  const navType = useNavigationType();
-
-  useEffect(() => {
-    try {
-      trackPageview(location.pathname);
-    } catch (e) {
-      if (import.meta.env.DEV) console.warn("[usePageView] failed:", e);
-    }
-  }, [location.pathname, navType]);
+export function usePageView(): void {
+  // no-op
 }
 

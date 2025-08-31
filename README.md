@@ -18,6 +18,7 @@ Production-ready affiliate starter: i18n, SEO, server-side redirects with tracki
    - `supabase/clicks.sql` (если ещё не применён)
    - `supabase/clicks_ip_hash.sql`
    - `supabase/clicks_rls.sql`
+   - `supabase/impressions.sql` (for CTR analytics)
 3. Install deps and run:
    - `pnpm i`
    - `pnpm dev`
@@ -66,16 +67,45 @@ E2E test
 - Pinned offers appear on top of `/offers`
 - After expiration, pins are removed by `expire-partners`
 
+### Subscriptions + Customer Portal
+- Env (add to `.env` / Netlify):
+  - `STRIPE_PRICE_BASIC_MONTHLY`, `STRIPE_PRICE_FEATURED_MONTHLY`, `STRIPE_PRICE_TOP_MONTHLY`
+  - `STRIPE_PRICE_BASIC_YEARLY`, `STRIPE_PRICE_FEATURED_YEARLY`, `STRIPE_PRICE_TOP_YEARLY`
+  - `STRIPE_CUSTOMER_PORTAL_URL` (optional override for portal return URL)
+- Functions:
+  - `/.netlify/functions/create-subscription` – POST `{ email, plan, interval, coupon? }` – returns `{ url }` (Checkout Session)
+  - `/.netlify/functions/customer-portal` – POST `{ email }` – returns `{ url }` (Billing Portal)
+- Webhook updates `partners.expires_at` on `customer.subscription.created|updated|deleted` using Stripe `current_period_end`; cancels set to `now()`.
+- Admin `/admin/partners` contains a Subscriptions panel (subscribe and open portal by email).
+
 ### Admin partners
 - Partners list supports client-side search on the current page (by name/email)
 - Manual pin/unpin panel: upserts partner by email+plan and pins/unpins provided slugs
  - Server-side search (ilike) with pagination in admin list
 
 ### Admin analytics
-- Export CSV for selected period
+- Export CSV/JSON for selected period (Top slugs, Top sources, CTR table)
 - Range presets: 7/30/90 days or Custom (date range)
-- Source summary groups by `utm_source` for the selected period
+- CTR per slug = clicks / impressions for the selected period
+- Source summary groups by `utm_source`
 - Per-slug mini sparklines (daily) for quick trend view
+
+Impressions
+- Frontend records impressions to `public.impressions` via `/.netlify/functions/track-impression` on first render of visible offers.
+- Stored fields: `slug`, `ts`, `ip_hash`, `user_agent`, `referer`, `device`, `lang` (RLS allows authenticated read only).
+
+## Sprint 3: SaaS Packaging & Metrics
+- New public route `/pricing` with BASIC/FEATURED/TOP (Monthly/Yearly) and coupon support (Stripe Checkout via create-subscription)
+- Partner Portal `/partner` (authenticated): shows pinned slugs and current plan/expires; “Billing” opens Stripe Customer Portal
+- Impressions upgraded: IntersectionObserver (only visible items), dedup within 1h by (ip_hash+UA+slug), basic bot filter
+- Admin Metrics `/admin/metrics`: MRR, ARR, churn, ARPA, CTR (top slugs) with CSV/JSON export
+
+Env additions (frontend, optional for metrics):
+- `VITE_PLAN_BASIC_MRR`, `VITE_PLAN_FEATURED_MRR`, `VITE_PLAN_TOP_MRR` – per-plan MRR values to compute MRR/ARR/ARPA in the dashboard
+
+Acceptance
+- TypeScript passes (`npm run typecheck`), tests pass (`npm test`)
+- New routes documented; Checkout and Portal work if Stripe env configured
 
 ### Webhooks page
 - `/admin/webhooks` shows `public.webhook_logs` (latest first)
@@ -89,6 +119,7 @@ E2E test
 ## Supabase policies summary
 - `public.settings`: RLS on; anon select; authenticated all (upsert)
 - `public.clicks`: RLS on; authenticated select; inserts via service role only
+- `public.impressions`: RLS on; authenticated select; inserts via service role only
 
 ## Cron tasks
 - `cleanup-clicks` (Netlify Scheduled Function): removes clicks older than `CLICKS_RETENTION_DAYS` using RPC `cleanup_clicks_before`

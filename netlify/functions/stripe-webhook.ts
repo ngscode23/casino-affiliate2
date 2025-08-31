@@ -63,29 +63,103 @@ export const handler: Handler = async (event) => {
       await supabase.from('webhook_logs').insert({ type: evt.type, payload });
     } catch { /* ignore logging errors */ }
 
-    if (evt.type === "checkout.session.completed") {
-      const session = evt.data.object as Stripe.Checkout.Session;
-      const md = (session.metadata || {}) as any;
-      const name = String(md.partner_name || md.name || "Unknown");
-      const email = String(md.partner_email || md.email || session.customer_details?.email || "");
-      const plan = String(md.plan || "BASIC");
-      const days = Number(md.duration_days || md.days || 30);
-      const offerSlugs = String(md.offer_slugs || md.offerSlugs || "").split(",").map(s=>s.trim()).filter(Boolean);
-      const expiresAt = new Date(Date.now() + days*24*60*60*1000).toISOString();
+    // Build reverse price -> plan map from env (if configured)
+    const PRICE_TO_PLAN: Record<string, { plan: string; interval: 'MONTHLY'|'YEARLY' }> = {};
+    const addMap = (id: string | undefined, plan: string, interval: 'MONTHLY'|'YEARLY') => {
+      if (id && id.trim()) PRICE_TO_PLAN[id.trim()] = { plan, interval };
+    };
+    addMap(process.env.STRIPE_PRICE_BASIC_MONTHLY, 'BASIC', 'MONTHLY');
+    addMap(process.env.STRIPE_PRICE_FEATURED_MONTHLY, 'FEATURED', 'MONTHLY');
+    addMap(process.env.STRIPE_PRICE_TOP_MONTHLY, 'TOP', 'MONTHLY');
+    addMap(process.env.STRIPE_PRICE_BASIC_YEARLY, 'BASIC', 'YEARLY');
+    addMap(process.env.STRIPE_PRICE_FEATURED_YEARLY, 'FEATURED', 'YEARLY');
+    addMap(process.env.STRIPE_PRICE_TOP_YEARLY, 'TOP', 'YEARLY');
 
+    async function upsertPartnerFrom(email: string, plan: string, expiresAtIso: string, nameHint?: string, offerSlugsStr?: string) {
+      const name = nameHint || (email ? email.split('@')[0] : 'Unknown');
       // Upsert partner by (email, plan)
       let partnerId: string | null = null;
-      {
-        const { data, error } = await supabase
-          .from("partners")
-          .upsert({ name, email, plan, expires_at: expiresAt }, { onConflict: "email,plan" })
-          .select("id").limit(1).maybeSingle();
-        if (error) throw error;
-        partnerId = data?.id as string;
-      }
+      const { data, error } = await supabase
+        .from("partners")
+        .upsert({ name, email, plan, expires_at: expiresAtIso }, { onConflict: "email,plan" })
+        .select("id").limit(1).maybeSingle();
+      if (error) throw error;
+      partnerId = data?.id as string;
+      const offerSlugs = String(offerSlugsStr || "").split(",").map(s=>s.trim()).filter(Boolean);
       if (partnerId && offerSlugs.length) {
         const rows = offerSlugs.map(slug => ({ partner_id: partnerId, offer_slug: slug, pinned: true }));
         await supabase.from("partner_offers").upsert(rows, { onConflict: "partner_id,offer_slug" });
+      }
+    }
+
+    if (evt.type === "checkout.session.completed") {
+      const session = evt.data.object as Stripe.Checkout.Session;
+      const md = (session.metadata || {}) as any;
+      const email = String(md.partner_email || md.email || session.customer_details?.email || "");
+      const planMd = String(md.plan || "").toUpperCase();
+      const offerSlugs = String(md.offer_slugs || md.offerSlugs || "");
+
+      if (session.mode === 'subscription' && session.subscription) {
+        // Fetch subscription to get current_period_end and price
+        const stripe = new Stripe(STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" } as any);
+        const sub = await stripe.subscriptions.retrieve(String(session.subscription));
+        const priceId = sub.items.data?.[0]?.price?.id || '';
+        const mapped = PRICE_TO_PLAN[priceId];
+        const plan = (planMd || mapped?.plan || 'BASIC') as string;
+        const end = (sub.current_period_end || Math.floor(Date.now()/1000)) * 1000;
+        const expiresAt = new Date(end).toISOString();
+        await upsertPartnerFrom(email, plan, expiresAt, md.partner_name || md.name, offerSlugs);
+      } else {
+        // Legacy one-off checkout fallback using duration days
+        const name = String(md.partner_name || md.name || "Unknown");
+        const plan = planMd || 'BASIC';
+        const days = Number(md.duration_days || md.days || 30);
+        const expiresAt = new Date(Date.now() + days*24*60*60*1000).toISOString();
+        await upsertPartnerFrom(email, plan, expiresAt, name, offerSlugs);
+      }
+    }
+
+    if (evt.type === 'customer.subscription.created' || evt.type === 'customer.subscription.updated') {
+      const sub = evt.data.object as Stripe.Subscription;
+      const status = String(sub.status || '').toLowerCase();
+      // Resolve plan from price or metadata
+      const priceId = sub.items.data?.[0]?.price?.id || '';
+      const mapped = PRICE_TO_PLAN[priceId];
+      const plan = (String(sub.metadata?.plan || '').toUpperCase() || mapped?.plan || 'BASIC') as string;
+      // Get customer email
+      const stripe = new Stripe(STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" } as any);
+      let email = '';
+      try {
+        const cust = await stripe.customers.retrieve(String(sub.customer));
+        if (!('deleted' in cust)) email = (cust as any)?.email || '';
+      } catch { /* ignore */ }
+      if (!email) {
+        // Try to read from latest invoice
+        try {
+          const inv = sub.latest_invoice && typeof sub.latest_invoice === 'string' ? await stripe.invoices.retrieve(sub.latest_invoice) : null;
+          // @ts-ignore
+          email = (inv?.customer_email || '') as string;
+        } catch { /* ignore */ }
+      }
+      const end = (sub.current_period_end || Math.floor(Date.now()/1000)) * 1000;
+      const expiresAt = (status === 'active' || status === 'trialing') ? new Date(end).toISOString() : new Date().toISOString();
+      if (email) await upsertPartnerFrom(email, plan, expiresAt);
+    }
+
+    if (evt.type === 'customer.subscription.deleted') {
+      const sub = evt.data.object as Stripe.Subscription;
+      const stripe = new Stripe(STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" } as any);
+      let email = '';
+      try {
+        const cust = await stripe.customers.retrieve(String(sub.customer));
+        if (!('deleted' in cust)) email = (cust as any)?.email || '';
+      } catch { /* ignore */ }
+      const priceId = sub.items.data?.[0]?.price?.id || '';
+      const mapped = PRICE_TO_PLAN[priceId];
+      const plan = (String(sub.metadata?.plan || '').toUpperCase() || mapped?.plan || 'BASIC') as string;
+      if (email) {
+        const nowIso = new Date().toISOString();
+        await upsertPartnerFrom(email, plan, nowIso);
       }
     }
 

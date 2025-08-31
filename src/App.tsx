@@ -76,6 +76,9 @@ const AuthCallback        = lazy(() => import("@/pages/AuthCallback"));
 
 const GoRedirect          = lazy(() => import("@/pages/GoRedirect"));
 const NotFound            = lazy(() => import("@/pages/NotFound"));
+const PricingPage         = lazy(() => import("@/pages/Pricing"));
+const PartnerPortalPage   = lazy(() => import("@/pages/Partner"));
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 // Пример в App.tsx
 
@@ -146,6 +149,8 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
                   <Route path="/affiliate" element={<AffiliateHome />} />
                   <Route path="/offers" element={<OffersIndex />} />
                   <Route path="/offers/:slug" element={<OfferPage />} />
+                  <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/partner" element={<ProtectedRoute><PartnerPortalPage /></ProtectedRoute>} />
                   <Route path="/favorites" element={<FavoritesPage />} />
 
                   {/* Маркетинг/контакты */}
