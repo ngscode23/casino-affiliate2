@@ -1,8 +1,12 @@
 // src/pages/Home/index.tsx
-import { useMemo } from "react";
+import { useMemo, Suspense, lazy } from "react";
 import Seo from "@/components/Seo";
 import { SITE_URL, BRAND_NAME, BRAND_LOGO } from "@/config";
-import { AffiliateHome } from "@/pages/AffiliateHome";
+
+// Lazy-load AffiliateHome to avoid mixing static and dynamic imports
+const AffiliateHome = lazy(() =>
+  import("@/pages/AffiliateHome").then((m) => ({ default: m.AffiliateHome }))
+);
 
 export default function Home() {
   // JSON-LD: Organization
@@ -37,13 +41,16 @@ export default function Home() {
   return (
     <>
       <Seo
-        title={`${BRAND_NAME ?? "CasinoHub"} — сравнение казино, выплаты и рейтинги`}
-        description="Сравнивайте казино по лицензии, скорости выплат и рейтингу. Ответственная игра 18+."
+        title={`${BRAND_NAME ?? "CasinoHub"} — надёжные казино, сравнение и рейтинги`}
+        description="Независимые обзоры, проверка лицензий и скорость выплат. 18+."
         jsonLd={[orgLd, siteLd]}
         ogImage="/og.svg"
         canonical={SITE_URL}
       />
-      <AffiliateHome />
+      <Suspense fallback={null}>
+        <AffiliateHome />
+      </Suspense>
     </>
   );
 }
+

@@ -70,6 +70,10 @@ function localToNormalized(o: any): NormalizedOffer {
  *  - Supabase (offers, enabled=true, сортировка по position/name)
  *  - fallback: локальные offersNormalized (с нормализацией лицензии)
  */
+// Cache pinned slugs for 5 minutes to reduce RPC calls
+let __pinnedCache: { data: string[]; ts: number } | null = null;
+const PINNED_TTL_MS = 5 * 60 * 1000;
+
 export async function getOffers(): Promise<NormalizedOffer[]> {
   try {
     if (!HAS_SUPABASE) {
@@ -87,7 +91,42 @@ export async function getOffers(): Promise<NormalizedOffer[]> {
       return offersNormalized.map(localToNormalized);
     }
 
-    return (data as DbOffer[]).map(rowToNormalized);
+    // Pinned slugs via RPC (security definer) with 5m cache
+    // Try to fetch meta (slug+plan) for UI badges; fall back to slugs
+    let pinned: string[] = [];
+    const pinnedPlan = new Map<string, string>();
+    const now = Date.now();
+    if (__pinnedCache && now - __pinnedCache.ts < PINNED_TTL_MS) {
+      pinned = __pinnedCache.data;
+    } else {
+      try {
+        const rmeta = await (supabase as any).rpc("pinned_offer_meta");
+        if (!rmeta.error && Array.isArray(rmeta.data)) {
+          for (const row of (rmeta.data as any[])) {
+            const slug = String((row && (row.offer_slug ?? row.slug)) || "");
+            const plan = row?.plan ? String(row.plan) : undefined;
+            if (!slug) continue;
+            pinned.push(slug);
+            if (plan) pinnedPlan.set(slug, plan);
+          }
+        } else {
+          const r = await (supabase as any).rpc("pinned_offer_slugs");
+          if (!r.error && Array.isArray(r.data)) pinned = r.data as string[];
+        }
+        __pinnedCache = { data: pinned, ts: now };
+      } catch {}
+    }
+
+    const list = (data as DbOffer[]).map(rowToNormalized).map((o) => {
+      const plan = pinnedPlan.get(o.slug);
+      const isPinned = pinned.includes(o.slug);
+      return (plan || isPinned) ? ({ ...o, pinned: isPinned, pinnedPlan: plan } as any) : o;
+    });
+    if (pinned.length) {
+      const set = new Set(pinned);
+      return list.sort((a,b) => (set.has(a.slug) === set.has(b.slug)) ? 0 : (set.has(a.slug) ? -1 : 1));
+    }
+    return list;
   } catch {
     return offersNormalized.map(localToNormalized);
   }

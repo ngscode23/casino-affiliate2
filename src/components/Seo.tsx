@@ -53,6 +53,21 @@ function upsertCanonical(href?: string | null) {
   link.href = href;
 }
 
+function replaceHreflang(alts: Array<{ lang: string; href: string }>) {
+  if (typeof document === "undefined") return;
+  const prev = document.querySelectorAll('link[data-seo-hreflang="true"]');
+  prev.forEach((n) => n.parentElement?.removeChild(n));
+  const head = document.head;
+  for (const { lang, href } of alts) {
+    const l = document.createElement("link");
+    l.rel = "alternate";
+    l.setAttribute("hreflang", lang);
+    l.href = href;
+    l.setAttribute("data-seo-hreflang", "true");
+    head.appendChild(l);
+  }
+}
+
 export default function Seo(props: Props) {
   const {
     title,
@@ -84,7 +99,8 @@ export default function Seo(props: Props) {
     const pathname = typeof location !== "undefined" ? location.pathname : "";
     const search = typeof location !== "undefined" ? location.search : "";
     const canonicalHref = canonical ?? (origin && pathname ? `${origin}${pathname}` : undefined);
-    const fallbackOg = ogImage ?? (origin ? `${origin}/og.png` : undefined);
+    // Prefer existing SVG fallback if page doesn't provide a custom image
+    const fallbackOg = ogImage ?? (origin ? `${origin}/og.svg` : undefined);
     const urlForOg = ogUrl ?? (canonicalHref ?? (origin && pathname ? `${origin}${pathname}${search}` : undefined));
 
     // Open Graph
@@ -94,6 +110,16 @@ export default function Seo(props: Props) {
     upsertMeta("property", "og:description", description ?? null);
     upsertMeta("property", "og:url", urlForOg ?? null);
     upsertMeta("property", "og:image", fallbackOg ?? null);
+    // og:locale + alternates
+    try {
+      const lang = (document.documentElement.getAttribute("lang") || "en").toLowerCase();
+      const map: Record<string, string> = { en: "en_US", ru: "ru_RU" };
+      const current = map[lang] || "en_US";
+      const alternates = Object.values(map).filter((v) => v !== current);
+      upsertMeta("property", "og:locale", current);
+      // Use a simple approach: write one alternate meta per call
+      alternates.forEach((loc) => upsertMeta("property", "og:locale:alternate", loc));
+    } catch {}
 
     // Twitter
     upsertMeta("name", "twitter:card", "summary_large_image");
@@ -103,6 +129,18 @@ export default function Seo(props: Props) {
 
     // Canonical
     upsertCanonical(canonicalHref ?? null);
+
+    // Hreflang alternates: use ?lang=en / ?lang=ru and x-default canonical
+    if (canonicalHref) {
+      const join = canonicalHref.includes("?") ? "&" : "?";
+      const altEn = `${canonicalHref}${join}lang=en`;
+      const altRu = `${canonicalHref}${join}lang=ru`;
+      replaceHreflang([
+        { lang: "en", href: altEn },
+        { lang: "ru", href: altRu },
+        { lang: "x-default", href: canonicalHref },
+      ]);
+    }
   }, [title, description, robots, ogImage, ogUrl, canonical]);
 
   // JSON-LD

@@ -1,35 +1,190 @@
 // netlify/functions/go.ts
+// Server-side affiliate redirect with logging to Supabase
+// Requires env vars on Netlify:
+// - SUPABASE_URL
+// - SUPABASE_SERVICE_ROLE_KEY
+// Optional:
+// - SITE_ORIGIN (for absolute URL resolution if needed)
+
 import type { Handler } from "@netlify/functions";
-import { offers } from "../../src/data/offers";
-const map: Record<string, string> = {
-  skyspin:  "https://partner.example/skyspin?utm_source=casinowatch&utm_medium=aff",
-  novawin:  "https://partner.example/novawin?utm_source=casinowatch&utm_medium=aff",
-  rapidpay: "https://partner.example/rapidpay?utm_source=casinowatch&utm_medium=aff",
-};
+import { createClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
 
-// 302 на внешний партнёрский URL + базовая разметка UTM
-export const handler: Handler = async (event) => {
-  const slug = (event.queryStringParameters?.slug || "").toLowerCase();
-  const ref = event.headers.referer || "";
+const SUPABASE_URL = process.env.SUPABASE_URL as string | undefined;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as
+  | string
+  | undefined;
 
-  const found = offers.find(
-    (o) => (o.slug || "").toLowerCase() === slug
-  );
-
-  const fallback = "https://google.com/"; // на всякий случай
-  const target = found?.link || fallback;
-
-  const url = new URL(target);
-  url.searchParams.set("utm_source", "casinowatch");
-  url.searchParams.set("utm_medium", "affiliate");
-  if (ref) url.searchParams.set("utm_ref", ref);
-
+function json(obj: any, statusCode = 200) {
   return {
-    statusCode: 302,
+    statusCode,
     headers: {
-      Location: url.toString(),
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer-when-downgrade",
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
     },
+    body: JSON.stringify(obj),
   };
+}
+
+function redirect(location: string, statusCode = 302) {
+  return {
+    statusCode,
+    headers: {
+      Location: location,
+      "cache-control": "no-store",
+    },
+    body: "",
+  };
+}
+
+function getSlugFromPath(path: string | undefined): string | null {
+  if (!path) return null;
+  // Path looks like: "/.netlify/functions/go/<slug>[...optional]"
+  const marker = "/.netlify/functions/go/";
+  const idx = path.indexOf(marker);
+  if (idx === -1) return null;
+  const rest = path.slice(idx + marker.length);
+  const slug = rest.split("/")[0];
+  try {
+    return decodeURIComponent(slug);
+  } catch {
+    return slug;
+  }
+}
+
+function genClickId(): string {
+  try {
+    // Prefer crypto.randomUUID when available
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyGlobal = globalThis as any;
+    if (anyGlobal?.crypto?.randomUUID) return anyGlobal.crypto.randomUUID();
+  } catch {}
+  const r = Math.random().toString(36).slice(2, 10);
+  return `c_${Date.now().toString(36)}_${r}`;
+}
+
+function withTrackingParams(
+  target: string,
+  query: Record<string, string | undefined>
+): { url: string; params: Record<string, string> } {
+  const allowed = new Set([
+    "subid",
+    "sub_id",
+    "aff_sub",
+    "aff_sub2",
+    "click_id",
+    "cid",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "ref",
+  ]);
+
+  const outParams: Record<string, string> = {};
+  for (const [k, v] of Object.entries(query || {})) {
+    if (v != null && allowed.has(k)) outParams[k] = String(v);
+  }
+
+  // Always attach our click id
+  const clickId = outParams["click_id"] || genClickId();
+  outParams["click_id"] = clickId;
+  if (!outParams["subid"]) outParams["subid"] = clickId;
+
+  // Merge into target URL without overriding existing params on target
+  try {
+    const u = new URL(target);
+    const to = new URLSearchParams(u.search);
+    for (const [k, v] of Object.entries(outParams)) {
+      if (!to.has(k)) to.set(k, v);
+    }
+    u.search = to.toString();
+    return { url: u.toString(), params: outParams };
+  } catch {
+    const sep = target.includes("?") ? "&" : "?";
+    const qs = new URLSearchParams(outParams).toString();
+    return { url: target + sep + qs, params: outParams };
+  }
+}
+
+export const handler: Handler = async (event) => {
+  try {
+    const slug = getSlugFromPath(event.path);
+    if (!slug) return json({ error: "No slug" }, 400);
+
+    // Resolve offer link from Supabase (offers table)
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return json({ error: "Server not configured" }, 500);
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data, error } = await supabase
+      .from("offers")
+      .select("link, enabled")
+      .eq("slug", slug)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      // On error, do a soft fallback to SPA route
+      return redirect(`/offers/${encodeURIComponent(slug)}`);
+    }
+
+    const target = data?.link || null;
+    const enabled = !!data?.enabled;
+    if (!target || !enabled) {
+      return redirect(`/offers/${encodeURIComponent(slug)}`);
+    }
+
+    const { url: targetWithParams, params } = withTrackingParams(
+      target,
+      event.queryStringParameters || {}
+    );
+
+    const clickId = params["click_id"] || null;
+    const referrer = event.headers["referer"] || event.headers["referrer"] || null;
+    const userAgent = event.headers["user-agent"] || null;
+    const ipHash = (() => {
+      try {
+        const ip = (event.headers["x-forwarded-for"] || "").split(",")[0].trim();
+        if (!ip) return null;
+        return crypto.createHash("sha256").update(ip).digest("hex");
+      } catch { return null; }
+    })();
+    const targetHost = (() => {
+      try {
+        return new URL(target).host;
+      } catch {
+        return null;
+      }
+    })();
+
+    // Best-effort logging. Ignore failures for UX.
+    try {
+      await supabase.from("clicks").insert({
+        slug,
+        click_id: clickId,
+        target_url: target,
+        target_url_final: targetWithParams,
+        target_host: targetHost,
+        params,
+        referrer,
+        user_agent: userAgent,
+        ip_hash: ipHash,
+        ts: new Date().toISOString(),
+      } as any);
+    } catch {
+      // ignore
+    }
+
+    return redirect(targetWithParams, 302);
+  } catch (e) {
+    return json({ error: "Unexpected error" }, 500);
+  }
 };
+
+export default handler;

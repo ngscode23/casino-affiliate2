@@ -1,5 +1,6 @@
 // src/components/AffiliateLink.tsx
 import { track } from "@/lib/analytics";
+import { appendStoredParams } from "@/lib/utm";
 import { cn } from "@/lib/cn"; // если нет — замени на простую конкатенацию
 
 type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -19,7 +20,7 @@ export function AffiliateLink({ offerSlug, position, href = "#", onClick, classN
 
   return (
     <a
-      href={href}
+      href={appendStoredParams(href)}
       rel={href.startsWith("http") ? "nofollow sponsored noopener" : undefined}
       target={href.startsWith("http") ? "_blank" : undefined}
       className={cn(base, sizes[size], className)}

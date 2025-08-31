@@ -31,12 +31,28 @@ const urls = [
   ...offerSlugs.map(s => `${origin}/offers/${encodeURIComponent(s)}`),
 ];
 
+function entry(u){
+  const join = u.includes('?') ? '&' : '?';
+  const en = `${u}${join}lang=en`;
+  const ru = `${u}${join}lang=ru`;
+  // Use EN as loc, include alternates for both langs and x-default
+  return [
+    '  <url>',
+    `    <loc>${en}</loc>`,
+    `    <xhtml:link rel="alternate" hreflang="en" href="${en}" />`,
+    `    <xhtml:link rel="alternate" hreflang="ru" href="${ru}" />`,
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${u}" />`,
+    '    <changefreq>daily</changefreq>',
+    '    <priority>0.7</priority>',
+    '  </url>'
+  ].join('\n');
+}
+
 const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`+
-  `<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">\n`+
-  urls.map(u => `  <url><loc>${u}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`).join("\n")+
+  `<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n`+
+  urls.map(entry).join("\n")+
   `\n</urlset>\n`;
 
 fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 fs.writeFileSync(path.join(PUBLIC_DIR, "sitemap.xml"), xml, "utf8");
 console.log(`[sitemap] generated ${urls.length} urls -> public/sitemap.xml`);
-

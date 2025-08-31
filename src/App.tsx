@@ -2,13 +2,12 @@
 
 
 import { useLocation } from "react-router-dom";
-import { initAnalytics, trackPageview } from "@/lib/analytics";
+import { trackPageview } from "@/lib/analytics";
 
 // маленький компонент-слушатель
 function AnalyticsRouteListener() {
   const location = useLocation();
   useEffect(() => {
-    initAnalytics();
     trackPageview(location.pathname);
   }, [location.pathname]);
   return null;
@@ -24,6 +23,8 @@ import OrgJsonLd from "@/components/OrgJsonLd";
 import { CompareProvider } from "@/ctx/CompareContext";
 import CompareBar from "@/components/layout/CompareBar";
 import { ToastContainer } from "@/components/common/toast";
+import { I18nProvider } from "@/lib/i18n";
+import { captureInitialUTMOnce } from "@/lib/utm";
 
 // ── EAGER (критичные, часто посещаемые, важны для SEO)
 import HomePage from "@/pages/Home";
@@ -56,6 +57,7 @@ import { usePageView } from "@/lib/usePageView";
 const Header              = lazy(() => import("@/components/layout/Header"));
 const Footer              = lazy(() => import("@/components/layout/Footer"));
 const CookieBar           = lazy(() => import("@/components/layout/CookieBar"));
+const AnalyticsGateGA     = lazy(() => import("@/components/AnalyticsGateGA"));
 const OffersIndex         = lazy(() => import("@/pages/Offers"));
 const OfferPage           = lazy(() => import("@/pages/Offer"));
 const FavoritesPage       = lazy(() => import("@/pages/Favorites"));
@@ -107,6 +109,8 @@ export default function App() {
       import("@/pages/Offer");
       import("@/pages/Favorites");
     });
+    // Capture UTM params from the first page load
+    captureInitialUTMOnce();
     return () => (window as any).cancelIdleCallback?.(id);
   }, []);
 
@@ -124,6 +128,7 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
           Skip to content
         </a>
 
+        <I18nProvider>
         <CompareProvider>
           <Suspense fallback={<PageFallback />}>
             {/* Каркас и глобальная SEO-разметка */}
@@ -175,9 +180,11 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
             <CompareBar />
             <Footer />
             <CookieBar />
+            <AnalyticsGateGA />
             <ToastContainer />
           </Suspense>
         </CompareProvider>
+        </I18nProvider>
       </div>
     </ErrorBoundary>
   );

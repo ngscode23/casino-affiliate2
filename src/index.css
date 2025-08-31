@@ -29,6 +29,9 @@
     --dur-fast: .15s;
     --dur-normal: .2s;
     --ease-standard: cubic-bezier(.2, 0, 0, 1);
+
+    /* Ensure native form controls (select popups, etc.) use dark UI */
+    color-scheme: dark;
   }
 
   html, body, #root {
@@ -70,18 +73,20 @@
 @layer components {
   /* карточки */
   .neon-card {
-    border: 1px solid color-mix(in oklab, white 12%, transparent);
+    border: 1px solid color-mix(in oklab, white 16%, transparent);
     border-radius: 16px;
-    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)),
+      rgb(var(--bg-1) / .9);
     box-shadow: 0 12px 32px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.03);
-    backdrop-filter: saturate(130%) blur(6px);
+    backdrop-filter: saturate(120%) blur(4px);
     transition:
       border-color var(--dur-normal) var(--ease-standard),
       box-shadow var(--dur-normal) var(--ease-standard),
       transform var(--dur-fast) var(--ease-standard);
   }
   .neon-card:hover {
-    border-color: color-mix(in oklab, white 18%, transparent);
+    border-color: color-mix(in oklab, white 22%, transparent);
     box-shadow: 0 18px 48px rgba(0,0,0,.44);
   }
 
@@ -167,4 +172,13 @@
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Footer */
+.site-footer {
+  margin-top: 48px;
+  padding: 32px 0;
+  color: rgb(var(--text-dim));
+  border-top: 1px solid color-mix(in oklab, white 14%, transparent);
+  background: linear-gradient(0deg, rgba(255,255,255,.02), rgba(255,255,255,0));
 }

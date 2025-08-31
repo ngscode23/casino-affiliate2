@@ -7,20 +7,20 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# SPA fallback
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# go/* — твоя функция уже есть
+# go/* — server function should run before SPA fallback
 [[redirects]]
   from = "/go/*"
   to = "/.netlify/functions/go/:splat"
   status = 200
   force = true
 
-# security headers (твоя текущая версия ок, оставляю минимум)
+# SPA fallback (must be after more specific rules)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# security headers (можете адаптировать под себя, при необходимости)
 [[headers]]
   for = "/*"
   [headers.values]
@@ -58,3 +58,4 @@
   for = "/*.html"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+

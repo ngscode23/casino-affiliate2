@@ -15,19 +15,3 @@ export default function NotFoundPage() {
   );
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

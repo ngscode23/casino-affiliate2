@@ -1,56 +1,13 @@
 // src/components/layout/CookieBar.tsx
 import { useEffect, useState } from "react";
 import Section from "@/components/common/section";
-import { getCookie, setCookie } from "@/lib/cookies";
-import { enableAnalytics } from "@/lib/analytics";
+import { getConsent as getStoredConsent, setConsent as saveConsent, applyStoredConsentToDom } from "@/lib/consent";
 
 type Props = { className?: string };
 
-// cookie keys & версия политики — если изменишь текст/логику, подними версию
-const CK_ANALYTICS = "cc_analytics";
-const CK_MARKETING = "cc_marketing";
-const CK_VER = "cc_version";
-const POLICY_VER = "1";
-
-// утилита: выставляем data-* атрибуты и уведомляем подписчиков
-function applyConsentAttrs(analytics: boolean, marketing: boolean) {
-  try {
-    document.documentElement.setAttribute(
-      "data-analytics-consent",
-      analytics ? "granted" : "denied",
-    );
-    document.documentElement.setAttribute(
-      "data-marketing-consent",
-      marketing ? "granted" : "denied",
-    );
-    window.dispatchEvent(
-      new CustomEvent("cookie-consent-changed", { detail: { analytics, marketing } }),
-    );
-  } catch (e) {
-    if (import.meta.env.DEV) console.warn("[CookieBar] applyConsentAttrs failed:", e);
-  }
-}
-
-// утилита: сохранить куки, проставить атрибуты и включить аналитику при согласии
+// Persist consent in localStorage and emit events; do not directly init analytics here
 function persistConsent(analytics: boolean, marketing: boolean) {
-  try {
-    setCookie(CK_ANALYTICS, analytics ? "1" : "0", { maxAgeDays: 365 });
-    setCookie(CK_MARKETING, marketing ? "1" : "0", { maxAgeDays: 365 });
-    setCookie(CK_VER, POLICY_VER, { maxAgeDays: 365 });
-  } catch (e) {
-    if (import.meta.env.DEV) console.warn("[CookieBar] persistConsent failed:", e);
-  }
-
-  applyConsentAttrs(analytics, marketing);
-
-  // включаем SDK аналитики только при явном согласии на аналитику
-  if (analytics) {
-    try {
-      enableAnalytics();
-    } catch (e) {
-      if (import.meta.env.DEV) console.warn("[CookieBar] enableAnalytics error:", e);
-    }
-  }
+  try { saveConsent({ analytics, marketing }); } catch {}
 }
 
 export default function CookieBar({ className = "" }: Props) {
@@ -59,37 +16,20 @@ export default function CookieBar({ className = "" }: Props) {
   const [analytics, setAnalytics] = useState(true);
   const [marketing, setMarketing] = useState(false);
 
-  // при загрузке читаем сохранённое согласие
+  // Init: apply stored consent to DOM and hide bar if present
   useEffect(() => {
     try {
-      const ver = getCookie(CK_VER);
-      const a = getCookie(CK_ANALYTICS);
-      const m = getCookie(CK_MARKETING);
-
-      // если уже есть согласие текущей версии — применяем и не показываем бар
-      if (ver === POLICY_VER && (a !== null || m !== null)) {
-        const aOk = a === "1";
-        const mOk = m === "1";
-        applyConsentAttrs(aOk, mOk);
-
-        if (aOk) {
-          // если пользователь ранее соглашался на аналитику — инициализируем SDK
-          try {
-            enableAnalytics();
-          } catch (e) {
-            if (import.meta.env.DEV) console.warn("[CookieBar] enableAnalytics error:", e);
-          }
-        }
-
-        setVisible(false);
-        return;
-      }
-    } catch (e) {
-      if (import.meta.env.DEV) console.warn("[CookieBar] init read error:", e);
-    }
-
-    // иначе показываем бар
+      applyStoredConsentToDom();
+      const c = getStoredConsent();
+      if (c) { setVisible(false); return; }
+    } catch {}
     setVisible(true);
+  }, []);
+
+  useEffect(() => {
+    const onOpen = () => { setExpanded(true); setVisible(true); };
+    window.addEventListener('consent:open', onOpen);
+    return () => window.removeEventListener('consent:open', onOpen);
   }, []);
 
   if (!visible) return null;
@@ -115,12 +55,10 @@ export default function CookieBar({ className = "" }: Props) {
         <div className="mx-auto max-w-5xl rounded-2xl border border-white/10 bg-[var(--bg-1)]/95 backdrop-blur p-4 shadow-[0_12px_32px_rgba(0,0,0,.45)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="text-sm leading-relaxed">
-              Мы используем cookies для работы сайта и аналитики. Нажимая{" "}
-              <b>Accept all</b>, вы соглашаетесь на аналитические и маркетинговые cookies.{" "}
-              Или откройте{" "}
+              We use cookies to improve your experience. Click <b>Accept all</b> to enable analytics and marketing cookies. Manage settings below.
               <button
                 type="button"
-                className="underline cursor-pointer"
+                className="ml-2 underline cursor-pointer"
                 onClick={() => setExpanded((v) => !v)}
                 aria-expanded={expanded}
                 aria-controls="cookie-settings"
@@ -163,7 +101,7 @@ export default function CookieBar({ className = "" }: Props) {
                   <div>
                     <div className="font-medium">Necessary</div>
                     <div className="text-xs text-[var(--text-dim)]">
-                      Нужны для базовой работы сайта. Всегда включены.
+                      Required for basic site functionality.
                     </div>
                   </div>
                 </label>
@@ -178,7 +116,7 @@ export default function CookieBar({ className = "" }: Props) {
                   <div>
                     <div className="font-medium">Analytics</div>
                     <div className="text-xs text-[var(--text-dim)]">
-                      Помогают понять поведение пользователей.
+                      Helps us understand site usage.
                     </div>
                   </div>
                 </label>
@@ -193,7 +131,7 @@ export default function CookieBar({ className = "" }: Props) {
                   <div>
                     <div className="font-medium">Marketing</div>
                     <div className="text-xs text-[var(--text-dim)]">
-                      Ретаргетинг, персональные офферы.
+                      Personalization and ads.
                     </div>
                   </div>
                 </label>

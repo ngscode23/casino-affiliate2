@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
 
@@ -36,6 +37,22 @@ export function CompareProvider({
   max?: number;
 }) {
   const [selected, setSelected] = useState<CompareItem[]>([]);
+
+  // Initialize from URL param `set=slug1,slug2` once on mount
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
+      const set = (qs.get("set") || "").trim();
+      if (!set) return;
+      const slugs = set.split(",").map((s) => s.trim()).filter(Boolean).slice(0, max);
+      if (slugs.length === 0) return;
+      setSelected((prev) => {
+        if (prev.length) return prev; // don't override user state
+        const items = slugs.map((slug) => ({ slug, name: slug } as CompareItem));
+        return items;
+      });
+    } catch { /* noop */ }
+  }, [max]);
 
   const isSelected = useCallback(
     (id: string) => selected.some((s) => idOf(s) === id),

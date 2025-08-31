@@ -13,7 +13,8 @@ let inited = false;
 let _analyticsEnabled = false;
 let _gaReady = false;
 
-export const GA_ID: string = (import.meta.env.VITE_GA_ID as string) ?? "";
+export const GA_ID: string = (import.meta.env.VITE_GA_ID as string) || (import.meta.env.VITE_GA_MEASUREMENT_ID as string) || "";
+const FEATURE_POSTHOG = String((import.meta.env as any).FEATURE_POSTHOG || "").toLowerCase() === "true";
 const PH_KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const PH_HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || "https://app.posthog.com";
 
@@ -54,7 +55,7 @@ export function enableAnalytics(): void {
 
   try {
     // Инициализируем PostHog лениво
-    if (!inited) initAnalytics();
+    if (!inited && FEATURE_POSTHOG) initAnalytics();
 
     // Обновим GA consent, если подключён gtag
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
@@ -154,7 +155,6 @@ export function track(nameOrPayload: string | TrackPayload, params?: Record<stri
 }
 
 export function trackPageview(path?: string): void {
-  if (!inited) initAnalytics();
   if (!_analyticsEnabled) {
     if (import.meta.env.DEV) console.debug("[pageview:skipped(disabled)]", path ?? location.pathname);
     return;

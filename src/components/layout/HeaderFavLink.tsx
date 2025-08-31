@@ -16,8 +16,8 @@ export default function HeaderFavLink({ to = "/favorites", className }: Props) {
       to={to}
       className={({ isActive }) =>
         cn(
-          "relative rounded-lg px-3 py-2 text-sm text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-          isActive && "bg-white/10 text-[var(--text)]",
+          "relative rounded-lg px-3 py-2 text-sm text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+          isActive && "bg-white/15 text-[var(--text)]",
           className
         )
       }

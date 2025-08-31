@@ -7,12 +7,14 @@ import MobileOfferCard from "@/components/offers/MobileOfferCard";
 import CompareTable, { type SortKey } from "@/components/compare/CompareTable";
 import { offersNormalized, type NormalizedOffer } from "@/lib/offers";
 import { useFavorites } from "@/lib/useFavorites";
+import { useOffers } from "@/features/offers/api/useOffers";
 import { useSearchParams } from "react-router-dom";
 import { SITE_URL } from "@/config";
 
 export default function FavoritesPage() {
   // избранное
   const { items, isLoading, add, remove } = useFavorites();
+  const { offers } = useOffers();
 
   // сортировки для таблицы
   const [sortKey, setSortKey] = useState<SortKey>("rating");
@@ -34,17 +36,20 @@ export default function FavoritesPage() {
   );
 
   // нормализованные офферы из избранного
-  const favOffers: NormalizedOffer[] = useMemo(() => {
+    const favOffers: NormalizedOffer[] = useMemo(() => {
     const saved = Array.isArray(items) ? items : [];
+    const bySlugApi = new Map((offers ?? []).map((o) => [o.slug, o]));
+    const bySlugStatic = new Map(offersNormalized.map((o) => [o.slug, o]));
     return saved.map((slug) => {
-      const found = offersNormalized.find((o) => o.slug === slug);
-      if (found) return found;
-      // безопасный placeholder, если в LS остался мусор
+      const fromApi = bySlugApi.get(slug);
+      if (fromApi) return fromApi as NormalizedOffer;
+      const fromStatic = bySlugStatic.get(slug);
+      if (fromStatic) return fromStatic as NormalizedOffer;
       return {
         slug,
-        name: `Unknown offer (${slug})`,
+        name: "Unknown offer (" + slug + ")",
         rating: 0,
-        payout: "—",
+        payout: "-",
         payoutHours: undefined,
         license: "Other",
         methods: [],
@@ -53,7 +58,7 @@ export default function FavoritesPage() {
         position: undefined,
       } as NormalizedOffer;
     });
-  }, [items]);
+  }, [items, offers]);
 
   // SEO
   const origin = (SITE_URL || "").replace(/\/$/, "");
@@ -62,7 +67,7 @@ export default function FavoritesPage() {
       "@context": "https://schema.org",
       "@type": "WebPage",
       name: "Избранное",
-      url: origin ? `${origin}/favorites` : undefined,
+      url: origin ? origin + "/favorites" : undefined,
     };
     const itemList = {
       "@context": "https://schema.org",
@@ -70,7 +75,7 @@ export default function FavoritesPage() {
       itemListElement: favOffers.map((o, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        url: origin ? `${origin}/offers/${encodeURIComponent(o.slug)}` : undefined,
+        url: origin ? origin + "/offers/" + encodeURIComponent(o.slug) : undefined,
         name: o.name,
       })),
     };
@@ -99,7 +104,7 @@ export default function FavoritesPage() {
   // поделиться списком
   const shareList = useCallback(async () => {
     const origin = (SITE_URL || location.origin || "").replace(/\/$/, "");
-    const url = `${origin}/favorites?list=${items.join(",")}`;
+    const url = origin + "/favorites?list=" + items.join(",");
     try {
       await navigator.clipboard.writeText(url);
       alert("Ссылка скопирована в буфер обмена.");
@@ -194,7 +199,15 @@ export default function FavoritesPage() {
           </>
         )}
       </Section>
-      <Seo title="????????? - ???? ??????????? ??????" description="??????? ?????? ? ??????????? ??????." canonical={origin ? `${origin}/favorites` : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
+      <Seo title="????????? - ???? ??????????? ??????" description="??????? ?????? ? ??????????? ??????." canonical={origin ? (origin + "/favorites") : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
     </>
   );
 }
+
+
+
+
+
+
+
+

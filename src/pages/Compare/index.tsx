@@ -1,28 +1,26 @@
-// src/pages/Compare/index.tsx
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+// src/pages/Compare/index.tsx (slim)
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import CompareFilters, {
-  type LicenseFilter,
-  type MethodFilter,
-} from "@/components/compare/CompareFilters";
+import CompareFilters, { type LicenseFilter, type MethodFilter } from "@/components/compare/CompareFilters";
 import CompareTable, { type SortKey } from "@/components/compare/CompareTable";
-import MobileOfferCard from "@/components/offers/MobileOfferCard";
 import Seo from "@/components/Seo";
-import { SITE_URL } from "@/config";
+import Button from "@/components/common/button";
+import { track } from "@/lib/analytics";
 import type { NormalizedOffer } from "@/lib/offers";
 import { useOffers } from "@/features/offers/api/useOffers";
 import { useFavorites } from "@/lib/useFavorites";
-import Faq, { type FaqItem } from "@/components/faq/FAQ";
-import { getRecent } from "@/lib/recent";
-import { offersNormalized } from "@/lib/offers";
 
 function normalizeStr(s: string) {
   return s.toLowerCase().normalize("NFKD");
 }
 
-function safeOrigin(): string {
-  return SITE_URL.replace(/\/$/, "");
+function safeOrigin(): string | undefined {
+  try {
+    return typeof location !== "undefined" ? location.origin : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export default function ComparePage() {
@@ -37,7 +35,6 @@ export default function ComparePage() {
   const [method, setMethod] = useState<MethodFilter>("all");
   const [search, setSearch] = useState<string>(initialQ);
 
-  // 1) Начальная инициализация из URL — только один раз
   useEffect(() => {
     const s = (params.get("sort") as SortKey) || "rating";
     const d = (params.get("dir") as "asc" | "desc") || "desc";
@@ -50,38 +47,23 @@ export default function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) Отражаем состояние контролов в URL
   useEffect(() => {
     const next = new URLSearchParams(params);
-
-    // search
-    if (search) next.set("q", search);
-    else next.delete("q");
-
-    // sort
+    if (search) next.set("q", search); else next.delete("q");
     next.set("sort", sortKey);
     next.set("dir", sortDir);
-
-    // filters
-    if (license !== "all") next.set("license", license);
-    else next.delete("license");
-
-    if (method !== "all") next.set("method", method);
-    else next.delete("method");
-
+    if (license !== "all") next.set("license", license); else next.delete("license");
+    if (method !== "all") next.set("method", method); else next.delete("method");
     setParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, sortKey, sortDir, license, method]);
 
-  // 3) Убираем избранные из выдачи сравнения
   const { items: favItems } = useFavorites();
 
   const filtered: NormalizedOffer[] = useMemo(() => {
     let arr = [...offers];
-
     if (license !== "all") arr = arr.filter((o) => o.license === license);
     if (method !== "all") arr = arr.filter((o) => o.methods.includes(method));
-
     if (search.trim()) {
       const q = normalizeStr(search.trim());
       arr = arr.filter((o) => {
@@ -89,102 +71,74 @@ export default function ComparePage() {
         return normalizeStr(hay).includes(q);
       });
     }
-
-    // исключаем офферы, которые уже в избранном
+    // не показываем элементы, которые уже в избранном
     arr = arr.filter((o) => !!o.slug && !favItems.includes(o.slug));
-
     return arr;
   }, [offers, license, method, search, favItems]);
 
   const origin = safeOrigin();
   const errText = typeof error === "string" ? error : (error as any)?.message ?? "";
 
-  // 4) FAQ (мемоизировано, чтобы линтер не ругался)
-  const faqCompare: FaqItem[] = useMemo(
-    () => [
-      {
-        q: "Как пользоваться сравнением?",
-        a: "Выберите фильтры по лицензии и методам, отсортируйте таблицу по нужному параметру.",
-      },
-      {
-        q: "Что означает рейтинг?",
-        a: "Комплексная оценка: выплаты, удобство, поддержка и условия бонусов.",
-      },
-    ],
-    []
-  );
-
-  // 5) JSON-LD (в один массив)
   const jsonLd = useMemo(() => {
     const webPage = {
       "@context": "https://schema.org",
       "@type": "WebPage",
       name: "Сравнение казино",
-      url: `${origin}/compare`,
+      url: origin ? `${origin}/compare` : "/compare",
     };
-
     const itemList = {
       "@context": "https://schema.org",
       "@type": "ItemList",
       itemListElement: filtered.map((o, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        url: `${origin}/offers/${encodeURIComponent(o.slug)}`,
+        url: origin ? `${origin}/offers/${encodeURIComponent(o.slug)}` : `/offers/${encodeURIComponent(o.slug)}`,
         name: o.name,
       })),
     };
+    return [webPage, itemList];
+  }, [filtered, origin]);
 
-    const faq = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: faqCompare.map(({ q, a }) => ({
-        "@type": "Question",
-        name: q,
-        acceptedAnswer: { "@type": "Answer", text: a },
-      })),
-    };
-
-    return [webPage, itemList, faq];
-  }, [filtered, origin, faqCompare]);
-
-  // 6) Недавно смотрели: API → fallback к статике
-  const recentOffers = useMemo(() => {
-    const slugs = getRecent();
-    if (!slugs.length) return [];
-
-    const bySlugApi = new Map((offers ?? []).map((o) => [o.slug, o]));
-    const bySlugStatic = new Map(offersNormalized.map((o) => [o.slug, o]));
-    const res: NormalizedOffer[] = [];
-
-    for (const slug of slugs) {
-      const found = bySlugApi.get(slug) ?? bySlugStatic.get(slug);
-      if (found) res.push(found);
+  const shareFilters = useCallback(async () => {
+    try {
+      const url = typeof location !== "undefined" ? location.href : "";
+      if (!url) return;
+      track("compare_share", { total: offers.length, filtered: filtered.length, license, method, hasSearch: !!search });
+      await navigator.clipboard.writeText(url);
+      alert("Ссылка на сравнение скопирована в буфер обмена.");
+    } catch {
+      const url = typeof location !== "undefined" ? location.href : "";
+      if (url) prompt("Скопируйте ссылку:", url);
     }
+  }, []);
 
-    // уникализируем и ограничиваем
-    const seen = new Set<string>();
-    const uniq = res.filter((o) => {
-      if (!o?.slug || seen.has(o.slug)) return false;
-      seen.add(o.slug);
-      return true;
-    });
+  // Track filter changes (license/method) immediately
+  useEffect(() => {
+    try { track("compare_filter", { license, method }); } catch {}
+  }, [license, method]);
 
-    return uniq.slice(0, 6);
-  }, [offers]);
+  // Debounced search tracking to avoid spamming
+  const searchDebounceRef = useRef<number | null>(null);
+  useEffect(() => {
+    try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch {}
+    searchDebounceRef.current = (setTimeout(() => {
+      try { track("compare_search", { q_len: search.length, has_q: !!search }); } catch {}
+    }, 500) as unknown) as number;
+    return () => {
+      try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch {}
+    };
+  }, [search]);
 
   return (
     <>
       <Seo
-        title="Сравнение казино — выплаты, бонусы, лицензии"
-        description="Сравните казино по рейтингу, лицензиям, методам пополнения и скорости вывода."
-        ogImage="/og.svg"
-        canonical={`${origin}/compare`}
+        title="Сравнение казино — лицензии, методы, выплаты"
+        description="Фильтруйте по лицензии, методам и рейтингу. Добавляйте бренды в панель и сравнивайте бок‑о‑бок."
+        canonical={origin ? `${origin}/compare` : undefined}
         jsonLd={jsonLd}
       />
 
       <section className="neon-container space-y-6">
-        <Faq items={faqCompare} className="neon-card p-4 mt-6" />
-
         <div className="neon-card p-4">
           <CompareFilters
             total={offers.length}
@@ -198,23 +152,15 @@ export default function ComparePage() {
             }}
             onSearchChange={setSearch}
           />
-        </div>
-
-        {/* заглушки/ошибки */}
-        {errText && (
-          <div className="neon-card p-3 text-red-400">
-            Ошибка загрузки офферов: {errText}
+          <div className="mt-3 flex justify-end">
+            <Button variant="soft" onClick={shareFilters} aria-label="Поделиться текущей выборкой">
+              Поделиться
+            </Button>
           </div>
-        )}
-
-        {/* мобайл карточки */}
-        <div className="grid gap-3 sm:gap-4 md:hidden">
-          {(isLoading ? [] : filtered).map((o) => (
-            <MobileOfferCard key={o.slug} offer={o} />
-          ))}
         </div>
 
-        {/* десктоп таблица */}
+        {errText && <div className="neon-card p-3 text-red-400">Ошибка загрузки данных: {errText}</div>}
+
         <div className="neon-card p-0 hidden md:block">
           <CompareTable
             offers={filtered}
@@ -226,56 +172,6 @@ export default function ComparePage() {
             }}
           />
         </div>
-
-        {/* Топ быстрых выплат */}
-        {filtered.length > 0 && (
-          <div className="neon-card p-4">
-            <h2 className="text-lg font-semibold mb-3">Топ быстрых выплат</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered
-                .slice()
-                .sort(
-                  (a, b) => (a.payoutHours ?? 9999) - (b.payoutHours ?? 9999)
-                )
-                .slice(0, 6)
-                .map((o) => (
-                  <Link
-                    key={o.slug}
-                    to={`/offers/${encodeURIComponent(o.slug)}`}
-                    className="neon-card p-4 hover:opacity-90"
-                  >
-                    <div className="font-medium">{o.name}</div>
-                    <div className="text-sm text-[var(--text-dim)]">
-                      Выплаты: {o.payout}
-                      {o.payoutHours ? ` (~${o.payoutHours}ч)` : ""}
-                    </div>
-                  </Link>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Недавно смотрели */}
-        {recentOffers.length > 0 && (
-          <div className="neon-card p-4">
-            <h2 className="text-lg font-semibold mb-3">Недавно смотрели</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {recentOffers.map((o) => (
-                <Link
-                  key={o.slug}
-                  to={`/offers/${encodeURIComponent(o.slug)}`}
-                  className="neon-card p-4 hover:opacity-90"
-                >
-                  <div className="font-medium">{o.name}</div>
-                  <div className="text-sm text-[var(--text-dim)]">
-                    Лицензия: {o.license ?? "—"} • Выплаты: {o.payout}
-                    {o.payoutHours ? ` (~${o.payoutHours}ч)` : ""}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
     </>
   );

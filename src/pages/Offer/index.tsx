@@ -9,6 +9,7 @@ import Seo from "@/components/Seo";
 import { SITE_URL } from "@/config";
 import AffiliateLink from "@/components/misc/AffiliateLink";
 import { FavControl } from "@/components/FavControl";
+import { useT } from "@/lib/useT";
 
 import { offersNormalized, type NormalizedOffer } from "@/lib/offers";
 import { getOfferBySlug } from "@/features/offers/api/getOffers";
@@ -17,10 +18,11 @@ import { pushRecent, getRecent } from "@/lib/recent";
 
 export default function OfferPage() {
   const { slug } = useParams<{ slug: string }>();
+  const t = useT();
 
-  // Ищем оффер по slug
   const [offer, setOffer] = useState<NormalizedOffer | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -37,63 +39,35 @@ export default function OfferPage() {
     return () => { cancelled = true; };
   }, [slug]);
 
-  // Пишем текущий оффер в «Недавно смотрели»
-  useEffect(() => {
-    if (offer?.slug) pushRecent(offer.slug);
-  }, [offer?.slug]);
+  useEffect(() => { if (offer?.slug) pushRecent(offer.slug); }, [offer?.slug]);
 
-  // Недавно смотрели (без текущего), максимум 6
   const recentOffers: NormalizedOffer[] = useMemo(() => {
-    const recents = getRecent()
-      .filter((s) => s !== offer?.slug)
-      .slice(0, 6);
+    const recents = getRecent().filter((s) => s !== offer?.slug).slice(0, 6);
     const bySlug = new Map(offersNormalized.map((o) => [o.slug, o]));
-    return recents
-      .map((s) => bySlug.get(s))
-      .filter(Boolean) as NormalizedOffer[];
+    return recents.map((s) => bySlug.get(s)).filter(Boolean) as NormalizedOffer[];
   }, [offer?.slug]);
 
-  // Частые вопросы (для JSON-LD и, при желании, визуального блока)
-  const faq = useMemo(
-    () => [
-      {
-        q: "Как быстро выводят средства?",
-        a: "Обычно в течение 1–24 часов, зависит от метода.",
-      },
-      {
-        q: "Есть ли вейджер на бонусы?",
-        a: "Да, условия зависят от акции — проверяйте правила.",
-      },
-    ],
-    []
-  );
+  const faq = useMemo(() => ([
+    { q: "How fast are payouts?", a: "Usually within 1–24 hours depending on method." },
+    { q: "Any hidden fees?", a: "No, we list only offers with transparent terms." },
+  ]), []);
 
-  // Canonical
   const canonical = useMemo(() => {
     const origin = SITE_URL.replace(/\/$/, "");
     if (!offer) return `${origin}/offers`;
     return `${origin}/offers/${encodeURIComponent(offer.slug)}`;
   }, [offer]);
 
-  // JSON-LD: Product + BreadcrumbList + FAQPage
   const jsonLd = useMemo(() => {
-    if (!offer) return [];
+    if (!offer) return [] as any[];
     return [
       {
         "@context": "https://schema.org",
         "@type": "Product",
         name: offer.name,
         brand: { "@type": "Organization", name: offer.name },
-        aggregateRating: offer.rating
-          ? { "@type": "AggregateRating", ratingValue: offer.rating, reviewCount: 1 }
-          : undefined,
-        offers: {
-          "@type": "Offer",
-          url: canonical,
-          priceCurrency: "USD",
-          price: "0",
-          availability: "https://schema.org/InStock",
-        },
+        aggregateRating: offer.rating ? { "@type": "AggregateRating", ratingValue: offer.rating, reviewCount: 1 } : undefined,
+        offers: { "@type": "Offer", url: canonical, priceCurrency: "USD", price: "0", availability: "https://schema.org/InStock" },
       },
       {
         "@context": "https://schema.org",
@@ -106,16 +80,11 @@ export default function OfferPage() {
       {
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        mainEntity: faq.map(({ q, a }) => ({
-          "@type": "Question",
-          name: q,
-          acceptedAnswer: { "@type": "Answer", text: a },
-        })),
+        mainEntity: faq.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
       },
     ];
   }, [offer, canonical, faq]);
 
-  // loading guard
   if (loading) {
     return (
       <Section>
@@ -124,17 +93,10 @@ export default function OfferPage() {
     );
   }
 
-  // Заглушка, если оффер не найден
   if (!offer) {
     return (
       <Section>
-        <Card className="p-6">
-          <div className="text-lg font-semibold mb-2">Not found</div>
-          <p className="text-[var(--text-dim)]">Мы не нашли такой оффер.</p>
-          <div className="mt-4">
-            <Link to="/compare" className="btn">Back to compare</Link>
-          </div>
-        </Card>
+        <Card className="p-6">Not found</Card>
       </Section>
     );
   }
@@ -142,8 +104,8 @@ export default function OfferPage() {
   return (
     <>
       <Seo
-        title={`${offer.name} — рейтинг, лицензия, выплаты`}
-        description={`Детали по ${offer.name}: лицензия ${offer.license ?? "—"}, скорость выплат ${offer.payout}${offer.payoutHours ? ` (~${offer.payoutHours}ч)` : ""}.`}
+        title={`${offer.name} - ${t("offer.ratingLabel")} · ${t("offer.payout")} · ${t("offer.license")}`}
+        description={`${offer.name}: ${t("offer.license")}: ${offer.license ?? "-"}; ${t("offer.payout")}: ${offer.payout}${offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}.`}
         ogImage="/og.svg"
         canonical={canonical}
         jsonLd={jsonLd}
@@ -151,18 +113,9 @@ export default function OfferPage() {
 
       <section className="neon-hero relative">
         <Section>
-          <h1
-            style={{
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              fontSize: "clamp(28px,4.5vw,46px)",
-            }}
-          >
-            {offer.name}
-          </h1>
-
+          <h1 style={{ fontWeight: 800, letterSpacing: "-0.02em", fontSize: "clamp(28px,4.5vw,46px)" }}>{offer.name}</h1>
           <p className="neon-subline mt-2">
-            License: {offer.license ?? "—"} • Payout: {offer.payout}
+            {t("offer.license")}: {offer.license ?? "-"} · {t("offer.payout")}: {offer.payout}
             {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
           </p>
         </Section>
@@ -171,88 +124,66 @@ export default function OfferPage() {
       <Section className="space-y-6">
         <Card className="p-6">
           <div className="grid gap-6 md:grid-cols-3">
-            {/* Левая колонка — инфо */}
             <div className="md:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
-                <span className="text-[var(--text-dim)]">Rating</span>
+                <span className="text-[var(--text-dim)]">{t("offer.ratingLabel")}</span>
                 <Rating value={offer.rating ?? 0} />
               </div>
-
               <div>
-                <div className="text-[var(--text-dim)] mb-1">Payout</div>
+                <div className="text-[var(--text-dim)] mb-1">{t("offer.payout")}</div>
                 <div>
                   {offer.payout}
                   {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
                 </div>
               </div>
-
               <div>
-                <div className="text-[var(--text-dim)] mb-1">Methods</div>
+                <div className="text-[var(--text-dim)] mb-1">{t("filters.methods") || "Methods"}</div>
                 <div className="flex flex-wrap gap-2">
-                  {offer.methods.length
-                    ? offer.methods.map((m, i) => (
-                        <span key={`${m}-${i}`} className="neon-chip">
-                          {m}
-                        </span>
-                      ))
-                    : "—"}
+                  {offer.methods.length ? offer.methods.map((m, i) => (
+                    <span key={`${m}-${i}`} className="neon-chip">{m}</span>
+                  )) : "-"}
                 </div>
               </div>
             </div>
-
-            {/* Правая колонка — действия */}
             <div className="space-y-3">
               <AffiliateLink
                 offerSlug={offer.slug}
                 position={1}
-                href={offer.link ?? "#"}
+                href={`/go/${encodeURIComponent(offer.slug)}`}
                 className="btn w-full inline-flex items-center justify-center"
-                aria-label={`Open ${offer.name}`}
+                aria-label={`${t("offer.cta")}: ${offer.name}`}
               >
-                Play now
+                {t("offer.cta")}
               </AffiliateLink>
 
               <p className="mt-2 text-xs text-[var(--text-dim)]">
-                Sponsored link. 18+ only. Please read{" "}
-                <Link className="underline" to="/legal/affiliate-disclosure">
-                  our disclosure
-                </Link>{" "}
-                and operator’s T&amp;Cs.
+                {t("offer.sponsoredShort") || "Sponsored link. 18+ only."} {t("offer.ourDisclosure") || "Please read"} {" "}
+                <Link className="underline" to="/legal/affiliate-disclosure">{t("legal.affiliateDisclosure") || "our disclosure"}</Link>{" "}
+                {t("offer.tcShort") || "and operator's T&Cs."}
               </p>
 
               <FavControl
                 id={offer.slug}
                 className="btn w-full"
                 onToggle={(active: boolean) => {
-                  try {
-                    // если твой track принимает (name, payload)
-                    track("favorite_toggle", { offer_slug: offer.slug, active });
-                  } catch {
-                    // если у тебя остался старый адаптер { name, params }
-                  
-                    track?.({ name: "favorite_toggle", params: { offer_slug: offer.slug, active } });
-                  }
+                  try { track("favorite_toggle", { offer_slug: offer.slug, active }); }
+                  catch { (track as any)?.({ name: "favorite_toggle", params: { offer_slug: offer.slug, active } }); }
                 }}
               />
             </div>
           </div>
         </Card>
 
-        {/* Недавно смотрели */}
         {recentOffers.length > 0 && (
           <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-3">Недавно смотрели</h2>
+            <h2 className="text-lg font-semibold mb-3">{t("offers.recent") || "Recently viewed"}</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {recentOffers.map((o) => (
-                <Link
-                  key={o.slug}
-                  to={`/offers/${encodeURIComponent(o.slug)}`}
-                  className="neon-card p-4 hover:opacity-90"
-                >
+                <Link key={o.slug} to={`/offers/${encodeURIComponent(o.slug)}`} className="neon-card p-4 hover:opacity-90">
                   <div className="font-medium">{o.name}</div>
                   <div className="text-sm text-[var(--text-dim)]">
-                    Лицензия: {o.license ?? "—"} • Выплаты: {o.payout}
-                    {o.payoutHours ? ` (~${o.payoutHours}ч)` : ""}
+                    {t("offer.license")}: {o.license ?? "-"} · {t("offer.payout")}: {o.payout}
+                    {o.payoutHours ? ` (~${o.payoutHours}h)` : ""}
                   </div>
                 </Link>
               ))}
@@ -263,3 +194,4 @@ export default function OfferPage() {
     </>
   );
 }
+

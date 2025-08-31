@@ -12,14 +12,20 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     reporters: ["verbose"],
+    include: [
+      "src/__tests__/**/*.{test,spec}.[jt]s?(x)",
+      "src/**/__tests__/**/*.{test,spec}.[jt]s?(x)"
+    ],
     exclude: [
       "tests/**",
+      "e2e/**",
       "_archive/**",
       "node_modules/**",
       "dist/**",
       "build/**",
       ".next/**",
-      "coverage/**"
+      "coverage/**",
+      ".netlify/**"
     ]
   }
 });

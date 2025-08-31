@@ -6,38 +6,35 @@ import MobileNav from "./MobileNav";
 import HeaderFavLink from "@/components/layout/HeaderFavLink";
 import UserBadge from "@/components/auth/UserBadge";
 import VerifyEmailBanner from "@/components/auth/VerifyEmailBanner";
-
-type NavItem = {
-  to: string;
-  label: string;
-  preload?: () => void;
-};
-
-const nav: NavItem[] = [
-  { to: "/offers", label: "Offers", preload: () => { import("@/pages/Offers"); } },
-  { to: "/compare", label: "Compare" }, // Compare грузим eager — прелоад не нужен
-
-  { to: "/contact", label: "Contact" },
-];
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
+import { useT } from "@/lib/useT";
+import { useSettings } from "@/lib/useSettings";
 
 export default function Header() {
+  const t = useT();
+  const { settings } = useSettings();
+
+  const nav = [
+    { to: "/offers", label: t("nav.offers"), preload: () => { import("@/pages/Offers"); } },
+    { to: "/compare", label: t("nav.compare") },
+    { to: "/contact", label: t("nav.contact") },
+  ];
+
   return (
     <>
-      {/* <header className="sticky top-0 z-50 border-b border-white/10 bg-[var(--bg-0)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--bg-0)]/60"> */}
-      <header className="
-  sticky top-0 z-50 border-b border-white/10
-  bg-[rgb(var(--bg-0)/.72)] backdrop-blur supports-[backdrop-filter]:bg-[rgb(var(--bg-0)/.55)]
-  shadow-[0_8px_30px_rgba(0,0,0,.35)]
-">
+      <header className=
+        "sticky top-0 z-50 border-b border-white/10 bg-[rgb(var(--bg-0)/.72)] backdrop-blur supports-[backdrop-filter]:bg-[rgb(var(--bg-0)/.55)] shadow-[0_8px_30px_rgba(0,0,0,.35)]"
+      >
         <Section className="py-0 flex h-14 md:h-16 items-center gap-3">
           {/* Logo */}
           <div className="min-w-0">
-            <Link
-              to="/"
-              className="text-xl font-extrabold tracking-tight text-[var(--text)] hover:opacity-90"
-              aria-label="Go to Home"
-            >
-              {import.meta.env.VITE_SITE_NAME ?? "SITE"}
+            <Link to="/" className="flex items-center gap-2" aria-label="Go to Home">
+              {settings.brandLogo ? (
+                <img src={settings.brandLogo} alt="logo" className="h-7 w-7 rounded-sm" />
+              ) : null}
+              <span className="text-xl font-extrabold tracking-tight text-[var(--text)] hover:opacity-90">
+                {settings.siteName}
+              </span>
             </Link>
           </div>
 
@@ -47,11 +44,11 @@ export default function Header() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                onMouseEnter={item.preload}
+                onMouseEnter={item.preload as any}
                 className={({ isActive }) =>
                   cn(
-                    "rounded-lg px-3 py-2 text-sm text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                    isActive && "bg-white/10 text-[var(--text)]"
+                    "rounded-lg px-3 py-2 text-sm text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                    isActive && "bg-white/15 text-[var(--text)]"
                   )
                 }
               >
@@ -59,18 +56,17 @@ export default function Header() {
               </NavLink>
             ))}
 
-            {/* Favorites с бейджем */}
+            {/* Favorites + Language */}
             <HeaderFavLink />
+            <LanguageSwitcher />
 
             {/* CTA */}
             <Link
               to="/compare"
-              hidden
-          className="group inline-flex items-center justify-center h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold
-             shadow-[0_10px_24px_rgba(139,92,246,.28)] transition"
->
-              Start Compare
-                <span className="ml-1 opacity-0 group-hover:opacity-100 transition">→</span>
+              className="group inline-flex items-center justify-center h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-[0_10px_24px_rgba(139,92,246,.28)] transition"
+            >
+              {t("nav.compare")}
+              <span className="ml-1 opacity-0 group-hover:opacity-100 transition" />
             </Link>
 
             {/* User badge (desktop) */}
@@ -79,15 +75,16 @@ export default function Header() {
             </div>
           </nav>
 
-          {/* Mobile: справа user + бургер */}
+          {/* Mobile: user + language + menu */}
           <div className="md:hidden ml-auto flex items-center gap-2">
             <UserBadge />
+            <LanguageSwitcher />
             <MobileNav />
           </div>
         </Section>
       </header>
 
-      {/* Баннер верификации — сразу под хедером */}
+      {/* Verify email banner below header */}
       <VerifyEmailBanner />
     </>
   );

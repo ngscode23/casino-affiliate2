@@ -1,8 +1,9 @@
 import { track } from "@/lib/analytics";
+import cn from "@/lib/cn";
+import { useT } from "@/lib/useT";
 
-export type LicenseFilter = "all" | "MGA" | "UKGC" | "Curaçao";
+export type LicenseFilter = "all" | "MGA" | "UKGC" | "Curacao";
 
-// ВАЖНО: убираем value/onChange из DOM-пропов, чтобы не конфликтовали
 type SelectProps = Omit<
   React.SelectHTMLAttributes<HTMLSelectElement>,
   "value" | "onChange"
@@ -13,10 +14,12 @@ type Props = {
   onChange: (v: LicenseFilter) => void;
 } & SelectProps;
 
-export default function LicenseSelect({ value, onChange, ...rest }: Props) {
+export default function LicenseSelect({ value, onChange, className, ...rest }: Props & { className?: string }) {
+  const t = useT();
   return (
     <select
-      aria-label="License"
+      aria-label={t("offer.license")}
+      className={cn("neon-input min-w-[160px]", className)}
       value={value}
       onChange={(e) => {
         const val = e.target.value as LicenseFilter;
@@ -25,12 +28,10 @@ export default function LicenseSelect({ value, onChange, ...rest }: Props) {
       }}
       {...rest}
     >
-      <option value="all">All</option>
+      <option value="all">{t("filters.all") || "All"}</option>
       <option value="MGA">MGA</option>
       <option value="UKGC">UKGC</option>
-      <option value="Curaçao">Curaçao</option>
+      <option value="Curacao">Curaçao</option>
     </select>
   );
 }
-
-

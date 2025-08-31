@@ -32,9 +32,9 @@ export default function CompareInline({ className = "" }: { className?: string }
 
       <div className="flex items-center gap-2">
         <Button variant="soft" onClick={clear} className="cursor-pointer">Clear</Button>
-        <Button className="cursor-pointer" onClick={() => { /* no-op */ }}>
-          <Link to="/compare">Open compare</Link>
-        </Button>
+        <Link to="/compare" className="inline-flex items-center justify-center h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+          Open compare
+        </Link>
       </div>
     </div>
   );

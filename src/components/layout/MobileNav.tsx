@@ -70,8 +70,8 @@ export default function MobileNav() {
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        "block rounded-lg px-3 py-2 text-sm hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                        isActive && "bg-white/10"
+                        "block rounded-lg px-3 py-2 text-sm hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                        isActive && "bg-white/15"
                       )
                     }
                   >
