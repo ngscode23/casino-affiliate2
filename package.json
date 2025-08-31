@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:netlify": "netlify dev",
     "preview": "vite preview --port 5174",
     "clean": "rimraf node_modules package-lock.json .turbo .vite .cache dist",
     "prepare": "husky",
