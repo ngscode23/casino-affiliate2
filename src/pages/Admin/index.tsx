@@ -17,6 +17,7 @@ const AnalyticsIndex = lazy(() => import("./analytics/index"));
 const SetupPage = lazy(() => import("./setup"));
 const PartnersPage = lazy(() => import("./partners/index"));
 const WebhooksPage = lazy(() => import("./webhooks/index"));
+const MetricsPage = lazy(() => import("./metrics/index"));
 
 /** Оболочка админки с Outlet для вложенных роутов */
 function AdminShell() {
@@ -65,6 +66,9 @@ export default function AdminApp() {
                   <Link className="underline" to="analytics">
                     Analytics
                   </Link>
+                  <Link className="underline" to="metrics">
+                    Metrics
+                  </Link>
                   <Link className="underline" to="setup">
                     Setup
                   </Link>
@@ -90,6 +94,8 @@ export default function AdminApp() {
 
           {/* /admin/analytics */}
           <Route path="analytics" element={<AnalyticsIndex />} />
+          {/* /admin/metrics */}
+          <Route path="metrics" element={<MetricsPage />} />
 
           {/* /admin/setup */}
           <Route path="setup" element={<SetupPage />} />
