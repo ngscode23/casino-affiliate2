@@ -1,0 +1,49 @@
+=== Local migration files ===
+20250101_000001_offers.sql
+20250102_000002_impressions.sql
+20250103_000003_clicks.sql
+20250104_000004_clicks_ip_hash.sql
+20250105_000005_clicks_rls.sql
+20250106_000006_partners.sql
+20250107_000007_settings.sql
+20250108_000008_webhook_logs.sql
+
+=== supabase migration list ===
+Initialising cli_login_postgres role...
+Forgot your password? Reset it from the Dashboard: https://supabase.com/dashboard/project/wsqhgnxmotswjantxopb/settings/database
+
+Enter your database password: Connecting to remote database...
+failed to connect to postgres: failed to connect to `host=aws-1-eu-central-1.pooler.supabase.com user=postgres.wsqhgnxmotswjantxopb database=postgres`: failed SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))
+Try rerunning the command with --debug to troubleshoot the error.
+
+=== supabase db verify ===
+Manage Postgres databases
+
+Usage:
+  supabase db [command]
+
+Available Commands:
+  diff        Diffs the local database for schema changes
+  dump        Dumps data or schemas from the remote database
+  lint        Checks local database for typing error
+  pull        Pull schema from the remote database
+  push        Push new migrations to the remote database
+  reset       Resets the local database to current migrations
+  start       Starts local Postgres database
+
+Flags:
+  -h, --help   help for db
+
+Global Flags:
+      --create-ticket                                  create a support ticket for any CLI error
+      --debug                                          output debug logs to stderr
+      --dns-resolver [ native | https ]                lookup domain names using the specified resolver (default native)
+      --experimental                                   enable experimental features
+      --network-id string                              use the specified docker network instead of a generated one
+  -o, --output [ env | pretty | json | toml | yaml ]   output format of status variables (default pretty)
+      --profile string                                 use a specific profile for connecting to Supabase API (default "supabase")
+      --workdir string                                 path to a Supabase project directory
+      --yes                                            answer yes to all prompts
+
+Use "supabase db [command] --help" for more information about a command.
+
