@@ -1,6 +1,7 @@
 // src/features/offers/components/OfferListFeature.tsx
 import MobileOfferCard from "@/components/offers/MobileOfferCard";
 import type { NormalizedOffer } from "@/lib/offers";
+import { useImpression } from "@/lib/impressions";
 import type { LicenseFilter } from "@/components/compare/LicenseSelect";
 
 export type OffersFilterState = {
@@ -43,12 +44,20 @@ export default function OfferListFeature({
     return <div className="neon-card p-4">No offers match the filters.</div>;
   }
 
+  function ListItem({ offer }: { offer: NormalizedOffer }) {
+    const ref = useImpression(offer.slug);
+    return (
+      <div ref={ref}>
+        <MobileOfferCard key={offer.slug} offer={offer} />
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 sm:gap-4 md:gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {filtered.map((o) => (
-        <MobileOfferCard key={o.slug} offer={o} />
+        <ListItem key={o.slug} offer={o} />
       ))}
     </div>
   );
 }
-
