@@ -14,7 +14,7 @@ function AnalyticsRouteListener() {
 }
 
 import "./index.css";
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import ErrorBoundary from "@/components/common/ErrorBoundary";
@@ -25,6 +25,8 @@ import CompareBar from "@/components/layout/CompareBar";
 import { ToastContainer } from "@/components/common/toast";
 import { I18nProvider } from "@/lib/i18n";
 import { captureInitialUTMOnce } from "@/lib/utm";
+import { AgeGate } from "@/components/AgeGate";
+import { acceptAge, isAgeAccepted, applyAgeAttrFromStorage } from "@/lib/ageGate";
 
 // ── EAGER (критичные, часто посещаемые, важны для SEO)
 import HomePage from "@/pages/Home";
@@ -103,6 +105,9 @@ function PageFallback() {
 
 export default function App() {
    usePageView();
+  const [ageOk, setAgeOk] = useState<boolean>(() => {
+    try { return isAgeAccepted(); } catch { return false; }
+  });
   // Небольшой prefetch самых частых страниц при простое
   useEffect(() => {
 
@@ -112,7 +117,8 @@ export default function App() {
       import("@/pages/Offer");
       import("@/pages/Favorites");
     });
-    // Capture UTM params from the first page load
+    // Sync age attr + capture UTM params
+    try { applyAgeAttrFromStorage(); } catch { /* noop */ }
     captureInitialUTMOnce();
     return () => (window as any).cancelIdleCallback?.(id);
   }, []);
@@ -137,6 +143,9 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
             {/* Каркас и глобальная SEO-разметка */}
             <Header />
             <OrgJsonLd />
+            {!ageOk && (
+              <AgeGate onAccept={() => { acceptAge(); setAgeOk(true); }} />
+            )}
               <AnalyticsRouteListener />
               
             <main id="main" className="min-h-[60vh]">
