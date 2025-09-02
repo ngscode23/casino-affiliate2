@@ -27,7 +27,7 @@
     Content-Security-Policy = """
       default-src 'self';
       script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com;
-      script-src-elem 'self' https://www.googletagmanager.com https://www.google-analytics.com;
+      script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
       style-src-attr 'self' 'unsafe-inline';
@@ -42,10 +42,12 @@
     """
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
-    Referrer-Policy = "no-referrer"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     Cross-Origin-Embedder-Policy = "credentialless"
     Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Resource-Policy = "same-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=(), xr-spatial-tracking=(), interest-cohort=()"
 
 # кэш для статических ассетов
 [[headers]]
