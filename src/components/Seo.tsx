@@ -121,6 +121,12 @@ export default function Seo(props: Props) {
       alternates.forEach((loc) => upsertMeta("property", "og:locale:alternate", loc));
     } catch { /* noop */ }
 
+    // Language hint (non-standard but harmless)
+    try {
+      const lang = (document.documentElement.getAttribute("lang") || "en").toLowerCase();
+      upsertMeta("name", "language", lang);
+    } catch { /* noop */ }
+
     // Twitter
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", title ?? null);
