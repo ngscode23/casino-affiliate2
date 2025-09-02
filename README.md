@@ -126,6 +126,7 @@ Acceptance
 
 ## Scripts
 - `pnpm dev`: local dev
+- `pnpm dev:netlify`: local dev with Netlify Functions proxy (recommended)
 - `pnpm build`: production build
 - `pnpm sitemap`: generate `public/sitemap.xml` (with alternates)
 

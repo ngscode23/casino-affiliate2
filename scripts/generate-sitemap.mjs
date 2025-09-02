@@ -56,3 +56,5 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`+
 fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 fs.writeFileSync(path.join(PUBLIC_DIR, "sitemap.xml"), xml, "utf8");
 console.log(`[sitemap] generated ${urls.length} urls -> public/sitemap.xml`);
+
+
