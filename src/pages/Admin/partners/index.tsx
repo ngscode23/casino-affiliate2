@@ -17,6 +17,7 @@ export default function PartnersPage() {
   const [plan, setPlan] = useState("BASIC");
   const [days, setDays] = useState(30);
   const [offerSlugs, setOfferSlugs] = useState("");
+  const [coupon, setCoupon] = useState("");
   // paging + search
   const [page, setPage] = useState(0);
   const pageSize = 50;
@@ -55,6 +56,27 @@ export default function PartnersPage() {
     const res = await fetch("/.netlify/functions/checkout", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload)});
     const j = await res.json();
     if (j?.url) window.location.href = j.url;
+  }
+
+  async function subscribe(p: string, interval: "MONTHLY" | "YEARLY") {
+    try {
+      if (!email.trim()) throw new Error("Email is required");
+      const payload = { email: email.trim(), plan: p as any, interval, coupon: coupon.trim() || undefined };
+      const { fn } = await import("@/lib/functions");
+      const res = await fetch(fn('create-subscription'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await res.json();
+      if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to create session");
+    } catch (e:any) { alert("Error: " + String(e?.message || e)); }
+  }
+
+  async function openPortal() {
+    try {
+      if (!email.trim()) throw new Error("Email is required");
+      const { fn } = await import("@/lib/functions");
+      const res = await fetch(fn('customer-portal'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      const j = await res.json();
+      if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to open portal");
+    } catch (e:any) { alert("Error: " + String(e?.message || e)); }
   }
 
   async function ensurePartner(email: string, plan: string): Promise<string> {
@@ -157,6 +179,35 @@ export default function PartnersPage() {
           </div>
         </div>
         <button className="neon-btn mt-4" onClick={startCheckout}>Create Checkout</button>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-semibold mb-3">Subscriptions</h2>
+        <p className="text-sm text-[var(--text-dim)] mb-3">Subscribe partner to BASIC/FEATURED/TOP (Monthly/Yearly) and open Customer Portal.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm mb-1">Partner email</label>
+            <input className="neon-input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="editor@site.com" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Coupon / Promo code (optional)</label>
+            <input className="neon-input" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {(["BASIC","FEATURED","TOP"] as const).map(p => (
+            <div key={p} className="rounded border border-white/10 p-3">
+              <div className="text-sm font-semibold mb-2">{p}</div>
+              <div className="flex gap-2">
+                <button className="neon-btn" onClick={()=>subscribe(p, "MONTHLY")}>Monthly</button>
+                <button className="neon-btn" onClick={()=>subscribe(p, "YEARLY")}>Yearly</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3">
+          <button className="neon-btn" onClick={openPortal}>Open Customer Portal</button>
+        </div>
       </Card>
 
       <Card className="p-6">

@@ -31,8 +31,8 @@
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
       style-src-attr 'self' 'unsafe-inline';
-      img-src 'self' data: https://www.google-analytics.com;
-      connect-src 'self' https://www.google-analytics.com https://*.supabase.co wss://*.supabase.co;
+      img-src 'self' data: https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net;
+      connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.supabase.co wss://*.supabase.co;
       font-src 'self' data: https://fonts.gstatic.com;
       object-src 'none';
       base-uri 'self';
@@ -58,4 +58,3 @@
   for = "/*.html"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
-
