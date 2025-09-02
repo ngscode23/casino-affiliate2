@@ -1,39 +1,59 @@
-// scripts/generate-sitemap.mjs
+// Sitemap generator (TypeScript version)
 import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
-const DIST = path.join(ROOT, "public"); // кладём рядом с index.html
+const PUBLIC_DIR = path.join(ROOT, "public");
 const SITE_ORIGIN = process.env.SITE_ORIGIN || process.env.VITE_SITE_ORIGIN || "http://localhost:5173";
 
-// базовые роуты сайта (добавь/убери по нужде)
-const routes = [
+// Static routes to include in the sitemap
+const routes: string[] = [
   "/", "/offers", "/compare", "/favorites",
   "/contact",
   "/legal/privacy", "/legal/terms", "/legal/cookies",
-  "/legal/responsible", "/legal/affiliate-disclosure"
+  "/legal/responsible", "/legal/affiliate-disclosure",
 ];
 
-// если есть статический справочник офферов — добавим их страницы
-let offerSlugs = [];
+// Try to extract offer slugs from the TS source (no TS runtime required)
+let offerSlugs: string[] = [];
 try {
-  const offers = await import(path.join(ROOT, "src/lib/offers.ts"))
-    .then(m => m.offersNormalized || [])
-    .catch(() => []);
-  offerSlugs = offers.map(o => o.slug).filter(Boolean);
+  const offersTsPath = path.join(ROOT, "src/lib/offers.ts");
+  if (fs.existsSync(offersTsPath)) {
+    const src = fs.readFileSync(offersTsPath, "utf8");
+    const matches = [...src.matchAll(/slug:\s*"([^"]+)"/g)];
+    offerSlugs = matches.map((m) => m[1]);
+  }
 } catch {}
 
+const origin = SITE_ORIGIN.replace(/\/$/, "");
 const urls = [
-  ...routes.map(u => `${SITE_ORIGIN.replace(/\/$/, "")}${u}`),
-  ...offerSlugs.map(s => `${SITE_ORIGIN.replace(/\/$/, "")}/offers/${encodeURIComponent(s)}`)
+  ...routes.map((u) => `${origin}${u}`),
+  ...offerSlugs.map((s) => `${origin}/offers/${encodeURIComponent(s)}`),
 ];
 
-const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(u => `  <url><loc>${u}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`).join("\n")}
-</urlset>
-`;
+function entry(u: string) {
+  const join = u.includes("?") ? "&" : "?";
+  const en = `${u}${join}lang=en`;
+  const ru = `${u}${join}lang=ru`;
+  return [
+    "  <url>",
+    `    <loc>${en}</loc>`,
+    `    <xhtml:link rel=\"alternate\" hreflang=\"en\" href=\"${en}\" />`,
+    `    <xhtml:link rel=\"alternate\" hreflang=\"ru\" href=\"${ru}\" />`,
+    `    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"${u}\" />`,
+    "    <changefreq>daily</changefreq>",
+    "    <priority>0.7</priority>",
+    "  </url>",
+  ].join("\n");
+}
 
-fs.mkdirSync(DIST, { recursive: true });
-fs.writeFileSync(path.join(DIST, "sitemap.xml"), xml, "utf8");
-console.log(`[sitemap] generated ${urls.length} urls → public/sitemap.xml`);
+const xml =
+  `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n` +
+  `<urlset xmlns=\"https://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">\n` +
+  urls.map(entry).join("\n") +
+  `\n</urlset>\n`;
+
+fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+fs.writeFileSync(path.join(PUBLIC_DIR, "sitemap.xml"), xml, "utf8");
+console.log(`[sitemap] generated ${urls.length} urls -> public/sitemap.xml`);
+
