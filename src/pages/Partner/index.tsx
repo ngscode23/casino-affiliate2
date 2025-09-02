@@ -4,7 +4,7 @@ import Section from '@/components/common/section';
 import Card from '@/components/common/card';
 import { supabase } from '@/lib/supabase';
 import { getUser } from '@/lib/auth';
-import { fn } from '@/lib/functions';
+import { fnUrl } from '@/lib/api';
 
 type Row = { offer_slug: string; plan: string; expires_at: string | null };
 
@@ -42,7 +42,7 @@ export default function PartnerPortalPage() {
   async function openPortal() {
     try {
       if (!email) throw new Error('No email');
-      const res = await fetch(fn('customer-portal'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
+      const res = await fetch(fnUrl('customer-portal'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || 'Failed to open portal');
     } catch (e:any) { alert('Error: ' + String(e?.message||e)); }

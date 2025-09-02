@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Section from '@/components/common/section';
 import Card from '@/components/common/card';
-import { fn } from '@/lib/functions';
+import { fnUrl } from '@/lib/api';
 
 type Interval = 'MONTHLY'|'YEARLY';
 
@@ -22,7 +22,7 @@ export default function PricingPage() {
     try {
       if (!email.trim()) throw new Error('Email is required');
       setLoading(plan);
-      const res = await fetch(fn('create-subscription'), {
+      const res = await fetch(fnUrl('create-subscription'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), plan, interval, coupon: coupon.trim() || undefined })

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
 import { supabase } from "@/lib/supabase";
+import { fnUrl } from "@/lib/api";
 
 type Partner = { id: string; name: string; email: string | null; plan: string; expires_at: string | null };
 
@@ -53,7 +54,7 @@ export default function PartnersPage() {
 
   async function startCheckout() {
     const payload = { name, email, plan, days, offerSlugs: offerSlugs.split(",").map(s=>s.trim()).filter(Boolean) };
-    const res = await fetch("/.netlify/functions/checkout", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload)});
+    const res = await fetch(fnUrl("checkout"), { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload)});
     const j = await res.json();
     if (j?.url) window.location.href = j.url;
   }
@@ -62,8 +63,7 @@ export default function PartnersPage() {
     try {
       if (!email.trim()) throw new Error("Email is required");
       const payload = { email: email.trim(), plan: p as any, interval, coupon: coupon.trim() || undefined };
-      const { fn } = await import("@/lib/functions");
-      const res = await fetch(fn('create-subscription'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(fnUrl('create-subscription'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to create session");
     } catch (e:any) { alert("Error: " + String(e?.message || e)); }
@@ -72,8 +72,7 @@ export default function PartnersPage() {
   async function openPortal() {
     try {
       if (!email.trim()) throw new Error("Email is required");
-      const { fn } = await import("@/lib/functions");
-      const res = await fetch(fn('customer-portal'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      const res = await fetch(fnUrl('customer-portal'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to open portal");
     } catch (e:any) { alert("Error: " + String(e?.message || e)); }
