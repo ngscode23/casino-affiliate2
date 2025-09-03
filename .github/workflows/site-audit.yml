@@ -1,0 +1,105 @@
+name: Site Audit
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  # Change to Deploy Preview URL if available. Defaults to production.
+  SITE_URL: https://lucky-macaron-c3c96c.netlify.app
+
+jobs:
+  lighthouse:
+    name: Lighthouse (${{ matrix.form_factor }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        form_factor: [ mobile, desktop ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          # Evaluate the main user flows
+          urls: |
+            ${{ env.SITE_URL }}/
+            ${{ env.SITE_URL }}/offers
+            ${{ env.SITE_URL }}/offers/lucky-star
+            ${{ env.SITE_URL }}/compare
+          configPath: .lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          runs: 1
+          comment: true
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LHCI_COLLECT__SETTINGS__EMULATED_FORM_FACTOR: ${{ matrix.form_factor }}
+          LHCI_COLLECT__SETTINGS__FORM_FACTOR: ${{ matrix.form_factor }}
+
+  validators:
+    name: Validators
+    runs-on: ubuntu-latest
+    steps:
+      - name: SecurityHeaders grade
+        id: sh
+        run: |
+          set -euo pipefail
+          SITE_URL="https://lucky-macaron-c3c96c.netlify.app"
+          HTML=$(curl -s "https://securityheaders.com/?q=$(printf %s "$SITE_URL" | sed -e 's/:/%3A/g' -e 's,/,%,g' )&followRedirects=on") || true
+          GRADE=$(printf "%s" "$HTML" | grep -oE "which scored the grade [A-F]" | awk '{print $NF}' || true)
+          echo "grade=${GRADE:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: W3C HTML Validator
+        id: w3c
+        run: |
+          set -euo pipefail
+          SITE_URL="https://lucky-macaron-c3c96c.netlify.app"
+          urls=("$SITE_URL/" "$SITE_URL/offers" "$SITE_URL/offers/lucky-star" "$SITE_URL/compare")
+          ERR_SUMMARY=""
+          for u in "${urls[@]}"; do
+            api="https://validator.w3.org/nu/?doc=$(python3 - <<PY
+import urllib.parse,sys
+print(urllib.parse.quote(sys.argv[1], safe=''))
+PY
+"$u")&out=json"
+            json=$(curl -s -H 'User-Agent: Mozilla/5.0' -H 'Accept: application/json' "$api" || true)
+            errs=$(printf '%s' "$json" | jq '[.messages[]? | select(.type=="error")] | length' 2>/dev/null || echo 0)
+            ERR_SUMMARY+="$u: ${errs} errors\n"
+          done
+          printf "%s" "$ERR_SUMMARY" > w3c.txt
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          cat w3c.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post summary comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Site validators
+
+            - SecurityHeaders.com grade: `${{ steps.sh.outputs.grade }}`
+            - W3C HTML Validator errors per URL:
+
+            ```
+            ${{ steps.w3c.outputs.summary }}
+            ```
+
+            Rich Results Test (manual):
+            - Home: https://validator.schema.org/#url=https%3A%2F%2Flucky-macaron-c3c96c.netlify.app%2F
+            - Offers: https://validator.schema.org/#url=https%3A%2F%2Flucky-macaron-c3c96c.netlify.app%2Foffers
+            - Offer: https://validator.schema.org/#url=https%3A%2F%2Flucky-macaron-c3c96c.netlify.app%2Foffers%2Flucky-star
+            - Compare: https://validator.schema.org/#url=https%3A%2F%2Flucky-macaron-c3c96c.netlify.app%2Fcompare
+
