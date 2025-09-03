@@ -77,6 +77,8 @@ lhr-reports/
 *.tgz
 *.tar.gz
 *.vsix
+package-lock.json
+npm-shrinkwrap.json
 
 ########################################
 # Environment files

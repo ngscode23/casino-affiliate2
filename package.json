@@ -1,14 +1,16 @@
-
 {
   "name": "casino-affiliate",
   "private": true,
-  
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
+  "packageManager": "pnpm@9",
 
+  
+  "scripts": {
+    "preinstall": "node -e \"const ua=(process.env.npm_config_user_agent||''); if(!ua.startsWith('pnpm/')){console.error('Use pnpm (packageManager=pnpm@9). Install: corepack enable && corepack prepare pnpm@9 --activate'); process.exit(1)}\"",
+   
     "dev": "vite",
-     "dev:functions": "netlify dev -p 8888",
+    "dev:functions": "netlify dev -p 8888",
     "preview": "vite preview --port 5174",
     "clean": "rimraf node_modules package-lock.json .turbo .vite .cache dist",
     "prepare": "husky",
@@ -23,14 +25,9 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "sitemap": "node scripts/generate-sitemap.mjs",
-
-  "fn:test:impression": "curl.exe -i -X POST http://localhost:8888/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'",
-  "fn:test:impression:prod": "curl.exe -i -X POST https://lucky-macaron-c3c96c.netlify.app/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'"
-},
-
-  
-
-
+    "fn:test:impression": "curl.exe -i -X POST http://localhost:8888/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'",
+    "fn:test:impression:prod": "curl.exe -i -X POST https://lucky-macaron-c3c96c.netlify.app/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'"
+  },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.6",
     "@hookform/resolvers": "^5.2.1",
@@ -58,7 +55,7 @@
     "sonner": "^2.0.7",
     "stripe": "^12.18.0",
     "tailwind-merge": "^3.3.1",
-    "zod": "^4.1.1"
+    "zod": "4.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -96,6 +93,3 @@
     "vitest": "^3.2.4"
   }
 }
-
-
-
