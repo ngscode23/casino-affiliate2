@@ -1,0 +1,5 @@
+supabase/migrations/20250903141039_remote_schema.sql
+supabase/backups/*
+.reports/*
+node_modules/*
+dist/*

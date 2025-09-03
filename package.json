@@ -19,8 +19,15 @@
     "lint:fix": "eslint src --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --fix",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "sitemap": "node scripts/generate-sitemap.mjs"
-  },
+    "sitemap": "node scripts/generate-sitemap.mjs",
+
+  "fn:test:impression": "curl.exe -i -X POST http://localhost:8888/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'",
+  "fn:test:impression:prod": "curl.exe -i -X POST https://lucky-macaron-c3c96c.netlify.app/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'"
+},
+
+  
+
+
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.6",
     "@hookform/resolvers": "^5.2.1",

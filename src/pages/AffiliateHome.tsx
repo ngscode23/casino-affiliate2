@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Shield, Timer, TrendingUp, Globe, ExternalLink, Star } from "lucide-react";
+import { useOffers } from "@/features/offers/api/useOffers";
+import type { NormalizedOffer } from "@/lib/offers";
 
 // Minimal, dependency-light UI primitives
 function Container({ children }: { children: React.ReactNode }) {
@@ -41,16 +43,7 @@ function Button({
 }
 
 // Demo data - replace via props/store later
-type Offer = {
-  slug: string;
-  name: string;
-  rating: number;
-  payoutHours: number;
-  license: "MGA" | "Curaçao" | "UKGC" | "Other";
-  link?: string;
-};
-
-const DEMO_OFFERS: Offer[] = [
+const DEMO_OFFERS: Array<Pick<NormalizedOffer, 'slug'|'name'|'rating'|'payoutHours'|'license'|'link'>> = [
   { slug: "nova", name: "NovaBet", rating: 4.6, payoutHours: 4, license: "MGA", link: "#" },
   { slug: "aurora", name: "AuroraPlay", rating: 4.4, payoutHours: 12, license: "UKGC", link: "#" },
   { slug: "zen", name: "ZenCasino", rating: 4.2, payoutHours: 24, license: "Curaçao", link: "#" },
@@ -80,7 +73,13 @@ function RatingStars({ value }: { value: number }) {
   );
 }
 
-function OffersTable({ offers }: { offers: Offer[] }) {
+function PlanBadge({ plan }: { plan?: string }) {
+  if (!plan) return null;
+  const color = plan === 'TOP' ? 'bg-amber-500/90' : plan === 'FEATURED' ? 'bg-emerald-500/90' : 'bg-sky-500/90';
+  return <span className={`ml-2 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white ${color}`}>{plan}</span>;
+}
+
+function OffersTable({ offers }: { offers: Array<Partial<NormalizedOffer>> }) {
   return (
     <div className="overflow-hidden rounded-xl ring-1 ring-white/10">
       <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
@@ -96,10 +95,13 @@ function OffersTable({ offers }: { offers: Offer[] }) {
         <tbody>
           {offers.map((o, idx) => (
             <tr key={o.slug} className={idx % 2 === 0 ? "bg-white/0" : "bg-white/[0.03]"}>
-              <td className="px-4 py-3 font-medium text-white">{o.name}</td>
-              <td className="px-4 py-3"><RatingStars value={o.rating} /></td>
-              <td className="px-4 py-3 text-white/90">{o.payoutHours}</td>
-              <td className="px-4 py-3 text-white/80">{o.license}</td>
+              <td className="px-4 py-3 font-medium text-white">
+                {o.name}
+                {('pinnedPlan' in (o||{}) || 'pinned' in (o||{})) ? <PlanBadge plan={(o as any).pinnedPlan} /> : null}
+              </td>
+              <td className="px-4 py-3"><RatingStars value={(o.rating as number) || 0} /></td>
+              <td className="px-4 py-3 text-white/90">{(o as any).payoutHours ?? '-'}</td>
+              <td className="px-4 py-3 text-white/80">{(o.license as any) ?? '-'}</td>
               <td className="px-4 py-3 text-right">
                 <a
                   href={o.link || "#"}
@@ -118,6 +120,15 @@ function OffersTable({ offers }: { offers: Offer[] }) {
 
 // Shell-less version for use inside App layout (no Header/Footer duplication)
 export function AffiliateHome() {
+  const { offers, error } = useOffers();
+  const featured = useMemo(() => {
+    if (offers?.length) {
+      const pinned = (offers as any[]).filter(o => (o as any).pinned).slice(0, 6);
+      if (pinned.length) return pinned;
+      return [...offers].sort((a,b)=> (b.rating||0) - (a.rating||0)).slice(0, 4);
+    }
+    return DEMO_OFFERS as any;
+  }, [offers]);
   return (
     <div className="text-white">
       {/* Hero */}
@@ -153,7 +164,10 @@ export function AffiliateHome() {
             >
               <Card className="border border-white/10">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-white/70">Выбор дня</h3>
-                <OffersTable offers={DEMO_OFFERS} />
+                {error ? (
+                  <div className="text-sm text-white/70">Не удалось загрузить — показаны примеры.</div>
+                ) : null}
+                <OffersTable offers={featured as any} />
                 <div className="mt-4 text-right">
                   <Button href="/compare" variant="ghost">Показать все</Button>
                 </div>
@@ -295,4 +309,3 @@ export default function AffiliateHome_v1() {
     </div>
   );
 }
-

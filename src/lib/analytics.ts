@@ -1,5 +1,5 @@
 // src/lib/analytics.ts
-import posthog from "posthog-js";
+// Keep initial bundle light: load analytics libraries only after consent
 
 /* ------------------ Window typings ------------------ */
 declare global {
@@ -18,6 +18,9 @@ const FEATURE_POSTHOG = String((import.meta.env as any).FEATURE_POSTHOG || "").t
 const PH_KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const PH_HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || "https://app.posthog.com";
 
+// Lazy-loaded PostHog instance
+let posthogRef: (typeof import("posthog-js")['default']) | null = null;
+
 export type ConsentState = { analytics: boolean; marketing: boolean };
 
 const A_ATTR = "data-analytics-consent";
@@ -26,38 +29,45 @@ const EVENT_NAME = "cookie-consent-changed";
 
 /* ------------------ Init / enable ------------------ */
 
-/** Одноразовая инициализация PostHog (без автотрекинга страниц) */
+/** Initialize PostHog (called after consent) */
 export function initAnalytics(): void {
   if (inited) return;
-  if (!PH_KEY) {
-    if (import.meta.env.DEV) console.warn("[analytics] VITE_POSTHOG_KEY not set");
-    inited = true; // считаем инициализированным, чтобы не дёргать каждый раз
+  if (!PH_KEY || !FEATURE_POSTHOG) {
+    if (import.meta.env.DEV) console.warn("[analytics] PostHog disabled or VITE_POSTHOG_KEY not set");
+    inited = true; // mark to avoid repeated attempts
     return;
   }
 
-  try {
-    posthog.init(PH_KEY, {
-      api_host: PH_HOST,
-      autocapture: true,
-      capture_pageview: false,
-      persistence: "localStorage"
-    });
-  } catch (e) {
-    if (import.meta.env.DEV) console.warn("[analytics.init] posthog init failed:", e);
-  }
-  inited = true;
+  // Dynamically import posthog-js after consent
+  (async () => {
+    try {
+      const mod = await import("posthog-js");
+      posthogRef = mod.default;
+      posthogRef.init(PH_KEY!, {
+        api_host: PH_HOST,
+        autocapture: true,
+        capture_pageview: false,
+        persistence: "localStorage",
+      });
+      if (import.meta.env.DEV) console.info("[analytics] PostHog initialized");
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn("[analytics.init] posthog init failed:", e);
+    } finally {
+      inited = true;
+    }
+  })();
 }
 
-/** Включить аналитику после согласия пользователя (CookieBar) */
+/** Enable analytics after user consent (CookieBar) */
 export function enableAnalytics(): void {
   if (_analyticsEnabled) return;
   _analyticsEnabled = true;
 
   try {
-    // Инициализируем PostHog лениво
+    // Initialize PostHog lazily
     if (!inited && FEATURE_POSTHOG) initAnalytics();
 
-    // Обновим GA consent, если подключён gtag
+    // Update GA consent, if gtag is present
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("consent", "update", { analytics_storage: "granted" });
     }
@@ -94,7 +104,7 @@ export function setConsent(analytics: boolean, marketing: boolean): void {
   }
 }
 
-/** Подписка на изменение consent из CookieBar */
+/** Subscribe to consent changes from CookieBar */
 export function onConsentChanged(cb: (state: ConsentState) => void): () => void {
   const handler = () => cb(getConsent());
   window.addEventListener(EVENT_NAME, handler as EventListener);
@@ -103,12 +113,8 @@ export function onConsentChanged(cb: (state: ConsentState) => void): () => void 
 
 /* ------------------ GA readiness ------------------ */
 
-export function setGaReady(v: boolean): void {
-  _gaReady = v;
-}
-export function isGaReady(): boolean {
-  return _gaReady;
-}
+export function setGaReady(v: boolean): void { _gaReady = v; }
+export function isGaReady(): boolean { return _gaReady; }
 
 /* ------------------ Tracking ------------------ */
 
@@ -117,7 +123,6 @@ export type TrackPayload = {
   params?: Record<string, unknown>;
 };
 
-// Перегрузки для удобства типов
 export function track(name: string, params?: Record<string, unknown>): void;
 export function track(payload: TrackPayload): void;
 export function track(nameOrPayload: string | TrackPayload, params?: Record<string, unknown>): void {
@@ -126,7 +131,7 @@ export function track(nameOrPayload: string | TrackPayload, params?: Record<stri
     const payload = typeof nameOrPayload === "string" ? (params ?? {}) : (nameOrPayload?.params ?? {});
     if (!name) return;
 
-    // Если пользователь не дал согласие/мы не включены — тихо выходим
+    // Skip if analytics disabled / no consent
     if (!_analyticsEnabled) {
       if (import.meta.env.DEV) console.debug("[track:skipped(disabled)]", name, payload);
       return;
@@ -141,9 +146,9 @@ export function track(nameOrPayload: string | TrackPayload, params?: Record<stri
       if (import.meta.env.DEV) console.warn("[analytics.gtag] error:", e);
     }
 
-    // PostHog
+    // PostHog (if loaded)
     try {
-      posthog?.capture?.(name, payload);
+      posthogRef?.capture?.(name, payload);
     } catch (e) {
       if (import.meta.env.DEV) console.warn("[analytics.posthog] error:", e);
     }
@@ -160,8 +165,8 @@ export function trackPageview(path?: string): void {
     return;
   }
   try {
-    posthog.capture("$pageview", { path: path ?? location.pathname });
-    // Дублируем в GA для симметрии (если кто-то ещё любит отчёты в GA)
+    posthogRef?.capture?.("$pageview", { path: path ?? location.pathname });
+    // also send to GA when present
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("event", "page_view", { page_path: path ?? location.pathname });
     }
@@ -172,12 +177,13 @@ export function trackPageview(path?: string): void {
 
 /* ------------------ Convenience ------------------ */
 
-/** Быстрое событие клика по афф. ссылке */
+/** Track affiliate click with optional position */
 export function trackAffiliateClick(offer_slug: string, position?: number): void {
   track("click_affiliate_link", { offer_slug, position });
 }
 
-/** Добавление к сравнению */
+/** Track add-to-compare */
 export function trackAddToCompare(offer_slug: string, position?: number): void {
   track("add_to_compare", { offer_slug, position });
 }
+

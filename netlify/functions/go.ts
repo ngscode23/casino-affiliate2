@@ -63,6 +63,12 @@ function genClickId(): string {
   return `c_${Date.now().toString(36)}_${r}`;
 }
 
+function isBotUA(ua: string | null | undefined): boolean {
+  if (!ua) return false;
+  const s = ua.toLowerCase();
+  return /(bot|spider|crawl|slurp|facebookexternalhit|whatsapp|telegram|preview|insights|pingdom|crawler)/i.test(s);
+}
+
 function withTrackingParams(
   target: string,
   query: Record<string, string | undefined>
@@ -163,8 +169,28 @@ export const handler: Handler = async (event) => {
       }
     })();
 
-    // Best-effort logging. Ignore failures for UX.
+    // Skip logging for obvious bots/previews
+    if (isBotUA(userAgent)) {
+      return redirect(targetWithParams, 302);
+    }
+
+    // Best-effort logging with soft rate-limit
     try {
+      // Soft rate limit by ip_hash in a short window (5s)
+      const windowMs = 5000;
+      if (ipHash) {
+        const since = new Date(Date.now() - windowMs).toISOString();
+        const { data: recent } = await (supabase as any)
+          .from('clicks')
+          .select('id')
+          .eq('ip_hash', ipHash)
+          .gte('ts', since)
+          .limit(1);
+        if ((recent || []).length) {
+          return redirect(targetWithParams, 302);
+        }
+      }
+
       await supabase.from("clicks").insert({
         slug,
         click_id: clickId,
