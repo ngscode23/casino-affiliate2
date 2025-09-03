@@ -97,3 +97,6 @@ backup.tgz
 # Misc temps
 ########################################
 .tmp/
+
+# Local SSH keys
+.ssh/
