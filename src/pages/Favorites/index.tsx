@@ -116,7 +116,7 @@ export default function FavoritesPage() {
 
   return (
     <>
-      <Seo title="Избранное — ваши сохранённые казино" description="Быстрый доступ к сохранённым офферам." />
+      <Seo title="Избранное — ваши сохранённые казино" description="Быстрый доступ к сохранённым офферам." canonical={origin ? origin + "/favorites" : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
 
       <section className="neon-hero relative">
         <Section>

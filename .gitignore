@@ -1,4 +1,6 @@
-# Logs
+########################################
+# General logs
+########################################
 logs
 *.log
 npm-debug.log*
@@ -6,90 +8,92 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+tailwindcss-*.log
+supabase-debug.log
 
-node_modules
-dist
-dist-ssr
-*.local
+########################################
+# Dependencies
+########################################
+node_modules/
 
-# Editor directories and files
+########################################
+# Builds and caches
+########################################
+dist/
+build/
+dist-ssr/
+.next/
+.vite/
+.cache/
+
+########################################
+# Test artifacts
+########################################
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+########################################
+# Supabase temps
+########################################
+supabase/.temp/
+supabase/.branches/
+
+########################################
+# Local/Tooling folders
+########################################
+.netlify/
+
+########################################
+# Reports (local only)
+########################################
+psql_reports/
+lhr-reports/
+/audit-*.txt
+
+########################################
+# OS / Editor files
+########################################
+*.DS_Store
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-backup-inner-casino-affiliate.zip
-backup-inner-casino-affiliate.zip
-backup-inner-casino-affiliate.zip
-backup-inner-casino-affiliate.zip
-# build artifacts
-dist
-build
-.next
-.vite
+
+########################################
+# TypeScript
+########################################
 *.tsbuildinfo
 
-# dependencies
-node_modules/
+########################################
+# Archives
+########################################
+*.zip
+*.tgz
+*.tar.gz
+*.vsix
 
-# builds
-dist/
-build/
-.vite/
-.next/
-
-# misc
-*.tsbuildinfo
-.tmp/
+########################################
+# Environment files
+########################################
 .env
 .env.*
 
+########################################
+# Local backups
+########################################
 backup_before_cleanup_*/
-# Local Netlify folder
-.netlify
-backup_before_cleanup_*/
-dist/
-node_modules/
-backup_before_cleanup_*/
-dist/
-node_modules/
+_backups/
+backup-*.zip
+backup.zip
+backup.tgz
 
-# local audit reports
-/audit-*.txt
-
-# local audit reports
-/audit-*.txt
-
-# local audit reports
-/audit-*.txt
-
-# local audit reports
-/audit-*.txt
-
-# local audit reports
-/audit-*.txt
-test-results/
-playwright-report/
-playwright/.cache/
-*.zip
-# junk
-node_modules
-dist
-build
-.vite
-.cache
-.next
-coverage
-_archive
-
-.netlify/
-playwright-report/
-coverage/
-# env
-.env
-.env.local
-.env.production
+########################################
+# Misc temps
+########################################
+.tmp/

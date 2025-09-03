@@ -14,6 +14,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL as string | undefined;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as
   | string
   | undefined;
+const RL_WINDOW_MS = (() => {
+  const raw = Number(process.env.GO_CLICK_RATELIMIT_MS || 5000);
+  if (!isFinite(raw)) return 5000;
+  return Math.min(Math.max(raw, 5000), 15000); // clamp 5s..15s
+})();
 
 function json(obj: any, statusCode = 200) {
   return {
@@ -176,22 +181,24 @@ export const handler: Handler = async (event) => {
 
     // Best-effort logging with soft rate-limit
     try {
-      // Soft rate limit by ip_hash in a short window (5s)
-      const windowMs = 5000;
+      let limited = false;
+      // Soft rate limit by (ip_hash, slug) in a short window (env-driven)
       if (ipHash) {
-        const since = new Date(Date.now() - windowMs).toISOString();
-        const { data: recent } = await (supabase as any)
-          .from('clicks')
-          .select('id')
-          .eq('ip_hash', ipHash)
-          .gte('ts', since)
-          .limit(1);
-        if ((recent || []).length) {
-          return redirect(targetWithParams, 302);
-        }
+        try {
+          const since = new Date(Date.now() - RL_WINDOW_MS).toISOString();
+          const { data: recent } = await (supabase as any)
+            .from('clicks')
+            .select('id')
+            .eq('ip_hash', ipHash)
+            .eq('slug', slug)
+            .gte('ts', since)
+            .limit(1);
+          if ((recent || []).length) limited = true;
+        } catch { /* ignore */ }
       }
 
-      await supabase.from("clicks").insert({
+      if (!limited) {
+        await supabase.from("clicks").insert({
         slug,
         click_id: clickId,
         target_url: target,
@@ -203,6 +210,7 @@ export const handler: Handler = async (event) => {
         ip_hash: ipHash,
         ts: new Date().toISOString(),
       } as any);
+      }
     } catch {
       // ignore
     }

@@ -35,6 +35,25 @@ Production-ready affiliate starter: i18n, SEO, server-side redirects with tracki
 - Build command: `pnpm build`
 - Publish directory: `dist`
 
+## Verify Stripe locally
+- Required env (Netlify Dev or shell):
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+  - Price IDs for your plans (monthly/yearly) used by `create-subscription`
+- Start Netlify Dev: `npm run dev:netlify`
+- In another shell, start Stripe webhook forwarder:
+  - `stripe listen --forward-to http://localhost:8888/.netlify/functions/stripe-webhook`
+- Fire test events:
+  - `stripe trigger checkout.session.completed`
+  - `stripe trigger customer.subscription.updated`
+  - `stripe trigger customer.subscription.deleted`
+- Expected effects:
+  - `public.partners.expires_at` is updated from subscription `current_period_end`
+  - Pinned slugs are inserted/updated in `public.partner_offers`
+  - `public.webhook_logs` contains masked payloads (no raw PII), one row per event id (idempotent)
+- Admin UI checks:
+  - `/admin/partners` shows pins and updated expiration
+  - `/admin/webhooks` lists latest webhook events
+
 ## Features
 - Server redirect `/go/:slug` with UTM/Ref/UA/IP hash logging (RLS enabled)
 - Analytics `/admin/analytics`: clicks by day, top slugs, top sources, UTM report, CSV export

@@ -14,3 +14,11 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+      - name: E2E (redirect) — optional
+        if: env.PREVIEW_URL != ''
+        continue-on-error: true
+        env:
+          PREVIEW_URL: ${{ env.PREVIEW_URL }}
+        run: |
+          npx playwright install --with-deps || true
+          npm run test:e2e || echo "E2E failed (non-blocking)"

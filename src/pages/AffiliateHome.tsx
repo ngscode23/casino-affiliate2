@@ -73,7 +73,7 @@ function RatingStars({ value }: { value: number }) {
   );
 }
 
-function PlanBadge({ plan }: { plan?: string }) {
+export function PlanBadge({ plan }: { plan?: string }) {
   if (!plan) return null;
   const color = plan === 'TOP' ? 'bg-amber-500/90' : plan === 'FEATURED' ? 'bg-emerald-500/90' : 'bg-sky-500/90';
   return <span className={`ml-2 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white ${color}`}>{plan}</span>;
