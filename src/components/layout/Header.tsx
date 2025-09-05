@@ -47,7 +47,7 @@ export default function Header() {
                 onMouseEnter={item.preload as any}
                 className={({ isActive }) =>
                   cn(
-                    "px-3 py-3 text-sm text-[var(--text-dim)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+                    "px-3 py-3 text-sm text-[var(--text-dim)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50",
                     isActive && "text-[var(--text)] border-b-2 border-[rgb(var(--primary))]"
                   )
                 }

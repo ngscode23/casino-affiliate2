@@ -64,7 +64,9 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
         </div>
 
         <div className="shrink-0 flex items-center gap-2">
-          <Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill>
+          <Pill tone="rating" aria-label={`Rating ${typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)} out of 5`}>
+            ★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}
+          </Pill>
           <FavControl id={offer.slug} className="inline-flex h-10 w-10" />
         </div>
       </div>
@@ -147,7 +149,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-[var(--text-dim)]">Rating</div>
-                    <div className="mt-1"><Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill></div>
+                    <div className="mt-1"><Pill tone="rating" aria-label={`Rating ${typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)} out of 5`}>★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill></div>
                   </div>
 
                   <div>

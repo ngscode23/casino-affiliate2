@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { ButtonGhost, ButtonPrimary } from "@/components/ui/Buttons";
 import { Pill } from "@/components/ui/Pill";
+import IconButton from "@/components/ui/IconButton";
 import { useCompare } from "@/ctx/CompareContext";
 
 export default function CompareInline({ className = "" }: { className?: string }) {
@@ -18,14 +19,9 @@ export default function CompareInline({ className = "" }: { className?: string }
           return (
             <Pill key={id}>
               {o.name}
-              <button
-                type="button"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-white/10 focus:outline-none"
-                onClick={() => remove(id)}
-                aria-label={`Remove ${o.name}`}
-              >
+              <IconButton size="sm" onClick={() => remove(id)} aria-label={`Remove ${o.name}`}>
                 <X className="h-3.5 w-3.5 pointer-events-none" />
-              </button>
+              </IconButton>
             </Pill>
           );
         })}

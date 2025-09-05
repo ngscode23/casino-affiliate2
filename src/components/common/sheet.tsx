@@ -74,9 +74,9 @@ export const SheetContent = React.forwardRef<
 
         {children}
 
-        {/* Кнопка закрытия без сияющих колец */}
+        {/* Кнопка закрытия с единым фокус-стилем */}
         <Dialog.Close
-          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-0"
+          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-full border border-white/10 text-neutral-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
           aria-label="Close"
         >
           <X className="size-4" aria-hidden="true" />

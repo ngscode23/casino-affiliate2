@@ -5,6 +5,8 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import PageShell from "@/components/ui/PageShell";
 import SectionCard from "@/components/ui/SectionCard";
+import { ButtonGhost } from "@/components/ui/Buttons";
+import LinkButton from "@/components/ui/LinkButton";
 import Seo from "@/components/Seo";
 import { SITE_URL } from "@/config";
 
@@ -12,7 +14,7 @@ import OfferListFeature from "@/features/offers/components/OfferListFeature";
 import { useOffers } from "@/features/offers/api/useOffers";
 import OfferFiltersFeature, { type OffersFilterState } from "@/features/offers/components/OfferFiltersFeature";
 
-import { getRecent } from "@/lib/recent";
+import { getRecent, clearRecent } from "@/lib/recent";
 import { offersNormalized, type NormalizedOffer } from "@/lib/offers";
 
 export default function OffersIndex() {
@@ -26,6 +28,7 @@ export default function OffersIndex() {
   }, [params]);
 
   const [filters, setFilters] = useState<OffersFilterState>(initialFilters);
+  const [recentVersion, setRecentVersion] = useState(0);
 
   // Sync filters to URL
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function OffersIndex() {
     } catch {
       return [];
     }
-  }, [offers]);
+  }, [offers, recentVersion]);
 
   // JSON-LD: collection + filtered item list
   const origin = SITE_URL.replace(/\/$/, "");
@@ -116,6 +119,14 @@ export default function OffersIndex() {
 
       <SectionCard className="sticky top-3 z-20">
         <OfferFiltersFeature initialLicense={filters.license} initialQ={filters.q} onChange={setFilters} />
+        <div className="mt-2 flex justify-end">
+          <ButtonGhost
+            onClick={async () => {
+              try { await navigator.clipboard.writeText(location.href); alert("Link copied"); }
+              catch { prompt("Copy link:", location.href); }
+            }}
+          >Share filters</ButtonGhost>
+        </div>
       </SectionCard>
 
       {isLoading ? (
@@ -129,7 +140,12 @@ export default function OffersIndex() {
       )}
 
       {recentOffers.length > 0 && (
-        <SectionCard title="Recently Viewed">
+        <SectionCard
+          title="Recently Viewed"
+          actions={
+            <ButtonGhost onClick={() => { clearRecent(); setRecentVersion((v) => v + 1); }}>Clear</ButtonGhost>
+          }
+        >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentOffers.map((o) => (
               <Link

@@ -2,6 +2,7 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { ButtonGhost, ButtonPrimary } from "@/components/ui/Buttons";
 import { Pill } from "@/components/ui/Pill";
+import IconButton from "@/components/ui/IconButton";
 
 import {
   Sheet,
@@ -117,14 +118,9 @@ export default function CompareBar() {
                           return (
                             <Pill key={id}>
                               {o.name}
-                              <button
-                                type="button"
-                                className="opacity-70 hover:opacity-100 focus:outline-none focus:ring-0 focus:ring-offset-0"
-                                onClick={() => remove(id)}
-                                aria-label={`Remove ${o.name}`}
-                              >
+                              <IconButton size="sm" onClick={() => remove(id)} aria-label={`Remove ${o.name}`}>
                                 <X className="h-3.5 w-3.5" />
-                              </button>
+                              </IconButton>
                             </Pill>
                           );
                         })}

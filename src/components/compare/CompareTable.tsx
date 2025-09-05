@@ -48,7 +48,12 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
     <button
       type="button"
       onClick={() => onSortChange(k, nextDir(k))}
-      className={["inline-flex items-center gap-1 select-none", "text-[var(--muted)] hover:text-[var(--text)]", className].join(" ")}
+      className={[
+        "inline-flex items-center gap-1 select-none rounded-md",
+        "text-[var(--muted)] hover:text-[var(--text)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40",
+        className,
+      ].join(" ")}
     >
       {children}
       {sortKey === k ? <span aria-hidden className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
@@ -74,7 +79,10 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
               <th className="px-4 py-2 border-b border-white/10">{t("compare.addTo")}</th>
               <th className="px-4 py-2 border-b border-white/10">{t("nav.favorites") || "FAV"}</th>
               <th className="px-4 py-2 border-b border-white/10">{t("compare.selected") || "FIRM"}</th>
-              <th className="px-4 py-2 border-b border-white/10">
+              <th
+                className="px-4 py-2 border-b border-white/10"
+                aria-sort={sortKey === "rating" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+              >
                 <SortHeader k="rating">{t("offer.ratingLabel").toUpperCase()}</SortHeader>
               </th>
 
@@ -86,7 +94,10 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
                 </Tooltip>
               </th>
 
-              <th className="px-4 py-2 border-b border-white/10">
+              <th
+                className="px-4 py-2 border-b border-white/10"
+                aria-sort={sortKey === "payoutHours" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+              >
                 <SortHeader k="payoutHours">{t("offer.payout").toUpperCase()}</SortHeader>
               </th>
               <th className="px-4 py-2 border-b border-white/10">{t("filters.methods") || "METHODS"}</th>
@@ -136,7 +147,9 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
 
                   {/* RATING */}
                   <td className="px-4 py-3">
-                    <Pill tone="rating">★ {typeof o.rating === "number" ? o.rating.toFixed(1) : String(o.rating ?? 0)}</Pill>
+                    <Pill tone="rating" aria-label={`Rating ${typeof o.rating === "number" ? o.rating.toFixed(1) : String(o.rating ?? 0)} out of 5`}>
+                      ★ {typeof o.rating === "number" ? o.rating.toFixed(1) : String(o.rating ?? 0)}
+                    </Pill>
                   </td>
 
                   {/* LICENSE */}
