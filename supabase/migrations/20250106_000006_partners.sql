@@ -10,7 +10,7 @@ create table if not exists public.partners (
   plan text not null, -- BASIC | FEATURED | TOP
   expires_at timestamptz,
   created_at timestamptz not null default now(),
-  constraint partners_plan_chk check (plan in ('BASIC', 'FEATURED', 'TOP'))
+  constraint partners_plan_chk check (plan in ('BASIC', 'FEATURED', 'TOP')) 
 );
 
 -- Ensure single partner per (email, plan) for idempotent upserts from webhook
@@ -25,7 +25,17 @@ create table if not exists public.partner_offers (
 );
 
 -- Helpful partial indexes for typical reads
-create index if not exists partner_offers_pinned_slug_idx on public.partner_offers (offer_slug) where pinned = true;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='partner_offers' and column_name='offer_slug'
+  ) then
+    execute 'create index if not exists partner_offers_pinned_slug_idx on public.partner_offers (offer_slug) where pinned = true';
+  else
+    -- v2: use offer_id-based index name
+    execute 'create index if not exists partner_offers_pinned_offer_id_idx on public.partner_offers (offer_id) where pinned = true';
+  end if;
+end $$;
 create index if not exists partners_expires_at_active_idx on public.partners (expires_at) where expires_at is not null;
 
 alter table public.partners enable row level security;
@@ -47,34 +57,84 @@ create policy "auth manage partner_offers" on public.partner_offers
   with check (true);
 
 -- RPC to expose pinned slugs to public without exposing partners data
-create or replace function public.pinned_offer_slugs()
-returns setof text
-language sql
-security definer
-set search_path = public
-as $$
-  select distinct po.offer_slug
-  from public.partner_offers po
-  join public.partners p on p.id = po.partner_id
-  where po.pinned = true
-    and (p.expires_at is null or p.expires_at > now());
-$$;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='partner_offers' and column_name='offer_slug'
+  ) then
+    execute $fn$
+      create or replace function public.pinned_offer_slugs()
+      returns setof text
+      language sql
+      security definer
+      set search_path = public
+      as $body$
+        select distinct po.offer_slug
+        from public.partner_offers po
+        join public.partners p on p.id = po.partner_id
+        where po.pinned = true
+          and (p.expires_at is null or p.expires_at > now());
+      $body$;
+    $fn$;
+  else
+    execute $fn$
+      create or replace function public.pinned_offer_slugs()
+      returns setof text
+      language sql
+      security definer
+      set search_path = public
+      as $body$
+        select distinct o.slug
+        from public.partner_offers po
+        join public.partners p on p.id = po.partner_id
+        join public.offers o on o.id = po.offer_id
+        where po.pinned = true
+          and (p.expires_at is null or p.expires_at > now());
+      $body$;
+    $fn$;
+  end if;
+end $$;
 
 grant execute on function public.pinned_offer_slugs() to anon, authenticated;
 
 -- Optional: expose pinned slugs with plan for UI badges
-create or replace function public.pinned_offer_meta()
-returns table(offer_slug text, plan text)
-language sql
-security definer
-set search_path = public
-as $$
-  select distinct po.offer_slug, p.plan
-  from public.partner_offers po
-  join public.partners p on p.id = po.partner_id
-  where po.pinned = true
-    and (p.expires_at is null or p.expires_at > now());
-$$;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='partner_offers' and column_name='offer_slug'
+  ) then
+    execute $fn$
+      create or replace function public.pinned_offer_meta()
+      returns table(offer_slug text, plan text)
+      language sql
+      security definer
+      set search_path = public
+      as $body$
+        select distinct po.offer_slug, p.plan
+        from public.partner_offers po
+        join public.partners p on p.id = po.partner_id
+        where po.pinned = true
+          and (p.expires_at is null or p.expires_at > now());
+      $body$;
+    $fn$;
+  else
+    execute $fn$
+      create or replace function public.pinned_offer_meta()
+      returns table(offer_slug text, plan text)
+      language sql
+      security definer
+      set search_path = public
+      as $body$
+        select distinct o.slug as offer_slug, p.plan
+        from public.partner_offers po
+        join public.partners p on p.id = po.partner_id
+        join public.offers o on o.id = po.offer_id
+        where po.pinned = true
+          and (p.expires_at is null or p.expires_at > now());
+      $body$;
+    $fn$;
+  end if;
+end $$;
 
 grant execute on function public.pinned_offer_meta() to anon, authenticated;
 
@@ -95,4 +155,3 @@ as $$
 $$;
 
 grant execute on function public.expire_partner_pins() to anon, authenticated;
-

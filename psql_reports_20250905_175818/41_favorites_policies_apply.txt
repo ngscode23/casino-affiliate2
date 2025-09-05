@@ -1,0 +1,3 @@
+psql:C:/Users/stasv/AppData/Local/Temp/tmptnu5kg.tmp.sql:4: ERROR:  syntax error at or near "scripts"
+LINE 1: DO scripts/task_v2.ps1
+           ^

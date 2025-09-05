@@ -1,0 +1,8 @@
+SET
+SET
+SET
+       label        | c 
+--------------------+---
+ expired_pins_after | 0
+(1 row)
+

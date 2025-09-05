@@ -1,0 +1,15 @@
+SET
+SET
+SET
+    table    |          index           | idx_size 
+-------------+--------------------------+----------
+ clicks      | clicks_ts_idx            | 16 kB
+ clicks      | clicks_click_id_idx      | 16 kB
+ clicks      | clicks_pkey              | 16 kB
+ clicks      | idx_clicks_offer_ts      | 16 kB
+ clicks      | idx_clicks_ip_ts         | 16 kB
+ impressions | impressions_ts_idx       | 16 kB
+ impressions | idx_impressions_offer_ts | 16 kB
+ impressions | impressions_pkey         | 16 kB
+(8 rows)
+

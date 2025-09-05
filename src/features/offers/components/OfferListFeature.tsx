@@ -23,10 +23,10 @@ export default function OfferListFeature({
   error,
 }: Props) {
   if (isLoading) {
-    return <div className="neon-card p-4">Loading...</div>;
+    return <div className="text-neutral-300">Loading...</div>;
   }
   if (error) {
-    return <div className="neon-card p-4 text-red-400">Error: {error}</div>;
+    return <div className="text-red-400">Error: {error}</div>;
   }
 
   const filtered = offers.filter((o) => {
@@ -41,7 +41,7 @@ export default function OfferListFeature({
   });
 
   if (filtered.length === 0) {
-    return <div className="neon-card p-4">No offers match the filters.</div>;
+    return <div className="text-neutral-300">No offers match the filters.</div>;
   }
 
   function ListItem({ offer }: { offer: NormalizedOffer }) {

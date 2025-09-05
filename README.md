@@ -109,6 +109,19 @@ E2E test
 - Source summary groups by `utm_source`
 - Per-slug mini sparklines (daily) for quick trend view
 
+### Admin metrics (Clicks)
+- Server function `/.netlify/functions/metrics?days=<int>` returns daily click counts and Top-10 offers for last N days (UTC).
+- Auth: header `x-admin-token` must equal `ADMIN_TOKEN` (set only on Netlify/server). In local dev, the UI sends `VITE_ADMIN_TOKEN` as this header.
+- Env (Netlify): `ADMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Env (frontend, dev only): `VITE_ADMIN_TOKEN`.
+- DB: uses `public.clicks` (`slug`, `ts`/`created_at`). Aggregation runs via SQL RPC: `metrics_clicks_daily(p_days)` and `metrics_clicks_top_offers(p_days)`.
+- UI at `/admin/metrics`:
+  - Period toggles: 7/14/30 days (updates `?days=` and reloads)
+  - Daily chart with missing days as zeros
+  - Top table: `#`, `slug`, `clicks`, `%` (share from total)
+  - Handles empty periods (total=0, zero-filled daily, empty top)
+- Robots: `public/robots.txt` disallows `/admin/` from crawling; `/admin/metrics` is not included in sitemap.
+
 Impressions
 - Frontend records impressions to `public.impressions` via `/.netlify/functions/track-impression` on first render of visible offers.
 - Stored fields: `slug`, `ts`, `ip_hash`, `user_agent`, `referer`, `device`, `lang` (RLS allows authenticated read only).

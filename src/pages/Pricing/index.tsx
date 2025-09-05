@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Section from '@/components/common/section';
 import Card from '@/components/common/card';
+import { ButtonPrimary, ButtonGhost } from '@/components/ui/Buttons';
 import { fnUrl } from '@/lib/api';
 
 type Interval = 'MONTHLY'|'YEARLY';
@@ -44,8 +45,8 @@ export default function PricingPage() {
       </div>
 
       <div className="flex items-center justify-center gap-2">
-        <button className={`neon-btn ${interval==='MONTHLY'?'':'btn-soft'}`} onClick={()=>setInterval('MONTHLY')}>Monthly</button>
-        <button className={`neon-btn ${interval==='YEARLY'?'':'btn-soft'}`} onClick={()=>setInterval('YEARLY')}>Yearly</button>
+        <ButtonGhost className={interval==='MONTHLY' ? 'bg-white/10 border-white/15' : ''} onClick={()=>setInterval('MONTHLY')}>Monthly</ButtonGhost>
+        <ButtonGhost className={interval==='YEARLY' ? 'bg-white/10 border-white/15' : ''} onClick={()=>setInterval('YEARLY')}>Yearly</ButtonGhost>
       </div>
 
       <Card className="p-4">
@@ -56,9 +57,9 @@ export default function PricingPage() {
               <ul className="text-sm list-disc pl-5 space-y-1 text-[var(--text-dim)]">
                 {p.features.map((f, i)=> <li key={i}>{f}</li>)}
               </ul>
-              <button disabled={loading===p.key} className="neon-btn w-full" onClick={()=>subscribe(p.key)}>
+              <ButtonPrimary disabled={loading===p.key} className="w-full" onClick={()=>subscribe(p.key)}>
                 {loading===p.key? 'Opening Checkout...' : 'Subscribe'}
-              </button>
+              </ButtonPrimary>
             </div>
           ))}
         </div>

@@ -7,9 +7,14 @@
 
   
   "scripts": {
+    "db:up": "npx supabase start",
+    "db:reset": "npx supabase db reset",
+    "db:seed:ps": "pwsh -File ./scripts/seed.ps1",
+     "db:seed:sh": "bash ./scripts/seed.sh",
     "preinstall": "node -e \"const ua=(process.env.npm_config_user_agent||''); if(!ua.startsWith('pnpm/')){console.error('Use pnpm (packageManager=pnpm@9.0.0). Install: corepack enable && corepack prepare pnpm@9.0.0 --activate'); process.exit(1)}\"",
-   
+    "db:verify:pinned": "psql -h localhost -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f scripts/sql/verify_pinned.sql",
     "dev": "vite",
+    "dev:netlify": "netlify dev",
     "dev:functions": "netlify dev -p 8888",
     "preview": "vite preview --port 5174",
     "clean": "rimraf node_modules package-lock.json .turbo .vite .cache dist",
@@ -25,8 +30,13 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "sitemap": "node scripts/generate-sitemap.mjs",
-    "fn:test:impression": "curl.exe -i -X POST http://localhost:8888/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'",
-    "fn:test:impression:prod": "curl.exe -i -X POST https://lucky-macaron-c3c96c.netlify.app/.netlify/functions/track-impression -H \"Content-Type: application/json\" -d '{\"slug\":\"lucky-star\"}'"
+    "fn:test:imp": "node scripts/fn-impression.mjs test",
+    "fn:test:click": "node -e \"(async()=>{const f='http://localhost:8888/.netlify/functions/track-click';const res=await fetch(f,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({slug:'test'})});console.log('Status:',res.status);console.log(await res.text());})().catch(e=>{console.error(e);process.exit(1);})\"",
+    "metrics:test": "node -e \"(async()=>{const u=process.env.FUNCTIONS_URL||'http://localhost:8888/.netlify/functions/metrics?days=14';const res=await fetch(u,{headers:{'x-admin-token':process.env.ADMIN_TOKEN||'dev-only'}});console.log('Status:',res.status);console.log(await res.text());})()\"",
+    "fn:test:impression": "node scripts/fn-impression.mjs lucky-star",
+    "fn:test:impression:slug": "node scripts/fn-impression.mjs",
+    "fn:test:go": "node scripts/fn-go.mjs test",
+    "fn:test:go:slug": "node scripts/fn-go.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.6",

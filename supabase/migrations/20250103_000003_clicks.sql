@@ -17,7 +17,18 @@ create table if not exists public.clicks (
 
 -- Helpful indexes
 create index if not exists clicks_ts_idx on public.clicks (ts desc);
-create index if not exists clicks_slug_ts_idx on public.clicks (slug, ts desc);
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='clicks' and column_name='slug'
+  ) then
+    if not exists (
+      select 1 from pg_indexes where schemaname='public' and tablename='clicks' and indexname='clicks_slug_ts_idx'
+    ) then
+      execute 'create index clicks_slug_ts_idx on public.clicks (slug, ts desc)';
+    end if;
+  end if;
+end $$;
 create index if not exists clicks_click_id_idx on public.clicks (click_id);
 
 

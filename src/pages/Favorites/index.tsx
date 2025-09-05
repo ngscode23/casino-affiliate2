@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState } from "react";
-import Section from "@/components/common/section";
-import Card from "@/components/common/card";
-import Button from "@/components/common/button";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { ButtonPrimary, ButtonGhost } from "@/components/ui/Buttons";
 import Seo from "@/components/Seo";
 import MobileOfferCard from "@/components/offers/MobileOfferCard";
 import CompareTable, { type SortKey } from "@/components/compare/CompareTable";
@@ -10,6 +10,8 @@ import { useFavorites } from "@/lib/useFavorites";
 import { useOffers } from "@/features/offers/api/useOffers";
 import { useSearchParams } from "react-router-dom";
 import { SITE_URL } from "@/config";
+import { toast } from "@/components/common/toast";
+import { Share2 } from "lucide-react";
 
 export default function FavoritesPage() {
   // избранное
@@ -107,9 +109,8 @@ export default function FavoritesPage() {
     const url = origin + "/favorites?list=" + items.join(",");
     try {
       await navigator.clipboard.writeText(url);
-      alert("Ссылка скопирована в буфер обмена.");
+      toast("Скопировано", { variant: "success" });
     } catch {
-  
       prompt("Скопируйте ссылку вручную:", url);
     }
   }, [items]);
@@ -118,46 +119,32 @@ export default function FavoritesPage() {
     <>
       <Seo title="Избранное — ваши сохранённые казино" description="Быстрый доступ к сохранённым офферам." canonical={origin ? origin + "/favorites" : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
 
-      <section className="neon-hero relative">
-        <Section>
-          <h1
-            style={{
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              fontSize: "clamp(28px,4.5vw,46px)",
-            }}
-          >
-            Избранное
-          </h1>
-          <p className="neon-subline mt-2">Ваши сохранённые офферы.</p>
+      <PageShell>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">Избранное</h1>
+        {favOffers.length > 0 && (
+          <SectionCard actions={
+            <>
+              <ButtonGhost onClick={clearAll}>Очистить избранное</ButtonGhost>
+              <ButtonPrimary onClick={shareList}><Share2 className="h-4 w-4 mr-1" /> Поделиться списком</ButtonPrimary>
+            </>
+          }>
+            <p className="text-sm/6 text-neutral-300">Ваши сохранённые офферы.</p>
+          </SectionCard>
+        )}
 
-          {favOffers.length > 0 && (
-            <div className="mt-4 flex gap-2">
-              <Button variant="secondary" onClick={clearAll}>
-                Очистить избранное
-              </Button>
-              <Button variant="soft" onClick={shareList}>
-                Поделиться списком
-              </Button>
-            </div>
-          )}
-        </Section>
-      </section>
-
-      <Section className="space-y-6">
+      <div className="space-y-6">
         {/* баннер импорта из URL */}
         {missing.length > 0 && (
-          <Card className="p-4 border border-yellow-600/40 bg-yellow-500/10">
+          <SectionCard>
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm">
                 Найден список к импорту: <b>{missing.length}</b> элементов
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={importMissing}>
+                <ButtonGhost onClick={importMissing}>
                   Импортировать
-                </Button>
-                <Button
-                  variant="ghost"
+                </ButtonGhost>
+                <ButtonGhost
                   onClick={() => {
                     const next = new URLSearchParams(params);
                     next.delete("list");
@@ -165,27 +152,27 @@ export default function FavoritesPage() {
                   }}
                 >
                   Скрыть
-                </Button>
+                </ButtonGhost>
               </div>
             </div>
-          </Card>
+          </SectionCard>
         )}
 
         {isLoading ? (
-          <Card className="p-6">Загрузка…</Card>
+          <SectionCard>Загрузка…</SectionCard>
         ) : favOffers.length === 0 ? (
-          <Card className="p-6 text-[var(--text-dim)]">Вы ещё ничего не добавили.</Card>
+          <SectionCard>Вы ещё ничего не добавили.</SectionCard>
         ) : (
           <>
             {/* мобайл — карточки */}
-            <div className="grid gap-3 sm:gap-4 md:hidden">
+            <SectionCard className="md:hidden" contentClassName="gap-3 sm:gap-4">
               {favOffers.map((o) => (
                 <MobileOfferCard key={o.slug} offer={o} />
               ))}
-            </div>
+            </SectionCard>
 
             {/* десктоп — таблица */}
-            <div className="hidden md:block">
+            <SectionCard className="hidden md:block p-0">
               <CompareTable
                 offers={favOffers}
                 sortKey={sortKey}
@@ -195,10 +182,11 @@ export default function FavoritesPage() {
                   setSortDir(d);
                 }}
               />
-            </div>
+            </SectionCard>
           </>
         )}
-      </Section>
+      </div>
+      </PageShell>
     </>
   );
 }

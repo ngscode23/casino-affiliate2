@@ -1,0 +1,9 @@
+SET
+SET
+SET
+   relname   | heap_blks_read | heap_blks_hit | heap_hit_ratio 
+-------------+----------------+---------------+----------------
+ clicks      |              1 |           737 |         0.9986
+ impressions |              4 |          1091 |         0.9963
+(2 rows)
+

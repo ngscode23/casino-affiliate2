@@ -8,6 +8,7 @@ import { Pill } from "@/components/ui/Pill";
 import Tooltip from "@/components/ui/Tooltip";
 import { useT } from "@/lib/useT";
 import { appendStoredParams } from "@/lib/utm";
+import LinkButton from "@/components/ui/LinkButton";
 
 export type SortKey = "rating" | "payoutHours";
 
@@ -159,13 +160,13 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
 
                   {/* ACTION */}
                   <td className="px-4 py-3">
-                    <a
+                    <LinkButton
                       href={appendStoredParams(o.slug ? `/go/${encodeURIComponent(o.slug)}` : (o.link ?? "#"))}
-                      className="rounded-xl px-3 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 inline-flex items-center justify-center"
+                      className="px-3 py-2"
                       aria-label={`${t("offer.cta")}: ${o.name}`}
                     >
                       {t("offer.cta")}
-                    </a>
+                    </LinkButton>
                   </td>
                 </tr>
               );

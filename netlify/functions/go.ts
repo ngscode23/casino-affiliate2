@@ -135,20 +135,20 @@ export const handler: Handler = async (event) => {
 
     const { data, error } = await supabase
       .from("offers")
-      .select("link, enabled")
+      .select("id, link, enabled")
       .eq("slug", slug)
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      // On error, do a soft fallback to SPA route
-      return redirect(`/offers/${encodeURIComponent(slug)}`);
+      return json({ error: "not_found" }, 404);
     }
 
     const target = data?.link || null;
+    const offerId = (data as any)?.id as number | undefined;
     const enabled = !!data?.enabled;
-    if (!target || !enabled) {
-      return redirect(`/offers/${encodeURIComponent(slug)}`);
+    if (!target || !enabled || offerId == null) {
+      return json({ error: "not_found" }, 404);
     }
 
     const { url: targetWithParams, params } = withTrackingParams(
@@ -166,13 +166,7 @@ export const handler: Handler = async (event) => {
         return crypto.createHash("sha256").update(ip).digest("hex");
       } catch { return null; }
     })();
-    const targetHost = (() => {
-      try {
-        return new URL(target).host;
-      } catch {
-        return null;
-      }
-    })();
+    // Note: v2 schema no longer stores target host/urls in clicks
 
     // Skip logging for obvious bots/previews
     if (isBotUA(userAgent)) {
@@ -182,15 +176,15 @@ export const handler: Handler = async (event) => {
     // Best-effort logging with soft rate-limit
     try {
       let limited = false;
-      // Soft rate limit by (ip_hash, slug) in a short window (env-driven)
-      if (ipHash) {
+      // Soft rate limit by (ip_hash, offer_id) in a short window (env-driven)
+      if (ipHash && offerId != null) {
         try {
           const since = new Date(Date.now() - RL_WINDOW_MS).toISOString();
           const { data: recent } = await (supabase as any)
             .from('clicks')
             .select('id')
             .eq('ip_hash', ipHash)
-            .eq('slug', slug)
+            .eq('offer_id', offerId)
             .gte('ts', since)
             .limit(1);
           if ((recent || []).length) limited = true;
@@ -199,25 +193,22 @@ export const handler: Handler = async (event) => {
 
       if (!limited) {
         await supabase.from("clicks").insert({
-        slug,
-        click_id: clickId,
-        target_url: target,
-        target_url_final: targetWithParams,
-        target_host: targetHost,
-        params,
-        referrer,
-        user_agent: userAgent,
-        ip_hash: ipHash,
-        ts: new Date().toISOString(),
-      } as any);
+          offer_id: offerId,
+          click_id: clickId,
+          params,
+          referrer,
+          user_agent: userAgent,
+          ip_hash: ipHash,
+          
+        } as any);
       }
     } catch {
       // ignore
     }
 
     return redirect(targetWithParams, 302);
-  } catch (e) {
-    return json({ error: "Unexpected error" }, 500);
+  } catch {
+    return json({ error: "internal" }, 500);
   }
 };
 

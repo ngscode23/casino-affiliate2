@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import Section from "@/components/common/section";
-import Card from "@/components/common/card";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
 import Seo from "@/components/Seo";
 import { SITE_URL } from "@/config";
 
@@ -104,7 +104,7 @@ export default function OffersIndex() {
   }, [origin, visibleForJsonLd]);
 
   return (
-    <Section className="space-y-6">
+    <PageShell>
       <Seo
         title="All Casino Offers - browse & filter"
         description="Browse all casino offers and filter by license or search."
@@ -112,30 +112,30 @@ export default function OffersIndex() {
         canonical={`${origin}/offers`}
         jsonLd={jsonLd}
       />
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">All Offers</h1>
 
-      <h1 className="text-2xl font-bold">All Offers</h1>
-
-      <Card className="p-4 sticky top-3 z-20 backdrop-blur supports-[backdrop-filter]:bg-[color:rgb(0_0_0_/_0.35)]">
+      <SectionCard className="sticky top-3 z-20">
         <OfferFiltersFeature initialLicense={filters.license} initialQ={filters.q} onChange={setFilters} />
-      </Card>
+      </SectionCard>
 
       {isLoading ? (
-        <Card className="p-6">Loading...</Card>
+        <SectionCard>Loading...</SectionCard>
       ) : error ? (
-        <Card className="p-6 text-red-400">Error: {String(error)}</Card>
+        <SectionCard><div className="text-red-400">Error: {String(error)}</div></SectionCard>
       ) : (
-        <OfferListFeature offers={offers} filters={filters} />
+        <SectionCard contentClassName="gap-6">
+          <OfferListFeature offers={offers} filters={filters} />
+        </SectionCard>
       )}
 
       {recentOffers.length > 0 && (
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-3">Recently Viewed</h2>
+        <SectionCard title="Recently Viewed">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentOffers.map((o) => (
               <Link
                 key={o.slug}
                 to={`/offers/${encodeURIComponent(o.slug)}`}
-                className="neon-card p-4 hover:opacity-90"
+                className="rounded-2xl bg-[color:var(--surface-elev,#141720)] border border-white/5 p-4 hover:opacity-90"
               >
                 <div className="font-medium">{o.name}</div>
                 <div className="text-sm text-[var(--text-dim)]">
@@ -145,15 +145,15 @@ export default function OffersIndex() {
               </Link>
             ))}
           </div>
-        </Card>
+        </SectionCard>
       )}
 
-      <Card className="p-6 space-y-2">
-        <p className="text-[var(--text-dim)]">Want a side-by-side view? Try Compare.</p>
+      <SectionCard>
+        <p className="text-neutral-300">Want a side-by-side view? Try Compare.</p>
         <Link className="underline cursor-pointer" to="/compare">
           Go to Compare
         </Link>
-      </Card>
-    </Section>
+      </SectionCard>
+    </PageShell>
   );
 }

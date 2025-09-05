@@ -81,7 +81,7 @@ export function OfferFiltersFeature({ offers, initialLicense, initialQ, onChange
         <div className="sm:ml-auto">
           <label className="block text-sm mb-1">{t("filters.search") || "Search"}</label>
           <input
-            className="neon-input min-w-[220px]"
+            className="min-w-[220px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             placeholder={t("filters.searchPlaceholder") || "Casino, method."}
             value={q}
             onChange={(e) => {

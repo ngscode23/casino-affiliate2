@@ -26,7 +26,7 @@ export function CasinoCard({ offer }: { offer: Offer }) {
           offerSlug={slug}
           href={link}
           // position можно пробросить, если знаешь индекс карточки
-          className="inline-flex items-center rounded-xl bg-sky-400 px-4 py-2 font-semibold text-slate-900 hover:brightness-95 min-h-[44px]"
+          className=""
         >
           Перейти
         </AffiliateLink>

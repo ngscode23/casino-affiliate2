@@ -15,8 +15,30 @@ create table if not exists public.impressions (
 
 -- Helpful indexes
 create index if not exists impressions_ts_idx on public.impressions (ts desc);
-create index if not exists impressions_slug_ts_idx on public.impressions (slug, ts desc);
-create index if not exists impressions_device_ts_idx on public.impressions (device, ts desc);
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='impressions' and column_name='slug'
+  ) then
+    if not exists (
+      select 1 from pg_indexes where schemaname='public' and tablename='impressions' and indexname='impressions_slug_ts_idx'
+    ) then
+      execute 'create index impressions_slug_ts_idx on public.impressions (slug, ts desc)';
+    end if;
+  end if;
+end $$;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='impressions' and column_name='device'
+  ) then
+    if not exists (
+      select 1 from pg_indexes where schemaname='public' and tablename='impressions' and indexname='impressions_device_ts_idx'
+    ) then
+      execute 'create index impressions_device_ts_idx on public.impressions (device, ts desc)';
+    end if;
+  end if;
+end $$;
 
 -- RLS
 alter table public.impressions enable row level security;

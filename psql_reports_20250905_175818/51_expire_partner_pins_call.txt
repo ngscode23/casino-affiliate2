@@ -1,0 +1,8 @@
+SET
+SET
+SET
+ expire_partner_pins 
+---------------------
+ 
+(1 row)
+

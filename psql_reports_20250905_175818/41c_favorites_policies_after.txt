@@ -1,0 +1,10 @@
+SET
+SET
+SET
+      policyname      |      roles      |  cmd   |          qual          |       with_check       
+----------------------+-----------------+--------+------------------------+------------------------
+ favorites read own   | {authenticated} | SELECT | (user_id = auth.uid()) | 
+ favorites select own | {authenticated} | SELECT | (user_id = auth.uid()) | 
+ favorites write own  | {authenticated} | ALL    | (user_id = auth.uid()) | (user_id = auth.uid())
+(3 rows)
+

@@ -1,0 +1,9 @@
+SET
+SET
+SET
+   relname   | total  
+-------------+--------
+ clicks      | 128 kB
+ impressions | 136 kB
+(2 rows)
+

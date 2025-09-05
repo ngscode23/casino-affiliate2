@@ -1,0 +1,1 @@
+psql: error: connection to server at "aws-1-eu-central-1.pooler.supabase.com" (3.65.151.229), port 6543 failed: FATAL:  password authentication failed for user "postgres"

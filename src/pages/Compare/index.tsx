@@ -5,6 +5,9 @@ import { useSearchParams } from "react-router-dom";
 import CompareFilters, { type LicenseFilter, type MethodFilter } from "@/components/compare/CompareFilters";
 import CompareTable, { type SortKey } from "@/components/compare/CompareTable";
 import Seo from "@/components/Seo";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { ButtonGhost } from "@/components/ui/Buttons";
 import Button from "@/components/common/button";
 import { track } from "@/lib/analytics";
 import type { NormalizedOffer } from "@/lib/offers";
@@ -130,7 +133,7 @@ export default function ComparePage() {
   }, [search]);
 
   return (
-    <>
+    <PageShell>
       <Seo
         title="Сравнение казино — лицензии, методы, выплаты"
         description="Фильтруйте по лицензии, методам и рейтингу. Добавляйте бренды в панель и сравнивайте бок‑о‑бок."
@@ -138,30 +141,29 @@ export default function ComparePage() {
         jsonLd={jsonLd}
       />
 
-      <section className="neon-container space-y-6">
-        <div className="neon-card p-4">
-          <CompareFilters
-            total={offers.length}
-            filteredCount={filtered.length}
-            license={license}
-            method={method}
-            search={search}
-            onChange={({ license: nextLicense, method: nextMethod }) => {
-              if (nextLicense !== license) setLicense(nextLicense);
-              if (nextMethod !== method) setMethod(nextMethod);
-            }}
-            onSearchChange={setSearch}
-          />
-          <div className="mt-3 flex justify-end">
-            <Button variant="soft" onClick={shareFilters} aria-label="Поделиться текущей выборкой">
-              Поделиться
-            </Button>
-          </div>
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">Сравнение</h1>
+
+      <SectionCard>
+        <CompareFilters
+          total={offers.length}
+          filteredCount={filtered.length}
+          license={license}
+          method={method}
+          search={search}
+          onChange={({ license: nextLicense, method: nextMethod }) => {
+            if (nextLicense !== license) setLicense(nextLicense);
+            if (nextMethod !== method) setMethod(nextMethod);
+          }}
+          onSearchChange={setSearch}
+        />
+        <div className="flex justify-end">
+          <ButtonGhost onClick={shareFilters} aria-label="Поделиться текущей выборкой">Поделиться</ButtonGhost>
         </div>
+      </SectionCard>
 
-        {errText && <div className="neon-card p-3 text-red-400">Ошибка загрузки данных: {errText}</div>}
+        {errText && <SectionCard><div className="text-red-400">Ошибка загрузки данных: {errText}</div></SectionCard>}
 
-        <div className="neon-card p-0 hidden md:block">
+        <SectionCard className="p-0 hidden md:block">
           <CompareTable
             offers={filtered}
             sortKey={sortKey}
@@ -171,8 +173,7 @@ export default function ComparePage() {
               setSortDir(d);
             }}
           />
-        </div>
-      </section>
-    </>
+        </SectionCard>
+    </PageShell>
   );
 }

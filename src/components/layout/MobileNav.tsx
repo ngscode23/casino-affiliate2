@@ -50,7 +50,7 @@ export default function MobileNav() {
         </button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-[92vw] max-w-[360px] p-0 bg-[var(--bg-0)] text-[var(--text)]">
+      <SheetContent side="left" className="w-[92vw] max-w-[360px] p-0 bg-[rgb(var(--bg-0)/.85)] backdrop-blur-md text-[var(--text)] border-r border-white/10">
         <motion.div
           initial={{ x: -24, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}

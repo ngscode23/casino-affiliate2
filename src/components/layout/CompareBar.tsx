@@ -1,6 +1,7 @@
 // src/components/layout/CompareBar.tsx
 import { useMemo, useEffect, useRef, useState } from "react";
-import Button from "@/components/common/button";
+import { ButtonGhost, ButtonPrimary } from "@/components/ui/Buttons";
+import { Pill } from "@/components/ui/Pill";
 
 import {
   Sheet,
@@ -97,7 +98,7 @@ export default function CompareBar() {
         {!open && selected.length > 0 && (
           <div className="fixed inset-x-0 bottom-4 z-[30] pointer-events-none" role="region" aria-label="Comparison bar">
             <div
-              className="pointer-events-auto mx-auto max-w-5xl rounded-2xl border border-white/10 bg-[var(--bg-1)]/95 backdrop-blur p-3 shadow-[0_8px_30px_rgba(0,0,0,.4)]"
+              className="pointer-events-auto mx-auto max-w-5xl rounded-2xl border border-white/10 bg-[var(--surface-elev,#141720)]/95 backdrop-blur p-3 shadow-[0_8px_30px_rgba(0,0,0,.4)]"
               style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
               ref={barRef}
             >
@@ -114,7 +115,7 @@ export default function CompareBar() {
                           const o = toOfferLike(raw);
                           const id = o.slug ?? o.name;
                           return (
-                            <span key={id} className="neon-chip inline-flex items-center gap-2">
+                            <Pill key={id}>
                               {o.name}
                               <button
                                 type="button"
@@ -124,17 +125,16 @@ export default function CompareBar() {
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
-                            </span>
+                            </Pill>
                           );
                         })}
-                        {rest > 0 && <span className="neon-chip">+{rest}</span>}
+                        {rest > 0 && <Pill>+{rest}</Pill>}
                       </>
                     );
                   })()}
                 </div>
                 <div className="ml-auto flex items-center gap-2">
-                  <Button
-                    variant="ghost"
+                  <ButtonGhost
                     onClick={() => {
                       try {
                         const slugs = selected
@@ -147,10 +147,10 @@ export default function CompareBar() {
                     }}
                   >
                     {t("compare.share") || "Copy link"}
-                  </Button>
-                  <Button variant="ghost" onClick={clear}>{t("compare.clear") || "Clear"}</Button>
+                  </ButtonGhost>
+                  <ButtonGhost onClick={clear}>{t("compare.clear") || "Clear"}</ButtonGhost>
                   <SheetTrigger asChild>
-                    <Button disabled={!canCompare}>{t("compare.open") || "Open compare"}</Button>
+                    <ButtonPrimary disabled={!canCompare}>{t("compare.open") || "Open compare"}</ButtonPrimary>
                   </SheetTrigger>
                 </div>
               </div>
@@ -168,14 +168,14 @@ export default function CompareBar() {
           <div className="px-4 pt-4 text-lg font-semibold">{t("compare.title") || "Compare offers"}</div>
 
           <div className="mt-4 overflow-x-auto">
-            <table className="neon-table w-full text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="text-left px-3 py-2">{t("compare.field") || "Field"}</th>
+                  <th className="text-left px-3 py-2 border-b border-white/10">{t("compare.field") || "Field"}</th>
                   {selected.map((raw) => {
                     const o = toOfferLike(raw);
                     return (
-                      <th key={o.slug ?? o.name} className="text-left px-3 py-2">
+                      <th key={o.slug ?? o.name} className="text-left px-3 py-2 border-b border-white/10">
                         {o.name}
                       </th>
                     );
@@ -202,10 +202,10 @@ export default function CompareBar() {
 
           <div className="mt-6 flex flex-col gap-2 px-4 pb-4 md:hidden">
             <SheetClose asChild>
-              <Button variant="soft" onClick={clear} aria-label="Clear and close">Clear</Button>
+              <ButtonGhost onClick={clear} aria-label="Clear and close">Clear</ButtonGhost>
             </SheetClose>
             <SheetClose asChild>
-              <Button variant="secondary" aria-label="Close compare panel">Close</Button>
+              <ButtonGhost aria-label="Close compare panel">Close</ButtonGhost>
             </SheetClose>
           </div>
         </SheetContent>

@@ -1,0 +1,7 @@
+SET
+SET
+SET
+ERROR:  column i.created_at does not exist
+LINE 9:   AND COALESCE(i.ts, i.created_at) >= now() - interval '1 ho...
+                             ^
+HINT:  Perhaps you meant to reference the column "o.created_at".
