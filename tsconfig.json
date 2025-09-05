@@ -29,6 +29,7 @@
     "build",
     "playwright-report",
     "test-results",
-    "_archive"
+    "_archive",
+    "src/pages/Admin/**"
   ]
 }

@@ -16,33 +16,30 @@ export default {
     extend: {
       // НЕ затираем базовые цвета Tailwind, а расширяем
       colors: {
-        bg0: "#0b0a0f",
-        primary: "#b86bff",
-        primary2: "#7c3aed",
-        accent: "#22d3ee",
-        hot: "#ff1f8f",
-        lime: "#3bd671",
+        bg0: "#0B0F14",
+        primary: "#3B82F6", // blue accent
+        primary2: "#3B82F6",
+        accent: "#60A5FA", // links
+        // Design system brand tokens (blue variant)
         brand: {
-          50:  "#f5f3ff",
-          100: "#ede9fe",
-          200: "#ddd6fe",
-          300: "#c4b5fd",
-          400: "#a78bfa",
-          500: "#8b5cf6",
-          600: "#7c3aed",
-          700: "#6d28d9",
-          800: "#5b21b6",
-          900: "#4c1d95",
-          950: "#2e1065",
+          primary: "#3B82F6",
+          primaryFg: "#FFFFFF",
+          surface: "#0F1115",
+          surfaceElev: "#141720",
         },
+        // flat keys for utilities like ring-brand-primary
+        "brand-primary": "#3B82F6",
       },
       fontFamily: {
         sans: ["InterVariable", "Inter", "ui-sans-serif", "system-ui"],
       },
+      borderRadius: {
+        "2xl": "1.25rem",
+      },
       container: {
         center: true,
         padding: "1rem",
-        screens: { "2xl": "1280px" },
+        screens: { "2xl": "1200px" },
       },
     },
   },

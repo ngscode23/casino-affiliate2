@@ -60,17 +60,16 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold transition " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+    "inline-flex items-center justify-center px-4 rounded-xl font-semibold transition min-h-[44px] " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50";
 
   const styles: Record<Variant, string> = {
     primary:
-      "bg-brand-600 hover:bg-brand-700 text-white shadow-[0_10px_20px_rgba(139,92,246,.25)]",
+      "bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90",
     soft:
       "bg-white/5 hover:bg-white/10 text-white/90 border border-white/10",
     secondary:
-      "bg-gradient-to-b from-[rgba(139,92,246,.25)] to-[rgba(139,92,246,.15)] " +
-      "text-white border border-white/10 shadow-[0_10px_20px_rgba(139,92,246,.20)]",
+      "bg-white/5 text-white/95 border border-white/10",
     ghost:
       "bg-transparent hover:bg-white/5 text-[var(--text)]"
   };

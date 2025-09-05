@@ -25,7 +25,7 @@ export default function Header() {
       <header className=
         "sticky top-0 z-50 border-b border-white/10 bg-[rgb(var(--bg-0)/.72)] backdrop-blur supports-[backdrop-filter]:bg-[rgb(var(--bg-0)/.55)] shadow-[0_8px_30px_rgba(0,0,0,.35)]"
       >
-        <Section className="py-0 flex h-14 md:h-16 items-center gap-3">
+        <Section className="py-0 flex h-16 md:h-20 items-center gap-3">
           {/* Logo */}
           <div className="min-w-0">
             <Link to="/" className="flex items-center gap-2" aria-label="Go to Home">
@@ -39,7 +39,7 @@ export default function Header() {
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex ml-auto items-center gap-2" aria-label="Main navigation">
+          <nav className="hidden md:flex ml-auto items-center gap-3" aria-label="Main navigation">
             {nav.map((item) => (
               <NavLink
                 key={item.to}
@@ -47,8 +47,8 @@ export default function Header() {
                 onMouseEnter={item.preload as any}
                 className={({ isActive }) =>
                   cn(
-                    "rounded-lg px-3 py-2 text-sm text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                    isActive && "bg-white/15 text-[var(--text)]"
+                    "px-3 py-3 text-sm text-[var(--text-dim)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+                    isActive && "text-[var(--text)] border-b-2 border-[rgb(var(--primary))]"
                   )
                 }
               >
@@ -63,7 +63,7 @@ export default function Header() {
             {/* CTA */}
             <Link
               to="/compare"
-              className="group inline-flex items-center justify-center h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-[0_10px_24px_rgba(139,92,246,.28)] transition"
+              className="group rounded-xl px-4 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
             >
               {t("nav.compare")}
               <span className="ml-1 opacity-0 group-hover:opacity-100 transition" />

@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
-import Section from "@/components/common/section";
-import Card from "@/components/common/card";
-import Rating from "@/components/common/rating";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { Pill } from "@/components/ui/Pill";
 import Seo from "@/components/Seo";
 import { SITE_URL } from "@/config";
 import AffiliateLink from "@/components/misc/AffiliateLink";
@@ -86,19 +86,11 @@ export default function OfferPage() {
   }, [offer, canonical, faq]);
 
   if (loading) {
-    return (
-      <Section>
-        <Card className="p-6">Loading...</Card>
-      </Section>
-    );
+    return <PageShell><SectionCard>Loading...</SectionCard></PageShell>;
   }
 
   if (!offer) {
-    return (
-      <Section>
-        <Card className="p-6">Not found</Card>
-      </Section>
-    );
+    return <PageShell><SectionCard>Not found</SectionCard></PageShell>;
   }
 
   return (
@@ -111,23 +103,14 @@ export default function OfferPage() {
         jsonLd={jsonLd}
       />
 
-      <section className="neon-hero relative">
-        <Section>
-          <h1 style={{ fontWeight: 800, letterSpacing: "-0.02em", fontSize: "clamp(28px,4.5vw,46px)" }}>{offer.name}</h1>
-          <p className="neon-subline mt-2">
-            {t("offer.license")}: {offer.license ?? "-"} · {t("offer.payout")}: {offer.payout}
-            {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
-          </p>
-        </Section>
-      </section>
-
-      <Section className="space-y-6">
-        <Card className="p-6">
+      <PageShell>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">{offer.name}</h1>
+        <SectionCard>
           <div className="grid gap-6 md:grid-cols-3">
             <div className="md:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-[var(--text-dim)]">{t("offer.ratingLabel")}</span>
-                <Rating value={offer.rating ?? 0} />
+                <Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill>
               </div>
               <div>
                 <div className="text-[var(--text-dim)] mb-1">{t("offer.payout")}</div>
@@ -140,7 +123,7 @@ export default function OfferPage() {
                 <div className="text-[var(--text-dim)] mb-1">{t("filters.methods") || "Methods"}</div>
                 <div className="flex flex-wrap gap-2">
                   {offer.methods.length ? offer.methods.map((m, i) => (
-                    <span key={`${m}-${i}`} className="neon-chip">{m}</span>
+                    <Pill key={`${m}-${i}`}>{m}</Pill>
                   )) : "-"}
                 </div>
               </div>
@@ -150,7 +133,7 @@ export default function OfferPage() {
                 offerSlug={offer.slug}
                 position={1}
                 href={`/go/${encodeURIComponent(offer.slug)}`}
-                className="btn w-full inline-flex items-center justify-center"
+                className="w-full inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
                 aria-label={`${t("offer.cta")}: ${offer.name}`}
               >
                 {t("offer.cta")}
@@ -164,7 +147,7 @@ export default function OfferPage() {
 
               <FavControl
                 id={offer.slug}
-                className="btn w-full"
+                className="rounded-xl border border-white/10 hover:bg-white/5 w-full"
                 onToggle={(active: boolean) => {
                   try { track("favorite_toggle", { offer_slug: offer.slug, active }); }
                   catch { (track as any)?.({ name: "favorite_toggle", params: { offer_slug: offer.slug, active } }); }
@@ -172,10 +155,10 @@ export default function OfferPage() {
               />
             </div>
           </div>
-        </Card>
+        </SectionCard>
 
         {recentOffers.length > 0 && (
-          <Card className="p-6">
+          <SectionCard>
             <h2 className="text-lg font-semibold mb-3">{t("offers.recent") || "Recently viewed"}</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {recentOffers.map((o) => (
@@ -188,10 +171,9 @@ export default function OfferPage() {
                 </Link>
               ))}
             </div>
-          </Card>
+          </SectionCard>
         )}
-      </Section>
+      </PageShell>
     </>
   );
 }
-

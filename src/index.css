@@ -8,21 +8,26 @@
 /* 2) base layer: токены и общий фон */
 @layer base {
   :root {
+    /* Design system vars (blue CTA) */
+    --brand: #3B82F6;
+    --brand-fg: #ffffff;
+    --surface: #0F1115;
+    --surface-elev: #141720;
     /* RGB-триплеты (а не #hex), чтобы работать с rgb(var(--...)) */
-    --bg-0: 11 13 18;     /* #0b0d12 */
-    --bg-1: 18 22 34;     /* #121622 */
-    --bg-2: 15 20 33;     /* #0f1421 */
+    --bg-0: 11 15 20;     /* #0B0F14 */
+    --bg-1: 18 24 37;     /* #121825 */
+    --bg-2: 15 22 34;     /* #0F1622 */
 
-    --text: 232 236 247;  /* #e8ecf7 */
-    --text-dim: 154 163 184; /* #9aa3b8 */
+    --text: 232 236 241;  /* #E8ECF1 */
+    --text-dim: 168 176 189; /* #A8B0BD */
     --muted: 127 137 163; /* #7f89a3 */
 
-    --border: 255 255 255 / 0.08;
+    --border: 30 41 59 / 0.14; /* #1E293B @ ~14% */
 
-    --primary: 139 92 246;  /* #8b5cf6 */
-    --accent:  34 211 238;  /* #22d3ee */
+    --primary: 59 130 246;  /* #3B82F6 */
+    --accent:  96 165 250;  /* #60A5FA */
     --hot:     255 31 143;  /* #ff1f8f */
-    --ring:    139 92 246 / 0.50;
+    --ring:    59 130 246 / 0.50;
 
     --radius: 12px;
     /* Motion tokens */
@@ -37,13 +42,21 @@
   html, body, #root {
     min-height: 100%;
     background:
-      radial-gradient(1200px 400px at 15% -10%, rgba(139,92,246,.14), transparent 60%),
-      radial-gradient(1000px 380px at 85% -8%,  rgba(34,211,238,.10), transparent 60%),
+      radial-gradient(1200px 400px at 15% -10%, rgba(59,130,246,.10), transparent 60%),
+      radial-gradient(1000px 380px at 85% -8%,  rgba(96,165,250,.10), transparent 60%),
       rgb(var(--bg-0));
     color: rgb(var(--text));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
+  }
+
+  /* Headings use Poppins for a premium touch */
+  h1, h2, h3, .title {
+    font-family: Poppins, Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.25;
   }
 
   /* полезные reset-семантики курсора */
@@ -64,17 +77,41 @@
 .neon-hero {
   padding: 48px 0 32px;
   background:
-    radial-gradient(900px 320px at 10% -15%, rgba(139,92,246,.20), transparent 60%),
-    radial-gradient(900px 320px at 90% -15%, rgba(34,211,238,.15), transparent 60%);
-  border-bottom: 1px solid color-mix(in oklab, white 15%, transparent);
+    radial-gradient(900px 320px at 10% -15%, rgba(16,185,129,.16), transparent 60%),
+    radial-gradient(900px 320px at 90% -15%, rgba(110,231,249,.12), transparent 60%);
+  border-bottom: 1px solid rgba(30,41,59,.16);
 }
 
 /* 5) компоненты */
 @layer components {
+  /* Premium CTA button (green) */
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    color: #fff;
+    background: linear-gradient(180deg, #34D399, #10B981);
+    border: 1px solid rgba(16,185,129,.45);
+    box-shadow: 0 8px 22px rgba(16,185,129,.22);
+    transition:
+      transform var(--dur-fast) var(--ease-standard),
+      filter var(--dur-fast) var(--ease-standard),
+      box-shadow var(--dur-normal) var(--ease-standard),
+      background var(--dur-fast) var(--ease-standard);
+  }
+  .btn-cta:hover { filter: brightness(1.04); transform: translateY(-1px); box-shadow: 0 12px 26px rgba(16,185,129,.28); }
+  .btn-cta:active { transform: translateY(0) scale(.995); filter: brightness(.98); }
+  .btn-cta--sm { height: 36px; padding: 0 12px; border-radius: 10px; font-weight: 600; }
+
   /* карточки */
   .neon-card {
     border: 1px solid color-mix(in oklab, white 16%, transparent);
-    border-radius: 16px;
+    border-radius: 24px;
     background:
       linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)),
       rgb(var(--bg-1) / .9);
@@ -116,19 +153,28 @@
   .neon-input:focus { border-color: rgba(var(--ring)); box-shadow: 0 0 0 4px rgba(139,92,246,.18); }
 
   /* кнопка */
-  .neon-btn {
-    height:44px; padding:0 16px; border-radius:12px; font-weight:600; letter-spacing:.2px;
-    border:1px solid color-mix(in oklab, white 12%, transparent);
-    background: linear-gradient(180deg, rgba(139,92,246,.95), rgba(139,92,246,.78));
-    color:#fff; box-shadow:0 10px 24px rgba(139,92,246,.25);
+.neon-btn {
+    position: relative;
+    height:44px; padding:0 16px; border-radius:12px; font-weight:700; letter-spacing:.2px;
+    border:1px solid rgba(255,255,255,.12);
+    background: linear-gradient(180deg, rgba(212,175,55,.96), rgba(212,175,55,.80));
+    color:#111; box-shadow:0 12px 26px rgba(212,175,55,.25);
     transition:
       transform var(--dur-fast) var(--ease-standard),
       filter var(--dur-fast) var(--ease-standard),
       box-shadow var(--dur-normal) var(--ease-standard),
       background var(--dur-fast) var(--ease-standard);
+    overflow: hidden;
   }
-  .neon-btn:hover { filter:brightness(1.06); }
-  .neon-btn:active { transform: translateY(1px); }
+  .neon-btn::after {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background: linear-gradient(110deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.3) 50%, rgba(255,255,255,0) 70%);
+    transform: translateX(-120%);
+    transition: transform .25s ease;
+  }
+  .neon-btn:hover { filter:brightness(1.05); }
+  .neon-btn:hover::after { transform: translateX(120%); }
+  .neon-btn:active { transform: translateY(1px) scale(.995); }
 
   /* таблица */
   table.neon-table { width:100%; border-collapse:separate; border-spacing:0; }

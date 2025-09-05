@@ -3,10 +3,10 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
 
-import Rating from "@/components/common/rating";
+import { Pill } from "@/components/ui/Pill";
 import CompareInline from "@/components/compare/CompareInline";
 import { FavControl } from "@/components/FavControl";
-import AffiliateLink from "@/components//misc/AffiliateLink";
+import AffiliateLink from "@/components/misc/AffiliateLink";
 import { t } from "@/lib/t";
 import { toast } from "@/components/common/toast";
 
@@ -44,7 +44,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 shadow-[0_6px_24px_rgba(0,0,0,.35)] hover:shadow-[0_12px_36px_rgba(0,0,0,.45)] transition-shadow transition-transform transform-gpu hover:translate-y-[-1px] hover:scale-[1.01] active:scale-[0.995] ${className}`}
+      className={`rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 shadow-[0_6px_24px_rgba(0,0,0,.35)] hover:shadow-[0_12px_36px_rgba(0,0,0,.45)] transition transform-gpu hover:translate-y-[-1px] hover:scale-[1.01] active:scale-[0.995] ${className}`}
     >
       {/* Header: title/license + actions */}
       <div className="flex items-start justify-between gap-4">
@@ -54,12 +54,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
             {badge && (
               <span
                 title={badge === "Top" ? "Top placement (sponsored)" : "Featured placement (sponsored)"}
-                className={
-                  "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold " +
-                  (badge === "Top"
-                    ? "bg-yellow-500/20 text-yellow-200 border border-yellow-600/40"
-                    : "bg-pink-500/15 text-pink-200 border border-pink-600/40")
-                }
+                className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border border-white/10 bg-white/5 text-neutral-200"
               >
                 {badge}
               </span>
@@ -69,7 +64,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
         </div>
 
         <div className="shrink-0 flex items-center gap-2">
-          <Rating value={offer.rating ?? 0} />
+          <Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill>
           <FavControl id={offer.slug} className="inline-flex h-10 w-10" />
         </div>
       </div>
@@ -81,9 +76,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
       {methods.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {methods.map((m, i) => (
-            <span key={`${m}-${i}`} className="neon-chip">
-              {m}
-            </span>
+            <Pill key={`${m}-${i}`}>{m}</Pill>
           ))}
         </div>
       )}
@@ -96,7 +89,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
           position={position}
           href={`/go/${encodeURIComponent(offer.slug)}`}
           size="sm"
-          className="btn w-full inline-flex items-center justify-center gap-2"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
           aria-label={`Open ${offer.name}`}
         >
           {t("offer.cta") || "Play"} <ExternalLink className="h-4 w-4" />
@@ -105,7 +98,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
         {/* Compare toggle */}
         <button
           type="button"
-          className={`btn ${selected ? "btn-secondary" : "btn-soft"} min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
+          className={`rounded-xl border ${selected ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-neutral-200 hover:bg-white/5"} min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -123,7 +116,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
           <SheetTrigger asChild>
             <button
               type="button"
-              className="btn btn-ghost w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]"
+              className="w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1] rounded-xl border border-white/10 hover:bg-white/5"
               aria-label={`Details for ${offer.name}`}
             >
               {t("offer.details") || "Details"}
@@ -154,9 +147,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-[var(--text-dim)]">Rating</div>
-                    <div className="mt-1">
-                      <Rating value={offer.rating ?? 0} />
-                    </div>
+                    <div className="mt-1"><Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill></div>
                   </div>
 
                   <div>
@@ -177,9 +168,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                     <div className="mt-1 flex flex-wrap gap-2">
                       {offer.methods.length
                         ? offer.methods.map((m, i) => (
-                            <span key={`${m}-${i}`} className="neon-chip">
-                              {m}
-                            </span>
+                            <Pill key={`${m}-${i}`}>{m}</Pill>
                           ))
                         : "-"}
                     </div>
@@ -195,7 +184,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                     position={position}
                     href={`/go/${encodeURIComponent(offer.slug)}`}
                     size="sm"
-                    className="btn w-full inline-flex items-center justify-center gap-2"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
                     aria-label={`Open ${offer.name}`}
                   >
                     {t("offer.cta") || "Play"} <ExternalLink className="h-4 w-4" />
@@ -203,7 +192,7 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
 
                   <button
                     type="button"
-                    className={`btn ${selected ? "btn-secondary" : "btn-soft"} w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
+                    className={`rounded-xl border ${selected ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-neutral-200 hover:bg-white/5"} w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -226,4 +215,3 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
     </div>
   );
 }
-

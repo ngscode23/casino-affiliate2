@@ -1,10 +1,10 @@
 // src/components/compare/CompareTable.tsx
 import { Link } from "react-router-dom";
-import Card from "@/components/common/card";
 import { FavControl } from "@/components/FavControl";
 import { useCompare } from "@/ctx/CompareContext";
 import type { NormalizedOffer } from "@/lib/offers";
 import { RatingPill, PayoutPill } from "@/components/compare/Pills";
+import { Pill } from "@/components/ui/Pill";
 import Tooltip from "@/components/ui/Tooltip";
 import { useT } from "@/lib/useT";
 import { appendStoredParams } from "@/lib/utm";
@@ -55,9 +55,8 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
   );
 
   return (
-    <Card className="p-0 hidden md:block">
-      <div className="neon-card p-0 overflow-auto max-h-[70vh]">
-        <table className="neon-table w-full">
+    <div className="p-0 overflow-auto max-h-[70vh]">
+      <table className="w-full">
           <colgroup>
             <col style={{ width: "140px" }} />
             <col style={{ width: "80px" }} />
@@ -71,14 +70,14 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
 
           <thead className="sticky top-0 z-10" style={{ background: "rgb(var(--bg-1) / .9)" }}>
             <tr>
-              <th className="px-4 py-2">{t("compare.addTo")}</th>
-              <th className="px-4 py-2">{t("nav.favorites") || "FAV"}</th>
-              <th className="px-4 py-2">{t("compare.selected") || "FIRM"}</th>
-              <th className="px-4 py-2">
+              <th className="px-4 py-2 border-b border-white/10">{t("compare.addTo")}</th>
+              <th className="px-4 py-2 border-b border-white/10">{t("nav.favorites") || "FAV"}</th>
+              <th className="px-4 py-2 border-b border-white/10">{t("compare.selected") || "FIRM"}</th>
+              <th className="px-4 py-2 border-b border-white/10">
                 <SortHeader k="rating">{t("offer.ratingLabel").toUpperCase()}</SortHeader>
               </th>
 
-              <th className="px-4 py-2">
+              <th className="px-4 py-2 border-b border-white/10">
                 <Tooltip label={t("offer.license")}>
                   <span className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-[var(--text)]">
                     {t("offer.license").toUpperCase()} <span aria-hidden>?</span>
@@ -86,11 +85,11 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
                 </Tooltip>
               </th>
 
-              <th className="px-4 py-2">
+              <th className="px-4 py-2 border-b border-white/10">
                 <SortHeader k="payoutHours">{t("offer.payout").toUpperCase()}</SortHeader>
               </th>
-              <th className="px-4 py-2">{t("filters.methods") || "METHODS"}</th>
-              <th className="px-4 py-2">{t("filters.action") || "ACTION"}</th>
+              <th className="px-4 py-2 border-b border-white/10">{t("filters.methods") || "METHODS"}</th>
+              <th className="px-4 py-2 border-b border-white/10">{t("filters.action") || "ACTION"}</th>
             </tr>
           </thead>
 
@@ -100,7 +99,7 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
               const selected = o.slug ? isSelected(o.slug) : false;
 
               return (
-                <tr key={slug} className="hover:bg-white/5 transition-colors">
+                <tr key={slug} className="hover:bg-white/5 transition-colors h-16">
                   {/* COMPARE */}
                   <td className="px-4 py-3">
                     {o.slug ? (
@@ -113,8 +112,8 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
                           toggle(o);
                         }}
                         className={
-                          "inline-flex items-center justify-center h-9 px-3 rounded-md transition " +
-                          (selected ? "bg-white/10 border border-white/20 text-white" : "bg-brand-600 hover:bg-brand-700 text-white")
+                          "inline-flex items-center justify-center h-9 px-3 rounded-xl transition border " +
+                          (selected ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-neutral-200 hover:bg-white/5")
                         }
                       >
                         {selected ? t("compare.selected") : t("compare.compareLink")}
@@ -129,18 +128,18 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
 
                   {/* FIRM */}
                   <td className="px-4 py-3 font-semibold">
-                    <Link className="hover:underline cursor-pointer" to={`/offers/${encodeURIComponent(slug)}`}>
+                    <Link className="hover:underline cursor-pointer block truncate" to={`/offers/${encodeURIComponent(slug)}`}>
                       {o.name}
                     </Link>
                   </td>
 
                   {/* RATING */}
                   <td className="px-4 py-3">
-                    <RatingPill value={o.rating ?? 0} />
+                    <Pill tone="rating">★ {typeof o.rating === "number" ? o.rating.toFixed(1) : String(o.rating ?? 0)}</Pill>
                   </td>
 
                   {/* LICENSE */}
-                  <td className="px-4 py-3 text-[var(--text-dim)]">{o.license ?? "-"}</td>
+                  <td className="px-4 py-3"><Pill>{o.license ?? "-"}</Pill></td>
 
                   {/* PAYOUT */}
                   <td className="px-4 py-3">
@@ -152,9 +151,7 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
                     <div className="flex flex-wrap gap-2">
                       {(o.methods ?? []).length
                         ? (o.methods ?? []).map((m, i) => (
-                            <span key={`${m}-${i}`} className="neon-chip">
-                              {m}
-                            </span>
+                            <Pill key={`${m}-${i}`}>{m}</Pill>
                           ))
                         : "-"}
                     </div>
@@ -164,7 +161,7 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
                   <td className="px-4 py-3">
                     <a
                       href={appendStoredParams(o.slug ? `/go/${encodeURIComponent(o.slug)}` : (o.link ?? "#"))}
-                      className="inline-flex items-center justify-center h-9 px-3 rounded-md bg-brand-600 hover:bg-brand-700 text-white font-medium transition"
+                      className="rounded-xl px-3 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 inline-flex items-center justify-center"
                       aria-label={`${t("offer.cta")}: ${o.name}`}
                     >
                       {t("offer.cta")}
@@ -175,7 +172,6 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange }:
             })}
           </tbody>
         </table>
-      </div>
-    </Card>
+    </div>
   );
 }
