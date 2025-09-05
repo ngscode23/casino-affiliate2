@@ -6,6 +6,7 @@ import type { NormalizedOffer } from "@/lib/offers";
 import PageShell from "@/components/ui/PageShell";
 import SectionCard from "@/components/ui/SectionCard";
 import { ButtonPrimary, ButtonGhost } from "@/components/ui/Buttons";
+import LinkButton from "@/components/ui/LinkButton";
 import { Pill } from "@/components/ui/Pill";
 
 // Demo data - replace via props/store later
@@ -56,12 +57,13 @@ function OffersTable({ offers }: { offers: Array<Partial<NormalizedOffer>> }) {
               <td className="px-4 py-3 text-white/90">{(o as any).payoutHours ?? "-"}</td>
               <td className="px-4 py-3 text-white/80"><Pill>{(o.license as any) ?? "-"}</Pill></td>
               <td className="px-4 py-3 text-right">
-                <a
+                <LinkButton
                   href={(o as any).link || "#"}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-xs"
+                  aria-label={`Перейти к ${(o as any).name || "офферу"}`}
                 >
                   Перейти <ExternalLink className="h-4 w-4" />
-                </a>
+                </LinkButton>
               </td>
             </tr>
           ))}
@@ -99,8 +101,8 @@ export function AffiliateHome() {
                 Рейтинги на основе данных, проверка лицензий и скорости выплат. Никакой воды и фейковых обзоров. Сравнивайте за секунды и избегайте ловушек.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <ButtonPrimary onClick={() => (location.href = "/compare")}>Сравнить сейчас</ButtonPrimary>
-                <ButtonGhost onClick={() => (location.href = "/how-we-rank")}>Как мы ранжируем</ButtonGhost>
+                <LinkButton href="/compare">Сравнить сейчас</LinkButton>
+                <LinkButton href="/how-we-rank" variant="ghost">Как мы ранжируем</LinkButton>
               </div>
               <div className="mt-6 grid max-w-lg grid-cols-3 gap-3 text-sm text-white/80">
                 <div className="rounded-xl bg-white/5 p-3 border border-white/10">Проверенные лицензии</div>
@@ -116,7 +118,7 @@ export function AffiliateHome() {
                 ) : null}
                 <OffersTable offers={featured as any} />
                 <div className="mt-4 text-right">
-                  <ButtonGhost onClick={() => (location.href = "/compare")}>Показать все</ButtonGhost>
+                  <LinkButton href="/compare" variant="ghost">Показать все</LinkButton>
                 </div>
               </SectionCard>
             </motion.div>
