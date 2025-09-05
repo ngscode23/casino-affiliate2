@@ -3,6 +3,7 @@ import type { NormalizedOffer } from "@/lib/offers";
 import { Link } from "react-router-dom";
 import AffiliateLink from "@/components/misc/AffiliateLink";
 import { useT } from "@/lib/useT";
+import { Pill } from "@/components/ui/Pill";
 
 type Props = {
   offer: NormalizedOffer;
@@ -61,8 +62,7 @@ export default function OfferCard({ offer, index }: Props) {
         {/* rating */}
         {typeof offer.rating === "number" && (
           <div className="text-right">
-            <div className="text-2xl font-extrabold text-[var(--text)]">{offer.rating.toFixed(1)}</div>
-            <div className="text-xs text-[var(--text-dim)]">{t("offer.ratingLabel")}</div>
+            <Pill tone="rating">★ {offer.rating.toFixed(1)}</Pill>
           </div>
         )}
       </div>
@@ -73,7 +73,7 @@ export default function OfferCard({ offer, index }: Props) {
           offerSlug={offer.slug}
           position={position}
           href={`/go/${encodeURIComponent(offer.slug)}`}
-          className="neon-btn"
+          className=""
         >
           {t("offer.cta")}
         </AffiliateLink>
@@ -81,7 +81,7 @@ export default function OfferCard({ offer, index }: Props) {
         {offer.slug && (
           <Link
             to={`/compare?sort=rating&dir=desc&license=all&method=all&focus=${encodeURIComponent(offer.slug)}`}
-            className="min-h-[44px] inline-flex items-center px-2 text-sm text-brand-300 hover:text-brand-200"
+            className="min-h-[44px] inline-flex items-center px-2 text-sm text-[rgb(var(--accent))] hover:opacity-90"
           >
             {t("compare.compareLink")}
           </Link>

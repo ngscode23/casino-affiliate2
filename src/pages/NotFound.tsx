@@ -1,5 +1,5 @@
 // src/pages/NotFound.tsx
-import { Link } from "react-router-dom";
+import LinkButton from "@/components/ui/LinkButton";
 
 export default function NotFound() {
   return (
@@ -8,7 +8,7 @@ export default function NotFound() {
         <h1 className="text-2xl font-bold mb-2">404 — Страница не найдена</h1>
         <p className="text-[var(--text-dim)]">Такого маршрута нет. Проверь URL или вернись на главную.</p>
         <div className="mt-4">
-          <Link to="/" className="neon-btn">На главную</Link>
+          <LinkButton href="/">На главную</LinkButton>
         </div>
       </div>
     </section>

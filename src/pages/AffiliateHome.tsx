@@ -218,7 +218,7 @@ export default function AffiliateHome_v1() {
               <a className="hover:text-white" href="/about">О нас</a>
             </nav>
             <div className="flex items-center gap-3">
-              <a href="/compare" className="rounded-xl px-4 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90">Начать сравнение</a>
+              <LinkButton href="/compare">Начать сравнение</LinkButton>
               <span className="hidden text-xs text-white/60 md:inline">18+ Ответственная игра</span>
             </div>
           </div>

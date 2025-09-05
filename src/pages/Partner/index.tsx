@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Section from '@/components/common/section';
 import Card from '@/components/common/card';
 import { supabase } from '@/lib/supabase';
+import { ButtonPrimary } from '@/components/ui/Buttons';
 import { getUser } from '@/lib/auth';
 import { fnUrl } from '@/lib/api';
 
@@ -52,7 +53,7 @@ export default function PartnerPortalPage() {
     <Section className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Partner Portal</h1>
-        <button className="neon-btn" onClick={openPortal}>Billing</button>
+        <ButtonPrimary onClick={openPortal}>Billing</ButtonPrimary>
       </div>
       <Card className="p-4">
         {loading ? <div>Loading…</div> : error ? <div className="text-red-400">{error}</div> : (

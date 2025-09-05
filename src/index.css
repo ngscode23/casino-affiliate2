@@ -84,29 +84,7 @@
 
 /* 5) компоненты */
 @layer components {
-  /* Premium CTA button (green) */
-  .btn-cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 44px;
-    padding: 0 16px;
-    border-radius: 12px;
-    font-weight: 700;
-    letter-spacing: .2px;
-    color: #fff;
-    background: linear-gradient(180deg, #34D399, #10B981);
-    border: 1px solid rgba(16,185,129,.45);
-    box-shadow: 0 8px 22px rgba(16,185,129,.22);
-    transition:
-      transform var(--dur-fast) var(--ease-standard),
-      filter var(--dur-fast) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard),
-      background var(--dur-fast) var(--ease-standard);
-  }
-  .btn-cta:hover { filter: brightness(1.04); transform: translateY(-1px); box-shadow: 0 12px 26px rgba(16,185,129,.28); }
-  .btn-cta:active { transform: translateY(0) scale(.995); filter: brightness(.98); }
-  .btn-cta--sm { height: 36px; padding: 0 12px; border-radius: 10px; font-weight: 600; }
+  /* legacy CTA class removed in favor of shared Buttons/LinkButton */
 
   /* карточки */
   .neon-card {
