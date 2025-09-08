@@ -8,6 +8,74 @@
   $env:PGPASSWORD='moo7QIZ8FVShZIl5'
 
 
+
+supabase status
+# если там пусто/не тот проект — перелинкуй
+supabase link --project-ref wsqhgnxmotswjantxopb
+
+psql "postgresql://postgres:moo7QIZ8FVShZIl5@db.wsqhgnxmotswjantxopb.supabase.co:5432/postgres"
+
+# project_ref взять из Dashboard; формат типа abcd1234
+# в корне проекта
+                       # если миграции реально хранятся в репо
+  
+IP=$(dig +short A db.wsqhgnxmotswjantxopb.supabase.co | head -n1)
+psql "host=db.wsqhgnxmotswjantxopb.supabase.co hostaddr=$IP port=5432 dbname=postgres user=postgres.wsqhgnxmotswjantxopb password=moo7QIZ8FVShZIl5 sslmode=require" -c "select now();"
+
+
+export DB_URL_REMOTE="postgresql://postgres.wsqhgnxmotswjantxopb:moo7QIZ8FVShZIl5@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require&prepare=false"
+echo "$DB_URL_REMOTE"
+supabase db push --db-url "$DB_URL_REMOTE"
+export DB_URL_LOCAL='postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable'
+export DB_URL_REMOTE='postgresql://postgres.wsqhgnxmotswjantxopb:@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require'
+
+# ЛОКАЛЬНАЯ база (supabase start создаёт её на 54322)
+$env:PGHOST_LOCAL="127.0.0.1"
+$env:PGPORT_LOCAL="54322"
+$env:PGUSER_LOCAL="postgres"
+$env:PGPASS_LOCAL="postgres"
+$env:PGDB_LOCAL="postgres"
+
+
+# supabase db push --db-url $env:DB_URL_REMOTE
+# supabase db pull --db-url $env:DB_URL_REMOTE
+# при необходимости:
+# supabase db push --db-url $env:DB_URL_REMOTE
+# supabase db pull --db-url $env:DB_URL_REMOTE
+
+# в Supabase Dashboard → Project Settings → Database возьми:
+#   - user (postgres.<hash>)
+#   - password
+#   - host (aws-1-eu-central-1.pooler.supabase.com)
+#   - port 6543 (pooler)
+wsqhgnxmotswjantxopb
+# Посмотреть Remote-версии
+$s = supabase migration list --db-url $env:DB_URL | Out-String
+$remote = ($s -split "`n" | ForEach-Object {
+  if ($_ -match '^\s*\S+\s*\|\s*(\S+)\s*\|') { $Matches[1] }
+}) | Where-Object { $_ } | Select-Object -Unique
+
+# Локальные префиксы из файлов
+$local = Get-ChildItem .\supabase\migrations -File -Filter *.sql | ForEach-Object {
+  if ($_.Name -match '^(\d{8,})_') { $Matches[1] }
+} | Select-Object -Unique
+
+# Создать заглушки для remote-only
+$missing = $remote | Where-Object { $_ -notin $local }
+foreach ($v in $missing) {
+  $path = ".\supabase\migrations\${v}_remote_noop.sql"
+  ni -ItemType File $path -Force | Out-Null
+  Set-Content $path "-- noop: aligns with remote $v"
+  Write-Host "Created $path"
+}
+
+# проверь коннект к пулеру (обязательно sslmode=require)
+
+
+
+
+# и так для каждого нужного файла
+
 $ErrorActionPreference = "Stop"
 
 # ===== НАСТРОЙКИ =====
@@ -31,6 +99,8 @@ Get-ChildItem -Directory -Name "psql_reports*" -ErrorAction SilentlyContinue | F
   try { Remove-Item -Recurse -Force $_; Write-Host "🧹 Удалена старая папка: $_" -ForegroundColor Yellow }
   catch { Write-Host "⚠️ Не удалось удалить $_ : $($_.Exception.Message)" -ForegroundColor Red }
 }
+
+
 
 # ===== ПАПКА ОТЧЁТОВ =====
 $ts = Get-Date -Format "yyyyMMdd_HHmmss"

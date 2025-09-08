@@ -41,22 +41,19 @@
 
   html, body, #root {
     min-height: 100%;
-    background:
-      radial-gradient(1200px 400px at 15% -10%, rgba(59,130,246,.10), transparent 60%),
-      radial-gradient(1000px 380px at 85% -8%,  rgba(96,165,250,.10), transparent 60%),
-      rgb(var(--bg-0));
+    background: rgb(var(--bg-0));
     color: rgb(var(--text));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
   }
 
-  /* Headings use Poppins for a premium touch */
+  /* Headings use Inter to match body for minimalism */
   h1, h2, h3, .title {
-    font-family: Poppins, Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
+    font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
     font-weight: 600;
     letter-spacing: 0;
-    line-height: 1.25;
+    line-height: 1.2;
   }
 
   /* полезные reset-семантики курсора */
@@ -74,13 +71,11 @@
 .neon-container { max-width: 1200px; margin-inline: auto; padding-inline: 1rem; }
 
 /* 4) hero */
-.neon-hero {
-  padding: 48px 0 32px;
-  background:
-    radial-gradient(900px 320px at 10% -15%, rgba(16,185,129,.16), transparent 60%),
-    radial-gradient(900px 320px at 90% -15%, rgba(110,231,249,.12), transparent 60%);
-  border-bottom: 1px solid rgba(30,41,59,.16);
-}
+  .neon-hero {
+    padding: 48px 0 32px;
+    background: transparent;
+    border-bottom: 1px solid rgba(30,41,59,.16);
+  }
 
 /* 5) компоненты */
 @layer components {
@@ -88,21 +83,9 @@
 
   /* карточки */
   .neon-card {
-    border: 1px solid color-mix(in oklab, white 16%, transparent);
+    border: 1px solid color-mix(in oklab, white 12%, transparent);
     border-radius: 24px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)),
-      rgb(var(--bg-1) / .9);
-    box-shadow: 0 12px 32px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.03);
-    backdrop-filter: saturate(120%) blur(4px);
-    transition:
-      border-color var(--dur-normal) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard),
-      transform var(--dur-fast) var(--ease-standard);
-  }
-  .neon-card:hover {
-    border-color: color-mix(in oklab, white 22%, transparent);
-    box-shadow: 0 18px 48px rgba(0,0,0,.44);
+    background: rgb(var(--bg-1));
   }
 
   /* чипы */
@@ -131,28 +114,15 @@
   .neon-input:focus { border-color: rgba(var(--ring)); box-shadow: 0 0 0 4px rgba(139,92,246,.18); }
 
   /* кнопка */
-.neon-btn {
+  .neon-btn {
     position: relative;
-    height:44px; padding:0 16px; border-radius:12px; font-weight:700; letter-spacing:.2px;
-    border:1px solid rgba(255,255,255,.12);
-    background: linear-gradient(180deg, rgba(212,175,55,.96), rgba(212,175,55,.80));
-    color:#111; box-shadow:0 12px 26px rgba(212,175,55,.25);
-    transition:
-      transform var(--dur-fast) var(--ease-standard),
-      filter var(--dur-fast) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard),
-      background var(--dur-fast) var(--ease-standard);
-    overflow: hidden;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, white 12%, transparent);
+    background: rgb(var(--bg-1));
+    color: rgb(var(--text));
   }
-  .neon-btn::after {
-    content:""; position:absolute; inset:0; pointer-events:none;
-    background: linear-gradient(110deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.3) 50%, rgba(255,255,255,0) 70%);
-    transform: translateX(-120%);
-    transition: transform .25s ease;
-  }
-  .neon-btn:hover { filter:brightness(1.05); }
-  .neon-btn:hover::after { transform: translateX(120%); }
-  .neon-btn:active { transform: translateY(1px) scale(.995); }
 
   /* таблица */
   table.neon-table { width:100%; border-collapse:separate; border-spacing:0; }
@@ -181,14 +151,7 @@
 @keyframes fav-bump { 0%{ transform:scale(1)} 50%{ transform:scale(1.2)} 100%{ transform:scale(1)} }
 .fav-pop { animation: fav-bump .18s ease; text-shadow: 0 0 12px rgba(255,200,0,.35); }
 
-.neon-card:hover {
-  border-color: rgba(255,255,255,.14);
-  box-shadow: 0 18px 48px rgba(0,0,0,.44), 0 0 0 1px rgba(139,92,246,.18) inset;
-  transform: translateY(-1px) scale(1.01);
-}
-.neon-card:active {
-  transform: translateY(0) scale(.995);
-}
+  .neon-card:hover { border-color: rgba(255,255,255,.16); }
 
 .pill-hover { transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-normal) var(--ease-standard); }
 .pill-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.25); }

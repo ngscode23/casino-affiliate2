@@ -14,13 +14,16 @@ function AnalyticsRouteListener() {
 }
 
 import "./index.css";
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import Skeleton from "@/components/common/skeleton";
 import OrgJsonLd from "@/components/OrgJsonLd";
 import { CompareProvider } from "@/ctx/CompareContext";
+import { VerticalProvider } from "@/ctx/VerticalContext";
+import { CartProvider } from "@/ecom/lib/cart";
+import { WishlistProvider } from "@/ecom/lib/wishlist";
 import CompareBar from "@/components/layout/CompareBar";
 import { ToastContainer } from "@/components/common/toast";
 import { I18nProvider } from "@/lib/i18n";
@@ -32,6 +35,7 @@ import ComparePage from "@/pages/Compare";
 
 import Health from "./pages/Health";
 import PageTransition from "@/components/ui/PageTransition";
+import { AgeGate } from "@/components/AgeGate";
 
 // ...
 
@@ -62,6 +66,7 @@ const OffersIndex         = lazy(() => import("@/pages/Offers"));
 const OfferPage           = lazy(() => import("@/pages/Offer"));
 const FavoritesPage       = lazy(() => import("@/pages/Favorites"));
 const AffiliateHome       = lazy(() => import("@/pages/AffiliateHome").then(m => ({ default: m.AffiliateHome })));
+const HowWeRankPage       = lazy(() => import("@/pages/HowWeRank"));
 
 const ContactPage         = lazy(() => import("@/pages/Contact"));
 const PrivacyPage         = lazy(() => import("@/pages/Legal/Privacy"));
@@ -76,6 +81,13 @@ const AuthCallback        = lazy(() => import("@/pages/AuthCallback"));
 
 const GoRedirect          = lazy(() => import("@/pages/GoRedirect"));
 const NotFound            = lazy(() => import("@/pages/NotFound"));
+// E-commerce pages
+const ShopHome            = lazy(() => import("@/ecom/pages/Home"));
+const CatalogPage         = lazy(() => import("@/ecom/pages/Catalog"));
+const ProductPage         = lazy(() => import("@/ecom/pages/Product"));
+const CartPage            = lazy(() => import("@/ecom/pages/Cart"));
+const CheckoutPage        = lazy(() => import("@/ecom/pages/Checkout"));
+const WishlistPage        = lazy(() => import("@/ecom/pages/Wishlist"));
 const PricingPage         = lazy(() => import("@/pages/Pricing"));
 const PartnerPortalPage   = lazy(() => import("@/pages/Partner"));
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -89,20 +101,27 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 const AdminApp            = lazy(() => import("@/pages/Admin"));
 
 // ── общий фолбэк для ленивых блоков
-function PageFallback() {
-  return (
-    <div className="neon-container py-8 space-y-4">
-      <div className="neon-card p-4 space-y-3">
-        <Skeleton className="h-5 w-1/3" />
-        <Skeleton className="h-4 w-2/3" />
-        <Skeleton className="h-10 w-full" />
+  function PageFallback() {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+        <div className="rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 space-y-3">
+          <Skeleton className="h-5 w-1/3" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-10 w-full" />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 export default function App() {
    usePageView();
+  const FEATURE_AGE_GATE = ((import.meta as any).env?.VITE_FEATURE_AGE_GATE === 'true');
+  const [ageAccepted, setAgeAccepted] = useState<boolean>(true);
+  useEffect(() => {
+    if (!FEATURE_AGE_GATE) return;
+    try { setAgeAccepted(localStorage.getItem('age:accepted') === '1'); } catch {/* noop */}
+  }, [FEATURE_AGE_GATE]);
+  const acceptAge = () => { try { localStorage.setItem('age:accepted', '1'); } catch {/* noop */} setAgeAccepted(true); };
   // Небольшой prefetch самых частых страниц при простое
   useEffect(() => {
 
@@ -123,6 +142,7 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
     
     <ErrorBoundary>
       <div className="min-h-screen bg-[var(--bg-0)] text-[var(--text)]">
+        {FEATURE_AGE_GATE && !ageAccepted ? <AgeGate onAccept={acceptAge} /> : null}
         {/* Skip link для a11y */}
         <a
           href="#main"
@@ -132,7 +152,10 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
         </a>
 
         <I18nProvider>
+        <VerticalProvider>
         <CompareProvider>
+        <CartProvider>
+        <WishlistProvider>
           <Suspense fallback={<PageFallback />}>
             {/* Каркас и глобальная SEO-разметка */}
             <Header />
@@ -144,12 +167,20 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
               <PageTransition>
                 <Routes>
                   {/* Публичные */}
-                  <Route path="/" element={<HomePage />} />
+                  <Route path="/" element={<ShopHome />} />
+                                    {/* E-commerce */}
+                  <Route path="/shop" element={<ShopHome />} />
+                  <Route path="/catalog" element={<CatalogPage />} />
+                  <Route path="/product/:slug" element={<ProductPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/compare" element={<ComparePage />} />
                   <Route path="/affiliate" element={<AffiliateHome />} />
                   <Route path="/offers" element={<OffersIndex />} />
                   <Route path="/offers/:slug" element={<OfferPage />} />
                   <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/how-we-rank" element={<HowWeRankPage />} />
                   <Route path="/partner" element={<ProtectedRoute><PartnerPortalPage /></ProtectedRoute>} />
                   <Route path="/favorites" element={<FavoritesPage />} />
 
@@ -188,7 +219,10 @@ setTimeout(() => { import("@/pages/Offer"); }, 3000);
             <AnalyticsGateGA />
             <ToastContainer />
           </Suspense>
+        </WishlistProvider>
+        </CartProvider>
         </CompareProvider>
+        </VerticalProvider>
         </I18nProvider>
       </div>
     </ErrorBoundary>

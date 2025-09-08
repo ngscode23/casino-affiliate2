@@ -33,21 +33,21 @@ export default function SetupPage() {
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <label className="block text-sm mb-1">Site name</label>
-              <input className="neon-input" value={siteName} onChange={e=>setSiteName(e.target.value)} />
+              <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={siteName} onChange={e=>setSiteName(e.target.value)} />
             </div>
             <div>
               <label className="block text-sm mb-1">Site URL</label>
-              <input className="neon-input" value={siteUrl} onChange={e=>setSiteUrl(e.target.value)} placeholder="https://example.com" />
+              <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={siteUrl} onChange={e=>setSiteUrl(e.target.value)} placeholder="https://example.com" />
             </div>
             <div>
               <label className="block text-sm mb-1">Brand logo URL</label>
-              <input className="neon-input" value={brandLogo} onChange={e=>setBrandLogo(e.target.value)} placeholder="/logo.svg" />
+              <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={brandLogo} onChange={e=>setBrandLogo(e.target.value)} placeholder="/logo.svg" />
             </div>
             <div>
               <label className="block text-sm mb-1">GA4 Measurement ID</label>
-              <input className="neon-input" value={gaId} onChange={e=>setGaId(e.target.value)} placeholder="G-XXXXXXX" />
+              <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={gaId} onChange={e=>setGaId(e.target.value)} placeholder="G-XXXXXXX" />
             </div>
-            <button disabled={saving} className="neon-btn" type="submit">{saving?"Saving…":"Save"}</button>
+            <button disabled={saving} className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5 disabled:opacity-50" type="submit">{saving?"Saving…":"Save"}</button>
             {msg && <div className="text-sm text-[var(--text-dim)]">{msg}</div>}
           </form>
         </Card>
@@ -55,4 +55,3 @@ export default function SetupPage() {
     </>
   );
 }
-

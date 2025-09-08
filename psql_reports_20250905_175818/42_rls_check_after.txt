@@ -1,7 +1,0 @@
-BEGIN
-RESET
-SET
-SET
-psql:C:/Users/stasv/AppData/Local/Temp/tmpzeaatq.tmp.sql:5: ERROR:  invalid input syntax for type json
-DETAIL:  Token "sub" is invalid.
-CONTEXT:  JSON data, line 1: {""sub...

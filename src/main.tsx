@@ -6,6 +6,7 @@ import App from "./App";
 import { Sentry } from "@/lib/sentry";
 import { initSentry, bindSentryToConsent } from "@/lib/sentry";
 import { applyStoredConsentToDom } from "@/lib/consent";
+import "@fontsource-variable/inter";
 import "./index.css";
 
 // Apply stored consent to DOM and conditionally init Sentry
@@ -22,4 +23,3 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
-

@@ -3,6 +3,7 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { ButtonGhost, ButtonPrimary } from "@/components/ui/Buttons";
 import { Pill } from "@/components/ui/Pill";
 import IconButton from "@/components/ui/IconButton";
+import { toast } from "@/components/common/toast";
 
 import {
   Sheet,
@@ -104,7 +105,14 @@ export default function CompareBar() {
               ref={barRef}
             >
               <div className="flex items-center gap-2">
-                <div className="text-sm text-[var(--text-dim)]">{t("compare.selectedFor") || "Compare:"}</div>
+                <div className="text-sm text-[var(--text-dim)]">
+                  {(t("compare.selectedFor") || "Compare") + ` (${selected.length})`}
+                </div>
+                {selected.length === 1 ? (
+                  <div className="text-xs text-[var(--text-dim)]" data-testid="compare-hint">
+                    {t("compare.hintAddOneMore") || "Add one more to open compare"}
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   {(() => {
                     const max = typeof window !== "undefined" && window.innerWidth < 640 ? 3 : 6;
@@ -138,15 +146,32 @@ export default function CompareBar() {
                           .filter(Boolean);
                         const base = typeof window !== "undefined" ? window.location.origin : "";
                         const share = `${base}/compare?set=${encodeURIComponent(slugs.join(","))}`;
-                        navigator.clipboard?.writeText(share);
-                      } catch { /* noop */ }
+                        if (navigator.clipboard?.writeText) {
+                          navigator.clipboard.writeText(share);
+                          toast("Link copied", { variant: "success" });
+                        } else {
+                          // Fallback
+                          prompt("Copy link:", share);
+                        }
+                      } catch {
+                        try {
+                          const slugs = selected
+                            .map((s) => toOfferLike(s).slug || toOfferLike(s).name)
+                            .filter(Boolean);
+                          const base = typeof window !== "undefined" ? window.location.origin : "";
+                          const share = `${base}/compare?set=${encodeURIComponent(slugs.join(","))}`;
+                          prompt("Copy link:", share);
+                        } catch {
+                          toast("Failed to copy", { variant: "error" });
+                        }
+                      }
                     }}
                   >
                     {t("compare.share") || "Copy link"}
                   </ButtonGhost>
                   <ButtonGhost onClick={clear}>{t("compare.clear") || "Clear"}</ButtonGhost>
                   <SheetTrigger asChild>
-                    <ButtonPrimary disabled={!canCompare}>{t("compare.open") || "Open compare"}</ButtonPrimary>
+                    <ButtonPrimary data-testid="compare-open-btn" disabled={!canCompare}>{t("compare.open") || "Open compare"}</ButtonPrimary>
                   </SheetTrigger>
                 </div>
               </div>

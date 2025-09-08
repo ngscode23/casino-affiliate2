@@ -69,7 +69,7 @@ export default function AuthButton() {
       {!codeSent ? (
         <>
           <input
-            className="neon-input min-w-[220px]"
+            className="min-w-[220px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             type="email"
             placeholder="you@email.com"
             value={email}
@@ -82,7 +82,7 @@ export default function AuthButton() {
       ) : (
         <>
           <input
-            className="neon-input min-w-[160px]"
+            className="min-w-[160px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             inputMode="numeric"
             placeholder="6-digit code"
             value={code}

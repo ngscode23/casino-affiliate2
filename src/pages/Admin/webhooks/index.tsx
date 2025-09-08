@@ -52,11 +52,11 @@ export default function WebhooksPage() {
         <div className="flex items-center gap-3 mb-3">
           <h1 className="text-xl font-semibold">Webhook Logs</h1>
           <div className="ml-auto flex items-center gap-2">
-            <input className="neon-input w-[220px]" placeholder="Filter by type" value={q} onChange={e=>{ setPage(0); setQ(e.target.value) }} />
-            <button className="neon-btn" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>Prev</button>
+            <input className="w-[220px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" placeholder="Filter by type" value={q} onChange={e=>{ setPage(0); setQ(e.target.value) }} />
+            <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5 disabled:opacity-50" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>Prev</button>
             <span className="text-sm">Page {page+1}</span>
-            <button className="neon-btn" onClick={()=>setPage(p=>p+1)}>Next</button>
-            <button className="neon-btn" onClick={purge} title="Delete logs older than 30d">Purge &gt;30d</button>
+            <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={()=>setPage(p=>p+1)}>Next</button>
+            <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={purge} title="Delete logs older than 30d">Purge &gt;30d</button>
           </div>
         </div>
         {loading ? <div>Loading…</div> : error ? <div className="text-red-400">{error}</div> : (

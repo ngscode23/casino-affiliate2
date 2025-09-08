@@ -1,11 +1,21 @@
 # netlify.toml
 
 [build]
-  command = "npm run build"
+  command = "pnpm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
+  NETLIFY_USE_PNPM = "true"
+  PNPM_VERSION = "10.15.1"
+
+[context.production.environment]
+  VITE_FEATURE_AGE_GATE = "true"
+  GO_CLICK_RATELIMIT_MS = "30000"
+
+[context.deploy-preview.environment]
+  VITE_FEATURE_AGE_GATE = "true"
+  GO_CLICK_RATELIMIT_MS = "30000"
 
 # Serverless-функции до SPA-фоллбэка
 [[redirects]]

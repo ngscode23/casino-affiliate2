@@ -36,7 +36,7 @@ export default function RegisterPage() {
             type="email"
             required
             placeholder="you@email.com"
-            className="w-full rounded bg-white/5 px-3 py-2"
+            className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -44,7 +44,7 @@ export default function RegisterPage() {
             type="password"
             required
             placeholder="Пароль"
-            className="w-full rounded bg-white/5 px-3 py-2"
+            className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

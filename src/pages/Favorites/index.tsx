@@ -12,8 +12,10 @@ import { useSearchParams } from "react-router-dom";
 import { SITE_URL } from "@/config";
 import { toast } from "@/components/common/toast";
 import { Share2 } from "lucide-react";
+import { useT } from "@/lib/useT";
 
 export default function FavoritesPage() {
+  const t = useT();
   // избранное
   const { items, isLoading, add, remove } = useFavorites();
   const { offers } = useOffers();
@@ -68,7 +70,7 @@ export default function FavoritesPage() {
     const webPage = {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      name: "Избранное",
+      name: t("nav.favorites") || "Favorites",
       url: origin ? origin + "/favorites" : undefined,
     };
     const itemList = {
@@ -87,7 +89,7 @@ export default function FavoritesPage() {
   // очистка избранного
   const clearAll = useCallback(async () => {
     if (!items?.length) return;
-    if (!confirm("Очистить весь список избранного?")) return;
+    if (!confirm(t("favorites.clearConfirm") || "Clear all favorites?")) return;
     for (const slug of items ?? []) {
       await remove(slug);
     }
@@ -109,26 +111,26 @@ export default function FavoritesPage() {
     const url = origin + "/favorites?list=" + items.join(",");
     try {
       await navigator.clipboard.writeText(url);
-      toast("Скопировано", { variant: "success" });
+      toast(t("favorites.copied") || "Copied", { variant: "success" });
     } catch {
-      prompt("Скопируйте ссылку вручную:", url);
+      prompt(t("favorites.copyManual") || "Copy link manually:", url);
     }
   }, [items]);
 
   return (
     <>
-      <Seo title="Избранное — ваши сохранённые казино" description="Быстрый доступ к сохранённым офферам." canonical={origin ? origin + "/favorites" : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
+      <Seo title={(t("nav.favorites") || "Favorites") + " — " + (t("favorites.savedSubtitle") || "your saved offers")} description={t("favorites.description") || "Quick access to your saved offers."} canonical={origin ? origin + "/favorites" : undefined} jsonLd={jsonLd} ogImage="/og.svg" />
 
       <PageShell>
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">Избранное</h1>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">{t("nav.favorites") || "Favorites"}</h1>
         {favOffers.length > 0 && (
           <SectionCard actions={
             <>
-              <ButtonGhost onClick={clearAll}>Очистить избранное</ButtonGhost>
-              <ButtonPrimary onClick={shareList}><Share2 className="h-4 w-4 mr-1" /> Поделиться списком</ButtonPrimary>
+              <ButtonGhost onClick={clearAll}>{t("favorites.clear") || "Clear favorites"}</ButtonGhost>
+              <ButtonPrimary onClick={shareList}><Share2 className="h-4 w-4 mr-1" /> {t("favorites.share") || "Share list"}</ButtonPrimary>
             </>
           }>
-            <p className="text-sm/6 text-neutral-300">Ваши сохранённые офферы.</p>
+            <p className="text-sm/6 text-neutral-300">{t("favorites.savedSubtitle") || "Your saved offers."}</p>
           </SectionCard>
         )}
 
@@ -138,11 +140,11 @@ export default function FavoritesPage() {
           <SectionCard>
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm">
-                Найден список к импорту: <b>{missing.length}</b> элементов
+                {(t("favorites.importFound") || "Found a list to import:") + " "}<b>{missing.length}</b> {(t("favorites.items") || "items")}
               </div>
               <div className="flex gap-2">
                 <ButtonGhost onClick={importMissing}>
-                  Импортировать
+                  {t("favorites.import") || "Import"}
                 </ButtonGhost>
                 <ButtonGhost
                   onClick={() => {
@@ -151,7 +153,7 @@ export default function FavoritesPage() {
                     setParams(next, { replace: true });
                   }}
                 >
-                  Скрыть
+                  {t("favorites.hide") || "Hide"}
                 </ButtonGhost>
               </div>
             </div>
@@ -159,9 +161,55 @@ export default function FavoritesPage() {
         )}
 
         {isLoading ? (
-          <SectionCard>Загрузка…</SectionCard>
+          <>
+            {/* mobile skeletons */}
+            <SectionCard className="md:hidden" contentClassName="gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 h-[180px]" aria-hidden>
+                  <div className="flex justify-between"><div className="relative overflow-hidden bg-white/5 rounded-md h-5 w-2/3" /></div>
+                  <div className="relative overflow-hidden bg-white/5 rounded-md h-4 w-3/4 mt-3" />
+                  <div className="grid grid-cols-3 gap-2 mt-6">
+                    <div className="relative overflow-hidden bg-white/5 rounded-md h-10" />
+                    <div className="relative overflow-hidden bg-white/5 rounded-md h-10" />
+                    <div className="relative overflow-hidden bg-white/5 rounded-md h-10" />
+                  </div>
+                </div>
+              ))}
+            </SectionCard>
+
+            {/* desktop table skeleton */}
+            <SectionCard className="hidden md:block p-0">
+              {/* reuse compare skeleton */}
+              {/** keep identical row height to avoid layout shift */}
+              <div className="p-0 overflow-hidden">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-[rgb(var(--bg-1)/.9)] z-10">
+                    <tr>
+                      {["COMPARE","FAV","FIRM","RATING","LICENSE","PAYOUT","METHODS","ACTION"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-[12px] uppercase text-[var(--muted)]">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={i} className="h-16">
+                        {Array.from({ length: 8 }).map((__, j) => (
+                          <td key={j} className="px-4 py-3"><div className="relative overflow-hidden bg-white/5 rounded-md h-5" /></td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          </>
         ) : favOffers.length === 0 ? (
-          <SectionCard>Вы ещё ничего не добавили.</SectionCard>
+          <SectionCard>
+            <div className="text-[var(--text-dim)]">{t("favorites.empty") || "You haven't added anything yet."}</div>
+            <div className="mt-2">
+              <a href="/offers" className="underline">{t("favorites.goToOffers") || "Go to offers"}</a>
+            </div>
+          </SectionCard>
         ) : (
           <>
             {/* мобайл — карточки */}

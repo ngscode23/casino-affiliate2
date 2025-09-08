@@ -8,6 +8,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { toast } from "@/components/common/toast";
+import { t } from "@/lib/t";
 
 export type CompareItem = {
   slug?: string;
@@ -73,7 +75,10 @@ export function CompareProvider({
           return prev.filter((s) => idOf(s) !== itemId);
         }
         if (typeof item === "string") return prev;
-        if (prev.length >= max) return prev;
+        if (prev.length >= max) {
+          try { toast(t("compare.maxLimit") || `Select up to ${max} items`, { variant: "info" }); } catch { /* noop */ }
+          return prev;
+        }
         return [...prev, item];
       });
     },

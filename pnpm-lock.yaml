@@ -41,6 +41,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.12
         version: 3.13.12(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      brew:
+        specifier: ^0.0.8
+        version: 0.0.8
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2687,6 +2690,9 @@ packages:
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
+
+  brew@0.0.8:
+    resolution: {integrity: sha512-BSTwOi8fIk8+7SbNmqhleUdjVZTewhYOqRb7zeSOk45sEx1ak6v1btoFl0WiaIbl1dsg4DFHQ4qefXpqXztMXA==}
 
   browserslist@4.25.3:
     resolution: {integrity: sha512-cDGv1kkDI4/0e5yON9yM5G/0A5u8sf5TnmdX5C9qHzI9PPu++sQ9zjm1k9NiOrf3riY4OkK0zSGqfvJyJsgCBQ==}
@@ -8920,6 +8926,8 @@ snapshots:
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
+
+  brew@0.0.8: {}
 
   browserslist@4.25.3:
     dependencies:

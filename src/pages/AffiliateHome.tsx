@@ -5,7 +5,6 @@ import { useOffers } from "@/features/offers/api/useOffers";
 import type { NormalizedOffer } from "@/lib/offers";
 import PageShell from "@/components/ui/PageShell";
 import SectionCard from "@/components/ui/SectionCard";
-import { ButtonPrimary, ButtonGhost } from "@/components/ui/Buttons";
 import LinkButton from "@/components/ui/LinkButton";
 import { Pill } from "@/components/ui/Pill";
 

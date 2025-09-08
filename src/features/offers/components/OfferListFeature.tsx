@@ -3,6 +3,7 @@ import MobileOfferCard from "@/components/offers/MobileOfferCard";
 import type { NormalizedOffer } from "@/lib/offers";
 import { useImpression } from "@/lib/impressions";
 import type { LicenseFilter } from "@/components/compare/LicenseSelect";
+import { useT } from "@/lib/useT";
 
 export type OffersFilterState = {
   license: LicenseFilter;
@@ -14,6 +15,7 @@ type Props = {
   filters: OffersFilterState;
   isLoading?: boolean;
   error?: string | null;
+  onReset?: () => void;
 };
 
 export default function OfferListFeature({
@@ -21,12 +23,14 @@ export default function OfferListFeature({
   filters,
   isLoading,
   error,
+  onReset,
 }: Props) {
+  const t = useT();
   if (isLoading) {
-    return <div className="text-neutral-300">Loading...</div>;
+    return <div className="text-neutral-300">{t("common.loading") || "Loading..."}</div>;
   }
   if (error) {
-    return <div className="text-red-400">Error: {error}</div>;
+    return <div className="text-red-400">{(t("common.error") || "Error") + ": "}{error}</div>;
   }
 
   const filtered = offers.filter((o) => {
@@ -41,23 +45,39 @@ export default function OfferListFeature({
   });
 
   if (filtered.length === 0) {
-    return <div className="text-neutral-300">No offers match the filters.</div>;
+    return (
+      <div className="flex items-center justify-between gap-3 text-neutral-300">
+        <div>{t("filters.noResults") || "No offers match the filters."}</div>
+        {onReset ? (
+          <button
+            type="button"
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10"
+            onClick={onReset}
+          >
+            {t("filters.reset") || "Reset"}
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   function ListItem({ offer }: { offer: NormalizedOffer }) {
     const ref = useImpression(offer.slug);
     return (
-      <div ref={ref}>
-        <MobileOfferCard key={offer.slug} offer={offer} />
+      <div ref={ref} className="h-full">
+        <MobileOfferCard key={offer.slug} offer={offer} className="h-full" />
       </div>
     );
   }
 
   return (
-    <div className="grid gap-3 sm:gap-4 md:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid auto-rows-fr items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
       {filtered.map((o) => (
         <ListItem key={o.slug} offer={o} />
       ))}
     </div>
   );
 }
+
+// Generic alias to avoid tight coupling with offer wording
+export const ProductListFeature = OfferListFeature;

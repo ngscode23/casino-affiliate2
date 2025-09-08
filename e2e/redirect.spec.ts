@@ -46,6 +46,36 @@ test('two clicks within window → one effective insert', async ({ request }) =>
   expect(after - before).toBe(1)
 })
 
+test('location header contains tracking params and respects incoming subid', async ({ request }) => {
+  const url = `${BASE}/.netlify/functions/go/${encodeURIComponent(SLUG)}?subid=mycid&utm_source=testsrc`
+  const res = await request.get(url, { maxRedirects: 0 })
+  expect([301,302,303,307,308]).toContain(res.status())
+  const loc = res.headers()['location'] || ''
+  expect(loc).toContain('utm_source=testsrc')
+  // Should not override provided subid
+  expect(loc).toContain('subid=mycid')
+  // Always attaches click_id
+  expect(loc).toMatch(/click_id=[^&]+/)
+})
 
+test('bad slug returns 404 not_found', async ({ request }) => {
+  const bad = `nonexistent-${Date.now().toString(36)}`
+  const res = await request.get(`${BASE}/.netlify/functions/go/${encodeURIComponent(bad)}`, { maxRedirects: 0 })
+  expect(res.status()).toBe(404)
+  const body = await res.json()
+  expect(['not_found','No slug']).toContain(body?.error)
+})
+
+test.skip(!!process.env.SKIP_SLOW_E2E, 'slow test skipped by env')('two clicks outside window → two inserts', async ({ request }) => {
+  const before = await countClicks(request, 180)
+  const url = `${BASE}/.netlify/functions/go/${encodeURIComponent(SLUG)}`
+  const headers = { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/115 Safari/537.36', 'x-forwarded-for': '203.0.113.77' }
+  await request.get(url, { headers, maxRedirects: 0 })
+  // Wait slightly more than default 5s rate-limit window
+  await new Promise(r => setTimeout(r, 6000))
+  await request.get(url, { headers, maxRedirects: 0 })
+  const after = await countClicks(request, 180)
+  expect(after - before).toBeGreaterThanOrEqual(2)
+})
 
 

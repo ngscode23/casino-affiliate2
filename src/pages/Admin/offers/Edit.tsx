@@ -32,7 +32,7 @@ const linkSchema = z.preprocess(
 );
 
 /** ВАЖНО: rating / payout / enabled — required */
-const FormSchema = z.object({
+export const FormSchema = z.object({
   slug: z.string().min(1, "Required"),
   name: z.string().min(1, "Required"),
   license: z.enum(["MGA", "UKGC", "Curaçao", "Other"]),

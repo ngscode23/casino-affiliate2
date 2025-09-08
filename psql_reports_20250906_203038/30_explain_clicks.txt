@@ -1,0 +1,15 @@
+SET
+SET
+SET
+                                         QUERY PLAN                                          
+---------------------------------------------------------------------------------------------
+ Limit  (cost=0.14..3.49 rows=1 width=4)
+   ->  Nested Loop  (cost=0.14..3.49 rows=1 width=4)
+         Join Filter: (c.offer_id = o.id)
+         ->  Index Scan using idx_clicks_ip_ts on clicks c  (cost=0.14..2.37 rows=1 width=8)
+               Index Cond: (ip_hash = 'deadbeef'::text)
+               Filter: (COALESCE(ts, created_at) >= (now() - '00:00:05'::interval))
+         ->  Seq Scan on offers o  (cost=0.00..1.11 rows=1 width=8)
+               Filter: (slug = 'lucky-star'::text)
+(8 rows)
+

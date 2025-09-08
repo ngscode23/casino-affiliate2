@@ -1,0 +1,15 @@
+SET
+SET
+SET
+  tablename  |        indexname         |                                          indexdef                                           
+-------------+--------------------------+---------------------------------------------------------------------------------------------
+ clicks      | clicks_click_id_idx      | CREATE INDEX clicks_click_id_idx ON public.clicks USING btree (click_id)
+ clicks      | clicks_pkey              | CREATE UNIQUE INDEX clicks_pkey ON public.clicks USING btree (id)
+ clicks      | clicks_ts_idx            | CREATE INDEX clicks_ts_idx ON public.clicks USING btree (ts DESC)
+ clicks      | idx_clicks_ip_ts         | CREATE INDEX idx_clicks_ip_ts ON public.clicks USING btree (ip_hash, ts DESC)
+ clicks      | idx_clicks_offer_ts      | CREATE INDEX idx_clicks_offer_ts ON public.clicks USING btree (offer_id, ts DESC)
+ impressions | idx_impressions_offer_ts | CREATE INDEX idx_impressions_offer_ts ON public.impressions USING btree (offer_id, ts DESC)
+ impressions | impressions_pkey         | CREATE UNIQUE INDEX impressions_pkey ON public.impressions USING btree (id)
+ impressions | impressions_ts_idx       | CREATE INDEX impressions_ts_idx ON public.impressions USING btree (ts DESC)
+(8 rows)
+

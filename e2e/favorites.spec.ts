@@ -30,3 +30,33 @@ test("favorites lifecycle", async ({ page }) => {
   );
   expect(savedAfter.length).toBeLessThan(saved.length);
 });
+
+test("favorites import via ?list= and share copies URL", async ({ page }) => {
+  const base = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
+
+  // Start with empty favorites
+  await page.goto(`${base}/compare`, { waitUntil: "networkidle" });
+  await page.evaluate(() => localStorage.setItem("fav:v1", JSON.stringify([])));
+
+  // Import from URL
+  await page.goto(`${base}/favorites?list=lucky-star`, { waitUntil: "networkidle" });
+  // Import banner appears
+  await page.getByRole('button', { name: /Импортировать|Import/i }).click();
+
+  // Verify item stored
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('fav:v1') || '[]'));
+  expect(saved).toContain('lucky-star');
+
+  // Stub clipboard and click Share
+  await page.addInitScript(() => {
+    // @ts-ignore
+    window._copied = '';
+    // @ts-ignore
+    navigator.clipboard = { writeText: (t) => { /* @ts-ignore */ window._copied = t; return Promise.resolve(); } };
+  });
+
+  await page.getByRole('button', { name: /Поделиться списком|Share list/i }).click();
+  const copied = await page.evaluate(() => (window as any)._copied);
+  expect(String(copied)).toContain('/favorites?list=');
+  expect(String(copied)).toContain('lucky-star');
+});

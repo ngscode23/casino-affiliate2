@@ -208,7 +208,7 @@ export default function AnalyticsIndex() {
       <h1 className="text-2xl font-bold">Analytics</h1>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="text-sm">Range:</label>
-        <select className="neon-input w-[160px]" value={range} onChange={e=>setRange(e.target.value as any)}>
+        <select className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-[160px]" value={range} onChange={e=>setRange(e.target.value as any)}>
           <option value="7">7 days</option>
           <option value="30">30 days</option>
           <option value="90">90 days</option>
@@ -216,8 +216,8 @@ export default function AnalyticsIndex() {
         </select>
         {range === 'custom' && (
           <>
-            <input type="date" className="neon-input" value={fromDate} onChange={e=>setFromDate(e.target.value)} />
-            <input type="date" className="neon-input" value={toDate} onChange={e=>setToDate(e.target.value)} />
+            <input type="date" className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={fromDate} onChange={e=>setFromDate(e.target.value)} />
+            <input type="date" className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={toDate} onChange={e=>setToDate(e.target.value)} />
           </>
         )}
       </div>
@@ -238,8 +238,8 @@ export default function AnalyticsIndex() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold">Top slugs</h2>
               <div className="flex gap-2">
-                <button className="neon-btn" onClick={exportTopSlugsCSV}>Export CSV</button>
-                <button className="neon-btn" onClick={exportTopSlugsJSON}>Export JSON</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportTopSlugsCSV}>Export CSV</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportTopSlugsJSON}>Export JSON</button>
               </div>
             </div>
             <div className="text-sm space-y-1">
@@ -284,8 +284,8 @@ export default function AnalyticsIndex() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold">Top sources</h2>
               <div className="flex gap-2">
-                <button className="neon-btn" onClick={exportSourcesCSV}>Export CSV</button>
-                <button className="neon-btn" onClick={exportSourcesJSON}>Export JSON</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportSourcesCSV}>Export CSV</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportSourcesJSON}>Export JSON</button>
               </div>
             </div>
             <div className="text-sm space-y-1">
@@ -298,7 +298,7 @@ export default function AnalyticsIndex() {
           <Card className="p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold">UTM source/campaign</h2>
-              <button className="neon-btn" onClick={downloadCsv}>Export CSV</button>
+              <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={downloadCsv}>Export CSV</button>
             </div>
             <div className="text-sm space-y-1">
               {utmReport.map(([k,c])=> (
@@ -311,8 +311,8 @@ export default function AnalyticsIndex() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold">CTR by slug</h2>
               <div className="flex gap-2">
-                <button className="neon-btn" onClick={exportCTRCSV}>Export CSV</button>
-                <button className="neon-btn" onClick={exportCTRJSON}>Export JSON</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportCTRCSV}>Export CSV</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={exportCTRJSON}>Export JSON</button>
               </div>
             </div>
             <div className="text-sm space-y-1">

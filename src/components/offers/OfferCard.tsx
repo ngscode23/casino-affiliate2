@@ -2,6 +2,7 @@
 import type { NormalizedOffer } from "@/lib/offers";
 import { Link } from "react-router-dom";
 import AffiliateLink from "@/components/misc/AffiliateLink";
+import { useVertical } from "@/ctx/VerticalContext";
 import { useT } from "@/lib/useT";
 import { Pill } from "@/components/ui/Pill";
 
@@ -13,13 +14,34 @@ type Props = {
 
 export default function OfferCard({ offer, index }: Props) {
   const t = useT();
+  const vertical = useVertical();
   const position = typeof index === "number" ? index + 1 : undefined;
   const plan = (offer as any).pinnedPlan as string | undefined;
   const isPinned = (offer as any).pinned as boolean | undefined;
   const badge = plan === 'TOP' ? 'Top' : plan === 'FEATURED' ? 'Featured' : (plan || isPinned) ? 'Featured' : null;
 
+  // Map payout method codes to human-friendly/i18n labels.
+  const methodLabel = (m: string): string => {
+    const raw = String(m || '').trim();
+    const lower = raw.toLowerCase().replace(/\s+/g, ' ').replace(/[_-]/g, '_');
+    const code =
+      lower === 'cards' ? 'cards' :
+      lower === 'sepa' ? 'sepa' :
+      lower === 'crypto' ? 'crypto' :
+      lower === 'paypal' ? 'paypal' :
+      lower === 'skrill' ? 'skrill' :
+      (lower === 'bank_transfer' || lower === 'bank transfer') ? 'bank_transfer' :
+      null;
+    if (code) {
+      return (t(`attributes.payout_methods.options.${code}`) as string) ||
+        ({ cards: 'Cards', sepa: 'SEPA', crypto: 'Crypto', paypal: 'PayPal', skrill: 'Skrill', bank_transfer: 'Bank transfer' } as Record<string,string>)[code] || raw;
+    }
+    // Fallback: capitalize words
+    return raw.replace(/(^|\s|_|-)([a-z])/g, (_, p1, p2) => `${p1 === '_' || p1 === '-' ? ' ' : p1}${p2.toUpperCase()}`).replace(/_/g, ' ').trim();
+  };
+
   return (
-    <li className="neon-card p-5">
+    <li className="rounded-2xl border border-white/5 bg-[color:var(--surface-elev,#141720)] p-5">
       <div className="flex items-start justify-between gap-4">
         {/* info */}
         <div>
@@ -48,12 +70,12 @@ export default function OfferCard({ offer, index }: Props) {
                 {(t("offer.payoutFast") || "Payout ~{hours}h").replace("{hours}", String(offer.payoutHours))}
               </span>
             )}
-            {offer.methods.slice(0, 3).map((m) => (
+            {(offer.methods || []).slice(0, 3).map((m) => (
               <span
                 key={m}
                 className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-[var(--text-dim)]"
               >
-                {m}
+                {methodLabel(m)}
               </span>
             ))}
           </div>
@@ -68,7 +90,7 @@ export default function OfferCard({ offer, index }: Props) {
       </div>
 
       {/* actions */}
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="mt-5 flex items-center justify-between gap-3">
         <AffiliateLink
           offerSlug={offer.slug}
           position={position}
@@ -87,6 +109,13 @@ export default function OfferCard({ offer, index }: Props) {
           </Link>
         )}
       </div>
+
+      {/* Disclosure (vertical-driven) */}
+      {vertical.disclosures?.card ? (
+        <div className="mt-2 text-[11px] text-[var(--text-dim)]">
+          {t(vertical.disclosures.card)}
+        </div>
+      ) : null}
     </li>
   );
 }

@@ -11,8 +11,8 @@ export default function SectionCard({ title, actions, children, className = "", 
   return (
     <section
       className={[
-        "rounded-2xl bg-[color:var(--surface-elev,#141720)] border border-white/5",
-        "shadow-[0_6px_24px_rgba(0,0,0,0.35)] p-5",
+        "rounded-2xl bg-[color:var(--surface-elev,#141720)] border border-white/10",
+        "p-6",
         className,
       ].join(" ")}
     >
@@ -26,4 +26,3 @@ export default function SectionCard({ title, actions, children, className = "", 
     </section>
   );
 }
-

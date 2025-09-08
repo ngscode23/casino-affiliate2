@@ -8,6 +8,8 @@ const fired = new Set<string>();
 let io: IntersectionObserver | null = null;
 const pending = new Map<Element, string>(); // element -> slug
 
+const IS_DEV = !!((import.meta as any).env?.DEV);
+
 function getObserver(): IntersectionObserver {
   if (io) return io;
   io = new IntersectionObserver((entries) => {
@@ -17,6 +19,7 @@ function getObserver(): IntersectionObserver {
       const slug = pending.get(el);
       if (slug && !fired.has(slug)) {
         fired.add(slug);
+        if (IS_DEV) { pending.delete(el); if (io) io.unobserve(el); continue; }
         fetch(fnUrl('track-impression'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -52,6 +55,7 @@ export async function trackImpression(slug: string): Promise<void> {
   try {
     if (!slug || fired.has(slug)) return;
     fired.add(slug);
+    if (IS_DEV) return;
     await fetch(fnUrl('track-impression'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

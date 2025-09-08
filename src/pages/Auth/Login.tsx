@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signIn } from "@/lib/auth";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
+import { ButtonPrimary } from "@/components/ui/Buttons";
 import Seo from "@/components/Seo";
 
 export default function LoginPage() {
@@ -54,20 +55,16 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-white/20 bg-transparent px-3 py-2 outline-none focus:border-white/40"
+                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
                 placeholder="you@example.com"
               />
             </label>
 
             {error && <div className="text-red-400 text-sm">{error}</div>}
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="btn w-full disabled:opacity-60"
-            >
-              {busy ? "Отправляем..." : "Отправить magic-ссылку"}
-            </button>
+            <ButtonPrimary type="submit" disabled={busy} className="w-full disabled:opacity-60">
+              {busy ? "Отправляем..." : "Отправить magic‑ссылку"}
+            </ButtonPrimary>
           </form>
         )}
 

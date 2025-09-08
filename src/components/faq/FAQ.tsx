@@ -43,7 +43,7 @@ export default function Faq({ items, className, title = "FAQ", jsonLd = false }:
   if (!list.length) return null;
 
   return (
-    <section className={className ?? "neon-card p-4"}>
+    <section className={className ?? "rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4"}>
       <h2 className="text-xl font-semibold mb-3">{title}</h2>
       <ul className="space-y-3">
         {list.map((it, idx) => {

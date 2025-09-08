@@ -1,7 +1,7 @@
 // src/components/CompareInline.tsx
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
-import { ButtonGhost, ButtonPrimary } from "@/components/ui/Buttons";
+import { ButtonGhost } from "@/components/ui/Buttons";
 import { Pill } from "@/components/ui/Pill";
 import IconButton from "@/components/ui/IconButton";
 import { useCompare } from "@/ctx/CompareContext";

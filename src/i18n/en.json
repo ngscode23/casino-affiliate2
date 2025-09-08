@@ -3,6 +3,8 @@
     "home": "Home",
     "compare": "Compare",
     "offers": "Offers",
+    "catalog": "Catalog",
+    "cart": "Cart",
     "favorites": "Favorites",
     "privacy": "Privacy Policy",
     "terms": "Terms",
@@ -11,38 +13,98 @@
     "affiliateDisclosure": "Affiliate Disclosure",
     "contact": "Contact"
   },
-  "compare.title": "Compare Casinos",
-  "compare.subtitle": "Filter by license, methods and rating",
-  "compare.field": "Field",
-  "compare.clear": "Clear",
-  "compare.open": "Open compare",
-  "compare.share": "Copy link",
-  "compare.add": "Add",
-  "compare.selected": "Selected",
-  "compare.addTo": "Add to Compare",
-  "compare.selectedFor": "Selected for Compare",
-  "offer.license": "License",
-  "offer.cta": "Go to Offer",
-  "offer.sponsoredShort": "Sponsored link. 18+ only.",
-  "offer.ourDisclosure": "Please read",
-  "offer.tcShort": "and operator's T&Cs.",
-  "offer.ratingLabel": "rating",
-  "compare.compareLink": "Compare",
-  "offer.payoutFast": "Payout ~{hours}h",
-  "filters.all": "All",
-  "filters.search": "Search",
-  "filters.searchPlaceholder": "Casino, payment method...",
-  "filters.noResults": "No offers match the filters.",
-  "filters.methods": "Methods",
-  "filters.action": "Action",
-  "offers.recent": "Recently viewed"
+  "compare": {
+    "title": "Compare",
+    "subtitle": "smart filters",
+    "clear": "Clear",
+    "open": "Apply",
+    "selected": "Selected",
+    "addTo": "Add to compare",
+    "compareLink": "Compare",
+    "share": "Share",
+    "hintAddOneMore": "Add one more to open compare",
+    "maxLimit": "You can compare up to 4 offers"
+  },
+  "offer": {
+    "payout": "Payout",
+    "license": "License",
+    "ratingLabel": "Rating",
+    "details": "Details",
+    "cta": "Go"
+  },
+  "filters": {
+    "all": "All",
+    "methods": "Methods",
+    "action": "Action",
+    "search": "Search",
+    "searchPlaceholder": "Search casinos, licenses, methods…",
+    "title": "Filters",
+    "apply": "Apply",
+    "reset": "Reset",
+    "min": "min",
+    "max": "max"
+  },
+  "offers": {
+    "collectionTitle": "All Casino Offers",
+    "title": "All Casino Offers",
+    "subtitle": "browse & filter",
+    "description": "Browse all casino offers and filter by license or search.",
+    "all": "All Offers",
+    "found": "Found",
+    "sortBy": "Sort by",
+    "sort": {
+      "ratingDesc": "Rating: high to low",
+      "ratingAsc": "Rating: low to high",
+      "payoutAsc": "Payout time: fast first",
+      "payoutDesc": "Payout time: slow first",
+      "nameAsc": "Name: A→Z",
+      "nameDesc": "Name: Z→A"
+    },
+    "showN": "Show",
+    "recent": "Recently Viewed",
+    "tryCompare": "Want a side-by-side view? Try Compare.",
+    "goToCompare": "Go to Compare",
+    "loadingError": "loading offers"
+  },
+  "common": {
+    "error": "Error",
+    "clear": "Clear",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "notFound": "Not found",
+    "linkCopied": "Link copied",
+    "copyLink": "Copy link:"
+  },
+  "attributes": {
+    "rating": { "label": "Rating" },
+    "compliance_license": { "label": "License" },
+    "payout_time_hours": { "label": "Payout (h)" },
+    "payout_methods": {
+      "label": "Methods",
+      "options": {
+        "cards": "Cards",
+        "sepa": "SEPA",
+        "crypto": "Crypto",
+        "paypal": "PayPal",
+        "skrill": "Skrill",
+        "bank_transfer": "Bank transfer"
+      }
+    }
+  }
   ,
-  "legal.privacy.title": "Privacy Policy",
-  "legal.privacy.desc": "How we collect and use data.",
-  "legal.cookies.title": "Cookies",
-  "legal.cookies.desc": "Cookie usage and preferences.",
-  "legal.terms.title": "Terms & Conditions",
-  "legal.terms.desc": "Website terms of use.",
-  "legal.resp.title": "Responsible Gaming",
-  "legal.resp.desc": "Help and resources for safer play."
+  "favorites": {
+    "clear": "Clear favorites",
+    "clearConfirm": "Clear all favorites?",
+    "share": "Share list",
+    "savedSubtitle": "Your saved offers.",
+    "description": "Quick access to your saved offers.",
+    "importFound": "Found a list to import:",
+    "items": "items",
+    "import": "Import",
+    "hide": "Hide",
+    "empty": "You haven't added anything yet.",
+    "goToOffers": "Go to offers",
+    "copied": "Copied",
+    "copyManual": "Copy link manually:"
+  }
 }

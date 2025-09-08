@@ -69,11 +69,11 @@ export default function PricingPage() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
-            <input className="neon-input w-full" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
+            <input className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
           </div>
           <div>
             <label className="block text-sm mb-1">Coupon / Promo (optional)</label>
-            <input className="neon-input w-full" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
+            <input className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
           </div>
         </div>
       </Card>

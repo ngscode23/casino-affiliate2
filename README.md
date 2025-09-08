@@ -164,3 +164,30 @@ Acceptance
 
 ## License
 MIT. Brand assets are placeholders — replace with your own.
+
+## For Buyers (Overview)
+
+- Tech: React 19 + TypeScript, Vite 5, Tailwind 4, Netlify Functions, Supabase (RLS, RPC), Playwright/Vitest.
+- Key UX: minimalistic Linear‑style UI, stable grids/tables, a11y focus‑ring, sticky compare‑bar, skeletons, RU/EN i18n.
+- SEO: canonical + sitemap + JSON‑LD (Collection/ItemList, Offer/Product, FAQ). No duplicate titles; clean URLs.
+- Tracking: impressions + clicks (go‑redirect) with UTM/ref/UA/IP‑hash, cookie‑gated analytics (GA/Sentry/Posthog optional).
+- Admin: offers, analytics (CTR, sources, export), partners, Stripe subscription flow (pinned placements) with daily expiry.
+
+### How to Run
+1) Copy `.env.example` → `.env` and fill Supabase + SITE_* vars.  
+2) `pnpm i` → `pnpm dev` (or `pnpm dev:netlify` for functions).  
+3) Apply SQL from `supabase/` or migrations.  
+4) Open `/offers`, `/compare`, `/favorites`, `/how-we-rank`.
+
+### Hand‑off Notes
+- All colors via tokens; no custom gradients/shadows left in public UI.  
+- Inter Variable font via `@fontsource-variable/inter`.  
+- Replace logo/text in settings (`/admin/setup`) or `.env`.
+
+### What’s Included
+- Minimalism pass across Offers/Compare/Favorites + How‑We‑Rank page.  
+- Sticky compare‑bar with Copy link (toast).  
+- Skeletons (Offers grid, Compare table, Favorites).  
+- A11y (aria‑sort, labels, focus‑ring) and flat surfaces.
+
+If you need a short demo: build on Netlify, share preview URL + `/admin/` demo creds.
