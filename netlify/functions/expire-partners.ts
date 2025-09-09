@@ -2,7 +2,7 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-export const config = { schedule: "0 2 * * *" }; // daily 02:00 UTC
+export const config = { schedule: "0 * * * *" }; // hourly
 
 const SUPABASE_URL = process.env.SUPABASE_URL as string | undefined;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;

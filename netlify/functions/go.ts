@@ -14,6 +14,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL as string | undefined;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as
   | string
   | undefined;
+const RL_WINDOW_MS = (() => {
+  const raw = Number(process.env.GO_CLICK_RATELIMIT_MS || 5000);
+  if (!isFinite(raw)) return 5000;
+  return Math.min(Math.max(raw, 5000), 15000); // clamp 5s..15s
+})();
 
 function json(obj: any, statusCode = 200) {
   return {
@@ -61,6 +66,12 @@ function genClickId(): string {
   } catch {}
   const r = Math.random().toString(36).slice(2, 10);
   return `c_${Date.now().toString(36)}_${r}`;
+}
+
+function isBotUA(ua: string | null | undefined): boolean {
+  if (!ua) return false;
+  const s = ua.toLowerCase();
+  return /(bot|spider|crawl|slurp|facebookexternalhit|whatsapp|telegram|preview|insights|pingdom|crawler)/i.test(s);
 }
 
 function withTrackingParams(
@@ -124,20 +135,21 @@ export const handler: Handler = async (event) => {
 
     const { data, error } = await supabase
       .from("offers")
-      .select("link, enabled")
+      .select("id, link, enabled")
       .eq("slug", slug)
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      // On error, do a soft fallback to SPA route
-      return redirect(`/offers/${encodeURIComponent(slug)}`);
+      return json({ error: "not_found" }, 404);
     }
 
     const target = data?.link || null;
+    const offerId = (data as any)?.id as number | undefined;
     const enabled = !!data?.enabled;
+    // Allow redirect even if offer id is missing in mock/test environments
     if (!target || !enabled) {
-      return redirect(`/offers/${encodeURIComponent(slug)}`);
+      return json({ error: "not_found" }, 404);
     }
 
     const { url: targetWithParams, params } = withTrackingParams(
@@ -155,35 +167,49 @@ export const handler: Handler = async (event) => {
         return crypto.createHash("sha256").update(ip).digest("hex");
       } catch { return null; }
     })();
-    const targetHost = (() => {
-      try {
-        return new URL(target).host;
-      } catch {
-        return null;
-      }
-    })();
+    // Note: v2 schema no longer stores target host/urls in clicks
 
-    // Best-effort logging. Ignore failures for UX.
+    // Skip logging for obvious bots/previews
+    if (isBotUA(userAgent)) {
+      return redirect(targetWithParams, 302);
+    }
+
+    // Best-effort logging with soft rate-limit
     try {
-      await supabase.from("clicks").insert({
-        slug,
-        click_id: clickId,
-        target_url: target,
-        target_url_final: targetWithParams,
-        target_host: targetHost,
-        params,
-        referrer,
-        user_agent: userAgent,
-        ip_hash: ipHash,
-        ts: new Date().toISOString(),
-      } as any);
+      let limited = false;
+      // Soft rate limit by (ip_hash, offer_id) in a short window (env-driven)
+      if (ipHash && offerId != null) {
+        try {
+          const since = new Date(Date.now() - RL_WINDOW_MS).toISOString();
+          const { data: recent } = await (supabase as any)
+            .from('clicks')
+            .select('id')
+            .eq('ip_hash', ipHash)
+            .eq('offer_id', offerId)
+            .gte('ts', since)
+            .limit(1);
+          if ((recent || []).length) limited = true;
+        } catch { /* ignore */ }
+      }
+
+      if (!limited) {
+        const payload: any = {
+          click_id: clickId,
+          params,
+          referrer,
+          user_agent: userAgent,
+          ip_hash: ipHash,
+        };
+        if (offerId != null) payload.offer_id = offerId;
+        await supabase.from("clicks").insert(payload);
+      }
     } catch {
       // ignore
     }
 
     return redirect(targetWithParams, 302);
-  } catch (e) {
-    return json({ error: "Unexpected error" }, 500);
+  } catch {
+    return json({ error: "internal" }, 500);
   }
 };
 

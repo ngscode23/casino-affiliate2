@@ -9,6 +9,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL as string | undefined;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
 
 export const handler: Handler = async (event) => {
+  // Enforce POST for webhooks; browsers hitting GET will receive 405 instead of 400
+  if (event.httpMethod && event.httpMethod.toUpperCase() !== 'POST') {
+    return { statusCode: 405, headers: { Allow: 'POST' }, body: 'Method Not Allowed' };
+  }
   if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) return { statusCode: 500, body: "Stripe not configured" };
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return { statusCode: 500, body: "Supabase not configured" };
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" } as any);
@@ -57,10 +61,23 @@ export const handler: Handler = async (event) => {
       }
       return out;
     };
-    // Log any valid event in webhook_logs (masked)
+    // Idempotency: skip if event already processed (payload->>'id' match)
     try {
-      const payload = safePayload(evt);
-      await supabase.from('webhook_logs').insert({ type: evt.type, payload });
+      const { data: already } = await supabase
+        .from('webhook_logs')
+        .select('id')
+        .eq('type', evt.type)
+        .contains('payload', { id: evt.id })
+        .limit(1)
+      if ((already || []).length) {
+        return { statusCode: 200, body: "duplicate" }
+      }
+    } catch { /* ignore and continue */ }
+
+    // Log any valid event in webhook_logs (masked, minimal PII)
+    try {
+      const payload = safePayload(evt)
+      await supabase.from('webhook_logs').insert({ type: evt.type, payload })
     } catch { /* ignore logging errors */ }
 
     // Build reverse price -> plan map from env (if configured)
