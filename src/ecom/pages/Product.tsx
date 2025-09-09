@@ -1,10 +1,10 @@
-import PageShell from "@/components/ui/PageShell";
+import PageShell from "../../components/ui/PageShell";
 import Seo from "@/components/Seo";
 import { useParams } from "react-router-dom";
 import { products } from "@/ecom/data/products";
 import { useMemo } from "react";
 import Rating from "@/components/common/rating";
-import { ButtonPrimary, ButtonGhost } from "@/components/ui/Buttons";
+import { ButtonPrimary, ButtonGhost } from "../../components/ui/Buttons";
 import { useCart } from "@/ecom/lib/cart";
 
 export default function ProductPage() {

@@ -1,4 +1,4 @@
-import PageShell from "@/components/ui/PageShell";
+import PageShell from "../../components/ui/PageShell";
 import Seo from "@/components/Seo";
 import { products } from "@/ecom/data/products";
 import categories from "@/ecom/data/categories";
