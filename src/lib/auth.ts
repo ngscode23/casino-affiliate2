@@ -30,3 +30,19 @@ export async function signInWithPassword(email: string, password: string) {
   if (error) throw error;
   return data;
 }
+
+// Send password reset link to email
+export async function sendPasswordReset(email: string) {
+  const redirectTo = `${window.location.origin}/auth/reset`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+  if (error) throw error;
+}
+
+// Set a new password after following the recovery link
+export async function updatePassword(newPassword: string) {
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  return data;
+}

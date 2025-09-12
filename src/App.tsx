@@ -51,6 +51,7 @@ const AffiliateDisc     = lazy(() => import("@/pages/Legal/AffiliateDisclosure")
 const RegisterPage      = lazy(() => import("@/pages/Auth/Register"));
 const LoginPage         = lazy(() => import("@/pages/Auth/Login"));
 const AuthCallback      = lazy(() => import("@/pages/AuthCallback"));
+const ResetPassword     = lazy(() => import("@/pages/Auth/ResetPassword"));
 const GoRedirect        = lazy(() => import("@/pages/GoRedirect"));
 const NotFound          = lazy(() => import("@/pages/NotFound"));
 const PricingPage       = lazy(() => import("@/pages/Pricing"));
@@ -198,6 +199,7 @@ interface IdleDeadline {
                             {/* Auth */}
                             <Route path="/register" element={<RegisterPage />} />
                             <Route path="/auth/login" element={<LoginPage />} />
+                            <Route path="/auth/reset" element={<ResetPassword />} />
                             <Route path="/auth/callback" element={<AuthCallback />} />
 
                             {/* Redirects */}
