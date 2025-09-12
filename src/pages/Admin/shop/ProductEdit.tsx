@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
@@ -186,4 +186,5 @@ export default function ShopProductEdit() {
     </Section>
   );
 }
+
 
