@@ -18,6 +18,8 @@ const SetupPage = lazy(() => import("./setup"));
 const PartnersPage = lazy(() => import("./partners/index"));
 const WebhooksPage = lazy(() => import("./webhooks/index"));
 const MetricsPage = lazy(() => import("./metrics/index"));
+const ShopProducts = lazy(() => import("./shop/Products"));
+const ShopProductEdit = lazy(() => import("./shop/ProductEdit"));
 
 /** Оболочка админки с Outlet для вложенных роутов */
 function AdminShell() {
@@ -78,6 +80,9 @@ export default function AdminApp() {
                   <Link className="underline" to="webhooks">
                     Webhooks
                   </Link>
+                  <Link className="underline" to="shop/products">
+                    Shop Products
+                  </Link>
                 </div>
               </Section>
             }
@@ -101,6 +106,11 @@ export default function AdminApp() {
           <Route path="setup" element={<SetupPage />} />
           <Route path="partners" element={<PartnersPage />} />
           <Route path="webhooks" element={<WebhooksPage />} />
+
+          {/* /admin/shop/products */}
+          <Route path="shop/products" element={<ShopProducts />} />
+          <Route path="shop/products/new" element={<ShopProductEdit />} />
+          <Route path="shop/products/:id" element={<ShopProductEdit />} />
         </Route>
 
         {/* Редирект на /admin для любых неизвестных путей */}
