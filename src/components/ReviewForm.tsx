@@ -1,5 +1,5 @@
 // src/components/ReviewForm.tsx
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 // Если у тебя экспорт по умолчанию из клиента — оставь так:
 import { supabase } from "@/lib/supabase";
 // Если у тебя именованный экспорт { supabase }, смени строку выше на:
@@ -11,11 +11,28 @@ type Props = {
 };
 
 export default function ReviewForm({ productId, onSubmitted }: Props) {
+  const [checked, setChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [rating, setRating] = useState<number>(5);
   const [title, setTitle] = useState<string>("");
   const [body, setBody] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user: any = data?.user;
+        const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.role;
+        setIsAdmin(role === "admin");
+      } catch {
+        setIsAdmin(false);
+      } finally {
+        setChecked(true);
+      }
+    })();
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -66,6 +83,9 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
     },
     [productId, rating, title, body, onSubmitted]
   );
+
+  if (!checked) return null; // avoid flicker
+  if (isAdmin) return null; // do not show for admins
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
