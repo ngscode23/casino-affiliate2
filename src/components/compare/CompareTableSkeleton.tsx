@@ -3,8 +3,8 @@ import Skeleton from "@/components/common/skeleton";
 
 export default function CompareTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="neon-card p-0 overflow-hidden">
-      <table className="neon-table w-full">
+    <div className="p-0 overflow-hidden">
+      <table className="w-full">
         <thead className="sticky top-0 bg-[rgb(var(--bg-1)/.9)] backdrop-blur z-10">
           <tr>
             {["COMPARE","FAV","FIRM","RATING","LICENSE","PAYOUT","METHODS","ACTION"].map(h => (
@@ -14,7 +14,7 @@ export default function CompareTableSkeleton({ rows = 6 }: { rows?: number }) {
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, i) => (
-            <tr key={i} className="hover:bg-white/5 transition-colors">
+            <tr key={i} className="hover:bg-white/5 transition-colors h-16">
               {[140,80,260,140,140,160,240,140].map((w, j) => (
                 <td key={j} className="px-4 py-3">
                   <Skeleton className="h-5" />

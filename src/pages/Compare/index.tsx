@@ -1,11 +1,18 @@
-// src/pages/Compare/index.tsx (slim)
+// src/pages/Compare/index.tsx (dynamic builders)
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import CompareFilters, { type LicenseFilter, type MethodFilter } from "@/components/compare/CompareFilters";
-import CompareTable, { type SortKey } from "@/components/compare/CompareTable";
+import { useVertical } from "@/ctx/VerticalContext";
+import FiltersBuilder from "@/builders/FiltersBuilder";
+import { fetchAttributeRegistry } from "@/lib/attributes";
+import type { AttributeRegistryItem } from "@/types/attributes";
+import { supabase } from "@/lib/supabase";
+import CompareTable from "@/components/compare/CompareTable";
 import Seo from "@/components/Seo";
-import Button from "@/components/common/button";
+import { useT } from "@/lib/useT";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { ButtonGhost } from "@/components/ui/Buttons";
 import { track } from "@/lib/analytics";
 import type { NormalizedOffer } from "@/lib/offers";
 import { useOffers } from "@/features/offers/api/useOffers";
@@ -24,57 +31,124 @@ function safeOrigin(): string | undefined {
 }
 
 export default function ComparePage() {
+  const t = useT();
   const { offers, error } = useOffers();
 
   const [params, setParams] = useSearchParams();
+  const vertical = useVertical();
   const initialQ = params.get("q") ?? "";
 
-  const [sortKey, setSortKey] = useState<SortKey>("rating");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [license, setLicense] = useState<LicenseFilter>("all");
-  const [method, setMethod] = useState<MethodFilter>("all");
-  const [search, setSearch] = useState<string>(initialQ);
+  const [sortKey, setSortKey] = useState<any>(vertical.compare.defaultSort.key);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(vertical.compare.defaultSort.dir);
+  const [filters, setFilters] = useState<Record<string, any>>({ q: initialQ });
+  const [registry, setRegistry] = useState<AttributeRegistryItem[] | null>(null);
 
+  const parseQueryToFilters = (sp: URLSearchParams): Record<string, any> => {
+    const obj: Record<string, any> = {};
+    for (const [k, v] of sp.entries()) {
+      if (!v) continue;
+      if (k === "sort" || k === "dir" || k === "focus") continue;
+      if (v.includes("..")) {
+        const [minStr, maxStr] = v.split("..");
+        const min = minStr !== "" ? Number(minStr) : undefined;
+        const max = maxStr !== "" ? Number(maxStr) : undefined;
+        const hasMin = typeof min === "number" && Number.isFinite(min);
+        const hasMax = typeof max === "number" && Number.isFinite(max);
+        if (hasMin || hasMax) obj[k] = { ...(hasMin ? { min } : {}), ...(hasMax ? { max } : {}) };
+        continue;
+      }
+      if (v.includes(",")) { obj[k] = v.split(","); continue; }
+      if (v === "1" || v === "0" || v.toLowerCase() === "true" || v.toLowerCase() === "false") { obj[k] = v === "1" || v.toLowerCase() === "true"; continue; }
+      obj[k] = v;
+    }
+    return obj;
+  };
+
+  // read URL -> state on mount and when URL changes (back/forward)
   useEffect(() => {
-    const s = (params.get("sort") as SortKey) || "rating";
-    const d = (params.get("dir") as "asc" | "desc") || "desc";
-    const lic = (params.get("license") as LicenseFilter) || "all";
-    const mth = (params.get("method") as MethodFilter) || "all";
+    const s = (params.get("sort") as any) || vertical.compare.defaultSort.key;
+    const d = (params.get("dir") as "asc" | "desc") || vertical.compare.defaultSort.dir;
     setSortKey(s);
     setSortDir(d);
-    setLicense(lic);
-    setMethod(mth);
+    setFilters(parseQueryToFilters(params));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params.toString()]);
 
+  // We keep legacy CompareTable UI for visual parity.
+
+  // write state -> URL with 250ms debounce
+  const writeTimer = useRef<number | null>(null);
+  const lastWrittenRef = useRef<string>("");
   useEffect(() => {
-    const next = new URLSearchParams(params);
-    if (search) next.set("q", search); else next.delete("q");
-    next.set("sort", sortKey);
-    next.set("dir", sortDir);
-    if (license !== "all") next.set("license", license); else next.delete("license");
-    if (method !== "all") next.set("method", method); else next.delete("method");
-    setParams(next, { replace: true });
+    try { if (writeTimer.current) clearTimeout(writeTimer.current as unknown as number); } catch { void 0; }
+    writeTimer.current = (setTimeout(() => {
+      const next = new URLSearchParams();
+      for (const [k, v] of Object.entries(filters)) {
+        if (v == null) continue;
+        if (Array.isArray(v)) { if (v.length) next.set(k, v.join(",")); continue; }
+        if (typeof v === "object") {
+          const min = (v as any).min; const max = (v as any).max;
+          const hasMin = typeof min === "number" && Number.isFinite(min);
+          const hasMax = typeof max === "number" && Number.isFinite(max);
+          if (hasMin || hasMax) next.set(k, `${hasMin ? min : ""}..${hasMax ? max : ""}`);
+          continue;
+        }
+        const s = String(v).trim(); if (s) next.set(k, s);
+      }
+      next.set("sort", String(sortKey));
+      next.set("dir", sortDir);
+      const target = next.toString();
+      if (target !== params.toString()) { lastWrittenRef.current = target; setParams(next, { replace: true }); }
+    }, 250) as unknown) as number;
+    return () => { try { if (writeTimer.current) clearTimeout(writeTimer.current as unknown as number); } catch { void 0; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, sortKey, sortDir, license, method]);
+  }, [JSON.stringify(filters), sortKey, sortDir]);
+
+  // Cache attributes registry once to avoid duplicate fetching in children
+  useEffect(() => {
+    let active = true;
+    fetchAttributeRegistry().then((data) => { if (active) setRegistry(data); }).catch(() => void 0);
+    return () => { active = false; };
+  }, []);
 
   const { items: favItems } = useFavorites();
 
   const filtered: NormalizedOffer[] = useMemo(() => {
     let arr = [...offers];
-    if (license !== "all") arr = arr.filter((o) => o.license === license);
-    if (method !== "all") arr = arr.filter((o) => o.methods.includes(method));
-    if (search.trim()) {
-      const q = normalizeStr(search.trim());
+    const qStr = String(filters.q ?? '').trim();
+    if (qStr) {
+      const q = normalizeStr(qStr);
       arr = arr.filter((o) => {
-        const hay = [o.name, o.license, ...(o.methods ?? [])].join(" ");
+        const hay = [o.name, o.license, ...(o.methods ?? [])].join(' ');
         return normalizeStr(hay).includes(q);
       });
     }
-    // не показываем элементы, которые уже в избранном
+    // exclude favorites from compare by default
     arr = arr.filter((o) => !!o.slug && !favItems.includes(o.slug));
     return arr;
-  }, [offers, license, method, search, favItems]);
+  }, [offers, filters.q, favItems]);
+
+  // Resolve numeric product IDs for the currently visible offers (no slug in product_id queries)
+  const [productIds, setProductIds] = useState<number[]>([]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const slugs = filtered.map((o) => o.slug).filter(Boolean) as string[];
+        if (!slugs.length) { if (active) setProductIds([]); return; }
+        const { data, error } = await (supabase as any)
+          .from("offers")
+          .select("id,slug")
+          .in("slug", slugs);
+        if (error) throw error;
+        const ids = Array.from(new Set(((data ?? []) as any[]).map((r) => Number(r.id)).filter((n) => Number.isFinite(n))));
+        if (active) setProductIds(ids as number[]);
+      } catch {
+        /* keep previous ids to avoid flicker */
+      }
+    })();
+    return () => { active = false; };
+  }, [filtered.map((o) => o.slug).join(",")]);
 
   const origin = safeOrigin();
   const errText = typeof error === "string" ? error : (error as any)?.message ?? "";
@@ -83,7 +157,7 @@ export default function ComparePage() {
     const webPage = {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      name: "Сравнение казино",
+      name: "Compare",
       url: origin ? `${origin}/compare` : "/compare",
     };
     const itemList = {
@@ -103,76 +177,69 @@ export default function ComparePage() {
     try {
       const url = typeof location !== "undefined" ? location.href : "";
       if (!url) return;
-      track("compare_share", { total: offers.length, filtered: filtered.length, license, method, hasSearch: !!search });
+      track("compare_share", { total: offers.length, filtered: filtered.length, hasSearch: !!filters.q });
       await navigator.clipboard.writeText(url);
-      alert("Ссылка на сравнение скопирована в буфер обмена.");
+      alert("Link copied to clipboard.");
     } catch {
       const url = typeof location !== "undefined" ? location.href : "";
-      if (url) prompt("Скопируйте ссылку:", url);
+      if (url) prompt("Copy URL:", url);
     }
-  }, []);
-
-  // Track filter changes (license/method) immediately
-  useEffect(() => {
-    try { track("compare_filter", { license, method }); } catch { /* noop */ }
-  }, [license, method]);
+  }, [offers.length, filtered.length, filters.q]);
 
   // Debounced search tracking to avoid spamming
   const searchDebounceRef = useRef<number | null>(null);
   useEffect(() => {
     try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch { /* noop */ }
     searchDebounceRef.current = (setTimeout(() => {
-      try { track("compare_search", { q_len: search.length, has_q: !!search }); } catch { /* noop */ }
+      try { track("compare_search", { q_len: String(filters.q ?? '').length, has_q: !!filters.q }); } catch { /* noop */ }
     }, 500) as unknown) as number;
     return () => {
       try { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current as unknown as number); } catch { /* noop */ }
     };
-  }, [search]);
+  }, [filters.q]);
 
   return (
-    <>
+    <PageShell>
       <Seo
-        title="Сравнение казино — лицензии, методы, выплаты"
-        description="Фильтруйте по лицензии, методам и рейтингу. Добавляйте бренды в панель и сравнивайте бок‑о‑бок."
+        title={(t("compare.title") || "Compare") + " - " + (t("compare.subtitle") || "smart filters")}
+        description={t("compare.subtitle") || "Compare offers with dynamic filters and columns."}
         canonical={origin ? `${origin}/compare` : undefined}
         jsonLd={jsonLd}
       />
 
-      <section className="neon-container space-y-6">
-        <div className="neon-card p-4">
-          <CompareFilters
-            total={offers.length}
-            filteredCount={filtered.length}
-            license={license}
-            method={method}
-            search={search}
-            onChange={({ license: nextLicense, method: nextMethod }) => {
-              if (nextLicense !== license) setLicense(nextLicense);
-              if (nextMethod !== method) setMethod(nextMethod);
-            }}
-            onSearchChange={setSearch}
-          />
-          <div className="mt-3 flex justify-end">
-            <Button variant="soft" onClick={shareFilters} aria-label="Поделиться текущей выборкой">
-              Поделиться
-            </Button>
-          </div>
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">{t("compare.title") || "Compare"}</h1>
+
+      <SectionCard>
+        <FiltersBuilder
+          initial={filters}
+          onChange={(vals) => setFilters(vals)}
+          productIds={productIds.map((id) => String(id))}
+          registry={registry ?? undefined}
+        />
+        <div className="flex justify-end">
+          <ButtonGhost onClick={shareFilters} aria-label={t("compare.share") || "Share filters"}>{t("compare.share") || "Share"}</ButtonGhost>
         </div>
+      </SectionCard>
 
-        {errText && <div className="neon-card p-3 text-red-400">Ошибка загрузки данных: {errText}</div>}
+      {errText && (
+        <SectionCard><div className="text-red-400">{(t("common.error") || "Error") + ": " + (t("offers.loadingError") || "loading offers")}: {errText}</div></SectionCard>
+      )}
 
-        <div className="neon-card p-0 hidden md:block">
+      {filtered.length === 0 ? (
+        <SectionCard>
+          <div className="text-[var(--text-dim)]">{t("filters.noResults") || "No offers match the filters."}</div>
+        </SectionCard>
+      ) : (
+        <SectionCard className="p-0">
           <CompareTable
             offers={filtered}
-            sortKey={sortKey}
+            sortKey={sortKey as any}
             sortDir={sortDir}
-            onSortChange={(k, d) => {
-              setSortKey(k);
-              setSortDir(d);
-            }}
+            onSortChange={(k: any, d: "asc" | "desc") => { setSortKey(k); setSortDir(d); }}
+            registry={registry ?? undefined}
           />
-        </div>
-      </section>
-    </>
+        </SectionCard>
+      )}
+    </PageShell>
   );
 }

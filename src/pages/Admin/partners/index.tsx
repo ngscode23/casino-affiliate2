@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
 import { supabase } from "@/lib/supabase";
+import { fnUrl } from "@/lib/api";
 
 type Partner = { id: string; name: string; email: string | null; plan: string; expires_at: string | null };
 
@@ -53,7 +54,7 @@ export default function PartnersPage() {
 
   async function startCheckout() {
     const payload = { name, email, plan, days, offerSlugs: offerSlugs.split(",").map(s=>s.trim()).filter(Boolean) };
-    const res = await fetch("/.netlify/functions/checkout", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload)});
+    const res = await fetch(fnUrl("checkout"), { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload)});
     const j = await res.json();
     if (j?.url) window.location.href = j.url;
   }
@@ -62,8 +63,7 @@ export default function PartnersPage() {
     try {
       if (!email.trim()) throw new Error("Email is required");
       const payload = { email: email.trim(), plan: p as any, interval, coupon: coupon.trim() || undefined };
-      const { fn } = await import("@/lib/functions");
-      const res = await fetch(fn('create-subscription'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(fnUrl('create-subscription'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to create session");
     } catch (e:any) { alert("Error: " + String(e?.message || e)); }
@@ -72,8 +72,7 @@ export default function PartnersPage() {
   async function openPortal() {
     try {
       if (!email.trim()) throw new Error("Email is required");
-      const { fn } = await import("@/lib/functions");
-      const res = await fetch(fn('customer-portal'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      const res = await fetch(fnUrl('customer-portal'), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || "Failed to open portal");
     } catch (e:any) { alert("Error: " + String(e?.message || e)); }
@@ -128,11 +127,11 @@ export default function PartnersPage() {
       <Card className="p-6">
         <h1 className="text-xl font-semibold mb-4">Partners</h1>
         <div className="flex items-center gap-3 mb-3">
-          <input className="neon-input w-[260px]" placeholder="Search name/email" value={q} onChange={e=>setQ(e.target.value)} />
+          <input className="w-[260px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" placeholder="Search name/email" value={q} onChange={e=>setQ(e.target.value)} />
           <div className="ml-auto flex items-center gap-2">
-            <button className="neon-btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))}>Prev</button>
+            <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5 disabled:opacity-50" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))}>Prev</button>
             <span className="text-sm">Page {page+1}</span>
-            <button className="neon-btn" onClick={()=>setPage(p=>p+1)}>Next</button>
+            <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={()=>setPage(p=>p+1)}>Next</button>
           </div>
         </div>
         {loading ? <div>Loading…</div> : error ? <div className="text-red-400">{error}</div> : (
@@ -152,15 +151,15 @@ export default function PartnersPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-sm mb-1">Name</label>
-            <input className="neon-input" value={name} onChange={e=>setName(e.target.value)} />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={name} onChange={e=>setName(e.target.value)} />
           </div>
           <div>
             <label className="block text-sm mb-1">Email</label>
-            <input className="neon-input" value={email} onChange={e=>setEmail(e.target.value)} />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={email} onChange={e=>setEmail(e.target.value)} />
           </div>
           <div>
             <label className="block text-sm mb-1">Plan</label>
-            <select className="neon-input" value={plan} onChange={e=>setPlan(e.target.value)}>
+            <select className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={plan} onChange={e=>setPlan(e.target.value)}>
               <option>BASIC</option>
               <option>FEATURED</option>
               <option>TOP</option>
@@ -168,17 +167,17 @@ export default function PartnersPage() {
           </div>
           <div>
             <label className="block text-sm mb-1">Duration (days)</label>
-            <select className="neon-input" value={days} onChange={e=>setDays(Number(e.target.value))}>
+            <select className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={days} onChange={e=>setDays(Number(e.target.value))}>
               <option value={30}>30</option>
               <option value={90}>90</option>
             </select>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-sm mb-1">Offer slugs (comma separated)</label>
-            <input className="neon-input" value={offerSlugs} onChange={e=>setOfferSlugs(e.target.value)} placeholder="slug1, slug2" />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={offerSlugs} onChange={e=>setOfferSlugs(e.target.value)} placeholder="slug1, slug2" />
           </div>
         </div>
-        <button className="neon-btn mt-4" onClick={startCheckout}>Create Checkout</button>
+        <button className="rounded-xl px-4 py-2 mt-4 border border-white/10 hover:bg-white/5" onClick={startCheckout}>Create Checkout</button>
       </Card>
 
       <Card className="p-6">
@@ -187,11 +186,11 @@ export default function PartnersPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-sm mb-1">Partner email</label>
-            <input className="neon-input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="editor@site.com" />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={email} onChange={e=>setEmail(e.target.value)} placeholder="editor@site.com" />
           </div>
           <div>
             <label className="block text-sm mb-1">Coupon / Promo code (optional)</label>
-            <input className="neon-input" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
           </div>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -199,14 +198,14 @@ export default function PartnersPage() {
             <div key={p} className="rounded border border-white/10 p-3">
               <div className="text-sm font-semibold mb-2">{p}</div>
               <div className="flex gap-2">
-                <button className="neon-btn" onClick={()=>subscribe(p, "MONTHLY")}>Monthly</button>
-                <button className="neon-btn" onClick={()=>subscribe(p, "YEARLY")}>Yearly</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={()=>subscribe(p, "MONTHLY")}>Monthly</button>
+                <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={()=>subscribe(p, "YEARLY")}>Yearly</button>
               </div>
             </div>
           ))}
         </div>
         <div className="mt-3">
-          <button className="neon-btn" onClick={openPortal}>Open Customer Portal</button>
+          <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={openPortal}>Open Customer Portal</button>
         </div>
       </Card>
 
@@ -216,11 +215,11 @@ export default function PartnersPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-sm mb-1">Partner email</label>
-            <input className="neon-input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="editor@site.com" />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={email} onChange={e=>setEmail(e.target.value)} placeholder="editor@site.com" />
           </div>
           <div>
             <label className="block text-sm mb-1">Plan</label>
-            <select className="neon-input" value={plan} onChange={e=>setPlan(e.target.value)}>
+            <select className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={plan} onChange={e=>setPlan(e.target.value)}>
               <option>BASIC</option>
               <option>FEATURED</option>
               <option>TOP</option>
@@ -228,12 +227,12 @@ export default function PartnersPage() {
           </div>
           <div className="sm:col-span-2">
             <label className="block text-sm mb-1">Offer slugs (comma separated)</label>
-            <input className="neon-input" value={offerSlugs} onChange={e=>setOfferSlugs(e.target.value)} placeholder="slug1, slug2" />
+            <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40 w-full" value={offerSlugs} onChange={e=>setOfferSlugs(e.target.value)} placeholder="slug1, slug2" />
           </div>
         </div>
         <div className="mt-3 flex gap-2">
-          <button className="neon-btn" onClick={manualPin}>Pin</button>
-          <button className="neon-btn" onClick={manualUnpin}>Unpin</button>
+          <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={manualPin}>Pin</button>
+          <button className="rounded-xl px-3 py-2 border border-white/10 hover:bg-white/5" onClick={manualUnpin}>Unpin</button>
         </div>
       </Card>
 

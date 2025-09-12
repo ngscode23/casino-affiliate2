@@ -46,7 +46,7 @@ export function PayoutPill({ hours }: { hours?: number }) {
       className={tone}
       aria-label={hours ? `~${hours} hours` : "unknown payout time"}
     >
-      {hours ? `~${hours}h` : "—"}
+      {typeof hours === 'number' && Number.isFinite(hours) ? `~${hours}h` : "—"}
     </BasePill>
   );
 }

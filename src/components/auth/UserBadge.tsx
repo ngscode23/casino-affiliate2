@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getUser, signOut } from "@/lib/auth";
 
 export default function UserBadge() {
@@ -19,9 +20,12 @@ export default function UserBadge() {
 
   if (!email) {
     return (
-      <a href="/auth/login" className="underline hover:opacity-80">
+      <Link
+        to="/auth/login"
+        className="rounded-xl px-4 py-2 font-medium bg-[color:var(--brand,#F5D15A)] text-[color:var(--brand-fg,#1A1A1A)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
+      >
         Войти
-      </a>
+      </Link>
     );
   }
 
@@ -30,7 +34,7 @@ export default function UserBadge() {
       <span className="text-sm text-[var(--text-dim)]">{email}</span>
       <button
         onClick={() => signOut()}
-        className="text-sm underline hover:opacity-80"
+        className="rounded-xl px-3 py-1.5 border border-white/10 text-neutral-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
       >
         Выйти
       </button>

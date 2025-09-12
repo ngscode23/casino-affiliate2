@@ -30,7 +30,7 @@ export default function AuthDialog() {
   }
 
   return (
-    <div className="neon-card p-4 space-y-3">
+    <div className="rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 space-y-3">
       <h3 className="font-semibold">Sign in</h3>
       {sent ? (
         <div className="text-sm text-[var(--text-dim)]">
@@ -39,7 +39,7 @@ export default function AuthDialog() {
       ) : (
         <form onSubmit={sendOtp} className="space-y-2">
           <input
-            className="neon-input w-full"
+            className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             type="email"
             required
             placeholder="you@email.com"

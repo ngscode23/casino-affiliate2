@@ -1,18 +1,65 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useCallback,
+} from "react";
 import { products } from "@/ecom/data/products";
 import type { Product } from "@/ecom/lib/types";
+import { supabase } from "@/lib/supabase";
+import { API_BASE } from "@/ecom/api/client";
+
+/**
+ * Храним в localStorage объект вида { ids: string[] }
+ * Совместимость: если вдруг лежит старый формат (просто массив), тоже прочитаем.
+ */
+const LS_KEY = "ecom:wishlist";
 
 type State = { ids: string[] };
-type Action = { type: "toggle"; id: string } | { type: "remove"; id: string } | { type: "clear" };
+type Action =
+  | { type: "add"; id: string }
+  | { type: "toggle"; id: string }
+  | { type: "remove"; id: string }
+  | { type: "clear" };
+
+function readState(): State {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { ids: [] };
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return { ids: parsed.filter(x => typeof x === "string") };
+    if (parsed && Array.isArray(parsed.ids)) {
+      return { ids: parsed.ids.filter((x: unknown) => typeof x === "string") };
+    }
+    return { ids: [] };
+  } catch {
+    return { ids: [] };
+  }
+}
+
+function writeState(state: State) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+}
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case "toggle":
+    case "add": {
+      if (state.ids.includes(action.id)) return state;
+      return { ids: [...state.ids, action.id] };
+    }
+    case "toggle": {
       return state.ids.includes(action.id)
-        ? { ids: state.ids.filter((x) => x !== action.id) }
+        ? { ids: state.ids.filter(x => x !== action.id) }
         : { ids: [...state.ids, action.id] };
+    }
     case "remove":
-      return { ids: state.ids.filter((x) => x !== action.id) };
+      return { ids: state.ids.filter(x => x !== action.id) };
     case "clear":
       return { ids: [] };
     default:
@@ -22,46 +69,177 @@ function reducer(state: State, action: Action): State {
 
 type Ctx = {
   ids: string[];
-  items: Product[];
+  items: Product[]; // список продуктов (если есть в каталоге)
+  add: (id: string) => void;
   toggle: (id: string) => void;
   remove: (id: string) => void;
   clear: () => void;
 };
 
 const WishlistContext = createContext<Ctx | null>(null);
-const LS_KEY = "ecom:wishlist";
 
-export function WishlistProvider({ children }: React.PropsWithChildren<{}>) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) return JSON.parse(raw) as State;
-    } catch {}
-    return { ids: [] };
-  });
+/**
+ * Провайдер. Инициализация из localStorage с ленивым инитом редьюсера.
+ */
+// wishlist.tsx
 
+// было:
+// export function WishlistProvider({ children }: React.PropsWithChildren<{}>) {
+export function WishlistProvider({ children }: React.PropsWithChildren) {
+  const [state, dispatch] = useReducer(reducer, undefined, () => readState());
+  const SERVER_SYNC = ((import.meta as any).env?.VITE_WISHLIST_SERVER_SYNC ?? 'true') !== 'false';
+
+  // синхронизация со storage
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+    try {
+      writeState(state);
+    } catch {
+      // ignore: storage может быть недоступен/заблокирован
+    }
   }, [state]);
+
+  // ---- server sync helpers ----
+  async function getAccessToken(): Promise<string | null> {
+    try {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function fetchWithRetry(path: string, init: RequestInit & { tries?: number } = {}) {
+    const tries = init.tries ?? 3;
+    let attempt = 0;
+    let lastErr: any = null;
+    while (attempt < tries) {
+      try {
+        const res = await fetch(path, init);
+        if (res.status >= 500 || res.status === 429) throw new Error(`HTTP ${res.status}`);
+        return res;
+      } catch (e) {
+        lastErr = e;
+        attempt += 1;
+        await new Promise((r) => setTimeout(r, 300 * attempt));
+      }
+    }
+    throw lastErr || new Error("request failed");
+  }
+
+  async function serverList(token: string): Promise<string[]> {
+    if (!SERVER_SYNC) return [];
+    const res = await fetchWithRetry(`${API_BASE}/ecom-wishlist/list`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      tries: 3,
+    } as any);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.items) ? data.items.map((r: any) => String(r.product_id)) : [];
+  }
+
+  async function serverUpsertMany(token: string, ids: string[]) {
+    if (!SERVER_SYNC) return;
+    for (const id of ids) {
+      try {
+        await fetchWithRetry(`${API_BASE}/ecom-wishlist/upsert`, {
+          method: "POST",
+          headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ product_id: id }),
+          tries: 3,
+        } as any);
+      } catch {
+        // ignore single-item failure
+      }
+    }
+  }
+
+  async function serverRemove(token: string, id: string) {
+    if (!SERVER_SYNC) return;
+    try {
+      await fetchWithRetry(`${API_BASE}/ecom-wishlist/remove`, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ product_id: id }),
+        tries: 3,
+      } as any);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // initial sync and auth change handling
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const token = await getAccessToken();
+      if (!token) return;
+      const remote = await serverList(token);
+      if (cancelled) return;
+      const local = readState().ids;
+      const merged = Array.from(new Set([...(remote || []), ...(local || [])]));
+      const missingRemote = merged.filter((id) => !remote.includes(id));
+      if (missingRemote.length) await serverUpsertMany(token, missingRemote);
+      writeState({ ids: merged });
+      // reflect merged in reducer
+      dispatch({ type: "clear" });
+      for (const id of merged) dispatch({ type: "add", id });
+    })();
+
+    const sub = supabase.auth.onAuthStateChange(async (evt: string, sess: any) => {
+      if (evt === "SIGNED_OUT") {
+        writeState({ ids: [] });
+        dispatch({ type: "clear" });
+      }
+      if (evt === "SIGNED_IN" && sess?.access_token) {
+        const remote = await serverList(sess.access_token);
+        const merged = Array.from(new Set([...(remote || []), ...readState().ids]));
+        const missing = merged.filter((id) => !remote.includes(id));
+        if (missing.length) await serverUpsertMany(sess.access_token, missing);
+        writeState({ ids: merged });
+        dispatch({ type: "clear" });
+        for (const id of merged) dispatch({ type: "add", id });
+      }
+    });
+    return () => { cancelled = true; sub.data.subscription.unsubscribe(); };
+  }, []);
+
+  // коллбеки; dispatch стабилен, пустой deps ок
+  const add = useCallback((id: string) => {
+    dispatch({ type: "add", id });
+    getAccessToken().then((t) => { if (t) serverUpsertMany(t, [id]); });
+  }, []);
+  const toggle = useCallback((id: string) => {
+    const next = !readState().ids.includes(id);
+    dispatch({ type: "toggle", id });
+    getAccessToken().then((t) => {
+      if (!t) return;
+      next ? serverUpsertMany(t, [id]) : serverRemove(t, id);
+    });
+  }, []);
+  const remove = useCallback((id: string) => {
+    dispatch({ type: "remove", id });
+    getAccessToken().then((t) => { if (t) serverRemove(t, id); });
+  }, []);
+  const clear = useCallback(() => dispatch({ type: "clear" }), []);
 
   const value: Ctx = useMemo(() => {
     const set = new Set(state.ids);
-    const items = products.filter((p) => set.has(p.id));
-    return {
-      ids: state.ids,
-      items,
-      toggle: (id) => dispatch({ type: "toggle", id }),
-      remove: (id) => dispatch({ type: "remove", id }),
-      clear: () => dispatch({ type: "clear" }),
-    };
-  }, [state]);
+    const items = products.filter(p => set.has(p.id));
+    return { ids: state.ids, items, add, toggle, remove, clear };
+  }, [state.ids, products, add, toggle, remove, clear]); // ← добавили products
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
 }
 
-export function useWishlist() {
+/**
+ * Хук доступа к контексту.
+ * Бросает, если провайдер не обернул дерево.
+ */
+export function useWishlist(): Ctx {
   const ctx = useContext(WishlistContext);
-  if (!ctx) throw new Error("useWishlist must be used within WishlistProvider");
+  if (!ctx) {
+    throw new Error("useWishlist must be used within <WishlistProvider>");
+  }
   return ctx;
 }
-

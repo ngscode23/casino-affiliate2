@@ -33,7 +33,7 @@ export function FavControl({
     track("favorite_toggle", { offer_slug: key, active: nextActive });
   };
 
-  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded";
+  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40";
   const colorClass = active ? "text-amber-400 fav-pop" : "text-white/70 hover:text-white";
 
   return (

@@ -1,16 +1,44 @@
-import PageShell from "../../components/ui/PageShell";
+import PageShell from "@/components/ui/PageShell";
 import Seo from "@/components/Seo";
 import { useParams } from "react-router-dom";
 import { products } from "@/ecom/data/products";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Rating from "@/components/common/rating";
-import { ButtonPrimary, ButtonGhost } from "../../components/ui/Buttons";
+import { ButtonPrimary, ButtonGhost } from "@/components/ui/Buttons";
 import { useCart } from "@/ecom/lib/cart";
+import ReviewForm from "@/components/ReviewForm";
+import { getProductBySlug, listProductReviews } from "@/ecom/api/client";
 
 export default function ProductPage() {
   const { slug = "" } = useParams();
   const product = useMemo(() => products.find((p) => p.slug === slug) || null, [slug]);
   const { add } = useCart();
+  const [dbId, setDbId] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Array<{ user_id: string; rating: number; title: string; body: string; created_at: string }>>([]);
+  const [revLoading, setRevLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!slug) return;
+      setRevLoading(true);
+      try {
+        const p = await getProductBySlug(slug);
+        if (cancelled) return;
+        if (p?.id) {
+          setDbId(p.id);
+          const items = await listProductReviews(p.id);
+          if (!cancelled) setReviews(items);
+        } else {
+          setDbId(null);
+          setReviews([]);
+        }
+      } finally {
+        if (!cancelled) setRevLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [slug]);
 
   if (!product) {
     return (
@@ -88,6 +116,35 @@ export default function ProductPage() {
       <div id="details" className="mt-8 rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4">
         <h2 className="text-xl font-semibold">Details</h2>
         <p className="mt-2 text-[var(--text-dim)]">High-quality product built to last. Satisfaction guaranteed.</p>
+      </div>
+      <div className="mt-8 rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4">
+        <h2 className="text-xl font-semibold">Reviews</h2>
+        {revLoading ? (
+          <div className="text-[var(--text-dim)] mt-2">Loading…</div>
+        ) : reviews.length === 0 ? (
+          <div className="text-[var(--text-dim)] mt-2">No reviews yet.</div>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {reviews.map((r, i) => (
+              <li key={i} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center gap-2">
+                  <Rating value={Number(r.rating) || 0} />
+                  <div className="font-semibold">{r.title}</div>
+                  <div className="ml-auto text-xs text-[var(--text-dim)]">{new Date(r.created_at).toLocaleDateString()}</div>
+                </div>
+                <div className="mt-1 text-sm text-white/90">{r.body}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {dbId ? (
+          <div className="mt-4">
+            <ReviewForm productId={dbId} onSubmitted={async () => {
+              const items = await listProductReviews(dbId);
+              setReviews(items);
+            }} />
+          </div>
+        ) : null}
       </div>
     </PageShell>
   );

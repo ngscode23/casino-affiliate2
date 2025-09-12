@@ -3,16 +3,18 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
 
-import Rating from "@/components/common/rating";
+import { Pill } from "@/components/ui/Pill";
 import CompareInline from "@/components/compare/CompareInline";
 import { FavControl } from "@/components/FavControl";
-import AffiliateLink from "@/components//misc/AffiliateLink";
+import ActionLink from "@/components/common/ActionLink";
+import { ButtonGhost } from "@/components/ui/Buttons";
 import { t } from "@/lib/t";
 import { toast } from "@/components/common/toast";
 
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/common/sheet";
 
 import { useCompare } from "@/ctx/CompareContext";
+import { useVertical } from "@/ctx/VerticalContext";
 import type { NormalizedOffer } from "@/lib/offers";
 
 type Props = {
@@ -24,27 +26,66 @@ type Props = {
 
 export default function MobileOfferCard({ offer, className = "", index }: Props) {
   const { toggle: toggleCompare, isSelected } = useCompare();
+  const vertical = useVertical();
   const id = offer.slug;
   const selected = isSelected(id);
   const plan = (offer as any).pinnedPlan as string | undefined;
   const isPinned = (offer as any).pinned as boolean | undefined;
   const badge = plan === "TOP" ? "Top" : plan === "FEATURED" ? "Featured" : plan || isPinned ? "Featured" : null;
 
-  const methods = useMemo(() => offer.methods ?? [], [offer.methods]);
+  // Map payout method codes to human-friendly/i18n labels.
+  const methodLabel = (m: string): string => {
+    const raw = String(m || '').trim();
+    const lower = raw.toLowerCase().replace(/\s+/g, ' ').replace(/[_-]/g, '_');
+    const code =
+      lower === 'cards' ? 'cards' :
+      lower === 'sepa' ? 'sepa' :
+      lower === 'crypto' ? 'crypto' :
+      lower === 'paypal' ? 'paypal' :
+      lower === 'skrill' ? 'skrill' :
+      (lower === 'bank_transfer' || lower === 'bank transfer') ? 'bank_transfer' :
+      null;
+    if (code) {
+      // prefer attributes.payout_methods i18n; fallback to readable defaults
+      return (
+        t(`attributes.payout_methods.options.${code}`) ||
+        (
+          ({
+            cards: 'Cards',
+            sepa: 'SEPA',
+            crypto: 'Crypto',
+            paypal: 'PayPal',
+            skrill: 'Skrill',
+            bank_transfer: 'Bank transfer',
+          } as Record<string, string>)[code] || raw
+        )
+      );
+    }
+    // Fallback: capitalize words
+    return raw
+      .replace(/(^|\s|_|-)([a-z])/g, (_, p1, p2) => `${p1 === '_' || p1 === '-' ? ' ' : p1}${p2.toUpperCase()}`)
+      .replace(/_/g, ' ')
+      .trim();
+  };
+
+  const methods = useMemo(() => (offer.methods ?? []).map(methodLabel), [offer.methods]);
 
   const summary = useMemo(() => {
     const parts: string[] = [];
-    if (offer.payout) parts.push(`Payout: ${offer.payout}${offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}`);
-    if (offer.license) parts.push(`License: ${offer.license}`);
-    if (typeof offer.rating === "number") parts.push(`Rating: ${offer.rating}`);
+    if (vertical.list.visibleFields.includes("payout") && offer.payout) {
+      const hoursSuffix = offer.payoutHours ? ` (~${offer.payoutHours}h)` : "";
+      parts.push(`${t("offer.payout") || "Payout"}: ${offer.payout}${hoursSuffix}`);
+    }
+    if (offer.license) parts.push(`${t("offer.license") || "License"}: ${offer.license}`);
+    if (typeof offer.rating === "number") parts.push(`${t("offer.ratingLabel") || "Rating"}: ${offer.rating}`);
     return parts.join(" • ");
-  }, [offer.payout, offer.payoutHours, offer.license, offer.rating]);
+  }, [offer.payout, offer.payoutHours, offer.license, offer.rating, vertical.list.visibleFields]);
 
   const position = index != null ? index + 1 : undefined;
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 shadow-[0_6px_24px_rgba(0,0,0,.35)] hover:shadow-[0_12px_36px_rgba(0,0,0,.45)] transition-shadow transition-transform transform-gpu hover:translate-y-[-1px] hover:scale-[1.01] active:scale-[0.995] ${className}`}
+      className={`rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 transition-colors hover:bg-white/5 flex flex-col min-h-[220px] h-full ${className}`}
     >
       {/* Header: title/license + actions */}
       <div className="flex items-start justify-between gap-4">
@@ -54,22 +95,19 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
             {badge && (
               <span
                 title={badge === "Top" ? "Top placement (sponsored)" : "Featured placement (sponsored)"}
-                className={
-                  "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold " +
-                  (badge === "Top"
-                    ? "bg-yellow-500/20 text-yellow-200 border border-yellow-600/40"
-                    : "bg-pink-500/15 text-pink-200 border border-pink-600/40")
-                }
+                className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border border-white/10 bg-white/5 text-neutral-200"
               >
                 {badge}
               </span>
             )}
           </div>
-          <div className="text-xs text-[var(--text-dim)]">{offer.license}</div>
+          <div className="text-xs text-[var(--text-dim)] sr-only">{offer.license}</div>
         </div>
 
         <div className="shrink-0 flex items-center gap-2">
-          <Rating value={offer.rating ?? 0} />
+          <Pill tone="rating" aria-label={`Rating ${typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)} out of 5`}>
+            ★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}
+          </Pill>
           <FavControl id={offer.slug} className="inline-flex h-10 w-10" />
         </div>
       </div>
@@ -77,35 +115,48 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
       {/* Summary */}
       <div className="mt-3 text-sm">{summary}</div>
 
-      {/* Methods */}
-      {methods.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {methods.map((m, i) => (
-            <span key={`${m}-${i}`} className="neon-chip">
-              {m}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* License + Methods as Pills (limit to 2–3, then +X) */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {vertical.list.pills?.includes("license") && offer.license ? <Pill>{offer.license}</Pill> : null}
+        {vertical.list.pills?.includes("methods") && methods.length > 0 ? (
+          (() => {
+            const max = 2;
+            const shown = methods.slice(0, max);
+            const rest = methods.length - shown.length;
+            return (
+              <>
+                {shown.map((m, i) => (
+                  <Pill key={`${m}-${i}`}>{m}</Pill>
+                ))}
+                {rest > 0 ? <Pill>{`+${rest}`}</Pill> : null}
+              </>
+            );
+          })()
+        ) : null}
+      </div>
 
       {/* Actions */}
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-auto pt-4 grid grid-cols-3 gap-2">
         {/* CTA */}
-        <AffiliateLink
-          offerSlug={offer.slug}
-          position={position}
-          href={`/go/${encodeURIComponent(offer.slug)}`}
-          size="sm"
-          className="btn w-full inline-flex items-center justify-center gap-2"
-          aria-label={`Open ${offer.name}`}
+        <ActionLink
+          action={{
+            kind: "external",
+            labelKey: vertical.list.cta?.labelKey || "offer.cta",
+            href: `/go/${encodeURIComponent(offer.slug)}`,
+            productSlug: offer.slug,
+            position,
+            size: "sm",
+            className: "w-full inline-flex items-center justify-center gap-2",
+          }}
         >
-          {t("offer.cta") || "Play"} <ExternalLink className="h-4 w-4" />
-        </AffiliateLink>
+          {t(vertical.list.cta?.labelKey || "offer.cta") || "Go"} <ExternalLink className="h-4 w-4 opacity-80" />
+        </ActionLink>
 
         {/* Compare toggle */}
         <button
+          data-testid="compare-toggle"
           type="button"
-          className={`btn ${selected ? "btn-secondary" : "btn-soft"} min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
+          className={`rounded-xl border ${selected ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-neutral-200 hover:bg-white/5"} min-h-[44px] px-3 py-2 text-[13px] leading-[1.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -121,13 +172,9 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
         {/* Details (sheet) */}
         <Sheet>
           <SheetTrigger asChild>
-            <button
-              type="button"
-              className="btn btn-ghost w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]"
-              aria-label={`Details for ${offer.name}`}
-            >
+            <ButtonGhost className="min-h-[40px] px-3 py-2 text-[13px]" aria-label={`Details for ${offer.name}`}>
               {t("offer.details") || "Details"}
-            </button>
+            </ButtonGhost>
           </SheetTrigger>
 
           <SheetContent side="bottom" className="max-h-[80vh] w-full rounded-t-2xl border-white/10 bg-[var(--bg-0)] text-[var(--text)] p-0 overflow-hidden">
@@ -153,19 +200,17 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                 {/* stats */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-[var(--text-dim)]">Rating</div>
-                    <div className="mt-1">
-                      <Rating value={offer.rating ?? 0} />
-                    </div>
+                    <div className="text-[var(--text-dim)]">{t("offer.ratingLabel") || "Rating"}</div>
+                    <div className="mt-1"><Pill tone="rating" aria-label={`Rating ${typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)} out of 5`}>★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill></div>
                   </div>
 
                   <div>
-                    <div className="text-[var(--text-dim)]">License</div>
+                    <div className="text-[var(--text-dim)]">{t("offer.license") || "License"}</div>
                     <div className="mt-1">{offer.license}</div>
                   </div>
 
                   <div>
-                    <div className="text-[var(--text-dim)]">Payout</div>
+                    <div className="text-[var(--text-dim)]">{t("offer.payout") || "Payout"}</div>
                     <div className="mt-1">
                       {offer.payout}
                       {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
@@ -173,13 +218,11 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                   </div>
 
                   <div>
-                    <div className="text-[var(--text-dim)]">Methods</div>
+                    <div className="text-[var(--text-dim)]">{t("filters.methods") || "Methods"}</div>
                     <div className="mt-1 flex flex-wrap gap-2">
                       {offer.methods.length
                         ? offer.methods.map((m, i) => (
-                            <span key={`${m}-${i}`} className="neon-chip">
-                              {m}
-                            </span>
+                            <Pill key={`${m}-${i}`}>{methodLabel(m)}</Pill>
                           ))
                         : "-"}
                     </div>
@@ -190,20 +233,23 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   <FavControl id={offer.slug} className="inline-flex h-10 w-10" />
 
-                  <AffiliateLink
-                    offerSlug={offer.slug}
-                    position={position}
-                    href={`/go/${encodeURIComponent(offer.slug)}`}
-                    size="sm"
-                    className="btn w-full inline-flex items-center justify-center gap-2"
-                    aria-label={`Open ${offer.name}`}
+                  <ActionLink
+                    action={{
+                      kind: "external",
+                      labelKey: vertical.list.cta?.labelKey || "offer.cta",
+                      href: `/go/${encodeURIComponent(offer.slug)}`,
+                      productSlug: offer.slug,
+                      position,
+                      size: "sm",
+                      className: "w-full inline-flex items-center justify-center gap-2",
+                    }}
                   >
-                    {t("offer.cta") || "Play"} <ExternalLink className="h-4 w-4" />
-                  </AffiliateLink>
+                    {t(vertical.list.cta?.labelKey || "offer.cta") || "Go"} <ExternalLink className="h-4 w-4 opacity-80" />
+                  </ActionLink>
 
                   <button
                     type="button"
-                    className={`btn ${selected ? "btn-secondary" : "btn-soft"} w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]`}
+                    className={`rounded-xl border ${selected ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-neutral-200 hover:bg-white/5"} w-full min-h-[44px] px-3 py-2 text-[13px] leading-[1.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40`}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -223,7 +269,13 @@ export default function MobileOfferCard({ offer, className = "", index }: Props)
           </SheetContent>
         </Sheet>
       </div>
+
+      {/* Disclosure (vertical-driven) */}
+      {vertical.disclosures?.card ? (
+        <div className="mt-2 text-[11px] text-[var(--text-dim)]">
+          {t(vertical.disclosures.card)}
+        </div>
+      ) : null}
     </div>
   );
 }
-

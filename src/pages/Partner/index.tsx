@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import Section from '@/components/common/section';
 import Card from '@/components/common/card';
 import { supabase } from '@/lib/supabase';
+import { ButtonPrimary } from '@/components/ui/Buttons';
 import { getUser } from '@/lib/auth';
-import { fn } from '@/lib/functions';
+import { fnUrl } from '@/lib/api';
 
 type Row = { offer_slug: string; plan: string; expires_at: string | null };
 
@@ -42,7 +43,7 @@ export default function PartnerPortalPage() {
   async function openPortal() {
     try {
       if (!email) throw new Error('No email');
-      const res = await fetch(fn('customer-portal'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
+      const res = await fetch(fnUrl('customer-portal'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
       const j = await res.json();
       if (j?.url) window.location.href = j.url; else throw new Error(j?.error || 'Failed to open portal');
     } catch (e:any) { alert('Error: ' + String(e?.message||e)); }
@@ -52,7 +53,7 @@ export default function PartnerPortalPage() {
     <Section className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Partner Portal</h1>
-        <button className="neon-btn" onClick={openPortal}>Billing</button>
+        <ButtonPrimary onClick={openPortal}>Billing</ButtonPrimary>
       </div>
       <Card className="p-4">
         {loading ? <div>Loading…</div> : error ? <div className="text-red-400">{error}</div> : (

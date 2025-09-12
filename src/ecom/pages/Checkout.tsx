@@ -1,4 +1,4 @@
-import PageShell from "../../components/ui/PageShell";
+import PageShell from "@/components/ui/PageShell";
 import Seo from "@/components/Seo";
 import { useCart } from "@/ecom/lib/cart";
 import { useState } from "react";

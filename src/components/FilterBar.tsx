@@ -27,7 +27,7 @@ export default function FilterBar({
         </label>
         <input
           id={qid}
-          className="neon-input w-full mt-1"
+          className="w-full mt-1 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
           placeholder="Введите название…"
           value={q}
           onChange={(e) => onChange(e.target.value)}

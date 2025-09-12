@@ -48,41 +48,56 @@ const CartContext = createContext<Ctx | null>(null);
 
 const LS_KEY = "ecom:cart";
 
-export function CartProvider({ children }: React.PropsWithChildren<{}>) {
+// было:
+// export function CartProvider({ children }: React.PropsWithChildren<{}>) {
+
+// стало:
+export function CartProvider({ children }: React.PropsWithChildren) {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) return JSON.parse(raw) as CartState;
-    } catch {}
+    }catch (err) {
+  if (process.env.NODE_ENV === "development") {
+    console.debug("Cart error:", err);
+  }
+}
     return { items: [] };
   });
 
-  useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
-  }, [state]);
+useEffect(() => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch {
+    // ignore: переполнено/запрещено, не ломаем UI из-за хранения
+  }
+}, [state]);
 
   const value: Ctx = useMemo(() => {
-    const map = new Map(products.map((p) => [p.id, p] as const));
+    const map = new Map(products.map(p => [p.id, p] as const));
+
     const items = state.items
-      .map((i) => ({ ...i, product: map.get(i.id) }))
+      .map(i => ({ ...i, product: map.get(i.id) }))
       .filter((x): x is CartItem & { product: Product } => !!x.product)
-      .map((row) => ({ ...row, lineTotal: +(row.product.price * row.qty).toFixed(2) }));
+      .map(row => ({ ...row, lineTotal: +(row.product.price * row.qty).toFixed(2) }));
+
     const subtotal = +items.reduce((s, i) => s + i.lineTotal, 0).toFixed(2);
     const totalQty = items.reduce((s, i) => s + i.qty, 0);
+
     return {
       items,
       subtotal,
       totalQty,
       add: (id, qty) => dispatch({ type: "add", id, qty }),
-      remove: (id) => dispatch({ type: "remove", id }),
+      remove: id => dispatch({ type: "remove", id }),
       update: (id, qty) => dispatch({ type: "update", id, qty }),
       clear: () => dispatch({ type: "clear" }),
     };
-  }, [state]);
+  }, [state, products]); // ← добавили products
+  //          ^^^^^^^^^
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
-
 export function useCart() {
   const ctx = useContext(CartContext);
   if (!ctx) throw new Error("useCart must be used within CartProvider");

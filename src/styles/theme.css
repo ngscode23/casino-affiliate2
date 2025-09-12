@@ -37,10 +37,7 @@
   }
 
   html, body, #root {
-    background:
-      radial-gradient(60rem 60rem at 80% -10%, rgba(15,176,255,.08), transparent 60%),
-      radial-gradient(50rem 50rem at -10% 20%, rgba(168,85,247,.06), transparent 60%),
-      rgb(var(--bg-0));
+    background: rgb(var(--bg-0));
     color: rgb(var(--text));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -59,35 +56,23 @@
 @layer components {
   /* Карточка (универсальная) */
   .neon-card {
-    background: rgb(var(--bg-1) / .85);
-    border: 1px solid rgba(255,255,255,.06);
+    background: rgb(var(--bg-1));
+    border: 1px solid rgba(255,255,255,.10);
     border-radius: 1rem;
-    box-shadow: var(--shadow-soft);
-    transition:
-      border-color var(--dur-normal) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard),
-      transform var(--dur-fast) var(--ease-standard);
   }
 
   /* Альтернативная карточка в стиле «металл/стекло» */
   .card {
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)),
-      var(--card-800);
+    background: var(--card-800);
     border-radius: var(--radius-2xl);
-    box-shadow: var(--shadow-soft), var(--shadow-ring);
-    border: 1px solid rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.10);
   }
 
   /* Герой */
   .neon-hero {
     position: relative;
     padding: 64px 0 32px;
-    background:
-      linear-gradient(140deg,
-        rgba(212,175,55,.10),
-        rgba(139,92,246,.12) 40%,
-        transparent 80%);
+    background: transparent;
     border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .neon-hero h1,
@@ -113,10 +98,8 @@
     font-size: 12px;
     line-height: 1;
     color: rgb(var(--text));
-    background:
-      linear-gradient(180deg, rgba(139,92,246,.18), rgba(139,92,246,.10) 70%, rgba(255,255,255,.02));
+    background: rgba(255,255,255,.05);
     border: 1px solid rgba(255,255,255,.12);
-    box-shadow: 0 6px 16px rgba(139,92,246,.20);
   }
   .neon-chip[data-glow] {
     box-shadow:
@@ -134,23 +117,9 @@
     padding: 0 18px;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,.12);
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)),
-      linear-gradient(180deg, rgba(212,175,55,.25), rgba(212,175,55,.15));
-    color: #111;
-    font-weight: 700;
-    letter-spacing: .2px;
-    cursor: pointer;
-    transition:
-      transform var(--dur-fast) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard),
-      filter var(--dur-fast) var(--ease-standard),
-      background var(--dur-fast) var(--ease-standard),
-      border-color var(--dur-fast) var(--ease-standard);
-    box-shadow: 0 10px 20px rgba(212,175,55,.20);
+    background: rgb(var(--bg-1));
+    color: rgb(var(--text));
   }
-  .btn:hover   { transform: translateY(-1px) scale(1.01); filter: brightness(1.05); }
-  .btn:active  { transform: translateY(0) scale(.995);    filter: brightness(.98);  }
 
   .btn.secondary {
     background:
@@ -161,18 +130,12 @@
 
   /* Хватает и утилитарной неон-кнопки (кто использует neon-btn) */
   .neon-btn {
-    background: #0fb0ff;
-    color: #fff;
+    background: rgb(var(--bg-1));
+    color: rgb(var(--text));
     border-radius: .75rem;
     padding: .75rem 1rem;
-    box-shadow: 0 10px 30px rgba(15,176,255,.25);
-    transition:
-      transform var(--dur-fast) var(--ease-standard),
-      background var(--dur-fast) var(--ease-standard),
-      box-shadow var(--dur-normal) var(--ease-standard);
+    border: 1px solid rgba(255,255,255,.12);
   }
-  .neon-btn:hover  { background: #008fe5; transform: translateY(-1px) scale(1.01); }
-  .neon-btn:active { transform: translateY(0); }
 
   /* Таблица */
   .table {
@@ -182,7 +145,7 @@
     overflow: hidden;
     border-radius: 14px;
     background: var(--card-800);
-    box-shadow: var(--shadow-soft), var(--shadow-ring);
+    border: 1px solid rgba(255,255,255,.10);
   }
   .table th, .table td {
     padding: 14px 16px;

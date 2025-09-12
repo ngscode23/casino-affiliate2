@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
-import Section from "@/components/common/section";
-import Card from "@/components/common/card";
-import Rating from "@/components/common/rating";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { Pill } from "@/components/ui/Pill";
 import Seo from "@/components/Seo";
 import { SITE_URL } from "@/config";
 import AffiliateLink from "@/components/misc/AffiliateLink";
+import { useVertical } from "@/ctx/VerticalContext";
 import { FavControl } from "@/components/FavControl";
 import { useT } from "@/lib/useT";
 
@@ -15,13 +16,17 @@ import { offersNormalized, type NormalizedOffer } from "@/lib/offers";
 import { getOfferBySlug } from "@/features/offers/api/getOffers";
 import { track } from "@/lib/analytics";
 import { pushRecent, getRecent } from "@/lib/recent";
+import { supabase } from "@/lib/supabase";
+import { fetchProductAttributes, toValueMap } from "@/lib/attributes";
 
 export default function OfferPage() {
   const { slug } = useParams<{ slug: string }>();
   const t = useT();
+  const vertical = useVertical();
 
   const [offer, setOffer] = useState<NormalizedOffer | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [display, setDisplay] = useState<NormalizedOffer | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +45,38 @@ export default function OfferPage() {
   }, [slug]);
 
   useEffect(() => { if (offer?.slug) pushRecent(offer.slug); }, [offer?.slug]);
+
+  // Overlay EAV for key attributes (hybrid: EAV -> fallback to offers.*)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const base = offer;
+        if (!base?.slug) { if (active) setDisplay(offer); return; }
+        // resolve numeric id by slug
+        const { data, error } = await (supabase as any)
+          .from('offers')
+          .select('id,slug')
+          .eq('slug', base.slug)
+          .limit(1);
+        if (error) throw error;
+        const pid = Number((data?.[0]?.id ?? NaN));
+        if (!Number.isFinite(pid)) { if (active) setDisplay(base); return; }
+        const rows = await fetchProductAttributes([pid as any], ['rating','compliance_license','payout_time_hours','payout_methods']);
+        const vm = toValueMap(rows)[String(pid)] || {};
+        const licenseRaw = (vm as any)['compliance_license'];
+        const license = licenseRaw != null ? String(licenseRaw).toUpperCase() : base.license;
+        const rating = (vm as any)['rating'] != null ? Number((vm as any)['rating']) : base.rating;
+        const payoutHours = (vm as any)['payout_time_hours'] != null ? Number((vm as any)['payout_time_hours']) : base.payoutHours;
+        const methods = Array.isArray((vm as any)['payout_methods']) ? ((vm as any)['payout_methods'] as any[]).map(String) : (base.methods ?? []);
+        const next: NormalizedOffer = { ...base, license, rating, payoutHours, methods } as NormalizedOffer;
+        if (active) setDisplay(next);
+      } catch {
+        if (active) setDisplay(offer);
+      }
+    })();
+    return () => { active = false; };
+  }, [offer?.slug]);
 
   const recentOffers: NormalizedOffer[] = useMemo(() => {
     const recents = getRecent().filter((s) => s !== offer?.slug).slice(0, 6);
@@ -73,7 +110,7 @@ export default function OfferPage() {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Offers", item: `${SITE_URL.replace(/\/$/, "")}/offers` },
+          { "@type": "ListItem", position: 1, name: t("nav.offers") || "Offers", item: `${SITE_URL.replace(/\/$/, "")}/offers` },
           { "@type": "ListItem", position: 2, name: offer.name, item: canonical },
         ],
       },
@@ -86,20 +123,14 @@ export default function OfferPage() {
   }, [offer, canonical, faq]);
 
   if (loading) {
-    return (
-      <Section>
-        <Card className="p-6">Loading...</Card>
-      </Section>
-    );
+    return <PageShell><SectionCard>{t("common.loading") || "Loading..."}</SectionCard></PageShell>;
   }
 
   if (!offer) {
-    return (
-      <Section>
-        <Card className="p-6">Not found</Card>
-      </Section>
-    );
+    return <PageShell><SectionCard>{t("common.notFound") || "Not found"}</SectionCard></PageShell>;
   }
+
+  const view = display ?? offer;
 
   return (
     <>
@@ -111,23 +142,14 @@ export default function OfferPage() {
         jsonLd={jsonLd}
       />
 
-      <section className="neon-hero relative">
-        <Section>
-          <h1 style={{ fontWeight: 800, letterSpacing: "-0.02em", fontSize: "clamp(28px,4.5vw,46px)" }}>{offer.name}</h1>
-          <p className="neon-subline mt-2">
-            {t("offer.license")}: {offer.license ?? "-"} · {t("offer.payout")}: {offer.payout}
-            {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
-          </p>
-        </Section>
-      </section>
-
-      <Section className="space-y-6">
-        <Card className="p-6">
+      <PageShell>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">{view.name}</h1>
+        <SectionCard>
           <div className="grid gap-6 md:grid-cols-3">
             <div className="md:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-[var(--text-dim)]">{t("offer.ratingLabel")}</span>
-                <Rating value={offer.rating ?? 0} />
+                <Pill tone="rating">★ {typeof offer.rating === "number" ? offer.rating.toFixed(1) : String(offer.rating ?? 0)}</Pill>
               </div>
               <div>
                 <div className="text-[var(--text-dim)] mb-1">{t("offer.payout")}</div>
@@ -140,7 +162,7 @@ export default function OfferPage() {
                 <div className="text-[var(--text-dim)] mb-1">{t("filters.methods") || "Methods"}</div>
                 <div className="flex flex-wrap gap-2">
                   {offer.methods.length ? offer.methods.map((m, i) => (
-                    <span key={`${m}-${i}`} className="neon-chip">{m}</span>
+                    <Pill key={`${m}-${i}`}>{m}</Pill>
                   )) : "-"}
                 </div>
               </div>
@@ -150,21 +172,19 @@ export default function OfferPage() {
                 offerSlug={offer.slug}
                 position={1}
                 href={`/go/${encodeURIComponent(offer.slug)}`}
-                className="btn w-full inline-flex items-center justify-center"
+                className="w-full inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
                 aria-label={`${t("offer.cta")}: ${offer.name}`}
               >
                 {t("offer.cta")}
               </AffiliateLink>
 
-              <p className="mt-2 text-xs text-[var(--text-dim)]">
-                {t("offer.sponsoredShort") || "Sponsored link. 18+ only."} {t("offer.ourDisclosure") || "Please read"} {" "}
-                <Link className="underline" to="/legal/affiliate-disclosure">{t("legal.affiliateDisclosure") || "our disclosure"}</Link>{" "}
-                {t("offer.tcShort") || "and operator's T&Cs."}
-              </p>
+              {vertical.disclosures?.card ? (
+                <p className="mt-2 text-xs text-[var(--text-dim)]">{t(vertical.disclosures.card)}</p>
+              ) : null}
 
               <FavControl
                 id={offer.slug}
-                className="btn w-full"
+                className="rounded-xl border border-white/10 hover:bg-white/5 w-full"
                 onToggle={(active: boolean) => {
                   try { track("favorite_toggle", { offer_slug: offer.slug, active }); }
                   catch { (track as any)?.({ name: "favorite_toggle", params: { offer_slug: offer.slug, active } }); }
@@ -172,14 +192,18 @@ export default function OfferPage() {
               />
             </div>
           </div>
-        </Card>
+        </SectionCard>
 
         {recentOffers.length > 0 && (
-          <Card className="p-6">
+          <SectionCard>
             <h2 className="text-lg font-semibold mb-3">{t("offers.recent") || "Recently viewed"}</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {recentOffers.map((o) => (
-                <Link key={o.slug} to={`/offers/${encodeURIComponent(o.slug)}`} className="neon-card p-4 hover:opacity-90">
+                <Link
+                  key={o.slug}
+                  to={`/offers/${encodeURIComponent(o.slug)}`}
+                  className="rounded-2xl border border-white/10 bg-[var(--bg-1)] p-4 hover:bg-white/5 transition-colors"
+                >
                   <div className="font-medium">{o.name}</div>
                   <div className="text-sm text-[var(--text-dim)]">
                     {t("offer.license")}: {o.license ?? "-"} · {t("offer.payout")}: {o.payout}
@@ -188,10 +212,9 @@ export default function OfferPage() {
                 </Link>
               ))}
             </div>
-          </Card>
+          </SectionCard>
         )}
-      </Section>
+      </PageShell>
     </>
   );
 }
-

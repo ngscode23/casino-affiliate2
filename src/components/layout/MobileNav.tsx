@@ -5,17 +5,27 @@ import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/common/sheet"; // твой обёрнутый Radix
 import cn from "@/lib/cn"; // если нет, у тебя уже есть /lib/cn.ts
+import { useT } from "@/lib/useT";
+import { useCart } from "@/ecom/lib/cart";
 
+// TEMP: switch mobile menu to e-commerce; keep old links commented below
+// const linksOld = [
+//   { to: "/", label: "Home" },
+//   { to: "/compare", label: "Compare" },
+//   { to: "/offers", label: "Offers" },
+//   { to: "/favorites", label: "Favorites" },
+//   { to: "/contact", label: "Contact" },
+// ];
 const links = [
-  { to: "/", label: "Home" },
-  { to: "/compare", label: "Compare" },
-  { to: "/offers", label: "Offers" },
-  { to: "/favorites", label: "Favorites" },
-  { to: "/contact", label: "Contact" },
-];
+  { to: "/", key: "nav.home" },
+  { to: "/catalog", key: "nav.catalog" },
+  { to: "/cart", key: "nav.cart" },
+] as const;
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
+  const t = useT();
+  const { totalQty } = useCart();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -50,7 +60,7 @@ export default function MobileNav() {
         </button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-[92vw] max-w-[360px] p-0 bg-[var(--bg-0)] text-[var(--text)]">
+      <SheetContent side="left" className="w-[92vw] max-w-[360px] p-0 bg-[rgb(var(--bg-0)/.85)] backdrop-blur-md text-[var(--text)] border-r border-white/10">
         <motion.div
           initial={{ x: -24, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -75,7 +85,9 @@ export default function MobileNav() {
                       )
                     }
                   >
-                    {l.label}
+                    {l.to === "/cart" && totalQty > 0
+                      ? `${(t(l.key) as string) ?? l.key} (${totalQty})`
+                      : (t(l.key) as string) ?? l.key}
                   </NavLink>
                 </li>
               ))}

@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import Section from '@/components/common/section';
 import Card from '@/components/common/card';
-import { fn } from '@/lib/functions';
+import { ButtonPrimary, ButtonGhost } from '@/components/ui/Buttons';
+import { fnUrl } from '@/lib/api';
 
 type Interval = 'MONTHLY'|'YEARLY';
 
@@ -22,7 +23,7 @@ export default function PricingPage() {
     try {
       if (!email.trim()) throw new Error('Email is required');
       setLoading(plan);
-      const res = await fetch(fn('create-subscription'), {
+      const res = await fetch(fnUrl('create-subscription'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), plan, interval, coupon: coupon.trim() || undefined })
@@ -44,8 +45,8 @@ export default function PricingPage() {
       </div>
 
       <div className="flex items-center justify-center gap-2">
-        <button className={`neon-btn ${interval==='MONTHLY'?'':'btn-soft'}`} onClick={()=>setInterval('MONTHLY')}>Monthly</button>
-        <button className={`neon-btn ${interval==='YEARLY'?'':'btn-soft'}`} onClick={()=>setInterval('YEARLY')}>Yearly</button>
+        <ButtonGhost className={interval==='MONTHLY' ? 'bg-white/10 border-white/15' : ''} onClick={()=>setInterval('MONTHLY')}>Monthly</ButtonGhost>
+        <ButtonGhost className={interval==='YEARLY' ? 'bg-white/10 border-white/15' : ''} onClick={()=>setInterval('YEARLY')}>Yearly</ButtonGhost>
       </div>
 
       <Card className="p-4">
@@ -56,9 +57,9 @@ export default function PricingPage() {
               <ul className="text-sm list-disc pl-5 space-y-1 text-[var(--text-dim)]">
                 {p.features.map((f, i)=> <li key={i}>{f}</li>)}
               </ul>
-              <button disabled={loading===p.key} className="neon-btn w-full" onClick={()=>subscribe(p.key)}>
+              <ButtonPrimary disabled={loading===p.key} className="w-full" onClick={()=>subscribe(p.key)}>
                 {loading===p.key? 'Opening Checkout...' : 'Subscribe'}
-              </button>
+              </ButtonPrimary>
             </div>
           ))}
         </div>
@@ -68,11 +69,11 @@ export default function PricingPage() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
-            <input className="neon-input w-full" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
+            <input className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
           </div>
           <div>
             <label className="block text-sm mb-1">Coupon / Promo (optional)</label>
-            <input className="neon-input w-full" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
+            <input className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40" value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="PROMO10" />
           </div>
         </div>
       </Card>

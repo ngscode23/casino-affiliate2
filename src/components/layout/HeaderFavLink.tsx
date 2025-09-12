@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import cn from "@/lib/cn";
 import { useFavorites } from "@/lib/useFavorites";
+import { useT } from "@/lib/useT";
 
 type Props = {
   to?: string;
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export default function HeaderFavLink({ to = "/favorites", className }: Props) {
+  const t = useT();
   const { items } = useFavorites();
   const count = items.length;
 
@@ -23,7 +25,7 @@ export default function HeaderFavLink({ to = "/favorites", className }: Props) {
       }
       aria-label={`Favorites${count ? `: ${count} saved` : ""}`}
     >
-      Favorites
+      {t("nav.favorites") || "Favorites"}
       {count > 0 && (
         <span
           data-testid="nav:fav-count"

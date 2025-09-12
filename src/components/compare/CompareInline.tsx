@@ -1,7 +1,9 @@
 // src/components/CompareInline.tsx
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
-import Button from "@/components/common/button";
+import { ButtonGhost } from "@/components/ui/Buttons";
+import { Pill } from "@/components/ui/Pill";
+import IconButton from "@/components/ui/IconButton";
 import { useCompare } from "@/ctx/CompareContext";
 
 export default function CompareInline({ className = "" }: { className?: string }) {
@@ -9,30 +11,28 @@ export default function CompareInline({ className = "" }: { className?: string }
   if (selected.length === 0) return null;
 
   return (
-    <div className={`neon-card flex items-center justify-between gap-3 px-3 py-2 ${className}`}>
+    <div className={`rounded-2xl bg-[color:var(--surface-elev,#141720)] border border-white/5 shadow-[0_6px_24px_rgba(0,0,0,0.35)] px-3 py-2 flex items-center justify-between gap-3 ${className}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[var(--text-dim)]">Compare:</span>
         {selected.map(o => {
           const id = o.slug ?? o.name;
           return (
-            <span key={id} className="neon-chip flex items-center gap-2">
+            <Pill key={id}>
               {o.name}
-              <button
-                type="button"
-                className="chip-close inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-transparent focus:outline-none"
-                onClick={() => remove(id)}
-                aria-label={`Remove ${o.name}`}
-              >
+              <IconButton size="sm" onClick={() => remove(id)} aria-label={`Remove ${o.name}`}>
                 <X className="h-3.5 w-3.5 pointer-events-none" />
-              </button>
-            </span>
+              </IconButton>
+            </Pill>
           );
         })}
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="soft" onClick={clear} className="cursor-pointer">Clear</Button>
-        <Link to="/compare" className="inline-flex items-center justify-center h-10 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        <ButtonGhost onClick={clear} className="cursor-pointer">Clear</ButtonGhost>
+        <Link
+          to="/compare"
+          className="h-10 px-4 inline-flex items-center justify-center rounded-xl font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
+        >
           Open compare
         </Link>
       </div>

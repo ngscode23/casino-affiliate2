@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import cn from "@/lib/cn";
-import PageShell from "../../components/ui/PageShell";
+import PageShell from "@/components/ui/PageShell";
 import Seo from "@/components/Seo";
 import ProductCard from "@/ecom/components/ProductCard";
 import categories from "@/ecom/data/categories";

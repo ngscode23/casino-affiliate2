@@ -7,12 +7,12 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# go/* — server function should run before SPA fallback
-[[redirects]]
-  from = "/go/*"
-  to = "/.netlify/functions/go/:splat"
-  status = 200
-  force = true
+# go/* — legacy affiliate redirect (disabled with new schema)
+# [[redirects]]
+#   from = "/go/*"
+#   to = "/.netlify/functions/go/:splat"
+#   status = 200
+#   force = true
 
 # SPA fallback (must be after more specific rules)
 [[redirects]]
@@ -24,22 +24,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = """
-      default-src 'self';
-      script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com;
-      script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      style-src-attr 'self' 'unsafe-inline';
-      img-src 'self' data: https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net;
-      connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.supabase.co wss://*.supabase.co;
-      font-src 'self' data: https://fonts.gstatic.com;
-      object-src 'none';
-      base-uri 'self';
-      frame-ancestors 'none';
-      form-action 'self';
-      worker-src 'self' blob:;
-    """
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com; script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.supabase.co wss://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; worker-src 'self' blob:;"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"

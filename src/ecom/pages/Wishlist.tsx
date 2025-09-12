@@ -1,4 +1,4 @@
-import PageShell from "../../components/ui/PageShell";
+import PageShell from "@/components/ui/PageShell";
 import Seo from "@/components/Seo";
 import { useWishlist } from "@/ecom/lib/wishlist";
 import ProductCard from "@/ecom/components/ProductCard";

@@ -2,11 +2,13 @@
 // Track impressions only when elements are visible via IntersectionObserver
 
 import { useEffect, useRef } from 'react';
-import { fn } from '@/lib/functions';
+import { fnUrl } from '@/lib/api';
 
 const fired = new Set<string>();
 let io: IntersectionObserver | null = null;
 const pending = new Map<Element, string>(); // element -> slug
+
+const IS_DEV = !!((import.meta as any).env?.DEV);
 
 function getObserver(): IntersectionObserver {
   if (io) return io;
@@ -17,7 +19,8 @@ function getObserver(): IntersectionObserver {
       const slug = pending.get(el);
       if (slug && !fired.has(slug)) {
         fired.add(slug);
-        fetch(fn('track-impression'), {
+        if (IS_DEV) { pending.delete(el); if (io) io.unobserve(el); continue; }
+        fetch(fnUrl('track-impression'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ slug })
@@ -52,7 +55,8 @@ export async function trackImpression(slug: string): Promise<void> {
   try {
     if (!slug || fired.has(slug)) return;
     fired.add(slug);
-    await fetch(fn('track-impression'), {
+    if (IS_DEV) return;
+    await fetch(fnUrl('track-impression'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ slug })

@@ -1,16 +1,23 @@
 // src/pages/Contact/Contact.tsx
-import Section from "@/components/common/section";
-import Card from "@/components/common/card";
+import PageShell from "@/components/ui/PageShell";
+import SectionCard from "@/components/ui/SectionCard";
+import { ButtonPrimary } from "@/components/ui/Buttons";
 
 export default function ContactPage() {
   return (
-    <Section className="space-y-6">
-      <h1 className="text-2xl font-bold">Contact us</h1>
-      <Card className="p-6 space-y-3">
-        <p className="text-[var(--text-dim)]">Напишите нам: support@example.com</p>
-        <p className="text-[var(--text-dim)]">Это временная страница контактов.</p>
-      </Card>
-    </Section>
+    <PageShell>
+      <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-4">Связаться с нами</h1>
+      <SectionCard title="Связаться с нами">
+        <form className="grid gap-4 max-w-xl">
+          <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40" placeholder="Ваше имя" name="name" />
+          <input className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40" placeholder="Email" name="email" type="email" />
+          <textarea className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/40" rows={5} placeholder="Сообщение" name="message" />
+          <div>
+            <ButtonPrimary type="submit">Отправить</ButtonPrimary>
+          </div>
+        </form>
+      </SectionCard>
+    </PageShell>
   );
 }
 

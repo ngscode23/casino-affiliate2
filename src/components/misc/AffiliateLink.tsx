@@ -2,6 +2,7 @@
 import { track } from "@/lib/analytics";
 import { appendStoredParams } from "@/lib/utm";
 import { cn } from "@/lib/cn"; // если нет — замени на простую конкатенацию
+import LinkButton from "@/components/ui/LinkButton";
 
 type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   offerSlug: string;
@@ -11,29 +12,28 @@ type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
 };
 
 export function AffiliateLink({ offerSlug, position, href = "#", onClick, className, size = "md", children, ...rest }: Props) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold focus:outline-none focus-visible:ring-2 ring-offset-2";
   const sizes = {
-    sm: "min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]",   // компакт для мобил
-    md: "min-h-[44px] px-4 py-2.5 text-[15px] leading-tight"   // дефолт
+    sm: "min-h-[44px] px-3 py-2 text-[13px] leading-[1.1]",
+    md: "min-h-[44px] px-4 py-2.5 text-[15px] leading-tight",
   } as const;
 
+  const resolved = appendStoredParams(href);
+  const external = href.startsWith("http");
+
   return (
-    <a
-      href={appendStoredParams(href)}
-      rel={href.startsWith("http") ? "nofollow sponsored noopener" : undefined}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      className={cn(base, sizes[size], className)}
+    <LinkButton
+      href={resolved}
+      target={external ? "_blank" : undefined}
+      rel={external ? "nofollow sponsored noopener" : undefined}
+      className={cn(sizes[size], className)}
       onClick={(e) => {
         onClick?.(e);
-        // маркетинг-событие
-        track({ name: "click_affiliate_link", params: { offer_slug: offerSlug, position } });
+        try { track({ name: "click_affiliate_link", params: { offer_slug: offerSlug, position } }); } catch { /* noop */ }
       }}
       {...rest}
     >
       {children}
-    </a>
-    
+    </LinkButton>
   );
 }
 

@@ -19,7 +19,7 @@ export default function LicenseSelect({ value, onChange, className, ...rest }: P
   return (
     <select
       aria-label={t("offer.license")}
-      className={cn("neon-input min-w-[160px]", className)}
+      className={cn("min-w-[160px] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40", className)}
       value={value}
       onChange={(e) => {
         const val = e.target.value as LicenseFilter;

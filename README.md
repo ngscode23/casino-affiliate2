@@ -132,3 +132,24 @@ Acceptance
 
 ## License
 MIT. Brand assets are placeholders — replace with your own.
+
+---
+
+## E‑commerce: Wishlist & Reviews
+
+Endpoints (Netlify Functions):
+- `GET   /.netlify/functions/ecom-products` – list products (filters: `q, category, min, max, sort=rating|price|title|created_at, dir=asc|desc, page, limit`)
+- `GET   /.netlify/functions/ecom-categories` – list categories
+- `GET   /.netlify/functions/ecom-wishlist/list` – requires `Authorization: Bearer <supabase-jwt>`
+- `POST  /.netlify/functions/ecom-wishlist/upsert` – body `{ product_id }`, requires user JWT
+- `POST  /.netlify/functions/ecom-wishlist/remove` – body `{ product_id }`, requires user JWT
+- `GET   /.netlify/functions/reviews/list?product_id=<uuid>` – public, returns only `status='approved'`
+- `POST  /.netlify/functions/reviews/add` – body `{ product_id, rating, title, text }`, requires user JWT; upserts via RPC `add_review`
+
+DB & RLS:
+- Apply `supabase/migrations/20250911_000001_ecom_schema.sql` and `supabase/reviews.sql` in Supabase SQL editor
+- Ensure RLS on `public.ecom_wishlist` (owner read/insert/delete) and `public.reviews` (public read approved; owner insert/update)
+
+Env:
+- Frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Functions: `SUPABASE_URL`, `SUPABASE_ANON_KEY` (and `SUPABASE_SERVICE_ROLE_KEY` for admin tasks)

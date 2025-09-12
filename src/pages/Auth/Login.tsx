@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { signIn } from "@/lib/auth";
+import { useNavigate, useLocation } from "react-router-dom";
+import { signInWithPassword } from "@/lib/auth";
 import Section from "@/components/common/section";
 import Card from "@/components/common/card";
+import { ButtonPrimary } from "@/components/ui/Buttons";
 import Seo from "@/components/Seo";
 
 export default function LoginPage() {
+  const nav = useNavigate();
+  const loc = useLocation();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -15,10 +19,11 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      await signIn(email);
-      setSent(true);
+      await signInWithPassword(email.trim(), password);
+      const from = (loc.state as any)?.from?.pathname || "/";
+      nav(from, { replace: true });
     } catch (err: any) {
-      setError(err?.message || "Не удалось отправить письмо. Попробуйте ещё раз.");
+      setError(err?.message || "Не удалось войти. Проверьте e‑mail/пароль.");
     } finally {
       setBusy(false);
     }
@@ -38,42 +43,33 @@ export default function LoginPage() {
         }}
       />
 
-      <Card className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Войти по e-mail</h1>
-
-        {sent ? (
-          <div className="text-green-400">
-            Письмо отправлено! Проверьте почту и перейдите по ссылке для входа.
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <span className="block text-sm mb-1">E-mail</span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-white/20 bg-transparent px-3 py-2 outline-none focus:border-white/40"
-                placeholder="you@example.com"
-              />
-            </label>
-
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="btn w-full disabled:opacity-60"
-            >
-              {busy ? "Отправляем..." : "Отправить magic-ссылку"}
-            </button>
-          </form>
-        )}
-
-        <p className="mt-3 text-xs text-[var(--text-dim)]">
-          Мы используем вход по ссылке. Нажмите кнопку, проверьте почту и перейдите по ссылке.
-        </p>
+      <Card className="p-6 space-y-4 max-w-md">
+        <h1 className="text-2xl font-bold">Вход</h1>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <label className="block text-sm">E‑mail</label>
+          <input
+            type="email"
+            required
+            className="w-full rounded-md border px-3 py-2"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+          />
+          <label className="block text-sm">Пароль</label>
+          <input
+            type="password"
+            required
+            minLength={8}
+            className="w-full rounded-md border px-3 py-2"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+          />
+          {error && <div className="text-sm text-red-500">{error}</div>}
+          <ButtonPrimary type="submit" disabled={busy} className="w-full disabled:opacity-60">
+            {busy ? "Входим…" : "Войти"}
+          </ButtonPrimary>
+        </form>
       </Card>
     </Section>
   );

@@ -1,0 +1,4 @@
+src/data/casinos.json
+src/data/casinos.ts
+src/data/offers.ts
+src/data/schema.ts
