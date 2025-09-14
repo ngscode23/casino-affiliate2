@@ -1,14 +1,16 @@
 // src/components/ReviewForm.tsx
+
 import { useState, useCallback, useEffect } from "react";
-// Если у тебя экспорт по умолчанию из клиента — оставь так:
 import { supabase } from "@/lib/supabase";
-// Если у тебя именованный экспорт { supabase }, смени строку выше на:
-// import { supabase } from "@/ecom/api/client";
 
 type Props = {
-  productId: string;
-  onSubmitted?: () => void; // необязательно: дерни, чтобы обновить список отзывов
+  productId: string;          // UUID из public.ecom_products.id
+  onSubmitted?: () => void;   // Колбэк после успешной отправки
 };
+
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
 
 export default function ReviewForm({ productId, onSubmitted }: Props) {
   const [checked, setChecked] = useState(false);
@@ -22,11 +24,12 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        const user: any = data?.user;
+        const { data: userData } = await supabase.auth.getUser();
+        const user: any = userData?.user;
         const role = user?.app_metadata?.role || user?.user_metadata?.role || user?.role;
         setIsAdmin(role === "admin");
-      } catch {
+      } catch (_e) {
+        /* handled */ void _e;
         setIsAdmin(false);
       } finally {
         setChecked(true);
@@ -43,40 +46,34 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
       const b = body.trim();
       const r = Math.max(1, Math.min(5, Number(rating)));
 
-      if (!productId || Number.isNaN(productId)) {
-        setErrorMsg("Не указан productId.");
+      if (!productId || !isUuid(productId)) {
+        setErrorMsg("Некорректный productId (ожидается UUID).");
         return;
       }
       if (!t || !b) {
-        setErrorMsg("Заполни заголовок и текст отзыва.");
+        setErrorMsg("Введите заголовок и текст отзыва.");
         return;
       }
 
       setLoading(true);
       try {
+        // Отправляем напрямую через RPC Supabase
         const { error } = await supabase.rpc("add_product_review", {
           p_product_id: productId,
           p_rating: r,
           p_title: t,
           p_body: b,
         });
+        if (error) throw new Error(error.message || "Ошибка БД");
 
-        if (error) {
-          // Наиболее частые причины: не залогинен, RLS, нет продукта
-          setErrorMsg(error.message ?? "Не удалось отправить отзыв.");
-          return;
-        }
-
-        // успех
+        // Успех
         setTitle("");
         setBody("");
         setRating(5);
         onSubmitted?.();
         alert("Отзыв сохранён и ждёт модерации");
-      } catch (err: unknown) {
-        setErrorMsg(
-          err instanceof Error ? err.message : "Случилась неизвестная ошибка"
-        );
+      } catch (err: any) {
+        setErrorMsg(err?.message || "Не удалось отправить отзыв.");
       } finally {
         setLoading(false);
       }
@@ -84,8 +81,8 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
     [productId, rating, title, body, onSubmitted]
   );
 
-  if (!checked) return null; // avoid flicker
-  if (isAdmin) return null; // do not show for admins
+  if (!checked) return null; // Пока не узнали роль — не рендерим
+  if (isAdmin) return null;  // Админам форму не показываем
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
@@ -108,7 +105,7 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Ваш отзыв..."
+        placeholder="Текст отзыва..."
         className="border border-white/10 bg-white/5 p-2 rounded min-h-[120px]"
         maxLength={2000}
         required
@@ -134,7 +131,7 @@ export default function ReviewForm({ productId, onSubmitted }: Props) {
         className="bg-blue-500 hover:bg-blue-600 disabled:opacity-60 text-white px-4 py-2 rounded"
         aria-busy={loading}
       >
-        {loading ? "Сохраняем..." : "Оставить отзыв"}
+        {loading ? "Отправка..." : "Отправить отзыв"}
       </button>
     </form>
   );

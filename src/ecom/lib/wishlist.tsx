@@ -234,7 +234,7 @@ export function WishlistProvider({ children }: React.PropsWithChildren) {
     const set = new Set(state.ids);
     const items = products.filter(p => set.has(p.id));
     return { ids: state.ids, items, add, toggle, remove, clear };
-  }, [state.ids, products, add, toggle, remove, clear]); // ← добавили products
+  }, [state.ids, add, toggle, remove, clear]);
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
 }

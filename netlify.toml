@@ -20,6 +20,15 @@
   to = "/index.html"
   status = 200
 
+[[redirects]]
+  from = "/reviews/approve"
+  to   = "/.netlify/functions/reviews-admin/approve"
+  status = 200
+[[redirects]]
+  from = "/reviews/reject"
+  to   = "/.netlify/functions/reviews-admin/reject"
+  status = 200
+
 # security headers (можете адаптировать под себя, при необходимости)
 [[headers]]
   for = "/*"
@@ -45,3 +54,9 @@
   for = "/*.html"
   [headers.values]
     Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
+# Cache list endpoint lightly
+[[headers]]
+  for = "/.netlify/functions/reviews/list"
+  [headers.values]
+    Cache-Control = "public, max-age=60, stale-while-revalidate=120"
