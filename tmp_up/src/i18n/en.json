@@ -1,0 +1,110 @@
+{
+  "nav": {
+    "home": "Home",
+    "compare": "Compare",
+    "offers": "Offers",
+    "catalog": "Catalog",
+    "cart": "Cart",
+    "favorites": "Favorites",
+    "privacy": "Privacy Policy",
+    "terms": "Terms",
+    "cookies": "Cookies",
+    "responsible": "Responsible Gaming",
+    "affiliateDisclosure": "Affiliate Disclosure",
+    "contact": "Contact"
+  },
+  "compare": {
+    "title": "Compare",
+    "subtitle": "smart filters",
+    "clear": "Clear",
+    "open": "Apply",
+    "selected": "Selected",
+    "addTo": "Add to compare",
+    "compareLink": "Compare",
+    "share": "Share",
+    "hintAddOneMore": "Add one more to open compare",
+    "maxLimit": "You can compare up to 4 offers"
+  },
+  "offer": {
+    "payout": "Payout",
+    "license": "License",
+    "ratingLabel": "Rating",
+    "details": "Details",
+    "cta": "Go"
+  },
+  "filters": {
+    "all": "All",
+    "methods": "Methods",
+    "action": "Action",
+    "search": "Search",
+    "searchPlaceholder": "Search casinos, licenses, methods…",
+    "title": "Filters",
+    "apply": "Apply",
+    "reset": "Reset",
+    "min": "min",
+    "max": "max"
+  },
+  "offers": {
+    "collectionTitle": "All Casino Offers",
+    "title": "All Casino Offers",
+    "subtitle": "browse & filter",
+    "description": "Browse all casino offers and filter by license or search.",
+    "all": "All Offers",
+    "found": "Found",
+    "sortBy": "Sort by",
+    "sort": {
+      "ratingDesc": "Rating: high to low",
+      "ratingAsc": "Rating: low to high",
+      "payoutAsc": "Payout time: fast first",
+      "payoutDesc": "Payout time: slow first",
+      "nameAsc": "Name: A→Z",
+      "nameDesc": "Name: Z→A"
+    },
+    "showN": "Show",
+    "recent": "Recently Viewed",
+    "tryCompare": "Want a side-by-side view? Try Compare.",
+    "goToCompare": "Go to Compare",
+    "loadingError": "loading offers"
+  },
+  "common": {
+    "error": "Error",
+    "clear": "Clear",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "notFound": "Not found",
+    "linkCopied": "Link copied",
+    "copyLink": "Copy link:"
+  },
+  "attributes": {
+    "rating": { "label": "Rating" },
+    "compliance_license": { "label": "License" },
+    "payout_time_hours": { "label": "Payout (h)" },
+    "payout_methods": {
+      "label": "Methods",
+      "options": {
+        "cards": "Cards",
+        "sepa": "SEPA",
+        "crypto": "Crypto",
+        "paypal": "PayPal",
+        "skrill": "Skrill",
+        "bank_transfer": "Bank transfer"
+      }
+    }
+  }
+  ,
+  "favorites": {
+    "clear": "Clear favorites",
+    "clearConfirm": "Clear all favorites?",
+    "share": "Share list",
+    "savedSubtitle": "Your saved offers.",
+    "description": "Quick access to your saved offers.",
+    "importFound": "Found a list to import:",
+    "items": "items",
+    "import": "Import",
+    "hide": "Hide",
+    "empty": "You haven't added anything yet.",
+    "goToOffers": "Go to offers",
+    "copied": "Copied",
+    "copyManual": "Copy link manually:"
+  }
+}

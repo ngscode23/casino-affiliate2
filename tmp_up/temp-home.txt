@@ -1,0 +1,282 @@
+[
+{
+"column_name": "id",
+
+"data_type": "uuid",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "user_id",
+
+"data_type": "uuid",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "token",
+
+"data_type": "text",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "expires_at",
+
+"data_type": "timestamp with time zone",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "revoked",
+
+"data_type": "boolean",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "created_at",
+
+"data_type": "timestamp with time zone",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "token_hash",
+
+"data_type": "text",
+
+"is_nullable": "YES"
+
+},
+{
+"column_name": "user_agent",
+
+"data_type": "text",
+
+"is_nullable": "YES"
+
+},
+{
+"column_name": "ip_address",
+
+"data_type": "inet",
+
+"is_nullable": "YES"
+
+},
+{
+"column_name": "metadata",
+
+"data_type": "jsonb",
+
+"is_nullable": "NO"
+
+},
+{
+"column_name": "revoked_at",
+
+"data_type": "timestamp with time zone",
+
+"is_nullable": "YES"
+
+}
+]
+[
+{
+"table_name": "auth_users",
+
+"conname": "auth_users_pkey",
+
+"pg_get_constraintdef": "PRIMARY KEY (id)"
+
+},
+{
+"table_name": "auth_users",
+
+"conname": "auth_users_email_key",
+
+"pg_get_constraintdef": "UNIQUE (email)"
+
+},
+{
+"table_name": "refresh_tokens",
+
+"conname": "refresh_tokens_pkey",
+
+"pg_get_constraintdef": "PRIMARY KEY (id)"
+
+},
+{
+"table_name": "refresh_tokens",
+
+"conname": "refresh_tokens_user_id_fkey",
+
+"pg_get_constraintdef": "FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE"
+
+},
+{
+"table_name": "auth_roles",
+
+"conname": "auth_roles_pkey",
+
+"pg_get_constraintdef": "PRIMARY KEY (role)"
+
+},
+{
+"table_name": "refresh_tokens",
+
+"conname": "refresh_tokens_token_hash_key",
+
+"pg_get_constraintdef": "UNIQUE (token_hash)"
+
+},
+{
+"table_name": "refresh_tokens",
+
+"conname": "refresh_tokens_expires_check",
+
+"pg_get_constraintdef": "CHECK ((expires_at > created_at))"
+
+}
+[
+{
+"table_name": "auth_users",
+
+"polname": "no_delete",
+
+"polcmd": "d",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+},
+{
+"table_name": "auth_users",
+
+"polname": "no_insert",
+
+"polcmd": "a",
+
+"polpermissive": true,
+
+"polqual": null,
+
+"polwithcheck": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}"
+
+},
+{
+"table_name": "auth_users",
+
+"polname": "no_select",
+
+"polcmd": "r",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+},
+{
+"table_name": "auth_users",
+
+"polname": "no_update",
+
+"polcmd": "w",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+},
+{
+"table_name": "refresh_tokens",
+
+"polname": "no_delete",
+
+"polcmd": "d",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+},
+{
+"table_name": "refresh_tokens",
+
+"polname": "no_insert",
+
+"polcmd": "a",
+
+"polpermissive": true,
+
+"polqual": null,
+
+"polwithcheck": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}"
+
+},
+{
+"table_name": "refresh_tokens",
+
+"polname": "no_select",
+
+"polcmd": "r",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+},
+{
+"table_name": "refresh_tokens",
+
+"polname": "no_update",
+
+"polcmd": "w",
+
+"polpermissive": true,
+
+"polqual": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 0 0 0 0 0 0 0 0 ]}",
+
+"polwithcheck": null
+
+}
+]
+[
+{
+"role": "admin",
+
+"description": "Full administrative access"
+
+},
+{
+"role": "manager",
+
+"description": "Extended back-office access"
+
+},
+{
+"role": "user",
+
+"description": "Default application user"
+
+}
+]
+]

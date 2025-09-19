@@ -1,0 +1,8 @@
+SET
+SET
+SET
+    conname     |               def               
+----------------+---------------------------------
+ favorites_pkey | PRIMARY KEY (user_id, offer_id)
+(1 row)
+

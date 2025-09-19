@@ -1,0 +1,113 @@
+# netlify.toml
+
+  
+
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+
+
+
+# API routes
+[[redirects]]
+  from = "/api/orders-create"
+  to   = "/.netlify/functions/orders-create"
+  status = 200
+
+[[redirects]]
+  from = "/api/orders*"
+  to   = "/.netlify/functions/orders/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/orders*"
+  to   = "/.netlify/functions/admin-orders/:splat"
+  status = 200
+
+# Generic API passthrough to functions (after specific mappings)
+[[redirects]]
+  from = "/api/:name"
+  to   = "/.netlify/functions/:name"
+  status = 200
+
+[[redirects]]
+  from = "/api/:name/*"
+  to   = "/.netlify/functions/:name/:splat"
+  status = 200
+
+# go/* — legacy affiliate redirect (disabled with new schema)
+# [[redirects]]
+#   from = "/go/*"
+#   to = "/.netlify/functions/go/:splat"
+#   status = 200
+#   force = true
+
+# SPA fallback (must be after more specific rules)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/reviews/approve"
+  to   = "/.netlify/functions/reviews-admin/approve"
+  status = 200
+[[redirects]]
+  from = "/reviews/reject"
+  to   = "/.netlify/functions/reviews-admin/reject"
+  status = 200
+
+# security headers (можете адаптировать под себя, при необходимости)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com; script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; worker-src 'self' blob:;"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Cross-Origin-Embedder-Policy = "credentialless"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=(), xr-spatial-tracking=(), interest-cohort=()"
+
+# кэш для статических ассетов
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# html не кэшируем
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+
+# Cache list endpoint lightly
+[[headers]]
+  for = "/.netlify/functions/reviews/list"
+  [headers.values]
+    Cache-Control = "public, max-age=60, stale-while-revalidate=120"
+
+[dev]
+  framework = "#static"
+  autoLaunch = false
+  targetPort = 5173
+  port = 8888
+  envFiles = [".env"]
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"          # .ts соберется автоматически
+  external_node_modules = ["@supabase/supabase-js"]
+  
+
+[functions."products-upsert"]
+ 
+
+  # [context.production.environment]
+  #   NODE_VERSION = "24"

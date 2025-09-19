@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0d12"/>
+      <stop offset="1" stop-color="#121622"/>
+    </linearGradient>
+    <radialGradient id="r1" cx="0.2" cy="0.1" r="0.8">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="r2" cx="0.8" cy="0" r="0.9">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#g)"/>
+  <rect width="1200" height="630" fill="url(#r1)"/>
+  <rect width="1200" height="630" fill="url(#r2)"/>
+  <g transform="translate(80,140)">
+    <text x="0" y="0" fill="#cbd5e1" font-family="Inter, Segoe UI, Arial" font-size="28" font-weight="600" opacity="0.9">Casino Affiliate</text>
+    <text x="0" y="90" fill="#ffffff" font-family="Inter, Segoe UI, Arial" font-size="92" font-weight="800" letter-spacing="-1">Compare & Find Your Casino</text>
+    <text x="0" y="150" fill="#cbd5e1" font-family="Inter, Segoe UI, Arial" font-size="28" opacity="0.9">Reviews, payouts, licenses and more — side by side.</text>
+  </g>
+  <rect x="80" y="420" rx="12" ry="12" width="360" height="64" fill="#8b5cf6"/>
+  <text x="110" y="462" fill="#ffffff" font-family="Inter, Segoe UI, Arial" font-size="28" font-weight="700">Start Compare →</text>
+</svg>

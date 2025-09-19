@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>http://localhost:5173/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/offers?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/offers?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/offers?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/offers" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/compare?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/compare?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/compare?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/compare" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/favorites?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/favorites?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/favorites?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/favorites" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/contact?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/contact?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/contact?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/contact" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/legal/privacy?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/legal/privacy?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/legal/privacy?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/legal/privacy" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/legal/terms?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/legal/terms?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/legal/terms?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/legal/terms" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/legal/cookies?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/legal/cookies?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/legal/cookies?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/legal/cookies" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/legal/responsible?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/legal/responsible?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/legal/responsible?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/legal/responsible" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>http://localhost:5173/legal/affiliate-disclosure?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="http://localhost:5173/legal/affiliate-disclosure?lang=en" />
+    <xhtml:link rel="alternate" hreflang="ru" href="http://localhost:5173/legal/affiliate-disclosure?lang=ru" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="http://localhost:5173/legal/affiliate-disclosure" />
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>
