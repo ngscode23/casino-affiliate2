@@ -3,10 +3,16 @@ import forms from "@tailwindcss/forms";
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./apps/web/index.html",
+    "./apps/web/src/**/*.{js,ts,jsx,tsx}",
+    "./apps/admin/index.html",
+    "./apps/admin/src/**/*.{js,ts,jsx,tsx}",
+    "./packages/ui/src/**/*.{js,ts,jsx,tsx}",
+    "./packages/shared/src/**/*.{js,ts,jsx,tsx}"
+  ],
   darkMode: "class",
   theme: {
-    // Брейкпоинты можно оставить так
     screens: {
       sm: "640px",
       md: "768px",
@@ -14,9 +20,7 @@ export default {
       xl: "1280px",
     },
     extend: {
-      // НЕ затираем базовые цвета Tailwind, а расширяем
       colors: {
-        // Legacy/colors already used across the app
         bg0: "#0b0a0f",
         primary: "#b86bff",
         primary2: "#7c3aed",
@@ -36,7 +40,6 @@ export default {
           900: "#4c1d95",
           950: "#2e1065",
         },
-        // New theme tokens mapped to CSS variables
         bg: 'var(--ui-bg)',
         card: 'var(--ui-card)',
         border: 'var(--ui-border)',
@@ -62,6 +65,5 @@ export default {
       },
     },
   },
-  // Включаем forms только в class-режиме, чтобы не «выбелить» всё приложение
   plugins: [forms({ strategy: "class" })],
 };

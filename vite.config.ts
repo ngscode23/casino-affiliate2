@@ -1,37 +1,29 @@
-// vite.config.ts
 import path from "node:path";
 import { defineConfig } from "vite";
-
+import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import pkg from "./package.json";
 
-import react from "@vitejs/plugin-react";
-
-
-
-
-
-
-
 export default defineConfig(() => {
+  const plugins = [react()];
 
-  const plugins = [
-    react(),
-    process.env.ANALYZE === "true" &&
+  if (process.env.ANALYZE === "true") {
+    plugins.push(
       visualizer({
         filename: "dist/stats.html",
         gzipSize: true,
         brotliSize: true,
         template: "treemap",
         open: false,
-      }),
-  ].filter(Boolean) as any[];
+      }) as any
+    );
+  }
 
   const wantSentry =
-    !!process.env.SENTRY_AUTH_TOKEN &&
-    !!process.env.SENTRY_ORG &&
-    !!process.env.SENTRY_PROJECT;
+    Boolean(process.env.SENTRY_AUTH_TOKEN) &&
+    Boolean(process.env.SENTRY_ORG) &&
+    Boolean(process.env.SENTRY_PROJECT);
 
   if (wantSentry) {
     plugins.push(
@@ -46,17 +38,12 @@ export default defineConfig(() => {
     );
   }
 
-
-  // опционально: удобнее дебажить
-
-
   return {
     plugins,
     resolve: {
-      alias: { "@": path.resolve(process.cwd(), "src") },
-       "react-dom/client": "react-dom/profiling",
-      "react-dom": "react-dom/profiling",
-      "scheduler/tracing": "scheduler/tracing-profiling",
+      alias: {
+        "@": path.resolve(process.cwd(), "src"),
+      },
     },
     define: {
       __APP_NAME__: JSON.stringify(pkg.name),
@@ -66,8 +53,7 @@ export default defineConfig(() => {
       target: "es2020",
       cssMinify: "lightningcss",
       cssCodeSplit: true,
-      sourcemap: !!wantSentry,
-      // игнорим сорсмапы из node_modules, чтобы не захламляли Sentry/отчёты
+      sourcemap: wantSentry,
       sourcemapIgnoreList: (relativePath: string) =>
         relativePath.includes("node_modules"),
       rollupOptions: {
@@ -85,16 +71,12 @@ export default defineConfig(() => {
           },
         },
       },
-        server: {
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'ripe-hands-cut.lzoca.lt' // твой туннельный хост
-    ],
-    host: true, // чтобы принимать внешние коннекты
-    port: 8888, // или тот, который используешь
-      build: { sourcemap: true },
-  },
+    },
+    server: {
+      allowedHosts: ["localhost", "127.0.0.1", "ripe-hands-cut.lzoca.lt"],
+      host: true,
+      port: Number(process.env.VITE_DEV_PORT || 5173),
     },
   };
 });
+

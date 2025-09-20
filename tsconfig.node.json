@@ -5,8 +5,10 @@
     "moduleResolution": "bundler",
     "types": ["node"]
   },
-  "include": ["vite.config.ts"],
-  
+  "include": [
+    "apps/**/vite.config.ts",
+    "apps/**/vitest.config.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
@@ -16,4 +18,3 @@
     "_archive"
   ]
 }
-

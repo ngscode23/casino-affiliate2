@@ -1,53 +1,103 @@
-# StarterSite (Vite + Netlify + Supabase)
+# Casino Affiliate Monorepo (Vite + Netlify + Supabase)
 
-Production-ready affiliate starter: i18n, SEO, server-side redirects with tracking, Supabase RLS, admin (offers + analytics), and onboarding.
+Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace exposes standalone builds for the public marketing site, the admin console, and Netlify functions while sharing UI, state, and types through reusable packages.
+
+## Monorepo Layout
+- `apps/web` – customer-facing site (Vite, React)
+- `apps/admin` – admin console (Vite, React)
+- `apps/functions` – Netlify Functions (TypeScript)
+- `packages/ui` – shared UI components and styles
+- `packages/shared` – reusable hooks, context providers, Supabase helpers, e-commerce logic
+- `packages/types` – shared TypeScript types (DB, DTOs)
+- `infra/supabase` – migrations, seed scripts, config
 
 ## Requirements
 - Node 20+
-- pnpm (or npm/yarn)
-- Supabase project (URL + Publishable + Secret keys)
-- Netlify account (for functions + scheduled tasks)
+- pnpm 9+
+- Supabase project (URL + Publishable + Service role keys)
+- Netlify account (build + scheduled functions)
 
-## Quick start
-1. Copy `.env.example` to `.env` and fill at least:
-   - SITE_NAME, SITE_URL, SITE_ORIGIN, BRAND_LOGO
-   - VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
-   - SUPABASE_URL, SUPABASE_SECRET_KEY (for Netlify functions)
-2. Apply Supabase SQL (in Studio → SQL):
-   - `supabase/settings.sql`
-   - `supabase/clicks.sql` (если ещё не применён)
-   - `supabase/clicks_ip_hash.sql`
-   - `supabase/clicks_rls.sql`
-   - `supabase/impressions.sql` (for CTR analytics)
-3. Install deps and run:
-   - `pnpm i`
-   - `pnpm dev`
-4. Open `/admin/login` → login, then `/admin/setup` and fill branding (site name, URL, logo, GA ID).
-5. Add a couple offers in `/admin/offers`.
-6. Test redirect `/go/:slug` — click is logged into `public.clicks` (UTM, referrer, UA, IP hash).
+## Install & Workspace Scripts
+```bash
+pnpm install          # install once at repo root
+pnpm dev:web          # run marketing site on http://localhost:5173
+pnpm dev:admin        # run admin console on http://localhost:5176
+pnpm --filter functions dev # optional: local Netlify Functions via netlify dev
 
-## Build & Deploy (Netlify)
-- Set environment variables:
-  - `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
-  - `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-  - `CLICKS_RETENTION_DAYS` (optional, default 90)
-  - `GA_ID` (optional), `SENTRY_DSN` (optional)
-- Build command: `pnpm build`
-- Publish directory: `dist`
+pnpm build            # turbo orchestrated build (web + admin + functions)
+pnpm test             # run vitest in apps that define tests
+pnpm lint             # eslint across workspace
+pnpm typecheck        # tsc project-wide
+```
+Scripts are defined at the workspace root and proxied through Turborepo. Use `pnpm --filter <pkg> <cmd>` to run package-specific scripts (e.g. `pnpm --filter web lint`).
+
+## Supabase
+- All migrations live under `infra/supabase/migrations`
+- Seed & helper SQL in `infra/supabase/*.sql`
+- Keep local CLI state isolated via `.temp/`
+
+Apply migrations with the Supabase CLI or Studio. Example:
+```bash
+cd infra/supabase
+supabase db push
+```
+
+## Netlify Deployment
+`netlify.toml` now targets the monorepo layout:
+- Build command: `pnpm --filter web build`
+- Publish directory: `apps/web/dist`
+- Functions directory: `apps/functions/src`
+
+To deploy the admin separately, create a second site that runs `pnpm --filter admin build` and publishes `apps/admin/dist`.
+
+## CI/CD
+- Add GitHub Actions (example: `.github/workflows/ci.yml`) that run `pnpm install`, `pnpm lint`, `pnpm test`, `pnpm build`
+- Protect the main branch by requiring the CI workflow
+- Changesets is configured in `.changeset/config.json`; release tags follow `web@1.0.0`, `ui@0.1.0`, etc.
+
+## Shared Packages
+- `@ui/*` – UI surface (layout, common atoms/molecules, admin widgets)
+- `@shared/*` – state and data utilities (Supabase clients, analytics, contexts, e-commerce logic)
+- `@types/*` – central type definitions
+
+Use the aliases in any workspace package:
+```ts
+import Button from "@ui/components/common/button";
+import { supabase } from "@shared/lib/supabase";
+import type { Offer } from "@types/offer";
+```
+
+## Feature Highlights
+- Server redirect `/go/:slug` with tracking + RLS
+- Admin analytics (clicks, orders, CTR, exports)
+- i18n (RU/EN) with consent-gated analytics
+- E-commerce wishlist, cart, and reviews via Netlify Functions
+- Stripe subscriptions + customer portal integrations
+- Supabase policies and scheduled jobs (cleanup, expire partners)
+
+## Environment Variables
+Define env values per app via `.env.local` or Netlify UI. Shared examples live in `.env.example`. Keys reference both frontend (`VITE_...`) and server (`SUPABASE_...`, `STRIPE_...`).
+
+## Tests
+`apps/web` contains unit tests powered by Vitest (`pnpm --filter web test`). Additional specs can be added per app. Shared utilities live with their source so aliases resolve consistently.
+
+---
+
+The rest of this document retains the original feature documentation for quick reference. Update examples to point at the new package aliases (`@ui/*`, `@shared/*`, `@types/*`) and Supabase scripts under `infra/supabase`.
 
 ## Features
 - Server redirect `/go/:slug` with UTM/Ref/UA/IP hash logging (RLS enabled)
 - Analytics `/admin/analytics`: clicks by day, top slugs, top sources, UTM report, CSV export
-- SEO: canonical + hreflang (en/ru), og:locale, JSON‑LD (Organization sitewide, Product/Offer + Breadcrumb + FAQ on offers)
+- SEO: canonical + hreflang (en/ru), og:locale, JSON-LD (Organization sitewide, Product/Offer + Breadcrumb + FAQ on offers)
 - i18n RU/EN with URL param `?lang=` and toggle in header
 - Onboarding `/admin/setup` to configure branding + GA without modifying code
 
 ### Cookie consent (privacy-first)
 - Consent is stored in localStorage under key `cookie-consent-v1`
 - GA and Sentry initialize only after user grants analytics consent
-- Component `src/components/layout/CookieBar.tsx` shows banner and emits `consent:changed`
-- GA loader: `src/components/AnalyticsGateGA.tsx` (defers `gtag.js` until consent)
-- Sentry gating: `src/lib/sentry.ts` initialized from `src/main.tsx`
+- Component `@ui/components/layout/CookieBar.tsx` shows banner and emits `consent:changed`
+- GA loader: `@ui/components/AnalyticsGateGA.tsx` (defers `gtag.js` until consent)
+- Sentry gating: `@shared/lib/sentry.ts` initialized from `apps/web/src/main.tsx`
 - Toggle from footer: "Cookie settings" link opens the banner to change decision
 
 ### Analytics flags
@@ -58,7 +108,7 @@ Production-ready affiliate starter: i18n, SEO, server-side redirects with tracki
 ### Paid placements (Stripe)
 - Env (Netlify): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_FEATURED`, `STRIPE_PRICE_TOP`
 - Create Prices in Stripe (Products → Prices) and copy `price_...` IDs to env
-- Create Webhook endpoint: `https://<your-site>/.netlify/functions/stripe-webhook` and paste Signing secret to `STRIPE_WEBHOOK_SECRET`
+- Create Webhook endpoint: `https://<your-site>/.netlify/functions/stripe-webhook` and paste signing secret to `STRIPE_WEBHOOK_SECRET`
 - Scheduled Function `expire-partners` runs daily at 02:00 UTC to unpin expired offers
 
 E2E test
@@ -73,8 +123,8 @@ E2E test
   - `STRIPE_PRICE_BASIC_YEARLY`, `STRIPE_PRICE_FEATURED_YEARLY`, `STRIPE_PRICE_TOP_YEARLY`
   - `STRIPE_CUSTOMER_PORTAL_URL` (optional override for portal return URL)
 - Functions:
-  - `/.netlify/functions/create-subscription` – POST `{ email, plan, interval, coupon? }` – returns `{ url }` (Checkout Session)
-  - `/.netlify/functions/customer-portal` – POST `{ email }` – returns `{ url }` (Billing Portal)
+  - `/.netlify/functions/create-subscription` - POST `{ email, plan, interval, coupon? }` - returns `{ url }` (Checkout Session)
+  - `/.netlify/functions/customer-portal` - POST `{ email }` - returns `{ url }` (Billing Portal)
 - Webhook updates `partners.expires_at` on `customer.subscription.created|updated|deleted` using Stripe `current_period_end`; cancels set to `now()`.
 - Admin `/admin/partners` contains a Subscriptions panel (subscribe and open portal by email).
 
@@ -96,20 +146,20 @@ Impressions
 
 ## Sprint 3: SaaS Packaging & Metrics
 - New public route `/pricing` with BASIC/FEATURED/TOP (Monthly/Yearly) and coupon support (Stripe Checkout via create-subscription)
-- Partner Portal `/partner` (authenticated): shows pinned slugs and current plan/expires; “Billing” opens Stripe Customer Portal
+- Partner Portal `/partner` (authenticated): shows pinned slugs and current plan/expires; "Billing" opens Stripe Customer Portal
 - Impressions upgraded: IntersectionObserver (only visible items), dedup within 1h by (ip_hash+UA+slug), basic bot filter
 - Admin Metrics `/admin/metrics`: MRR, ARR, churn, ARPA, CTR (top slugs) with CSV/JSON export
 
 Env additions (frontend, optional for metrics):
-- `VITE_PLAN_BASIC_MRR`, `VITE_PLAN_FEATURED_MRR`, `VITE_PLAN_TOP_MRR` – per-plan MRR values to compute MRR/ARR/ARPA in the dashboard
+- `VITE_PLAN_BASIC_MRR`, `VITE_PLAN_FEATURED_MRR`, `VITE_PLAN_TOP_MRR` - per-plan MRR values to compute MRR/ARR/ARPA in the dashboard
 
 Acceptance
-- TypeScript passes (`npm run typecheck`), tests pass (`npm test`)
+- TypeScript passes (`pnpm typecheck`), tests pass (`pnpm test`)
 - New routes documented; Checkout and Portal work if Stripe env configured
 
 ### Webhooks page
 - `/admin/webhooks` shows `public.webhook_logs` (latest first)
-- Filter by `type`, pagination (50/page), and a button “Purge >30d” (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
+- Filter by `type`, pagination (50/page), and a button "Purge >30d" (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
 - Webhook payloads stored masked (emails masked, secrets removed).
 
 ### Health function
@@ -125,31 +175,10 @@ Acceptance
 - `cleanup-clicks` (Netlify Scheduled Function): removes clicks older than `CLICKS_RETENTION_DAYS` using RPC `cleanup_clicks_before`
 
 ## Scripts
-- `pnpm dev`: local dev
-- `pnpm dev:netlify`: local dev with Netlify Functions proxy (recommended)
-- `pnpm build`: production build
-- `pnpm sitemap`: generate `public/sitemap.xml` (with alternates)
+- `pnpm --filter web dev`: local dev
+- `pnpm --filter functions dev`: local Netlify dev with Functions proxy
+- `pnpm --filter web build`: production build
+- `pnpm --filter web sitemap`: generate `apps/web/public/sitemap.xml`
 
 ## License
-MIT. Brand assets are placeholders — replace with your own.
-
----
-
-## E‑commerce: Wishlist & Reviews
-
-Endpoints (Netlify Functions):
-- `GET   /.netlify/functions/ecom-products` – list products (filters: `q, category, min, max, sort=rating|price|title|created_at, dir=asc|desc, page, limit`)
-- `GET   /.netlify/functions/ecom-categories` – list categories
-- `GET   /.netlify/functions/ecom-wishlist/list` – requires `Authorization: Bearer <supabase-jwt>`
-- `POST  /.netlify/functions/ecom-wishlist/upsert` – body `{ product_id }`, requires user JWT
-- `POST  /.netlify/functions/ecom-wishlist/remove` – body `{ product_id }`, requires user JWT
-- `GET   /.netlify/functions/reviews/list?product_id=<uuid>` – public, returns only `status='approved'`
-- `POST  /.netlify/functions/reviews/add` – body `{ product_id, rating, title, text }`, requires user JWT; upserts via RPC `add_review`
-
-DB & RLS:
-- Apply `supabase/migrations/20250911_000001_ecom_schema.sql` and `supabase/reviews.sql` in Supabase SQL editor
-- Ensure RLS on `public.ecom_wishlist` (owner read/insert/delete) and `public.reviews` (public read approved; owner insert/update)
-
-Env:
-- Frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
-- Functions: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+MIT. Brand assets are placeholders - replace with your own.

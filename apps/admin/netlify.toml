@@ -1,0 +1,31 @@
+[build]
+  command = "pnpm --filter admin build"
+  publish = "dist"
+
+[dev]
+  command    = "pnpm --filter admin dev"
+  targetPort = 5174
+  port       = 8888
+  autoLaunch = false
+  envFiles   = [".env", ".env.local"]
+
+[functions]
+  directory = "apps/functions/src"
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+
+[[redirects]]
+  from = "/api/:name"
+  to   = "/.netlify/functions/:name"
+  status = 200
+
+[[redirects]]
+  from = "/api/:name/*"
+  to   = "/.netlify/functions/:name/:splat"
+  status = 200

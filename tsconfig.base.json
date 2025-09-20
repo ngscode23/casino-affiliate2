@@ -1,0 +1,66 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "useUnknownInCatchVariables": true,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": [
+        "packages/shared/src/*"
+      ],
+      "@ui/*": [
+        "packages/ui/src/*"
+      ],
+      "@types/*": [
+        "packages/types/src/types/*"
+      ],
+      "@types": [
+        "packages/types/src/index"
+      ],
+      "@casino-affiliate/types": [
+        "packages/types/src/index"
+      ],
+      "@casino-affiliate/types/*": [
+        "packages/types/src/types/*"
+      ],
+      "@web/*": [
+        "apps/web/src/*"
+      ],
+      "@admin/*": [
+        "apps/admin/src/*"
+      ],
+      "@functions/*": [
+        "apps/functions/src/*"
+      ]
+    },
+    "types": [
+      "vite/client",
+      "node"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "_archive"
+  ]
+}

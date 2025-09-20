@@ -1,1 +1,0 @@
-psql: error: connection to server at "db.wsqhgnxmotswjantxopb.supabase.co" (2a05:d014:1c06:5f13:b4b4:fb0b:4de6:c610), port 5432 failed: FATAL:  password authentication failed for user "postgres"

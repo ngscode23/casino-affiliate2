@@ -1,2 +1,2 @@
 #!/bin/sh
-npm run -s lint || true
+pnpm lint --parallel || true

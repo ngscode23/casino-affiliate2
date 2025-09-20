@@ -1,0 +1,238 @@
+/* src/index.css */
+
+/* 1) tailwind directives (правильный порядок) */
+@import "tailwindcss";
+
+
+
+/* 2) base layer: токены и общий фон */
+@layer base {
+  :root {
+    /* Design system vars (blue CTA) */
+    --brand: #3B82F6;
+    --brand-fg: #ffffff;
+    --surface: #ffffff;
+    --surface-elev: #f8fafc;
+    /* RGB-триплеты (а не #hex), чтобы работать с rgb(var(--...)) */
+    --bg-0: 248 250 252;  /* #F8FAFC */
+    --bg-1: 255 255 255;  /* #FFFFFF */
+    --bg-2: 241 245 249;  /* #F1F5F9 */
+
+    --text: 17 24 39;      /* #111827 */
+    --text-dim: 75 85 99;  /* #4B5563 */
+    --muted: 107 114 128;  /* #6B7280 */
+
+    --border: 203 213 225 / 0.7; /* slate-200 w/ alpha */
+
+    --primary: 59 130 246;  /* #3B82F6 */
+    --accent:  37 99 235;   /* #2563EB */
+    --hot:     236 72 153;  /* #EC4899 */
+    --ring:    37 99 235 / 0.35;
+
+    --radius: 12px;
+    /* Motion tokens */
+    --dur-fast: .15s;
+    --dur-normal: .2s;
+    --ease-standard: cubic-bezier(.2, 0, 0, 1);
+
+    /* Native form controls follow light UI by default */
+    color-scheme: light;
+  }
+
+  .dark {
+    --surface: #0F1115;
+    --surface-elev: #141720;
+    --bg-0: 11 15 20;     /* #0B0F14 */
+    --bg-1: 18 24 37;     /* #121825 */
+    --bg-2: 15 22 34;     /* #0F1622 */
+
+    --text: 232 236 241;  /* #E8ECF1 */
+    --text-dim: 168 176 189; /* #A8B0BD */
+    --muted: 127 137 163; /* #7f89a3 */
+
+    --border: 30 41 59 / 0.14; /* #1E293B @ ~14% */
+
+    --accent:  96 165 250;  /* #60A5FA */
+    --hot:     255 31 143;  /* #ff1f8f */
+    --ring:    59 130 246 / 0.50;
+
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    min-height: 100%;
+    background: rgb(var(--bg-0));
+    color: rgb(var(--text));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
+  }
+
+  /* Headings use Inter to match body for minimalism */
+  h1, h2, h3, .title {
+    font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Apple Color Emoji, Noto Color Emoji;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  /* полезные reset-семантики курсора */
+  :where(a[href], button, [role="button"], [type="button"], [type="submit"], [type="reset"], select, summary, input[type="checkbox"], input[type="radio"]) { cursor: pointer; }
+  :where(button:disabled, [aria-disabled="true"]) { cursor: not-allowed; }
+
+  /* Focus outline fallback for interactive elements */
+  :where(a[href], button, [role="button"], [type="button"], [type="submit"], [type="reset"], select, input, textarea):focus-visible {
+    outline: 2px solid color-mix(in oklab, rgb(var(--primary)) 80%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* Dark-friendly native popups/lists */
+  select,
+  input,
+  textarea { color: rgb(var(--text)); }
+  select option, select optgroup {
+    background: rgb(var(--bg-1));
+    color: rgb(var(--text));
+  }
+
+  /* Admin-themed controls (scoped to .admin-root to avoid global changes) */
+  .admin-root :where(input, select, textarea) {
+    color: rgb(var(--text));
+    background: color-mix(in oklab, white 6%, rgb(var(--bg-1)) 94%);
+    border: 1px solid color-mix(in oklab, white 12%, transparent);
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 0 .75rem;
+  }
+  .admin-root :where(textarea) { padding: .6rem .75rem; min-height: 70px; }
+  .admin-root :where(input, select, textarea):focus {
+    outline: none;
+    border-color: rgba(var(--ring));
+    box-shadow: 0 0 0 3px color-mix(in oklab, rgb(var(--primary)) 28%, transparent);
+  }
+
+  /* Neutral e-commerce theme tokens (scoped, safe from legacy vars) */
+  :root {
+    --ui-bg: #ffffff;
+    --ui-card: #f9fafb;
+    --ui-border: #e5e7eb;
+    --ui-text: #111827;
+    --ui-muted: #6b7280;
+    --ui-accent: #1E3A8A; /* deep blue */
+    --ui-accent-fg: #ffffff;
+    --ui-accent-20: rgba(30,58,138,.2);
+  }
+  .dark {
+    --ui-bg: #0b0e13;
+    --ui-card: #11151b;
+    --ui-border: #1f2732;
+    --ui-text: #e5e7eb;
+    --ui-muted: #9ca3af;
+    --ui-accent: #0D9488; /* teal */
+    --ui-accent-fg: #061013;
+    --ui-accent-20: rgba(13,148,136,.25);
+  }
+}
+
+/* 3) utility контейнер */
+.neon-container { max-width: 1200px; margin-inline: auto; padding-inline: 1rem; }
+
+/* 4) hero */
+  .neon-hero {
+    padding: 48px 0 32px;
+    background: transparent;
+    border-bottom: 1px solid rgba(30,41,59,.16);
+  }
+
+/* 5) компоненты */
+@layer components {
+  /* legacy CTA class removed in favor of shared Buttons/LinkButton */
+
+  /* карточки */
+  .neon-card {
+    border: 1px solid color-mix(in oklab, white 12%, transparent);
+    border-radius: 24px;
+    background: rgb(var(--bg-1));
+  }
+
+  /* чипы */
+  .neon-chip {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.38rem .72rem; border-radius:999px;
+    border:1px solid color-mix(in oklab, white 12%, transparent);
+    background: rgba(255,255,255,.045);
+    color: rgb(var(--text));
+    font-size:12px; letter-spacing:.2px;
+  }
+  .neon-chip[data-glow] { box-shadow:0 0 0 3px rgba(139,92,246,.08), 0 10px 26px rgba(139,92,246,.18); }
+
+  /* input */
+  .neon-input {
+    width:100%; height:44px; padding:0 .9rem; border-radius:12px;
+    border:1px solid color-mix(in oklab, white 12%, transparent);
+    background: rgb(var(--bg-2));
+    color: rgb(var(--text));
+    outline: none;
+    transition:
+      box-shadow var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard),
+      background var(--dur-normal) var(--ease-standard);
+  }
+  .neon-input:focus { border-color: rgba(var(--ring)); box-shadow: 0 0 0 4px rgba(139,92,246,.18); }
+
+  /* кнопка */
+  .neon-btn {
+    position: relative;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, white 12%, transparent);
+    background: rgb(var(--bg-1));
+    color: rgb(var(--text));
+  }
+
+  /* таблица */
+  table.neon-table { width:100%; border-collapse:separate; border-spacing:0; }
+  .neon-table th, .neon-table td {
+    padding:.8rem 1rem; border-bottom:1px solid color-mix(in oklab, white 12%, transparent);
+    vertical-align:middle;
+  }
+  .neon-table th { font-size:12px; text-transform:uppercase; color: rgb(var(--text-dim)); letter-spacing:.08em; }
+  .neon-table tr:hover td { background: rgba(255,255,255,.02); }
+}
+
+/* 6) формы на главной */
+.neon-search { margin-top:16px; display:grid; grid-template-columns:1fr auto; gap:.6rem; }
+@media (max-width: 640px) { .neon-search { grid-template-columns:1fr; } }
+
+/* фон-решётка в hero */
+.neon-hero::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(600px 300px at 12% -10%, rgba(139,92,246,.12), transparent 60%),
+    radial-gradient(500px 260px at 88% -12%, rgba(34,211,238,.10), transparent 60%);
+  mask:
+    linear-gradient(#000 60%, transparent 100%);
+}
+
+@keyframes fav-bump { 0%{ transform:scale(1)} 50%{ transform:scale(1.2)} 100%{ transform:scale(1)} }
+.fav-pop { animation: fav-bump .18s ease; text-shadow: 0 0 12px rgba(255,200,0,.35); }
+
+  .neon-card:hover { border-color: rgba(255,255,255,.16); }
+
+.pill-hover { transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-normal) var(--ease-standard); }
+.pill-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Footer */
+.site-footer {
+  margin-top: 48px;
+  padding: 32px 0;
+  color: rgb(var(--text-dim));
+  border-top: 1px solid color-mix(in oklab, white 14%, transparent);
+  background: linear-gradient(0deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+}

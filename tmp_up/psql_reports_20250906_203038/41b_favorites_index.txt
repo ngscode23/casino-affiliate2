@@ -1,5 +1,0 @@
-SET
-SET
-NOTICE:  relation "idx_favorites_user_created_at" already exists, skipping
-SET
-CREATE INDEX

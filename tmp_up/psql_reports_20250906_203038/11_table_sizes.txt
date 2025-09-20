@@ -1,9 +1,0 @@
-SET
-SET
-SET
-   relname   | total  
--------------+--------
- impressions | 136 kB
- clicks      | 128 kB
-(2 rows)
-

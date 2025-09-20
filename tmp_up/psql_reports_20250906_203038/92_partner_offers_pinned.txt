@@ -1,7 +1,0 @@
-SET
-SET
-SET
- partner_id | offer_slug | pinned | created_at 
-------------+------------+--------+------------
-(0 rows)
-
