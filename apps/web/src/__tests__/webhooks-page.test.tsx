@@ -21,7 +21,7 @@ vi.mock('@shared/lib/supabase', () => {
   }
 })
 
-import WebhooksPage from '@web/pages/Admin/webhooks'
+import WebhooksPage from '@admin/pages/Admin/webhooks/index'
 
 describe('Admin/Webhooks page', () => {
   it('renders list snapshot', async () => {

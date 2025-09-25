@@ -13,6 +13,7 @@ import FilterSidebar from "@ui/components/FilterSidebar";
 
 export default function CatalogPage() {
   const [params, setParams] = useSearchParams();
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const category = params.get("category") || "all";
   const min = Number(params.get("min") || "");
   const max = Number(params.get("max") || "");
@@ -98,6 +99,23 @@ export default function CatalogPage() {
     setParams(next, { replace: true });
   };
 
+  // Hotkey: '/' focuses search. On mobile, open filters then focus.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === '/') {
+        e.preventDefault();
+        if (window.matchMedia('(max-width: 767px)').matches) {
+          setShowFilters(true);
+          setTimeout(() => searchRef.current?.focus(), 50);
+        } else {
+          searchRef.current?.focus();
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <PageShell className="bg-bg text-text">
       <Seo title="Catalog" description="Browse all products" ogImage="/og.svg" />
@@ -120,6 +138,7 @@ export default function CatalogPage() {
           <FilterSidebar
             query={q}
             onQueryChange={(v)=>update('q', v)}
+            inputRef={searchRef}
             categories={cats}
             selectedCategoryIds={category==='all'?[]:[category]}
             onToggleCategory={(id)=> update('category', category===id? 'all' : id)}
@@ -218,6 +237,7 @@ export default function CatalogPage() {
             <FilterSidebar
               query={q}
               onQueryChange={(v)=>update('q', v)}
+              inputRef={searchRef}
               categories={cats}
               selectedCategoryIds={category==='all'?[]:[category]}
               onToggleCategory={(id)=> update('category', category===id? 'all' : id)}

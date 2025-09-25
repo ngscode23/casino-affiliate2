@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { useVertical } from "@shared/ctx/VerticalContext";
 import FiltersBuilder from "@ui/builders/FiltersBuilder";
 import { fetchAttributeRegistry } from "@shared/lib/attributes";
-import type { AttributeRegistryItem } from "@types/attributes";
+import type { AttributeRegistryItem } from "@casino-affiliate/types/attributes";
 import { supabase } from "@shared/lib/supabase";
 import CompareTable from "@ui/components/compare/CompareTable";
 import Seo from "@ui/components/Seo";

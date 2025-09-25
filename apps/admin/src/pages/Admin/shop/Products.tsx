@@ -44,7 +44,7 @@ export default function ShopProducts() {
     <Section className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Shop · Products</h1>
-        <Link to="/admin/shop/products/new"><Button>New Product</Button></Link>
+        <Link to="/shop/products/new"><Button>New Product</Button></Link>
       </div>
 
       <Card className="p-4 overflow-x-auto">
@@ -71,7 +71,7 @@ export default function ShopProducts() {
                   <td className="py-2 px-2">${p.price.toFixed(2)}</td>
                   <td className="py-2 px-2">{p.rating?.toFixed?.(1) ?? "0.0"}</td>
                   <td className="py-2 px-2">
-                    <Link className="underline" to={`/admin/shop/products/${p.id}`}>Edit</Link>
+                    <Link className="underline" to={`/shop/products/${p.id}`}>Edit</Link>
                   </td>
                 </tr>
               ))}

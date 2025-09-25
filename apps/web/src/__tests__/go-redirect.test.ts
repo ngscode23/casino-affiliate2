@@ -41,7 +41,7 @@ describe('/go redirect', () => {
       queryStringParameters: { utm_source: 'testsrc', utm_campaign: 'cmp' },
       headers: { 'x-forwarded-for': '1.2.3.4' },
     }
-    const mod: any = await import('../../netlify/functions/go')
+    const mod: any = await import('@functions/go')
     const res: any = await mod.handler(event)
     expect(res.statusCode).toBe(302)
     expect(typeof res.headers?.Location).toBe('string')

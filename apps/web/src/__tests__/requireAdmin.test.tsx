@@ -21,7 +21,7 @@ vi.mock('@shared/lib/auth', () => ({
   }),
 }))
 
-import { RequireAdmin } from '@web/pages/Admin/requireAuth'
+import { RequireAdmin } from '@admin/pages/Admin/requireAuth'
 
 function flushListeners() {
   const snapshot = [...listeners]

@@ -4,6 +4,7 @@ import { toast } from "@ui/components/common/toast";
 import { supabase } from "@shared/lib/supabase";
 import { normalizeSku } from "@shared/lib/normalize";
 import { UploadCloud, Trash2, Star, Link as LinkIcon, Loader2 } from "lucide-react";
+import { API_BASE, API_FALLBACK_BASE } from "@shared/ecom/api/client";
 
 type Props = {
   label?: string;
@@ -14,6 +15,23 @@ type Props = {
   sku?: string | null;
   onVersionCreated?: (payload: { id: string; publicUrl: string }) => void;
 };
+
+const API_BASES = [API_BASE, API_FALLBACK_BASE] as const;
+
+async function requestWithFallback(path: string, init: RequestInit) {
+  let lastResponse: Response | null = null;
+  for (let i = 0; i < API_BASES.length; i += 1) {
+    const base = API_BASES[i];
+    const response = await fetch(`${base}${path}`, init);
+    lastResponse = response;
+    if (response.status === 404 && i < API_BASES.length - 1) {
+      continue;
+    }
+    return response;
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error("Upload API unavailable");
+}
 
 export default function ProductImagesField({
   label = "Images",
@@ -53,7 +71,7 @@ export default function ProductImagesField({
       const accessToken = session.data.session?.access_token;
       if (!accessToken) throw new Error("Нет доступа. Перезайдите в админку.");
 
-      const response = await fetch("/.netlify/functions/admin-get-upload-url", {
+      const response = await requestWithFallback("/admin-get-upload-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -83,7 +101,7 @@ export default function ProductImagesField({
       onChange(next);
 
       try {
-        const recordRes = await fetch("/.netlify/functions/admin-product-images", {
+        const recordRes = await requestWithFallback("/admin-product-images", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -30,20 +30,27 @@ import cn from "@shared/lib/cn";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-export default function Input({ className, ...props }: InputProps) {
-  return (
-    <input
-      className={cn(
-        "w-full h-11 rounded-xl px-3 text-[15px]",
-        "bg-[rgb(var(--bg-2)/.9)] border border-white/10",
-        "placeholder:text-[rgb(var(--text-dim))]",
-        "focus:outline-none focus:ring-2 focus:ring-white/30",
-        className
-      )}
-      {...props}
-    />
-  );
-}
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <input
+        ref={ref}
+        className={cn(
+          "w-full h-11 rounded-xl px-3 text-[15px]",
+          "bg-[rgb(var(--bg-2)/.9)] border border-white/10",
+          "placeholder:text-[rgb(var(--text-dim))]",
+          "focus:outline-none focus:ring-2 focus:ring-white/30",
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+);
+
+Input.displayName = "Input";
+
+export default Input;
 
 
 

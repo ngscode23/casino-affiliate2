@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
 import Button from "@ui/components/common/button";
@@ -13,6 +13,10 @@ import { toast } from "@ui/components/common/toast";
 import Skeleton from "@ui/components/common/skeleton";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { UploadCloud } from "lucide-react";
+
+
+
+
 
 type Item = {
   id: string;
@@ -85,14 +89,17 @@ async function fetchCategories() {
 
 export default function AdminShopProductsIndex() {
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [ratingMin, setRatingMin] = useState(0);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
-  const [sortKey, setSortKey] = useState("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const location = useLocation();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const initialParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const [q, setQ] = useState(() => initialParams.get("q") || "");
+  const [category, setCategory] = useState(() => initialParams.get("category") || "all");
+  const [status, setStatus] = useState(() => initialParams.get("status") || "all");
+  const [ratingMin, setRatingMin] = useState(() => Number(initialParams.get("min_rating") || 0));
+  const [page, setPage] = useState(() => Number(initialParams.get("page") || 1));
+  const [limit, setLimit] = useState(() => Number(initialParams.get("limit") || 25));
+  const [sortKey, setSortKey] = useState(() => initialParams.get("sort") || "created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => (initialParams.get("dir") === "asc" ? "asc" : "desc"));
 
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
@@ -126,6 +133,35 @@ export default function AdminShopProductsIndex() {
       setLoading(false);
     }
   }, [q, category, status, ratingMin, page, limit, sortKey, sortDir]);
+
+  // Persist current filters to URL without reload
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (category && category !== "all") params.set("category", category);
+    if (status && status !== "all") params.set("status", status);
+    if (ratingMin) params.set("min_rating", String(ratingMin));
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    params.set("sort", String(sortKey));
+    params.set("dir", String(sortDir));
+    const next = `${location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    const current = `${location.pathname}${location.search}`;
+    if (next !== current) window.history.replaceState(null, "", next);
+  }, [q, category, status, ratingMin, page, limit, sortKey, sortDir, location.pathname, location.search]);
+
+  // Keyboard shortcuts: '/', 'n', 'Esc'
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "/") { e.preventDefault(); searchInputRef.current?.focus(); }
+      else if (e.key.toLowerCase() === "n") {
+        const t = e.target as HTMLElement | null; const tag = t?.tagName?.toLowerCase();
+        if (tag !== "input" && tag !== "textarea") navigate("/shop/products/new");
+      } else if (e.key === "Escape") { if (q) setQ(""); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate, q]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -225,8 +261,7 @@ export default function AdminShopProductsIndex() {
             variant="ghost"
             className="h-8 min-h-0 px-2 text-sm"
             onClick={() => {
-              setEditing(row);
-              setDialogOpen(true);
+              navigate(`/shop/products/${row.id}`);
             }}
           >
             Edit
@@ -357,7 +392,7 @@ export default function AdminShopProductsIndex() {
             </Button>
             <Button
               onClick={() => {
-                navigate("/admin/shop/products/new");
+                navigate("/shop/products/new");
               }}
             >
               + Add Product
@@ -369,7 +404,8 @@ export default function AdminShopProductsIndex() {
           <div className="flex flex-wrap items-center gap-2">
             <Input
               className="w-64 max-w-full"
-              placeholder="Search title or slug"
+              ref={searchInputRef as any}
+              placeholder="Search products… (press / to focus)"
               value={q}
               onChange={(event) => {
                 setPage(1);
@@ -455,7 +491,7 @@ export default function AdminShopProductsIndex() {
               <div className="text-lg font-semibold">No products yet</div>
               <div className="text-[var(--text-dim)]">Add your first product to get started</div>
               <div>
-                <Button onClick={() => { navigate("/admin/shop/products/new"); }}>+ Add Product</Button>
+                <Button onClick={() => { navigate("/shop/products/new"); }}>+ Add Product</Button>
               </div>
             </div>
           ) : (

@@ -13,10 +13,44 @@ let inited = false;
 let _analyticsEnabled = false;
 let _gaReady = false;
 
-export const GA_ID: string = (import.meta.env.VITE_GA_ID as string) || (import.meta.env.VITE_GA_MEASUREMENT_ID as string) || "";
-const FEATURE_POSTHOG = String((import.meta.env as any).FEATURE_POSTHOG || "").toLowerCase() === "true";
-const PH_KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
-const PH_HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || "https://app.posthog.com";
+const env = (() => {
+  const fromProcess = typeof process !== "undefined" && process.env ? process.env : {};
+  const fromImport = typeof import.meta !== "undefined" && (import.meta as any)?.env ? (import.meta as any).env : {};
+  return { ...fromImport, ...fromProcess } as Record<string, string | undefined>;
+})();
+
+const IS_DEV = (() => {
+  const mode = env.NODE_ENV || env.MODE || env.NEXT_PUBLIC_MODE || "";
+  return String(mode).toLowerCase() === "development";
+})();
+
+function pickEnv(...keys: string[]): string {
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+export const GA_ID: string = pickEnv(
+  "NEXT_PUBLIC_GA_ID",
+  "NEXT_PUBLIC_GA_MEASUREMENT_ID",
+  "VITE_GA_ID",
+  "VITE_GA_MEASUREMENT_ID",
+  "GA_ID",
+  "GA_MEASUREMENT_ID"
+);
+
+const FEATURE_POSTHOG = pickEnv(
+  "NEXT_PUBLIC_FEATURE_POSTHOG",
+  "FEATURE_POSTHOG",
+  "VITE_FEATURE_POSTHOG"
+)
+  .toLowerCase() === "true";
+
+const PH_KEY = pickEnv("NEXT_PUBLIC_POSTHOG_KEY", "VITE_POSTHOG_KEY", "POSTHOG_KEY") || undefined;
+const PH_HOST =
+  pickEnv("NEXT_PUBLIC_POSTHOG_HOST", "VITE_POSTHOG_HOST", "POSTHOG_HOST") || "https://app.posthog.com";
 
 // Lazy-loaded PostHog instance
 let posthogRef: (typeof import("posthog-js")['default']) | null = null;
@@ -33,7 +67,7 @@ const EVENT_NAME = "cookie-consent-changed";
 export function initAnalytics(): void {
   if (inited) return;
   if (!PH_KEY || !FEATURE_POSTHOG) {
-    if (import.meta.env.DEV) console.warn("[analytics] PostHog disabled or VITE_POSTHOG_KEY not set");
+    if (IS_DEV) console.warn("[analytics] PostHog disabled or key not set");
     inited = true; // mark to avoid repeated attempts
     return;
   }
@@ -49,9 +83,9 @@ export function initAnalytics(): void {
         capture_pageview: false,
         persistence: "localStorage",
       });
-      if (import.meta.env.DEV) console.info("[analytics] PostHog initialized");
+      if (IS_DEV) console.info("[analytics] PostHog initialized");
     } catch (e) {
-      if (import.meta.env.DEV) console.warn("[analytics.init] posthog init failed:", e);
+      if (IS_DEV) console.warn("[analytics.init] posthog init failed:", e);
     } finally {
       inited = true;
     }
@@ -72,9 +106,9 @@ export function enableAnalytics(): void {
       window.gtag("consent", "update", { analytics_storage: "granted" });
     }
 
-    if (import.meta.env.DEV) console.info("[analytics] Analytics enabled");
+    if (IS_DEV) console.info("[analytics] Analytics enabled");
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[enableAnalytics] error:", e);
+    if (IS_DEV) console.warn("[enableAnalytics] error:", e);
   }
 }
 
@@ -100,7 +134,7 @@ export function setConsent(analytics: boolean, marketing: boolean): void {
     document.documentElement.setAttribute(M_ATTR, marketing ? "granted" : "denied");
     window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { analytics, marketing } }));
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[analytics.setConsent] error:", e);
+    if (IS_DEV) console.warn("[analytics.setConsent] error:", e);
   }
 }
 
@@ -133,7 +167,7 @@ export function track(nameOrPayload: string | TrackPayload, params?: Record<stri
 
     // Skip if analytics disabled / no consent
     if (!_analyticsEnabled) {
-      if (import.meta.env.DEV) console.debug("[track:skipped(disabled)]", name, payload);
+      if (IS_DEV) console.debug("[track:skipped(disabled)]", name, payload);
       return;
     }
 
@@ -143,25 +177,25 @@ export function track(nameOrPayload: string | TrackPayload, params?: Record<stri
         window.gtag("event", name, payload);
       }
     } catch (e) {
-      if (import.meta.env.DEV) console.warn("[analytics.gtag] error:", e);
+      if (IS_DEV) console.warn("[analytics.gtag] error:", e);
     }
 
     // PostHog (if loaded)
     try {
       posthogRef?.capture?.(name, payload);
     } catch (e) {
-      if (import.meta.env.DEV) console.warn("[analytics.posthog] error:", e);
+      if (IS_DEV) console.warn("[analytics.posthog] error:", e);
     }
 
-    if (import.meta.env.DEV) console.debug("[track]", name, payload);
+    if (IS_DEV) console.debug("[track]", name, payload);
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[analytics.track] error:", e);
+    if (IS_DEV) console.warn("[analytics.track] error:", e);
   }
 }
 
 export function trackPageview(path?: string): void {
   if (!_analyticsEnabled) {
-    if (import.meta.env.DEV) console.debug("[pageview:skipped(disabled)]", path ?? location.pathname);
+    if (IS_DEV) console.debug("[pageview:skipped(disabled)]", path ?? location.pathname);
     return;
   }
   try {
@@ -171,7 +205,7 @@ export function trackPageview(path?: string): void {
       window.gtag("event", "page_view", { page_path: path ?? location.pathname });
     }
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[analytics.pageview] error:", e);
+    if (IS_DEV) console.warn("[analytics.pageview] error:", e);
   }
 }
 

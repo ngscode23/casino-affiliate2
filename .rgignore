@@ -1,0 +1,82 @@
+node_modules/
+.next/
+.turbo/
+.vercel/
+dist/
+build/
+out/
+coverage/
+.cache/
+.pnpm-store/
+.yarn/
+playwright-report/
+test-results/
+logs/
+backups/
+*.vsix
+*.log
+# Heavy dependencies and caches
+**/node_modules/**
+**/.pnpm-store/**
+**/.yarn/**
+**/.cache/**
+
+# Build and framework outputs
+**/.next/**
+**/.turbo/**
+**/.vercel/**
+**/dist/**
+**/build/**
+**/out/**
+
+# Test artifacts and coverage
+**/coverage/**
+**/playwright-report/**
+**/test-results/**
+
+# Logs, backups, and archives
+**/logs/**
+**/backups/**
+**/backup_before_*/**
+**/*.log
+**/*.zip
+**/*.7z
+**/*.rar
+**/*.tar
+**/*.tgz
+**/*.gz
+
+# Large/binary media (keep public/ images small when possible)
+**/*.mp4
+**/*.mov
+**/*.mkv
+**/*.webm
+**/*.mp3
+**/*.wav
+**/*.flac
+
+# OS/IDE cruft
+**/.DS_Store
+**/Thumbs.db
+**/.idea/**
+
+# VS Code (repo-level). Keep MCP config allowed separately below.
+**/.vscode/**
+!**/.vscode/mcp.json
+
+# Secrets (do not scan actual env files)
+**/.env
+**/.env.*
+**/.env.local
+**/.env.production
+!**/.env.example
+!apps/web-next/.env.example
+!apps/admin/.env.local.example
+
+# Limit repo-wide searches to primary paths during Next.js migration
+!apps/web-next/**
+!packages/**
+!supabase/**
+!scripts/**
+!apps/web/**
+!apps/functions/**

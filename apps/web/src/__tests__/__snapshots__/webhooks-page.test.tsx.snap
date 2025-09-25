@@ -6,7 +6,7 @@ exports[`Admin/Webhooks page > renders list snapshot 1`] = `
     class="w-full sm:px-6 lg:px-8 p-6 space-y-6"
   >
     <div
-      class="rounded-2xl border border-white/10 md:p-6 bg-[rgb(var(--bg-1))] p-6"
+      class="rounded-2xl border border-border bg-card md:p-6 shadow-sm dark:border-white/10 dark:bg-[rgb(var(--bg-1))] p-6"
     >
       <div
         class="flex items-center gap-3 mb-3"
@@ -25,7 +25,7 @@ exports[`Admin/Webhooks page > renders list snapshot 1`] = `
             value=""
           />
           <button
-            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-white/5 hover:bg-white/10 text-white/90 border border-white/10 h-9 min-h-0 px-3 text-sm"
+            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-card border border-border text-text shadow-sm hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/90 h-9 min-h-0 px-3 text-sm"
             disabled=""
           >
             Prev
@@ -37,12 +37,12 @@ exports[`Admin/Webhooks page > renders list snapshot 1`] = `
             1
           </span>
           <button
-            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-white/5 hover:bg-white/10 text-white/90 border border-white/10 h-9 min-h-0 px-3 text-sm"
+            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-card border border-border text-text shadow-sm hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/90 h-9 min-h-0 px-3 text-sm"
           >
             Next
           </button>
           <button
-            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-white/5 hover:bg-white/10 text-white/90 border border-white/10 h-9 min-h-0 px-3 text-sm"
+            class="inline-flex items-center justify-center rounded-xl font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 bg-card border border-border text-text shadow-sm hover:bg-slate-100 dark:bg-white/5 dark:border-white/10 dark:text-white/90 h-9 min-h-0 px-3 text-sm"
             title="Delete logs older than 30d"
           >
             Purge &gt;30d

@@ -33,6 +33,8 @@ export default function ShopProductEdit() {
   const [specsJson, setSpecsJson] = useState<string>("{}");
   const [sku, setSku] = useState<string>("");
   const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [original, setOriginal] = useState<any | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
   const [cats, setCats] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,18 @@ export default function ShopProductEdit() {
             setTags((data.tags || []).join(", "));
             setImages(Array.isArray(data.images) ? data.images : []);
             setSpecsJson(JSON.stringify(data.specs || {}, null, 2));
+            setOriginal({
+              title: data.title || "",
+              slug: data.slug || "",
+              sku: data.sku || "",
+              price: Number(data.price) || 0,
+              category: data.category_slug || "",
+              rating: Number(data.rating) || 0,
+              shortDesc: data.short_desc || "",
+              tags: (data.tags || []).join(", "),
+              images: Array.isArray(data.images) ? data.images : [],
+              specs: data.specs || {},
+            });
           }
         }
       } catch (e: any) {
@@ -78,6 +92,36 @@ export default function ShopProductEdit() {
     })();
     return () => { cancelled = true; };
   }, [id, isNew]);
+
+  // Track form dirtiness compared to original snapshot
+  useEffect(() => {
+    if (!original) { setIsDirty(!!(title || slug || sku || price || category || rating || shortDesc || tags || images.length || specsJson)); return; }
+    let specsSafe: any = {};
+    try { specsSafe = JSON.parse(specsJson || "{}"); } catch { specsSafe = {}; }
+    const base = {
+      title: original.title ?? "",
+      slug: original.slug ?? "",
+      sku: original.sku ?? "",
+      price: original.price ?? 0,
+      category: original.category ?? "",
+      rating: original.rating ?? 0,
+      shortDesc: original.shortDesc ?? "",
+      tags: original.tags ?? "",
+      images: original.images ?? [],
+      specs: original.specs ?? {},
+    };
+    const current = { title, slug, sku, price, category, rating, shortDesc, tags, images, specs: specsSafe };
+    setIsDirty(JSON.stringify(base) !== JSON.stringify(current));
+  }, [original, title, slug, sku, price, category, rating, shortDesc, tags, images, specsJson]);
+
+  // Warn before unloading the page with unsaved changes
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (isDirty) { e.preventDefault(); e.returnValue = ""; }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     if (!isNew) return;
@@ -125,6 +169,9 @@ export default function ShopProductEdit() {
       const pid = data?.id as string;
       nav(`/shop/products/${pid}`, { replace: true });
       setHistoryRefresh((value) => value + 1);
+      // reset dirty state baseline
+      setOriginal({ title, slug: normalizedSlug, sku: normalizedSku, price, category, rating, shortDesc, tags, images, specs });
+      setIsDirty(false);
     } catch (e: any) {
       setError(e?.message || "Failed to save product");
     } finally {

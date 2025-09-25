@@ -183,7 +183,7 @@ const {
                     .eq("slug", s);
                   if (error) { alert("Delete error: " + error.message); return; }
                   alert("Deleted");
-                  nav("/admin/offers");
+                  nav("/", { replace: true });
                 }}
               >
                 Delete

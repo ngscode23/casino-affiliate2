@@ -4,8 +4,8 @@ import hostingVertical from "@shared/verticals/hosting";
 import type { VerticalConfig } from "@shared/verticals/types";
 
 const REGISTRY: Record<string, VerticalConfig> = {
-  casino: casinoVertical,
   hosting: hostingVertical,
+  // casino: casinoVertical, // temporarily disabled
 };
 
 function resolveVertical(): VerticalConfig {

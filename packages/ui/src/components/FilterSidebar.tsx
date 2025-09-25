@@ -1,10 +1,11 @@
-import { useId } from 'react'
+import { useId, type RefObject } from 'react'
 import type { Category } from './types'
 
 type Props = {
   className?: string
   query: string
   onQueryChange: (v: string) => void
+  inputRef?: React.Ref<HTMLInputElement>
 
   categories: Category[]
   selectedCategoryIds: string[]
@@ -22,7 +23,7 @@ type Props = {
 
 export default function FilterSidebar({
   className,
-  query, onQueryChange,
+  query, onQueryChange, inputRef,
   categories, selectedCategoryIds, onToggleCategory,
   minPrice, maxPrice, valueMin, valueMax, onPriceChange,
   onReset,
@@ -62,6 +63,7 @@ export default function FilterSidebar({
       <label htmlFor={qId} className="block text-sm font-medium mb-2">Поиск</label>
       <input
         id={qId}
+        ref={inputRef}
         value={query}
         onChange={e=>onQueryChange(e.target.value)}
         placeholder="Поиск товаров..."
@@ -141,4 +143,7 @@ export default function FilterSidebar({
     </aside>
   )
 }
+
+
+
 

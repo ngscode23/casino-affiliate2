@@ -10,6 +10,8 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "../../packages/shared/src"),
       "@ui": path.resolve(__dirname, "../../packages/ui/src"),
       "@types": path.resolve(__dirname, "../../packages/types/src"),
+      "@admin": path.resolve(__dirname, "../admin/src"),
+      "@functions": path.resolve(__dirname, "../functions/src"),
     },
   },
   test: {

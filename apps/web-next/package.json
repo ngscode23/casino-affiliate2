@@ -1,0 +1,33 @@
+{
+  "name": "web-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.57.4",
+    "ddl": "^2.0.2",
+    "next": "15.4.5",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "some-lib": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^9.35.0",
+    "eslint-config-next": "15.4.5",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vitest": "^1.6.0"
+  }
+}

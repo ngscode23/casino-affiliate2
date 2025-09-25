@@ -1,0 +1,4274 @@
+[
+  {
+    "schemaname": "_backup",
+    "tablename": "orders_like"
+  },
+  {
+    "schemaname": "aff",
+    "tablename": "events"
+  },
+  {
+    "schemaname": "aff",
+    "tablename": "offers"
+  },
+  {
+    "schemaname": "aff",
+    "tablename": "sources"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "audit_log_entries"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "flow_state"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "identities"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "instances"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "mfa_amr_claims"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "mfa_challenges"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "mfa_factors"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "oauth_clients"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "one_time_tokens"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "refresh_tokens"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "saml_providers"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "saml_relay_states"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "schema_migrations"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "sessions"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "sso_domains"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "sso_providers"
+  },
+  {
+    "schemaname": "auth",
+    "tablename": "users"
+  },
+  {
+    "schemaname": "backups",
+    "tablename": "ecom_products_20250921_123247"
+  },
+  {
+    "schemaname": "backups",
+    "tablename": "products_yyyymmdd"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "admin_emails"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "audit_log"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_roles"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_users"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cart_items"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupons"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_categories"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_product_image_versions"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "line_total_is_generated"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_status_history"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_catalog"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_clicks"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_impressions"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_rating_stats"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "products"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "refresh_tokens"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "review_rate_limits"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "settings"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shipments"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shop_clicks"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shop_impressions"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "total_is_generated"
+  },
+  {
+    "schemaname": "realtime",
+    "tablename": "messages"
+  },
+  {
+    "schemaname": "realtime",
+    "tablename": "schema_migrations"
+  },
+  {
+    "schemaname": "realtime",
+    "tablename": "subscription"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "categories"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "customers"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "order_items"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "orders"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "product_images"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "products_table"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "promotions"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "stock"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "variants"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "buckets"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "buckets_analytics"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "migrations"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "prefixes"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "s3_multipart_uploads"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "s3_multipart_uploads_parts"
+  },
+  {
+    "schemaname": "supabase_migrations",
+    "tablename": "schema_migrations"
+  },
+  {
+    "schemaname": "supabase_migrations",
+    "tablename": "seed_files"
+  },
+  {
+    "schemaname": "sys",
+    "tablename": "audit_log"
+  },
+  {
+    "schemaname": "sys",
+    "tablename": "settings"
+  },
+  {
+    "schemaname": "sys",
+    "tablename": "webhook_logs"
+  },
+  {
+    "schemaname": "vault",
+    "tablename": "secrets"
+  }
+
+
+][
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "kind",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "line1",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "line2",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "city",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "postal_code",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "country",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "phone",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "is_default",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "addresses",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "admin_emails",
+    "column_name": "email",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "actor",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "action",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "entity",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "payload",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "audit_log",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_roles",
+    "column_name": "role",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_roles",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "email",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "password_hash",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "role",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "last_login_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "password_updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "token_version",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "auth_users",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "cart_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "variant_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "price_at_add",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cart_items",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "carts",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "carts",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "carts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "categories",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "categories",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "categories",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupon_redemptions",
+    "column_name": "code",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupon_redemptions",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupon_redemptions",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupon_redemptions",
+    "column_name": "redeemed_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "code",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "kind",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "value",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "active",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "valid_from",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "valid_to",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "max_redemptions",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "coupons",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_categories",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_categories",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_categories",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_categories",
+    "column_name": "icon",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_categories",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "path",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "uploaded_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "uploaded_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "is_current",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "source_url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_image_versions",
+    "column_name": "uploaded_via",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "path",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "uploaded_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "is_current",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "source_url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_product_images_latest",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "rating",
+    "data_type": "real"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "images",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "category_slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "tags",
+    "data_type": "ARRAY"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "short_desc",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "specs",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "rating",
+    "data_type": "real"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "images",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "category_slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "tags",
+    "data_type": "ARRAY"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "short_desc",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "specs",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "avg_rating",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_products_with_ratings",
+    "column_name": "ratings_count",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_wishlist",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_wishlist",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "ecom_wishlist",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "line_total_is_generated",
+    "column_name": "coalesce",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_history_v",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_history_v",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_history_v",
+    "column_name": "amount",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_history_v",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_history_v",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "variant_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "unit_price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items",
+    "column_name": "meta",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "variant_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "unit_price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_items_v",
+    "column_name": "line_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "from_status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "to_status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "changed_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "reason",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_status_history",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "amount_subtotal",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "amount_discounts",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "amount_tax",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "amount_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "status",
+    "data_type": "USER-DEFINED"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "order_v2",
+    "column_name": "payment_status",
+    "data_type": "USER-DEFINED"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "status",
+    "data_type": "USER-DEFINED"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "subtotal",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "discount_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "shipping_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "grand_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "orders",
+    "column_name": "cancelled_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "provider",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "provider_ref",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "amount",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "status",
+    "data_type": "USER-DEFINED"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "payments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "product_uid",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "source_schema",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "source_table",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "source_pk",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_catalog",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "ip",
+    "data_type": "inet"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "referrer",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_clicks",
+    "column_name": "session_id",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "ip",
+    "data_type": "inet"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "referrer",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_impressions",
+    "column_name": "session_id",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_rating_stats",
+    "column_name": "product_uid",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_rating_stats",
+    "column_name": "avg_rating",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_rating_stats",
+    "column_name": "ratings_count",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_rating_stats",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "product_uid",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "source_schema",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "source_table",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "source_pk",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "product_title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "product_slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "rating",
+    "data_type": "smallint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "review_title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "review_body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_admin_v",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_reviews_raw",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "price_cents",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "stock",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "main_image_url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "rating",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "category_slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "tags",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products",
+    "column_name": "specs",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products_v",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products_v",
+    "column_name": "image_path",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "products_v",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "username",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "full_name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "avatar_url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "column_name": "website",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "expires_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "token_hash",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "ip_address",
+    "data_type": "inet"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "revoked_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "revoked_reason",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "refresh_tokens",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "review_rate_limits",
+    "column_name": "ip_hash",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "review_rate_limits",
+    "column_name": "last_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "review_rate_limits",
+    "column_name": "count_24h",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "review_rate_limits",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "content",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181553",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews__backup_20250909_181804",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "product_uid",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "rating",
+    "data_type": "smallint"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "ip_hash",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "reviews_unified",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "settings",
+    "column_name": "key",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "settings",
+    "column_name": "value",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "settings",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "order_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "carrier",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "tracking_number",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shipments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "ip",
+    "data_type": "inet"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "referrer",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_clicks",
+    "column_name": "session_id",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "product_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "ip",
+    "data_type": "inet"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "user_agent",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "referrer",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shop_impressions",
+    "column_name": "session_id",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "total_is_generated",
+    "column_name": "coalesce",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "categories",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "categories",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "categories",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "customers",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "customers",
+    "column_name": "email",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "customers",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "customers",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "order_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "variant_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "order_items",
+    "column_name": "line_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "customer_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "subtotal",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "discount_total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "total",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "orders",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_images",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_images",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_images",
+    "column_name": "url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_images",
+    "column_name": "sort_order",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_ratings_vw",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_ratings_vw",
+    "column_name": "rating_value",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "product_ratings_vw",
+    "column_name": "rating_count",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "price_cents",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "stock",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "main_image_url",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "category_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "search",
+    "data_type": "tsvector"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_table",
+    "column_name": "image_path",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "category",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "rating",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "rating_count",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "image_path",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_view",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "sku",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "price",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "category_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "search",
+    "data_type": "tsvector"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "slug",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "avg_rating",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "products_with_ratings",
+    "column_name": "ratings_count",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "type",
+    "data_type": "USER-DEFINED"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "value",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "starts_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "ends_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "coupon_code",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "is_stackable",
+    "data_type": "boolean"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "promotions",
+    "column_name": "conditions",
+    "data_type": "jsonb"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "rating",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "body",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "reviews",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "stock",
+    "column_name": "variant_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "stock",
+    "column_name": "qty",
+    "data_type": "integer"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "stock",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "variants",
+    "column_name": "id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "variants",
+    "column_name": "product_id",
+    "data_type": "bigint"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "variants",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "variants",
+    "column_name": "price_override",
+    "data_type": "numeric"
+  },
+  {
+    "table_schema": "shop",
+    "table_name": "variants",
+    "column_name": "sku",
+    "data_type": "text"
+  }
+]
+
+
+И список действующих RLS-политик (чтобы понять, какие из них ломают поток данных):
+
+
+
+[
+  {
+    "schemaname": "aff",
+    "tablename": "events",
+    "policyname": "events_insert_via_anon",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses",
+    "policyname": "addresses_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses",
+    "policyname": "addresses_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses",
+    "policyname": "addresses_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses",
+    "policyname": "addresses_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "addresses",
+    "policyname": "addresses_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "admin_emails",
+    "policyname": "deny all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "false",
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "audit_log",
+    "policyname": "audit_srv_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_roles",
+    "policyname": "deny all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "false",
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_users",
+    "policyname": "no_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_users",
+    "policyname": "no_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_users",
+    "policyname": "no_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "auth_users",
+    "policyname": "no_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cart_items",
+    "policyname": "cart_items_owner_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(EXISTS ( SELECT 1\n   FROM carts c\n  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM carts c\n  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid()))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "cart_items",
+    "policyname": "cart_items_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts",
+    "policyname": "carts_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts",
+    "policyname": "carts_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts",
+    "policyname": "carts_owner_all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts",
+    "policyname": "carts_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "carts",
+    "policyname": "carts_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_owner_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((auth.uid() = user_id) OR (auth.role() = 'service_role'::text))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_owner_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupon_redemptions",
+    "policyname": "coupon_redemptions_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupons",
+    "policyname": "coupons_public_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "((active = true) AND ((valid_from IS NULL) OR (now() >= valid_from)) AND ((valid_to IS NULL) OR (now() <= valid_to)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coupons",
+    "policyname": "coupons_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_categories",
+    "policyname": "ecom_categories_admin_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "is_admin()",
+    "with_check": "is_admin()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_categories",
+    "policyname": "ecom_categories_public_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_product_image_versions",
+    "policyname": "Public read ecom product image versions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "Public read ecom_products",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "ecom_products_admin_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "is_admin()",
+    "with_check": "is_admin()"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "ecom_products_authenticated_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "ecom_products_authenticated_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "ecom_products_public_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "ecomp upd by definer",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_products",
+    "policyname": "srv all on ecom_products",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_owner_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_owner_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_owner_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "ecom_wishlist",
+    "policyname": "ecom_wishlist_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "line_total_is_generated",
+    "policyname": "deny all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "false",
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "line_total_is_generated",
+    "policyname": "read public",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon,authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_owner_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()) AND (o.status = 'pending'::order_status))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_owner_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()) AND (o.status = 'pending'::order_status))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_owner_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_owner_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()) AND (o.status = 'pending'::order_status))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()) AND (o.status = 'pending'::order_status))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_items",
+    "policyname": "order_items_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_status_history",
+    "policyname": "hist-ins-own-order",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_status_history.order_id) AND (o.user_id = auth.uid()))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "order_status_history",
+    "policyname": "hist-sel-own-order",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = order_status_history.order_id) AND (o.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders insert self",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((user_id = auth.uid()) AND (status = 'pending'::order_status))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_insert_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(COALESCE(user_id, auth.uid()) = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_select_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((user_id = auth.uid()) AND (status = 'pending'::order_status))",
+    "with_check": "((user_id = auth.uid()) AND (status = 'pending'::order_status))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "orders",
+    "policyname": "orders_update_own_pending",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((user_id = auth.uid()) AND (status = 'pending'::order_status))",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments",
+    "policyname": "payments_insert_own_pending",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()) AND (o.status = 'pending'::order_status))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments",
+    "policyname": "payments_owner_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments",
+    "policyname": "payments_select_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments",
+    "policyname": "payments_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "payments",
+    "policyname": "payments_update_own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()))))",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM orders o\n  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_catalog",
+    "policyname": "read catalog",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_clicks",
+    "policyname": "Anyone can insert product clicks",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_impressions",
+    "policyname": "Anyone can insert product impressions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_rating_stats",
+    "policyname": "read stats",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_rating_stats",
+    "policyname": "select prs public",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_owner_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_owner_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_public_read_approved",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = 'approved'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_raw_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_raw_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_raw_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "product_reviews_raw",
+    "policyname": "product_reviews_raw_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "products",
+    "policyname": "Public can read public products",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = ANY (ARRAY['active'::text, 'draft'::text]))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "products",
+    "policyname": "Public can read visible products",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = ANY (ARRAY['active'::text, 'published'::text]))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Public profiles are viewable by everyone.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can insert their own profile.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "Users can update own profile.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = id)",
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "refresh_tokens",
+    "policyname": "no_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "DELETE",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "refresh_tokens",
+    "policyname": "no_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "refresh_tokens",
+    "policyname": "no_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "refresh_tokens",
+    "policyname": "no_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "false",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "review_rate_limits",
+    "policyname": "deny all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "false",
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "review_rate_limits",
+    "policyname": "read own",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_owner_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_owner_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "UPDATE",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_public_read_approved",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = 'approved'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews",
+    "policyname": "reviews_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews__backup_20250909_181553_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews__backup_20250909_181553_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews__backup_20250909_181553_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews__backup_20250909_181553_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews_owner_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews__backup_20250909_181553",
+    "policyname": "reviews_owner_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = user_id)",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified",
+    "policyname": "reviews_unified_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified",
+    "policyname": "reviews_unified_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified",
+    "policyname": "reviews_unified_select",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(user_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified",
+    "policyname": "reviews_unified_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(user_id = auth.uid())",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "reviews_unified",
+    "policyname": "select approved only (public)",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = 'approved'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "settings",
+    "policyname": "auth write settings",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "settings",
+    "policyname": "public read settings",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shipments",
+    "policyname": "shipments_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shop_clicks",
+    "policyname": "Anyone can insert shop clicks",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "shop_impressions",
+    "policyname": "Anyone can insert shop impressions",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "total_is_generated",
+    "policyname": "deny all",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "ALL",
+    "qual": "false",
+    "with_check": "false"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "total_is_generated",
+    "policyname": "read auth",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "total_is_generated",
+    "policyname": "read public",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon,authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "categories",
+    "policyname": "public read shop.categories",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon,authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "order_items",
+    "policyname": "order_items_public_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "orders",
+    "policyname": "orders_modify_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = customer_id)",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "orders",
+    "policyname": "orders_select_public",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "orders",
+    "policyname": "shop_orders_modify_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(auth.uid() = customer_id)",
+    "with_check": "(auth.uid() = customer_id)"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "orders",
+    "policyname": "shop_orders_select_public",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "products_table",
+    "policyname": "auth insert shop.products",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "products_table",
+    "policyname": "auth update shop.products",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "products_table",
+    "policyname": "auth upsert shop.products",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "true"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "products_table",
+    "policyname": "public read shop.products",
+    "permissive": "PERMISSIVE",
+    "roles": "{anon,authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews",
+    "policyname": "shop_reviews_delete_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((auth.uid() = user_id) AND (status = 'pending'::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews",
+    "policyname": "shop_reviews_insert_auth",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews",
+    "policyname": "shop_reviews_moderate_admin",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(((COALESCE(NULLIF(current_setting('request.jwt.claims'::text, true), ''::text), '{}'::text))::jsonb ->> 'role'::text) = 'admin'::text)",
+    "with_check": "(((COALESCE(NULLIF(current_setting('request.jwt.claims'::text, true), ''::text), '{}'::text))::jsonb ->> 'role'::text) = 'admin'::text)"
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews",
+    "policyname": "shop_reviews_select_public",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(status = 'approved'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "shop",
+    "tablename": "reviews",
+    "policyname": "shop_reviews_update_owner",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((auth.uid() = user_id) AND (status = 'pending'::text))",
+    "with_check": "((auth.uid() = user_id) AND (status = 'pending'::text))"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "Anyone can update their own avatar.",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((bucket_id = 'avatars'::text) AND (owner = auth.uid()))",
+    "with_check": "((bucket_id = 'avatars'::text) AND (owner = auth.uid()))"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "Anyone can upload an avatar.",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((bucket_id = 'avatars'::text) AND (owner = auth.uid()))"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "Avatar images are publicly accessible.",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(bucket_id = 'avatars'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "auth upload product-images",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(bucket_id = 'product-images'::text)"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "product_images_admin_delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((bucket_id = 'product-images'::text) AND is_admin())",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "product_images_admin_insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((bucket_id = 'product-images'::text) AND is_admin())"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "product_images_admin_update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((bucket_id = 'product-images'::text) AND is_admin())",
+    "with_check": "((bucket_id = 'product-images'::text) AND is_admin())"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "product_images_public_read",
+    "permissive": "PERMISSIVE",
+    "roles": "{public}",
+    "cmd": "SELECT",
+    "qual": "(bucket_id = 'product-images'::text)",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "products_srv_write",
+    "permissive": "PERMISSIVE",
+    "roles": "{service_role}",
+    "cmd": "ALL",
+    "qual": "true",
+    "with_check": "true"
+  },
+  {
+    "schemaname": "sys",
+    "tablename": "webhook_logs",
+    "policyname": "webhook_logs_admin_only",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(((COALESCE(NULLIF(current_setting('request.jwt.claims'::text, true), ''::text), '{}'::text))::jsonb ->> 'role'::text) = 'admin'::text)",
+    "with_check": null
+  }
+]
+
+
+

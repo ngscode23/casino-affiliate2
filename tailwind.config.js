@@ -6,6 +6,9 @@ export default {
   content: [
     "./apps/web/index.html",
     "./apps/web/src/**/*.{js,ts,jsx,tsx}",
+    "./apps/web-next/app/**/*.{js,ts,jsx,tsx}",
+    "./apps/web-next/components/**/*.{js,ts,jsx,tsx}",
+    "./apps/web-next/lib/**/*.{js,ts,jsx,tsx}",
     "./apps/admin/index.html",
     "./apps/admin/src/**/*.{js,ts,jsx,tsx}",
     "./packages/ui/src/**/*.{js,ts,jsx,tsx}",
@@ -18,6 +21,22 @@ export default {
       md: "768px",
       lg: "1024px",
       xl: "1280px",
+    },
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem",
+        lg: "2rem",
+        xl: "2.5rem",
+      },
+      screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
+        "2xl": "1536px",
+      },
     },
     extend: {
       colors: {
@@ -57,11 +76,6 @@ export default {
       },
       fontFamily: {
         sans: ["InterVariable", "Inter", "ui-sans-serif", "system-ui"],
-      },
-      container: {
-        center: true,
-        padding: "1rem",
-        screens: { "2xl": "1280px" },
       },
     },
   },

@@ -178,13 +178,91 @@ export async function listProductReviews(productId: string) {
   return (data?.items ?? []) as Array<{ user_id: string; rating: number; title: string; body: string; created_at: string }>;
 }
 
+export type PlaceOrderContact = {
+  fullName?: string;
+  email?: string;
+};
+
+export type PlaceOrderShipping = {
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  notes?: string | null;
+};
+
+export type PlaceOrderCheckout = {
+  contact?: PlaceOrderContact;
+  shipping?: PlaceOrderShipping;
+};
+
+export type PlaceOrderOptions = {
+  currency?: string;
+  checkout?: PlaceOrderCheckout;
+};
+
+function normalizeCheckoutString(value: unknown, max = 512): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > max) return trimmed.slice(0, max);
+  return trimmed;
+}
 // Create an order for current authenticated user via Netlify function
 export async function placeOrder(
   items: Array<{ id: string; qty: number }>,
-  currency?: string
+  optionsOrCurrency?: string | PlaceOrderOptions
 ): Promise<{ order_id: string }> {
   const token = await getValidAccessToken();
   if (!token) throw new Error("Not authenticated");
+
+  let currency: string | undefined;
+  let checkout: PlaceOrderCheckout | undefined;
+  if (typeof optionsOrCurrency === "string") {
+    currency = optionsOrCurrency;
+  } else if (optionsOrCurrency) {
+    currency = optionsOrCurrency.currency;
+    checkout = optionsOrCurrency.checkout;
+  }
+
+  const checkoutPayload = (() => {
+    if (!checkout) return undefined;
+    const contactRaw = checkout.contact || {};
+    const shippingRaw = checkout.shipping || {};
+    const contact = {
+      ...(normalizeCheckoutString(contactRaw.fullName, 160)
+        ? { fullName: normalizeCheckoutString(contactRaw.fullName, 160)! }
+        : {}),
+      ...(normalizeCheckoutString(contactRaw.email, 254)
+        ? { email: normalizeCheckoutString(contactRaw.email, 254)! }
+        : {}),
+    };
+    const shipping = {
+      ...(normalizeCheckoutString(shippingRaw.address)
+        ? { address: normalizeCheckoutString(shippingRaw.address)! }
+        : {}),
+      ...(normalizeCheckoutString(shippingRaw.city)
+        ? { city: normalizeCheckoutString(shippingRaw.city)! }
+        : {}),
+      ...(normalizeCheckoutString(shippingRaw.postalCode, 40)
+        ? { postalCode: normalizeCheckoutString(shippingRaw.postalCode, 40)! }
+        : {}),
+      ...(normalizeCheckoutString(shippingRaw.notes, 500)
+        ? { notes: normalizeCheckoutString(shippingRaw.notes, 500)! }
+        : {}),
+    };
+    const hasContact = Object.keys(contact).length > 0;
+    const hasShipping = Object.keys(shipping).length > 0;
+    if (!hasContact && !hasShipping) return undefined;
+    return {
+      ...(hasContact ? { contact } : {}),
+      ...(hasShipping ? { shipping } : {}),
+    } as PlaceOrderCheckout;
+  })();
+
+  const payload: Record<string, unknown> = { items };
+  if (currency) payload.currency = currency;
+  if (checkoutPayload) payload.checkout = checkoutPayload;
+
   const res = await apiRequest("/orders-create", {
     method: "POST",
     headers: {
@@ -192,7 +270,7 @@ export async function placeOrder(
       "content-type": "application/json",
       authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ items, currency }),
+    body: JSON.stringify(payload),
   });
   const raw = await res.text();
   let data: any = null;
@@ -207,7 +285,6 @@ export async function placeOrder(
   }
   return { order_id: String(data.order_id) };
 }
-
 export type OrderListItem = {
   id: string;
   created_at: string;

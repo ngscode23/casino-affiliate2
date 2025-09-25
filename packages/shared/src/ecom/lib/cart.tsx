@@ -55,22 +55,23 @@ const LS_KEY = "ecom:cart";
 // стало:
 export function CartProvider({ children }: React.PropsWithChildren) {
   const [state, dispatch] = useReducer(reducer, undefined, () => {
+    if (typeof window === "undefined") return { items: [] } as CartState;
     try {
-      const raw = localStorage.getItem(LS_KEY);
+      const raw = window.localStorage.getItem(LS_KEY);
       if (raw) return JSON.parse(raw) as CartState;
-    }catch (err) {
-  if (process.env.NODE_ENV === "development") {
-    console.debug("Cart error:", err);
-  }
-}
+    } catch (err) {
+      // In SSR, avoid noisy logs; on client this rarely triggers
+    }
     return { items: [] };
   });
 
 useEffect(() => {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LS_KEY, JSON.stringify(state));
+    }
   } catch {
-    // ignore: переполнено/запрещено, не ломаем UI из-за хранения
+    // ignore storage errors
   }
 }, [state]);
 

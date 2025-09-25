@@ -5,8 +5,9 @@ import { Routes, Route, Navigate, Outlet, NavLink, useNavigate } from "react-rou
 //import Section from "@ui/components/common/section";
 import Skeleton from "@ui/components/common/skeleton";
 import UserBadge from "@ui/components/auth/UserBadge";
+import ThemeToggle from "@ui/components/ThemeToggle";
 import { signOut } from "@shared/lib/auth";
-import { LayoutDashboard, Box, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, Box, Settings, Menu, Plus } from "lucide-react";
 
 // Protect admin with admin-only guard
 import { RequireAdmin as RequireAuth } from "./requireAuth";
@@ -65,6 +66,16 @@ function AdminShell() {
           </button>
           <div className="font-semibold tracking-tight">Admin Panel</div>
           <div className="ml-auto flex items-center gap-3">
+            <button
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1 text-sm shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"
+              onClick={() => nav("/shop/products/new")}
+              aria-label="Add product"
+              title="Add product (n)"
+            >
+              <Plus size={14} />
+              <span className="hidden sm:inline">Add product</span>
+            </button>
+            <ThemeToggle />
             <UserBadge />
             <button
               className="rounded-md border border-border bg-white px-2 py-1 text-sm shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"

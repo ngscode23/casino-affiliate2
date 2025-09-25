@@ -160,7 +160,7 @@ describe('orders function API', () => {
   })
 
   it('POST /orders creates and validates totals (201)', async () => {
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: '/api/orders',
@@ -176,7 +176,7 @@ describe('orders function API', () => {
 
   it('POST /orders returns 422 when total invalid (0)', async () => {
     state.orderTotal = 0
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: '/api/orders',
@@ -188,7 +188,7 @@ describe('orders function API', () => {
   })
 
   it('GET /orders lists orders with pagination', async () => {
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'GET',
       path: '/api/orders',
@@ -203,7 +203,7 @@ describe('orders function API', () => {
   })
 
   it('POST /orders/:id/confirm-payment sets payment and returns scenario', async () => {
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/confirm-payment`,
@@ -221,7 +221,7 @@ describe('orders function API', () => {
 
   it('POST /orders/:id/cancel cancels pending order', async () => {
     state.orderStatus = 'pending'
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/cancel`,
@@ -234,7 +234,7 @@ describe('orders function API', () => {
   it('POST /orders/:id/cancel foreign order -> 403', async () => {
     state.orderStatus = 'pending'
     state.ordersOwnerId = 'u2' // владелец другой
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/cancel`,
@@ -248,7 +248,7 @@ describe('orders function API', () => {
 
   it('POST /orders/:id/cancel when not pending -> 409', async () => {
     state.orderStatus = 'processing'
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/cancel`,
@@ -260,7 +260,7 @@ describe('orders function API', () => {
 
   it('POST /orders/:id/confirm-payment scenario=failed -> order failed', async () => {
     state.orderStatus = 'pending'
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/confirm-payment`,
@@ -277,7 +277,7 @@ describe('orders function API', () => {
 
   it('POST /orders/:id/confirm-payment after succeeded -> 409', async () => {
     state.orderStatus = 'succeeded'
-    const mod: any = await import('../../netlify/functions/orders')
+    const mod: any = await import('@functions/orders')
     const event: any = {
       httpMethod: 'POST',
       path: `/api/orders/${state.orderId}/confirm-payment`,

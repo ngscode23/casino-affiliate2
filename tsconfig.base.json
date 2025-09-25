@@ -42,6 +42,9 @@
       "@web/*": [
         "apps/web/src/*"
       ],
+      "@web-next/*": [
+        "apps/web-next/*"
+      ],
       "@admin/*": [
         "apps/admin/src/*"
       ],

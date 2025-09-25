@@ -17,7 +17,7 @@ import { useOffers } from "@shared/features/offers/api/useOffers";
 import { getOffersPaged } from "@shared/features/offers/api/getOffersPaged";
 import type { OffersFilterState } from "@shared/features/offers/components/OfferFiltersFeature";
 import { fetchAttributeRegistry, fetchProductAttributes, toValueMap } from "@shared/lib/attributes";
-import type { AttributeRegistryItem } from "@types/attributes";
+import type { AttributeRegistryItem } from "@casino-affiliate/types/attributes";
 import FiltersBuilder from "@ui/builders/FiltersBuilder";
 import { supabase } from "@shared/lib/supabase";
 
