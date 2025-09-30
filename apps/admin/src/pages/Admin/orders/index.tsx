@@ -28,11 +28,15 @@ function useAdminToken() {
   useEffect(() => {
     try {
       setToken(localStorage.getItem("admin:token") || "");
-    } catch {}
-  }, []);
+    } catch {
+      // Ignore storage access issues (e.g. SSR).
+    }
+  }, [token]);
   const save = (v: string) => {
     setToken(v);
-    try { localStorage.setItem("admin:token", v); } catch {}
+    try { localStorage.setItem("admin:token", v); } catch {
+      // Ignore storage access issues (e.g. SSR).
+    }
   };
   return { token, setToken: save };
 }
@@ -117,7 +121,7 @@ export default function AdminOrdersPage() {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [token]);
 
   const fmt = useMemo(() => new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }), []);
 

@@ -38,7 +38,7 @@ export default function DataTable<T>({ rows, columns, sortKey, sortDir = 'asc', 
   useEffect(() => {
     setSelected([]);
     onSelectionChange?.([]);
-  }, [rows]);
+  }, [rows, onSelectionChange]);
   const pages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
 
   const [sorting, setSorting] = useState<SortingState>(sortKey ? [{ id: String(sortKey), desc: sortDir === 'desc' }] : []);
@@ -97,7 +97,7 @@ export default function DataTable<T>({ rows, columns, sortKey, sortDir = 'asc', 
     onScroll();
     el.addEventListener('scroll', onScroll);
     return () => el.removeEventListener('scroll', onScroll);
-  }, [scrollRef.current]);
+  }, []);
 
   const thPad = density === 'compact' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm';
   const tdPad = density === 'compact' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm';

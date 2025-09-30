@@ -1,8 +1,11 @@
+'use client';
+
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@ui/components/common/dialog";
 import { useEffect, useState } from "react";
 import Button from "@ui/components/common/button";
 import { toast } from "@ui/components/common/toast";
 import { getValidAccessToken } from "@shared/lib/auth";
+import { adminFetch } from "@shared/lib/api";
 import { normalizeSku, slugifyTitle } from "@shared/lib/normalize";
 
 export type ProductInput = {
@@ -54,17 +57,14 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
     setShortDesc(initial?.short_desc || '');
     setTagsCsv((initial?.tags || []).join(', '));
     try { setImagesJson(JSON.stringify(initial?.images || [], null, 2)); } catch { setImagesJson('[]'); }
-  }, [initial?.id, open]);
+  }, [initial, open]);
 
   useEffect(() => {
     if (!initial?.id) {
       setSlug((prev) => (prev ? prev : slugifyTitle(title, sku)));
       setSku((prev) => (prev ? prev : normalizeSku(undefined, title)));
     }
-  }, [title, initial?.id]);
-
-  const DEV_TOKEN = (import.meta as any).env?.VITE_ADMIN_TOKEN as string | undefined;
-
+  }, [title, sku, initial?.id]);
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) { toast('Title is required', { variant: 'error' }); return; }
@@ -98,11 +98,10 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
       if (!accessToken) throw new Error('Not authenticated');
       const headers: Record<string, string> = {
         'content-type': 'application/json',
-        'x-admin-token': DEV_TOKEN || '',
-        authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       };
 
-      const res = await fetch('/api/admin-products', {
+      const res = await adminFetch('/api/admin-products', {
         method: 'POST',
         headers,
         body: JSON.stringify({ op: 'upsert', product: payload })
@@ -200,4 +199,5 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
     </Dialog>
   );
 }
+
 

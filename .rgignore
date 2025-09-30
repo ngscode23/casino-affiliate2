@@ -1,44 +1,35 @@
-node_modules/
-.next/
-.turbo/
-.vercel/
-dist/
-build/
-out/
-coverage/
-.cache/
-.pnpm-store/
-.yarn/
-playwright-report/
-test-results/
-logs/
-backups/
-*.vsix
-*.log
-# Heavy dependencies and caches
-**/node_modules/**
-**/.pnpm-store/**
-**/.yarn/**
-**/.cache/**
-
-# Build and framework outputs
-**/.next/**
+# ===== Service / cache =====
+**/.git/**
 **/.turbo/**
 **/.vercel/**
+**/.netlify/**
+**/netlify/**
+**/.parcel-cache/**
+**/.cache/**
+
+**/node_modules/**
+**/.pnpm/**
+**/.pnpm-store/**
+**/.yarn/**
+
+**/.idea/**
+**/.vscode/**
+
+# ===== Build & test artifacts =====
+**/.next/**
 **/dist/**
 **/build/**
 **/out/**
-
-# Test artifacts and coverage
 **/coverage/**
 **/playwright-report/**
 **/test-results/**
+**/cypress/**
+**/storybook-static/**
 
-# Logs, backups, and archives
-**/logs/**
-**/backups/**
-**/backup_before_*/**
+# ===== Logs / archives / temp =====
 **/*.log
+**/*.tmp
+**/*.bak
 **/*.zip
 **/*.7z
 **/*.rar
@@ -46,25 +37,14 @@ backups/
 **/*.tgz
 **/*.gz
 
-# Large/binary media (keep public/ images small when possible)
-**/*.mp4
-**/*.mov
-**/*.mkv
-**/*.webm
-**/*.mp3
-**/*.wav
-**/*.flac
 
-# OS/IDE cruft
+
+
+# ===== OS cruft =====
 **/.DS_Store
 **/Thumbs.db
-**/.idea/**
 
-# VS Code (repo-level). Keep MCP config allowed separately below.
-**/.vscode/**
-!**/.vscode/mcp.json
-
-# Secrets (do not scan actual env files)
+# ===== Secrets =====
 **/.env
 **/.env.*
 **/.env.local
@@ -73,10 +53,114 @@ backups/
 !apps/web-next/.env.example
 !apps/admin/.env.local.example
 
-# Limit repo-wide searches to primary paths during Next.js migration
+# ===== Allow source trees =====
 !apps/web-next/**
 !packages/**
-!supabase/**
-!scripts/**
-!apps/web/**
 !apps/functions/**
+!scripts/**
+!supabase/**
+!package.json
+!pnpm-workspace.yaml
+!turbo.json
+!tsconfig*.json
+!next.config.*
+!middleware.ts
+
+
+# --- Показать старый админ-фронт (исходники и конфиги) ---
+!apps/admin/src/**
+!apps/admin/package.json
+!apps/admin/tsconfig*.json
+!apps/admin/.eslintrc*
+!apps/admin/.prettierrc*
+!apps/admin/**
+
+
+# ===== Re-apply ignores INSIDE whitelisted trees (apps) =====
+apps/**/.next/**
+apps/**/.netlify/**
+apps/**/.vercel/**
+apps/**/node_modules/**
+apps/**/dist/**
+apps/**/build/**
+apps/**/out/**
+apps/**/.turbo/**
+apps/**/.cache/**
+apps/**/coverage/**
+apps/**/.vscode/**
+apps/**/storybook-static/**
+apps/**/playwright-report/**
+apps/**/test-results/**
+apps/**/cypress/**
+
+# ===== Re-apply ignores INSIDE whitelisted trees (packages) =====
+packages/**/node_modules/**
+packages/**/.next/**
+packages/**/dist/**
+packages/**/build/**
+packages/**/out/**
+packages/**/.turbo/**
+packages/**/.cache/**
+packages/**/coverage/**
+packages/**/.vscode/**
+packages/**/storybook-static/**
+packages/**/playwright-report/**
+packages/**/test-results/**
+packages/**/cypress/**
+
+# ===== Heavy media (точечно) =====
+apps/**/public/uploads/**
+apps/**/public/videos/**
+
+# ===== Supabase служебное =====
+infra/supabase/migrations_trash/**
+supabase/.temp/**
+supabase/.git/**
+
+# ===== Локальные копии/бэкапы =====
+**/backups/**
+**/old-copies/**
+**/*copy*/**
+
+# ===== Sourcemaps — только в билдах, не глобально =====
+.build/**/*.map
+.dist/**/*.map
+.out/**/*.map
+.next/**/*.map
+
+# ===== public ассеты (оставим только тексты и важные метаданные) =====
+apps/**/public/**/*.png
+apps/**/public/**/*.jpg
+apps/**/public/**/*.jpeg
+apps/**/public/**/*.gif
+apps/**/public/**/*.webp
+apps/**/public/**/*.avif
+apps/**/public/**/*.bmp
+apps/**/public/**/*.ico
+
+# --- оставить важное в public ---
+!apps/**/public/favicon.ico
+!apps/**/public/*.webmanifest
+!apps/**/public/manifest.json
+!apps/**/public/apple-app-site-association
+!apps/**/public/assetlinks.json
+!apps/**/public/**/*.svg
+!apps/**/public/robots.txt
+!apps/**/public/sitemap.xml
+!apps/**/public/*.txt
+!apps/**/public/*.xml
+
+# ===== Keep common project configs (полезно для миграции/линтинга) =====
+!.eslintrc*
+!.prettierrc*
+!.stylelintrc*
+!postcss.config.*
+!tailwind.config.*
+!.nvmrc
+!.tool-versions
+
+# ===== Final: сохранить MCP-конфиг внутри .vscode =====
+**/.vscode/**
+!**/.vscode/
+**/.vscode/*
+!**/.vscode/mcp.json

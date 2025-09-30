@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { getAdminClient } from "@/utils/supabase/admin";
 
 export interface AuthUserRecord {
@@ -71,39 +73,66 @@ function toAuthUserRecord(user: User): AuthUserRecord {
 
 export async function requireAuth(request: Request, options: RequireAuthOptions = {}): Promise<AuthResult> {
   const token = extractAccessToken(request);
-  if (!token) {
-    return {
-      response: jsonError(401, "missing_bearer", "Authorization header with Bearer token required"),
-    };
-  }
 
-  try {
-    const supabase = getAdminClient();
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) {
-      return {
-        response: jsonError(401, "invalid_token", error?.message ?? "Invalid or expired token"),
-      };
-    }
-
-    const record = toAuthUserRecord(data.user);
-    if (options.roles?.length) {
-      if (!options.roles.includes(record.role)) {
+  // Path A: Verify provided Bearer token via admin client
+  if (token) {
+    try {
+      const supabase = getAdminClient();
+      const { data, error } = await supabase.auth.getUser(token);
+      if (error || !data?.user) {
         return {
-          response: jsonError(403, "forbidden", "Insufficient role"),
+          response: jsonError(401, "invalid_token", error?.message ?? "Invalid or expired token"),
         };
       }
+
+      const record = toAuthUserRecord(data.user);
+      if (options.roles?.length && !options.roles.includes(record.role)) {
+        return { response: jsonError(403, "forbidden", "Insufficient role") };
+      }
+
+      return { user: record, rawUser: data.user, accessToken: token };
+    } catch (error: any) {
+      return { response: jsonError(500, "auth_error", error?.message ?? "Failed to verify token") };
+    }
+  }
+
+  // Path B: Fallback to SSR cookie-based session (no Authorization header)
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            } catch {
+              // ignore when called from server handlers without mutable cookies
+            }
+          },
+        },
+      }
+    );
+
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) {
+      return { response: jsonError(401, "not_authenticated", "User session required") };
     }
 
-    return {
-      user: record,
-      rawUser: data.user,
-      accessToken: token,
-    };
+    const sessionRes = await supabase.auth.getSession();
+    const accessToken = sessionRes.data.session?.access_token || "";
+    const record = toAuthUserRecord(data.user);
+    if (options.roles?.length && !options.roles.includes(record.role)) {
+      return { response: jsonError(403, "forbidden", "Insufficient role") };
+    }
+
+    return { user: record, rawUser: data.user, accessToken };
   } catch (error: any) {
-    return {
-      response: jsonError(500, "auth_error", error?.message ?? "Failed to verify token"),
-    };
+    return { response: jsonError(500, "auth_error", error?.message ?? "Failed to verify session") };
   }
 }
 

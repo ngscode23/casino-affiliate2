@@ -277,7 +277,7 @@ export default function AdminShopProductsIndex() {
         </div>
       ),
     },
-  ], [categories, duplicateRow]);
+  ], [categories, duplicateRow, navigate]);
 
   const onSortChange = useCallback((key: string, dir: "asc" | "desc") => {
     setSortKey(key);

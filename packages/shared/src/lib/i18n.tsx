@@ -1,12 +1,18 @@
 // src/lib/i18n.tsx
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getLang as getLangFromStore, setLang as setLangInStore, type Lang } from "@shared/lib/t";
+import { hydrateLangFromStorage, setLang as setLangInStore, type Lang } from "@shared/lib/t";
 
 type Ctx = { lang: Lang; setLang: (l: Lang) => void };
 const I18nContext = createContext<Ctx | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(getLangFromStore());
+  const [lang, setLangState] = useState<Lang>("en");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const initial = hydrateLangFromStorage();
+    setLangState(initial);
+  }, []);
 
   const setLang = (l: Lang) => {
     setLangInStore(l);
@@ -17,11 +23,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         url.searchParams.set("lang", l);
         window.history.replaceState({}, "", url.toString());
       }
-    } catch {/* ignore */}
+    } catch { /* ignore */ }
   };
 
   useEffect(() => {
-    try { document.documentElement.lang = lang; } catch {/* ignore */}
+    try {
+      document.documentElement.lang = lang;
+    } catch { /* ignore */ }
   }, [lang]);
 
   // On first load, accept ?lang= from URL to make hreflang/alternate URLs functional
@@ -33,7 +41,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       if (ql && (ql === "en" || ql === "ru") && ql !== lang) {
         setLang(ql);
       }
-    } catch {/* ignore */}
+    } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,4 +1,4 @@
-import { useId, type RefObject } from 'react'
+import { useId } from 'react'
 import type { Category } from './types'
 
 type Props = {

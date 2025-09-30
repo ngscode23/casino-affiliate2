@@ -8,7 +8,7 @@ import { getProductBySlug, placeOrder } from "@shared/ecom/api/client";
 import type { PlaceOrderCheckout } from "@shared/ecom/api/client";
 import { getValidAccessToken } from "@shared/lib/auth";
 
-function formatPrice(value: number, currency = "USD") {
+function formatPrice(value: number, currency = "EUR") { // ← была USD
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
@@ -21,7 +21,8 @@ function formatPrice(value: number, currency = "USD") {
   }
 }
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -30,14 +31,23 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const empty = items.length === 0;
 
-  
-
+  // Если корзина стала пустой — уводим на /cart, чтобы не висеть на чекауте
   useEffect(() => {
-    if (typeof window !== 'undefined' && items.length === 0) {
-      // If cart becomes empty (e.g. after clearing), send back to cart
-      router.replace('/cart');
+    if (typeof window !== "undefined" && items.length === 0) {
+      router.replace("/cart");
     }
   }, [items.length, router]);
+
+  // Мягкая проверка: если гость — отправляем авторизоваться
+  useEffect(() => {
+    (async () => {
+      const token = await getValidAccessToken();
+      if (!token) {
+        router.replace(`/login?redirect=${encodeURIComponent("/checkout")}`);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,25 +65,35 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Нормализуем позиции: если нет UUID — достанем по slug
       const mapped = await Promise.all(
         items.map(async (row) => {
-          const rawId = String(row.product.id || row.id || "");
+          const rawId = String(row.product?.id ?? row.id ?? "");
           if (uuidPattern.test(rawId)) {
-            return { id: rawId, qty: row.qty };
+            return row.qty > 0 ? { id: rawId, qty: row.qty } : null;
           }
-          const slug = String(row.product.slug || "");
-          if (!slug) return null;
-          const prod = await getProductBySlug(slug);
-          if (prod && uuidPattern.test(prod.id)) {
-            return { id: prod.id, qty: row.qty };
+          const slug = String(row.product?.slug ?? "");
+          if (!slug || row.qty <= 0) return null;
+
+          try {
+            const prod = await getProductBySlug(slug);
+            if (prod && uuidPattern.test(prod.id)) {
+              return { id: prod.id, qty: row.qty };
+            }
+          } catch {
+            // проглатываем — ниже свалимся в валидацию payload
           }
           return null;
         })
       );
 
-      const payload = mapped.filter((entry): entry is { id: string; qty: number } => Boolean(entry));
+      const payload = mapped.filter(
+        (e): e is { id: string; qty: number } => Boolean(e)
+      );
       if (!payload.length) {
-        throw new Error("Could not match cart items with products. Please refresh and try again.");
+        throw new Error(
+          "Could not match cart items with products. Please refresh and try again."
+        );
       }
 
       const contactFullName = formData.get("fullName")?.toString().trim() ?? "";
@@ -99,13 +119,15 @@ export default function CheckoutPage() {
         };
       }
 
-      const checkoutPayload = checkout.contact || checkout.shipping ? checkout : undefined;
+      const checkoutPayload =
+        checkout.contact || checkout.shipping ? checkout : undefined;
 
       await placeOrder(payload, { currency: "EUR", checkout: checkoutPayload });
       clear();
       router.push("/account/orders");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to place order.";
+      const message =
+        err instanceof Error ? err.message : "Failed to place order.";
       if (message.toLowerCase().includes("not authenticated")) {
         router.replace(`/login?redirect=${encodeURIComponent("/checkout")}`);
         return;
@@ -121,25 +143,41 @@ export default function CheckoutPage() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold sm:text-4xl">Checkout</h1>
-          <p className="text-sm text-neutral-600">Confirm your details and place the order securely.</p>
+          <p className="text-sm text-neutral-600">
+            Confirm your details and place the order securely.
+          </p>
         </div>
-        <Link href="/cart" className="text-sm text-blue-600 transition hover:text-blue-500">
+        <Link
+          href="/cart"
+          className="text-sm text-blue-600 transition hover:text-blue-500"
+        >
           Back to cart
         </Link>
       </div>
 
       {empty ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-neutral-600">Your cart is empty. Add items before checking out.</p>
-          <Link href="/products" className="mt-3 inline-flex text-sm text-blue-600 hover:underline">
+          <p className="text-neutral-600">
+            Your cart is empty. Add items before checking out.
+          </p>
+          <Link
+            href="/products"
+            className="mt-3 inline-flex text-sm text-blue-600 hover:underline"
+          >
             Explore products
           </Link>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-3">
-          <form className="space-y-5 md:col-span-2" onSubmit={handleSubmit} noValidate>
+          <form
+            className="space-y-5 md:col-span-2"
+            onSubmit={handleSubmit}
+            noValidate
+          >
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="text-lg font-semibold text-slate-900">Contact</div>
+              <div className="text-lg font-semibold text-slate-900">
+                Contact
+              </div>
               <label className="grid gap-2 text-sm text-neutral-600">
                 Full name
                 <input
@@ -166,7 +204,9 @@ export default function CheckoutPage() {
             </section>
 
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="text-lg font-semibold text-slate-900">Shipping</div>
+              <div className="text-lg font-semibold text-slate-900">
+                Shipping
+              </div>
               <label className="grid gap-2 text-sm text-neutral-600">
                 Address
                 <input
@@ -224,19 +264,28 @@ export default function CheckoutPage() {
             <div className="text-lg font-semibold text-slate-900">Summary</div>
             <ul className="space-y-3">
               {items.map((row) => (
-                <li key={row.id} className="flex items-start justify-between gap-3 text-sm text-neutral-600">
+                <li
+                  key={row.id}
+                  className="flex items-start justify-between gap-3 text-sm text-neutral-600"
+                >
                   <span className="flex-1 truncate" title={row.product.title}>
                     {row.product.title} x {row.qty}
                   </span>
-                  <span className="text-right font-medium text-slate-900">{formatPrice(row.lineTotal)}</span>
+                  <span className="text-right font-medium text-slate-900">
+                    {formatPrice(row.lineTotal)}
+                  </span>
                 </li>
               ))}
             </ul>
             <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-neutral-600">
               <span>Subtotal</span>
-              <span className="font-semibold text-slate-900">{formatPrice(subtotal)}</span>
+              <span className="font-semibold text-slate-900">
+                {formatPrice(subtotal)}
+              </span>
             </div>
-            <p className="text-xs text-neutral-500">Taxes and shipping are calculated at fulfillment.</p>
+            <p className="text-xs text-neutral-500">
+              Taxes and shipping are calculated at fulfillment.
+            </p>
             {error ? <p className="text-sm text-rose-500">{error}</p> : null}
           </aside>
         </div>

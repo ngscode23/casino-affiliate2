@@ -40,13 +40,19 @@ const dictFlat: Record<Lang, Record<string, string>> = {
 
 // Хранение выбранного языка (опционально)
 const LS_KEY = "lang";
-let currentLang: Lang = (() => {
+let currentLang: Lang = "en";
+
+export function hydrateLangFromStorage(): Lang {
   try {
-    return (localStorage.getItem(LS_KEY) as Lang) || "en";
+    const saved = localStorage.getItem(LS_KEY) as Lang | null;
+    if (saved === "ru" || saved === "en") {
+      currentLang = saved;
+    }
   } catch {
-    return "en";
+    // ignore storage access issues during SSR
   }
-})();
+  return currentLang;
+}
 
 export function getLang(): Lang {
   return currentLang;

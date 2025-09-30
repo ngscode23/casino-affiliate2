@@ -1,14 +1,21 @@
+"use client";
+
 import Link from "next/link";
 import { siteConfig } from "../lib/site-config";
+import { useT } from "@shared/lib/useT";
+import LanguageSwitcher from "@ui/components/layout/LanguageSwitcher";
 
 export function SiteFooter() {
+  const t = useT();
   const year = new Date().getFullYear();
+  const tagline = t("layout.tagline") || siteConfig.tagline;
 
   return (
     <footer className="footer">
       <div className="footer-inner">
-        <div>
-          <span className="text-sm text-[var(--muted)]">{siteConfig.tagline}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-[var(--muted)]">{tagline}</span>
+          <LanguageSwitcher />
         </div>
         <div className="footer-columns">
           <div className="space-y-1">
@@ -30,21 +37,23 @@ export function SiteFooter() {
           </div>
           <div className="space-y-1">
             <span className="text-sm">
-              <Link href="/legal/privacy">Privacy Policy</Link>
+              <Link href="/legal/privacy">{t("legal.privacy.title")}</Link>
             </span>
             <span className="text-sm">
-              <Link href="/legal/terms">Terms of Service</Link>
+              <Link href="/legal/terms">{t("legal.terms.title")}</Link>
             </span>
             <span className="text-sm">
-              <Link href="/legal/affiliate-disclosure">Affiliate Disclosure</Link>
+              <Link href="/legal/affiliate-disclosure">{t("nav.affiliateDisclosure")}</Link>
             </span>
             <span className="text-sm">
-              <Link href="/legal/cookies">Cookie Notice</Link>
+              <Link href="/legal/cookies">{t("legal.cookies.title")}</Link>
             </span>
           </div>
         </div>
         <div className="footer-meta">
-          <span>Copyright {year} {siteConfig.footer.company}. All rights reserved.</span>
+          <span>
+            � {year} {siteConfig.footer.company}. {t("footer.allRightsReserved")}
+          </span>
           <span>Built with Next.js and Supabase</span>
         </div>
       </div>

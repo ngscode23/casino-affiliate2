@@ -1,17 +1,18 @@
 export const siteConfig = {
   name: "Neon Shop",
   tagline: "Affiliate and e-commerce tooling for growth teams",
+  taglineKey: "layout.tagline",
   description:
     "A modern affiliate storefront powered by Next.js and Supabase featuring real-time data, secure auth, and fast product browsing.",
   nav: [
-    { href: "/", label: "Home" },
-    { href: "/products", label: "Products" },
-    { href: "/offers", label: "Offers" },
-    { href: "/favorites", label: "Favorites" },
-    { href: "/affiliate", label: "Affiliate" },
-    { href: "/contact", label: "Contact" },
-    { href: "/partner", label: "Partner" },
-    { href: "/account", label: "Account" },
+    { href: "/", label: "Home", labelKey: "nav.home" },
+    { href: "/products", label: "Products", labelKey: "nav.catalog" },
+    { href: "/offers", label: "Offers", labelKey: "nav.offers" },
+    { href: "/favorites", label: "Favorites", labelKey: "nav.favorites" },
+    { href: "/affiliate", label: "Affiliate", labelKey: "nav.affiliate" },
+    { href: "/contact", label: "Contact", labelKey: "nav.contact" },
+    { href: "/partner", label: "Partner", labelKey: "nav.partner" },
+    { href: "/account", label: "Account", labelKey: "nav.account" },
   ],
   footer: {
     company: "Neon Shop Platform",
@@ -26,4 +27,3 @@ export const siteConfig = {
 };
 
 export type SiteConfig = typeof siteConfig;
-

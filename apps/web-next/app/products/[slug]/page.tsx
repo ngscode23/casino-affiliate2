@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import ProductImpression from "../components/ProductImpression";
 import TrackClickButton from "../components/TrackClickButton";
+import { getFallbackImageByKey } from "../fallback-images";
 
 type RawProduct = {
   id: string;

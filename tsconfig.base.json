@@ -39,9 +39,6 @@
       "@casino-affiliate/types/*": [
         "packages/types/src/types/*"
       ],
-      "@web/*": [
-        "apps/web/src/*"
-      ],
       "@web-next/*": [
         "apps/web-next/*"
       ],

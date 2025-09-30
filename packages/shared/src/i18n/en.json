@@ -12,7 +12,10 @@
     "cookies": "Cookies",
     "responsible": "Responsible Gaming",
     "affiliateDisclosure": "Affiliate Disclosure",
-    "contact": "Contact"
+    "contact": "Contact",
+    "affiliate": "Affiliate",
+    "partner": "Partner",
+    "account": "Account"
   },
   "compare": {
     "title": "Compare",
@@ -77,9 +80,15 @@
     "copyLink": "Copy link:"
   },
   "attributes": {
-    "rating": { "label": "Rating" },
-    "compliance_license": { "label": "License" },
-    "payout_time_hours": { "label": "Payout (h)" },
+    "rating": {
+      "label": "Rating"
+    },
+    "compliance_license": {
+      "label": "License"
+    },
+    "payout_time_hours": {
+      "label": "Payout (h)"
+    },
     "payout_methods": {
       "label": "Methods",
       "options": {
@@ -91,8 +100,7 @@
         "bank_transfer": "Bank transfer"
       }
     }
-  }
-  ,
+  },
   "favorites": {
     "clear": "Clear favorites",
     "clearConfirm": "Clear all favorites?",
@@ -107,5 +115,102 @@
     "goToOffers": "Go to offers",
     "copied": "Copied",
     "copyManual": "Copy link manually:"
+  },
+  "layout": {
+    "tagline": "Affiliate and e-commerce tooling for growth teams"
+  },
+  "header": {
+    "searchPlaceholder": "Search products",
+    "searchButton": "Search",
+    "searchMobile": "Search site"
+  },
+  "affiliate": {
+    "hero": {
+      "tagline": "Affiliate launchpad",
+      "title": "Scale affiliate campaigns with vetted offers and live performance data",
+      "body": "Unlock pre-negotiated deals, real payout timings, and localisation notes without digging through spreadsheets. Plug our catalogue into your workflow and stay compliant.",
+      "primaryCta": "Browse catalogue",
+      "secondaryCta": "Talk to the partner team"
+    },
+    "sections": {
+      "valueProps": "Why top affiliates onboard here",
+      "timeline": "Campaign timeline",
+      "faq": "Frequently asked",
+      "featured": "Featured programs"
+    },
+    "table": {
+      "brand": "Brand",
+      "rating": "Rating",
+      "payout": "Payout (h)",
+      "license": "Licence",
+      "action": "Action",
+      "viewOffer": "Explore"
+    },
+    "valueProps": {
+      "licensing": {
+        "title": "Licensed partners only",
+        "description": "We screen every brand for regulator status, ownership, and complaint history before listing it."
+      },
+      "payouts": {
+        "title": "Transparent payouts",
+        "description": "Real withdrawal tests keep the SLA honest. If timings slip, the offer is paused."
+      },
+      "performance": {
+        "title": "Performance-first insights",
+        "description": "Benchmark CTR, FTD, and ARPU from historical campaigns to prioritise your launch list."
+      },
+      "coverage": {
+        "title": "Global coverage",
+        "description": "Multi-market payment flows, localised creatives, and KYC notes ready for your media buyers."
+      }
+    },
+    "timeline": {
+      "steps": {
+        "audit": {
+          "title": "1. Audit & targeting",
+          "description": "Share your vertical focus. We shortlist partners with matching licences, payment flows, and GEO reach."
+        },
+        "creative": {
+          "title": "2. Creative & tracking",
+          "description": "Receive localisation packs, conversion hooks, and QA templates for pixels, postback, or S2S."
+        },
+        "optimise": {
+          "title": "3. Optimise",
+          "description": "Weekly reporting syncs highlight payout variance, risk events, and upsell opportunities."
+        }
+      }
+    },
+    "faq": {
+      "selection": {
+        "q": "How do you select featured brands?",
+        "a": "Licensing, payout speed, payment coverage, and partner responsiveness each carry a score. Sponsored placement never overrides the base rating."
+      },
+      "onboarding": {
+        "q": "Can new affiliates join?",
+        "a": "Yes. We onboard new affiliates, but expect to see traffic plans and respect for responsible gaming guidelines."
+      },
+      "support": {
+        "q": "What support channels are available?",
+        "a": "Every priority partner receives a dedicated account manager plus access to our shared strategy Slack."
+      },
+      "markets": {
+        "q": "Which markets perform best right now?",
+        "a": "CEE and LatAm funnels are strongest this quarter, but we share fresh cohort data once you connect with the team."
+      }
+    }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy"
+    },
+    "terms": {
+      "title": "Terms of Service"
+    },
+    "cookies": {
+      "title": "Cookie Notice"
+    }
+  },
+  "footer": {
+    "allRightsReserved": "All rights reserved."
   }
 }

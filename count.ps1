@@ -1,59 +1,73 @@
-# ===== Настраиваемые параметры =====
-# Какие расширения считаем "кодом"
-$codeExt = @('*.ts','*.tsx','*.js','*.jsx','*.css','*.scss')    # если нужно: добавь '*.md','*.sql'
+<#
+  Count source files and non-empty lines, respecting ignore files.
+  - Respects: .rgignore, .gitignore, .ignore (ripgrep defaults)
+  - Filters by extensions to avoid binaries
+  - Excludes common test/fixture paths via ripgrep -g negated globs
+#>
 
-# Разрешённые корневые пути проекта (если папки нет — пропускаем)
-$allowRoots = @(
-  'apps/web-next', 'packages', 'supabase', 'scripts',
-  'apps/web', 'apps/functions'
-) | ForEach-Object { Join-Path -Path (Get-Location) -ChildPath $_ } | Where-Object { Test-Path $_ }
+param(
+  # Optional working directory; defaults to current
+  [string]$Root = '.'
+)
 
-# Если разрешённые пути не найдены — работаем из корня репо
-if ($allowRoots.Count -eq 0) { $allowRoots = @((Get-Location).Path) }
+$ErrorActionPreference = 'Stop'
 
-# Регексы исключений по директориям
-$dirEx = '\\(node_modules|\.pnpm-store|\.yarn|\.cache|\.git|\.turbo|\.vercel|dist|build|out|coverage|playwright-report|test-results|logs|backups|backup_before_[^\\]+|\.idea|\.vscode)(\\|$)'
-
-# Исключаемые файлы по расширению/имени
-$fileEx = '\.(log|zip|7z|rar|tar|tgz|gz|mp4|mov|mkv|webm|mp3|wav|flac)$'
-# .env, кроме *.env.example
-$envEx  = '\.env(\..*)?$'
-
-# ===== Сбор кандидатов =====
-$files = @()
-$dirs  = @()
-
-foreach ($root in $allowRoots) {
-  # Папки с исключениями
-  $dirs += Get-ChildItem $root -Recurse -Directory -Force | Where-Object {
-    $_.FullName -notmatch $dirEx
-  }
-
-  # Файлы кода с исключениями
-  foreach ($pattern in $codeExt) {
-    $files += Get-ChildItem $root -Recurse -File -Force -Include $pattern | Where-Object {
-      $_.FullName -notmatch $dirEx -and
-      $_.FullName -notmatch $fileEx -and
-      (
-        # выкидываем .env*, НО оставляем *.env.example
-        ($_.Name -notmatch $envEx) -or ($_.Name -match '\.env\.example$')
-      )
-    }
-  }
+# Ensure ripgrep is available
+if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
+  Write-Error 'ripgrep (rg) не найден. Установите rg и добавьте в PATH.'
+  exit 1
 }
 
-$files = $files | Select-Object -Unique
-$dirs  = $dirs  | Select-Object -Unique
+# File extensions to include
+$exts = @('ts','tsx','js','jsx','css','scss','json','md','mdx')
 
-# ===== Подсчёт строк (быстро, без чтения в память) =====
-$lineSum = 0
+# Extra excludes (as ripgrep -g negated globs). These complement .rgignore/.gitignore
+$negatedGlobs = @(
+  '!**/*.test.*',
+  '!**/*.spec.*',
+  '!**/__mocks__/**',
+  '!**/__fixtures__/**',
+  '!**/__snapshots__/**',
+  '!**/*.d.ts',
+  '!**/*.map',
+  '!**/.env', '!**/.env.*', '**/.env.example'
+)
+
+# Build rg arguments — DO NOT add -u / -uu to keep respecting ignore files
+$rgArgs = @('--files', '--hidden')  # include dotfiles then let ignores filter
+foreach ($e in $exts) { $rgArgs += @('-g', "*.$e") }
+foreach ($g in $negatedGlobs) { $rgArgs += @('-g', $g) }
+
+Push-Location $Root
+try {
+  $files = & rg @rgArgs 2>$null
+} finally {
+  Pop-Location
+}
+
+if (-not $files -or $files.Count -eq 0) {
+  'Files counted: 0'
+  'Directories visited: 0'
+  'Clean lines: 0'
+  exit 0
+}
+
+# Unique directories
+$dirs = $files | ForEach-Object { Split-Path $_ -Parent } | Sort-Object -Unique
+
+# Count non-empty lines
+$clean = 0
 foreach ($f in $files) {
-  $r = [System.IO.File]::OpenText($f.FullName)
-  while ($null -ne $r.ReadLine()) { $lineSum++ }
-  $r.Close()
+  try {
+    $full = [System.IO.Path]::GetFullPath($f)
+    foreach ($line in [System.IO.File]::ReadLines($full)) {
+      if ($line.Trim().Length -gt 0) { $clean++ }
+    }
+  } catch {
+    Write-Warning ("Skipped {0}: {1}" -f $f, $_.Exception.Message)
+  }
 }
 
-# ===== Вывод =====
-"Файлы кода: {0}" -f $files.Count
-"Папки:      {0}" -f $dirs.Count
-"Строк кода: {0}" -f $lineSum
+"Files counted: {0}" -f $files.Count
+"Directories visited: {0}" -f $dirs.Count
+"Clean lines: {0}" -f $clean

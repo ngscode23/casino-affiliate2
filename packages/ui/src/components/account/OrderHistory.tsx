@@ -137,7 +137,7 @@ export default function OrderHistory() {
     return () => {
       mounted = false;
     };
-  }, [user, statusFilter, q, sort, page, pageSize]);
+  }, [user, statusFilter, q, sort, page, pageSize, setSearchParams]);
 
   const rows = useMemo(() => (items ?? []).map(normalize), [items]);
 
@@ -149,7 +149,6 @@ export default function OrderHistory() {
       </div>
     );
 
-  const fmt = new Intl.NumberFormat(undefined, { style: "currency", currency: rows[0]?.currency || "EUR" });
   const fmtC = (c?: string) => new Intl.NumberFormat(undefined, { style: "currency", currency: c || rows[0]?.currency || "EUR" });
   const dtFmt = (d: Date | null) => (d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "");
 
@@ -290,7 +289,7 @@ export default function OrderHistory() {
                     for (const p of prods) m[String(p.id)] = String(p.slug || "");
                     setSlugMap((sm) => ({ ...sm, ...m }));
                   }
-                } catch (_e) {
+                } catch {
                   // ignore, UI will show empty
                 }
               }

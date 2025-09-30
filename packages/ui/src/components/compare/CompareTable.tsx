@@ -25,10 +25,11 @@ type Props = {
   registry?: AttributeRegistryItem[]; // optional preloaded registry to avoid duplicate fetch
 };
 
+const DEFAULT_KEYS = ["rating", "compliance_license", "payout_time_hours", "payout_methods"] as const;
+
 export default function CompareTable({ offers, sortKey, sortDir, onSortChange, registry }: Props) {
   const t = useT();
   const { isSelected, toggle } = useCompare();
-  const DEFAULT_KEYS = ["rating", "compliance_license", "payout_time_hours", "payout_methods"] as const;
   const [labels, setLabels] = React.useState<Record<string, string>>({
     rating: t("attributes.rating.label") || t("offer.ratingLabel") || "Rating",
     compliance_license: t("attributes.compliance_license.label") || t("offer.license") || "License",
@@ -46,12 +47,14 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
     return (DEFAULT_KEYS as readonly string[]).filter(k => setComparable.has(k));
   }, [metaCache]);
 
+  const slugList = React.useMemo(() => offers.map((o) => o.slug).filter(Boolean) as string[], [offers]);
+
   React.useEffect(() => {
     let active = true;
     (async () => {
       try {
         setLoading(true);
-        const slugs = offers.map((o) => o.slug).filter(Boolean) as string[];
+        const slugs = slugList;
         const { data: idRows, error: idErr } = await (supabase as any)
           .from("offers")
           .select("id,slug")
@@ -78,15 +81,19 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
           const regNow = metaCache ?? (await fetchAttributeRegistry());
           if (!metaCache) setMetaCache(regNow);
           const meta: Record<string, AttributeRegistryItem> = Object.fromEntries(regNow.map((m) => [m.key, m] as const));
-          const lbls = { ...labels };
-          for (const k of KEYS) {
-            const lk = meta[k as string]?.label_key;
-            if (lk) {
-              const val = t(lk);
-              if (val && !val.includes(".")) lbls[k] = val;
-            }
+          if (active) {
+            setLabels((prev) => {
+              const next = { ...prev };
+              for (const k of KEYS) {
+                const lk = meta[k as string]?.label_key;
+                if (lk) {
+                  const val = t(lk);
+                  if (val && !val.includes(".")) next[k] = val;
+                }
+              }
+              return next;
+            });
           }
-          if (active) setLabels(lbls);
         } catch {
           void 0;
         }
@@ -96,7 +103,7 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
       }
     })();
     return () => { active = false; };
-  }, [offers.map((o) => o.slug).join(","), KEYS.join(",")]);
+  }, [slugList, KEYS, offers, metaCache, t]);
 
   // Show skeleton only when there are no offers to render yet.
   // Otherwise, render the table immediately and hydrate overlay/labels asynchronously.

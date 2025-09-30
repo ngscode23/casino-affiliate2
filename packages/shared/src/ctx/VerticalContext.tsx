@@ -1,5 +1,4 @@
 import * as React from "react";
-import casinoVertical from "@shared/verticals/casino";
 import hostingVertical from "@shared/verticals/hosting";
 import type { VerticalConfig } from "@shared/verticals/types";
 
@@ -33,7 +32,7 @@ export function VerticalProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     applyBranding(cfg.branding);
-  }, [cfg.branding.primary, cfg.branding.primaryFg]);
+  }, [cfg.branding]);
 
   React.useEffect(() => {
     // listen for URL changes (popstate)

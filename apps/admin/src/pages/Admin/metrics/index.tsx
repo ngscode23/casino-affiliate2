@@ -21,13 +21,14 @@ export default function MetricsIndex() {
   const [data, setData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const paramsString = searchParams.toString();
 
   useEffect(() => {
     // Sync URL when days changes
-    const sp = new URLSearchParams(searchParams);
+    const sp = new URLSearchParams(paramsString);
     sp.set("days", String(days));
     setSearchParams(sp, { replace: true });
-  }, [days]);
+  }, [days, paramsString, setSearchParams]);
 
   useEffect(() => {
     let canceled = false;

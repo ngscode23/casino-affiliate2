@@ -58,7 +58,8 @@ export type UseFavoritesReturn = {
   error: string | null;
 };
 
-export function useFavorites(_: string | undefined = undefined): UseFavoritesReturn {
+export function useFavorites(userId?: string): UseFavoritesReturn {
+  void userId;
   const [items, setItems] = useState<string[]>(cache);
   const [error, setError] = useState<string | null>(null);
 

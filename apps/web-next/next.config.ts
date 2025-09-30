@@ -26,6 +26,16 @@ remotePatterns.push({
   hostname: "via.placeholder.com",
 });
 
+remotePatterns.push({
+  protocol: "https",
+  hostname: "images.pexels.com",
+});
+
+remotePatterns.push({
+  protocol: "https",
+  hostname: "images.unsplash.com",
+});
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns,

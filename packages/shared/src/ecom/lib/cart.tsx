@@ -59,7 +59,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
     try {
       const raw = window.localStorage.getItem(LS_KEY);
       if (raw) return JSON.parse(raw) as CartState;
-    } catch (err) {
+    } catch {
       // In SSR, avoid noisy logs; on client this rarely triggers
     }
     return { items: [] };

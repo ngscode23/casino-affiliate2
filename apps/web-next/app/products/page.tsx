@@ -1,6 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+
 import { createClient } from "@/utils/supabase/server";
+
+import ProductsClient from "./products-client";
+import type { Product } from "./types";
+import { getFallbackImage } from "./fallback-images";
+
+export const metadata: Metadata = {
+  title: "Product catalog - Neon Shop",
+  description: "Browse the latest store products with real-time click and impression stats powered by Supabase.",
+  alternates: { canonical: "/products" },
+  openGraph: {
+    title: "Product catalog - Neon Shop",
+    description: "Browse the latest store products with real-time click and impression stats powered by Supabase.",
+    url: "/products",
+  },
+};
 
 type RawProduct = {
   id: string;
@@ -12,17 +28,6 @@ type RawProduct = {
   status?: string | null;
 };
 
-type Product = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  price: number;
-  mainImage: string | null;
-  clicks: number;
-  impressions: number;
-};
-
 function extractImage(images: unknown): string | null {
   if (!images) return null;
   if (typeof images === "string") return images || null;
@@ -30,53 +35,38 @@ function extractImage(images: unknown): string | null {
     for (const entry of images) {
       if (typeof entry === "string" && entry) return entry;
       if (entry && typeof entry === "object") {
-        const candidate =
-          (entry as Record<string, unknown>).url ??
-          (entry as Record<string, unknown>).src ??
-          (entry as Record<string, unknown>).href;
-        if (typeof candidate === "string" && candidate) return candidate;
+        const record = entry as Record<string, unknown>;
+        const candidate = (record.url ?? record.src ?? record.href) as string | undefined;
+        if (candidate) return candidate;
       }
     }
   }
   return null;
 }
 
-function formatPrice(value: number, currency = "USD") {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      currencyDisplay: "narrowSymbol",
-      maximumFractionDigits: 2,
-    }).format(value ?? 0);
-  } catch {
-    return `${value?.toFixed?.(2) ?? "0.00"} ${currency}`;
-  }
-}
-
-export const dynamic = "force-dynamic";
-
-export default async function ProductsPage() {
+async function fetchProducts() {
   const supabase = await createClient();
 
-  // Try modern ecom_products first, then fallback to products
-  let fetchErr: any = null;
   let rawProducts: RawProduct[] = [];
+  let dataset: "shop" | "legacy" = "shop";
+  let fetchError: unknown = null;
+
   try {
     const { data, error } = await supabase
       .from("ecom_products")
       .select("id, slug, title, short_desc, price, images, status")
       .order("created_at", { ascending: false });
     if (!error && data) {
-      rawProducts = (data as RawProduct[]).filter((raw) => raw.status !== "archived");
+      rawProducts = (data as RawProduct[]).filter((row) => row.status !== "archived");
     } else {
-      fetchErr = error;
+      fetchError = error;
     }
-  } catch (e) {
-    fetchErr = e;
+  } catch (err) {
+    fetchError = err;
   }
 
   if (!rawProducts.length) {
+    dataset = "legacy";
     try {
       const { data, error } = await supabase
         .from("products")
@@ -88,128 +78,136 @@ export default async function ProductsPage() {
           .map((row) => ({
             id: String(row.id),
             slug: String(row.slug),
-            title: String(row.title),
+            title: String(row.title ?? ""),
             short_desc: (row.description as string) ?? null,
             price: typeof row.price_cents === "number" ? row.price_cents / 100 : null,
             images: row.main_image_url ?? null,
             status: row.status ?? "active",
           } satisfies RawProduct));
-        fetchErr = null;
+        fetchError = null;
       } else if (error) {
-        fetchErr = error;
+        fetchError = error;
       }
-    } catch (e) {
-      fetchErr = e;
+    } catch (err) {
+      fetchError = err;
     }
   }
 
-  if (fetchErr && !rawProducts.length) {
+  return { rawProducts, dataset, fetchError, supabase } as const;
+}
+
+async function fetchStats(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productIds: string[],
+): Promise<{ clicks: Map<string, number>; impressions: Map<string, number> }> {
+  const clicks = new Map<string, number>();
+  const impressions = new Map<string, number>();
+
+  if (!productIds.length) {
+    return { clicks, impressions };
+  }
+
+  try {
+    let clicksRes = await supabase.from("shop_clicks").select("product_id").in("product_id", productIds);
+    if (clicksRes.error) {
+      clicksRes = await supabase.from("product_clicks").select("product_id").in("product_id", productIds);
+    }
+
+    let impressionsRes = await supabase
+      .from("shop_impressions")
+      .select("product_id")
+      .in("product_id", productIds);
+    if (impressionsRes.error) {
+      impressionsRes = await supabase.from("product_impressions").select("product_id").in("product_id", productIds);
+    }
+
+    if (!clicksRes.error) {
+      for (const row of (clicksRes.data as any[] | null | undefined) ?? []) {
+        const id = String((row as any)?.product_id ?? "");
+        if (!id) continue;
+        clicks.set(id, (clicks.get(id) ?? 0) + 1);
+      }
+    }
+
+    if (!impressionsRes.error) {
+      for (const row of (impressionsRes.data as any[] | null | undefined) ?? []) {
+        const id = String((row as any)?.product_id ?? "");
+        if (!id) continue;
+        impressions.set(id, (impressions.get(id) ?? 0) + 1);
+      }
+    }
+  } catch {
+    // Ignore stats errors – UI will fallback to zeros.
+  }
+
+  return { clicks, impressions };
+}
+
+export const dynamic = "force-dynamic";
+
+export default async function ProductsPage() {
+  const { rawProducts, dataset, fetchError, supabase } = await fetchProducts();
+
+  if (!rawProducts.length) {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <p className="mt-4 text-red-600">Failed to load products: {String(fetchErr?.message ?? fetchErr)}</p>
+        <p className="mt-4 text-red-500">Failed to load products: {String((fetchError as any)?.message ?? fetchError)}</p>
+        <Link href="/" className="mt-6 inline-flex items-center text-sm text-blue-400 hover:text-blue-300">
+          Go back home
+        </Link>
       </div>
     );
   }
 
   const productIds = rawProducts.map((raw) => raw.id);
-  let clickCounts = new Map<string, number>();
-  let impressionCounts = new Map<string, number>();
+  const stats = await fetchStats(supabase, productIds);
 
-  if (productIds.length > 0) {
-    try {
-      // Prefer shop_* if present, else fallback to product_*
-      let clickRes = await supabase.from("shop_clicks").select("product_id").in("product_id", productIds);
-      if (clickRes.error) {
-        clickRes = await supabase.from("product_clicks").select("product_id").in("product_id", productIds);
-      }
-      let impressionRes = await supabase
-        .from("shop_impressions")
-        .select("product_id")
-        .in("product_id", productIds);
-      if (impressionRes.error) {
-        impressionRes = await supabase.from("product_impressions").select("product_id").in("product_id", productIds);
-      }
-      if (!clickRes.error) {
-        const tmp = new Map<string, number>();
-        for (const r of (clickRes.data as any[] | null | undefined) ?? []) {
-          const id = String((r as any)?.product_id || "");
-          if (!id) continue;
-          tmp.set(id, (tmp.get(id) || 0) + 1);
-        }
-        clickCounts = tmp;
-      }
-      if (!impressionRes.error) {
-        const tmp2 = new Map<string, number>();
-        for (const r of (impressionRes.data as any[] | null | undefined) ?? []) {
-          const id = String((r as any)?.product_id || "");
-          if (!id) continue;
-          tmp2.set(id, (tmp2.get(id) || 0) + 1);
-        }
-        impressionCounts = tmp2;
-      }
-    } catch {
-      // ignore stats failures; UI will fallback to zeros
-    }
-  }
-
-  const products: Product[] = rawProducts.map((raw) => ({
+  const products: Product[] = rawProducts.map((raw, index) => ({
     id: raw.id,
     slug: raw.slug,
     title: raw.title,
     description: raw.short_desc ?? null,
     price: raw.price ?? 0,
-    mainImage: extractImage(raw.images),
-    clicks: clickCounts.get(raw.id) ?? 0,
-    impressions: impressionCounts.get(raw.id) ?? 0,
+    mainImage: extractImage(raw.images) ?? getFallbackImage(index),
+    clicks: stats.clicks.get(raw.id) ?? 0,
+    impressions: stats.impressions.get(raw.id) ?? 0,
+    dataset,
+    order: index,
   }));
 
+  const rawOrigin = process.env.NEXT_SITE_URL ?? "";
+  const base = rawOrigin.replace(/\/$/, "");
+  const hasBase = base.length > 0;
+  const listUrl = hasBase ? base + "/products" : "/products";
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Product catalog",
+    url: listUrl,
+    itemListElement: products.map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: hasBase ? base + "/products/" + product.slug : "/products/" + product.slug,
+      name: product.title,
+      image: product.mainImage ?? undefined,
+      offers: {
+        "@type": "Offer",
+        priceCurrency: "USD",
+        price: Number.isFinite(product.price) ? product.price.toFixed(2) : "0.00",
+        availability: "https://schema.org/InStock",
+      },
+    })),
+  } satisfies Record<string, unknown>;
+
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="mb-6 flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold">Products</h1>
-        <Link href="/account" className="text-sm text-blue-600 hover:underline">
-          Account
-        </Link>
-      </div>
-      {products.length === 0 ? (
-        <p className="text-neutral-500">No products yet.</p>
-      ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-6">
-          {products.map((product) => (
-            <li key={product.id} className="overflow-hidden rounded-lg border bg-white shadow-sm">
-              <Link href={`/products/${product.slug}`} className="block">
-                <div className="relative aspect-[4/3] bg-neutral-100 border border-neutral-200">
-                  {product.mainImage ? (
-                    <Image
-                      src={product.mainImage}
-                      alt={product.title}
-                      fill
-                      sizes="(max-width:768px) 100vw, 33vw"
-                      className="object-contain p-4"
-                    />
-                  ) : null}
-                </div>
-                <div className="space-y-2 p-4">
-                  <div className="line-clamp-1 text-sm font-medium text-slate-900" title={product.title}>
-                    {product.title}
-                  </div>
-                  <div className="min-h-[2.5rem] text-sm text-neutral-600 line-clamp-2">
-                    {product.description || "-"}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-neutral-500">
-                    <span>Clicks: {product.clicks}</span>
-                    <span>Impressions: {product.impressions}</span>
-                  </div>
-                  <div className="text-base font-semibold text-slate-900">
-                    {formatPrice(product.price)}
-                  </div>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="px-4 py-6 md:px-6 xl:px-8">
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <ProductsClient products={products} />
     </div>
   );
 }

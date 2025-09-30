@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
+import { getFallbackImage } from "./products/fallback-images";
 
 type RawProduct = {
   id: string;
@@ -62,13 +63,13 @@ async function getFeaturedProducts(supabase: SupabaseClient): Promise<Product[]>
     .limit(6);
 
   const products = (data || []) as RawProduct[];
-  return products.map((raw) => ({
+  return products.map((raw, index) => ({
     id: raw.id,
     slug: raw.slug,
     title: raw.title,
     description: raw.short_desc ?? null,
     price: raw.price ?? 0,
-    mainImage: extractImage(raw.images),
+    mainImage: extractImage(raw.images) ?? getFallbackImage(index),
   }));
 }
 

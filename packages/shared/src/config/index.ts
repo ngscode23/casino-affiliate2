@@ -3,24 +3,6 @@
 const isBrowser = typeof window !== "undefined";
 const viteEnv: any = (import.meta as any)?.env || {};
 
-function readEnv(name: string): string {
-  try {
-    if (typeof process !== "undefined" && process.env && typeof process.env[name] === "string") {
-      return String(process.env[name]).trim();
-    }
-  } catch {}
-  const v = viteEnv?.[name];
-  return typeof v === "string" ? v.trim() : "";
-}
-
-function firstEnv(...names: string[]): string {
-  for (const n of names) {
-    const v = readEnv(n);
-    if (v) return v;
-  }
-  return "";
-}
-
 // Prefer literal reads so Next.js can inline variables during build
 const NEXT_SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "").trim();
 const VITE_SITE_ORIGIN = (viteEnv?.VITE_SITE_ORIGIN ?? "").trim();

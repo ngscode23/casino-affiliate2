@@ -27,9 +27,9 @@ BEGIN
     WHERE table_schema = 'storage' AND table_name = 'objects'
   ) THEN
     EXECUTE 'drop policy if exists "product_images_public_read" on storage.objects';
-    EXECUTE $$create policy "product_images_public_read"
-      on storage.objects for select to anon
-      using (bucket_id = ''product-images'');$$;
+    EXECUTE 'create policy "product_images_public_read" '
+         'on storage.objects for select to anon '
+         'using (bucket_id = ''product-images'')';
   END IF;
 END $$;
 
@@ -41,10 +41,10 @@ BEGIN
     WHERE table_schema = 'storage' AND table_name = 'objects'
   ) THEN
     EXECUTE 'drop policy if exists "product_images_admin_write" on storage.objects';
-    EXECUTE $$create policy "product_images_admin_write"
-      on storage.objects for all to authenticated
-      using (bucket_id = ''product-images'' and public.is_admin())
-      with check (bucket_id = ''product-images'' and public.is_admin());$$;
+    EXECUTE 'create policy "product_images_admin_write" '
+         'on storage.objects for all to authenticated '
+         'using (bucket_id = ''product-images'' and public.is_admin()) '
+         'with check (bucket_id = ''product-images'' and public.is_admin())';
   END IF;
 END $$;
 
@@ -61,6 +61,6 @@ begin
       and table_name = 'products'
       and column_name = 'image_path'
   ) then
-    execute $$comment on column shop.products.image_path is 'Supabase Storage object path for primary product image';$$;
+    execute 'comment on column shop.products.image_path is ''Supabase Storage object path for primary product image''';
   end if;
 end $$;

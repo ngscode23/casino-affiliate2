@@ -1,14 +1,17 @@
-import { login, signup } from './actions'
+import { Suspense } from "react";
+import type { Metadata } from "next";
+
+import LoginForm from "./login-form";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Access your affiliate dashboard and manage saved offers.",
+};
 
 export default function LoginPage() {
   return (
-    <form>
-      <label htmlFor="email">Email:</label>
-      <input id="email" name="email" type="email" required />
-      <label htmlFor="password">Password:</label>
-      <input id="password" name="password" type="password" required />
-      <button formAction={login}>Log in</button>
-      <button formAction={signup}>Sign up</button>
-    </form>
-  )
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
 }

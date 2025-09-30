@@ -8,6 +8,60 @@ export { supabase };
 
 
 
+export type SearchProductsParams = {
+  q?: string | null;
+  sort_by?: "relevance" | "price" | "title";
+  sort_dir?: "asc" | "desc";
+  min_price?: number | null;
+  max_price?: number | null;
+  statuses?: string[] | null;
+  limit_count?: number;
+  offset_count?: number;
+};
+
+
+
+export type SearchProductsRow = {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  price_amount: string;
+  currency: string;
+  price_cents: number;
+  source: "ecom" | "products";
+};
+
+export async function searchProducts(params: SearchProductsParams = {}): Promise<SearchProductsRow[]> {
+  const {
+    q = null,
+    sort_by = "relevance",
+    sort_dir = "desc",
+    min_price = null,
+    max_price = null,
+    statuses = ["active"],
+    limit_count = 20,
+    offset_count = 0,
+  } = params;
+
+  const { data, error } = await supabase.rpc("search_products", {
+    q,
+    sort_by,
+    sort_dir,
+    min_price,
+    max_price,
+    statuses,
+    limit_count,
+    offset_count,
+  });
+
+  if (error) throw error;
+
+  return Array.isArray(data) ? (data as SearchProductsRow[]) : [];
+}
+
+
+
 export const API_BASE = "/api";
 const API_FALLBACK = "/.netlify/functions";
 export const API_FALLBACK_BASE = API_FALLBACK;
@@ -309,7 +363,11 @@ export async function listOrders(params: {
   const res = await apiRequest("/orders", { headers }, params);
   const raw = await res.text();
   let data: any = null;
-  try { data = JSON.parse(raw || "null"); } catch {}
+  try {
+    data = JSON.parse(raw || "null");
+  } catch {
+    // Ignore JSON parse errors; downstream checks use status/raw fallback.
+  }
   if (!res.ok) throw new Error(String((data && (data.message || data.code)) || raw || res.status));
   return {
     items: (Array.isArray(data?.items) ? data.items : []) as OrderListItem[],
@@ -339,7 +397,11 @@ export async function getOrder(id: string): Promise<{
   const res = await apiRequest(`/orders/${encodeURIComponent(id)}`, { headers });
   const raw = await res.text();
   let data: any = null;
-  try { data = JSON.parse(raw || "null"); } catch {}
+  try {
+    data = JSON.parse(raw || "null");
+  } catch {
+    // Ignore JSON parse errors; downstream checks use status/raw fallback.
+  }
   if (!res.ok) throw new Error(String((data && (data.message || data.code)) || raw || res.status));
   return { order: data.order, items: data.items || [], payment: data.payment || null };
 }
@@ -350,7 +412,11 @@ export async function cancelOrder(id: string) {
   const res = await apiRequest(`/orders/${encodeURIComponent(id)}/cancel`, { method: "POST", headers });
   const raw = await res.text();
   let data: any = null;
-  try { data = JSON.parse(raw || "null"); } catch {}
+  try {
+    data = JSON.parse(raw || "null");
+  } catch {
+    // Ignore JSON parse errors; downstream checks use status/raw fallback.
+  }
   if (!res.ok) throw new Error(String((data && (data.message || data.code)) || raw || res.status));
   return true;
 }
@@ -365,8 +431,178 @@ export async function confirmPayment(id: string, scenario?: "authorized" | "requ
   );
   const raw = await res.text();
   let data: any = null;
-  try { data = JSON.parse(raw || "null"); } catch {}
+  try {
+    data = JSON.parse(raw || "null");
+  } catch {
+    // Ignore JSON parse errors; downstream checks use status/raw fallback.
+  }
   if (!res.ok) throw new Error(String((data && (data.message || data.code)) || raw || res.status));
   return data as { ok: boolean; status: string; next_action?: any };
+}
+
+// --- ADD: расширенные типы для v2 поиска
+export type SearchProductsV2Params = {
+  q?: string | null;
+  sort_by?: "relevance" | "price" | "title";
+  sort_dir?: "asc" | "desc";
+  min_price?: number | null;
+  max_price?: number | null;
+  statuses?: string[] | null;
+  limit_count?: number;
+  offset_count?: number;
+  category_slugs?: string[] | null;
+  skus?: string[] | null;
+  sources?: ("ecom" | "products")[] | null;
+  min_rating?: number | null;
+};
+
+// те же строки, что и раньше (функция возвращает 8 колонок)
+export type SearchProductsV2Row = {
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  price_amount: string; // numeric как строка
+  currency: string;
+  price_cents: number;
+  source: "ecom" | "products";
+};
+// --- ADD: v2 RPC для поиска
+export async function searchProductsV2(
+  p: SearchProductsV2Params = {}
+): Promise<SearchProductsV2Row[]> {
+  const {
+    q = null,
+    sort_by = "relevance",
+    sort_dir = "desc",
+    min_price = null,
+    max_price = null,
+    statuses = ["active"],
+    limit_count = 20,
+    offset_count = 0,
+    category_slugs = null,
+    skus = null,
+    sources = null,
+    min_rating = null,
+  } = p;
+
+  const { data, error } = await supabase.rpc("search_products_v2", {
+    q,
+    sort_by,
+    sort_dir,
+    min_price,
+    max_price,
+    statuses,
+    limit_count,
+    offset_count,
+    category_slugs,
+    skus,
+    sources,
+    min_rating,
+  });
+
+  if (error) throw error;
+  return Array.isArray(data) ? (data as SearchProductsV2Row[]) : [];
+}
+
+// --- ADD: total для пагинации
+export async function searchProductsV2Count(p: {
+  q?: string | null;
+  min_price?: number | null;
+  max_price?: number | null;
+  statuses?: string[] | null;
+  category_slugs?: string[] | null;
+  skus?: string[] | null;
+  sources?: ("ecom" | "products")[] | null;
+  min_rating?: number | null;
+} = {}): Promise<number> {
+  const {
+    q = null,
+    min_price = null,
+    max_price = null,
+    statuses = ["active"],
+    category_slugs = null,
+    skus = null,
+    sources = null,
+    min_rating = null,
+  } = p;
+
+  const { data, error } = await supabase.rpc("search_products_v2_count", {
+    q,
+    min_price,
+    max_price,
+    statuses,
+    category_slugs,
+    skus,
+    sources,
+    min_rating,
+  });
+
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+// --- ADD: форматтер цены
+export function formatPrice(row: { currency: string; price_cents: number }) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: row.currency || "USD",
+  }).format((row.price_cents ?? 0) / 100);
+}
+// --- ADD: удобный хук (опционально)
+import { useEffect, useState } from "react";
+
+export function useDebounced<T>(value: T, delay = 300) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
+}
+
+export function useProductsSearchV2(params: SearchProductsV2Params) {
+  const [rows, setRows] = useState<SearchProductsV2Row[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const debounced = useDebounced(params, 300);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [list, count] = await Promise.all([
+          searchProductsV2(debounced),
+          searchProductsV2Count({
+            q: debounced.q ?? null,
+            min_price: debounced.min_price ?? null,
+            max_price: debounced.max_price ?? null,
+            statuses: debounced.statuses ?? ["active"],
+            category_slugs: debounced.category_slugs ?? null,
+            skus: debounced.skus ?? null,
+            sources: debounced.sources ?? null,
+            min_rating: debounced.min_rating ?? null,
+          }),
+        ]);
+        if (!cancelled) {
+          setRows(list);
+          setTotal(count);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setRows([]);
+          setTotal(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced]);
+
+  return { rows, total, loading };
 }
 

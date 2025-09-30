@@ -78,7 +78,7 @@ export default function CompareFilters({
     onChange({ license: draftLicense, method: draftMethod });
     onSearchChange(draftSearch);
     setOpen(false);
-  }, [draftLicense, draftMethod, onChange]);
+  }, [draftLicense, draftMethod, draftSearch, onChange, onSearchChange]);
 
   const reset = React.useCallback(() => {
     setDraftLicense("all");

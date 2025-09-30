@@ -1,6 +1,0 @@
-{
-  "items": [
-    { "name":"SkySpin", "rating":4.6, "license":"MGA", "payout":"1-2 дня", "methods":"Visa, MasterCard, SEPA", "link":"/go/skyspin", "enabled":true, "position":1 },
-    { "name":"NovaWin", "rating":4.4, "license":"Curaçao", "payout":"до 48ч", "methods":"Cards, Crypto", "link":"/go/novawin", "enabled":true, "position":2 }
-  ]
-}

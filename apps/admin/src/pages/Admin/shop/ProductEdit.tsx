@@ -128,7 +128,7 @@ export default function ShopProductEdit() {
     if (!title) return;
     setSlug((prev) => (prev ? prev : slugifyTitle(title, sku)));
     setSku((prev) => (prev ? prev : normalizeSku(undefined, title)));
-  }, [title, isNew]);
+  }, [title, isNew, sku]);
 
   useEffect(() => {
     if (!isNew) return;

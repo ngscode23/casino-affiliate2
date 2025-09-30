@@ -23,7 +23,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "product_id is required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+    const supabase = await createClient();
+
+  const productExists = async () => {
+    if (dataset === "legacy") {
+      const { data } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", rawProductId)
+        .limit(1)
+        .maybeSingle();
+      return !!data;
+    }
+    const { data } = await supabase
+      .from("ecom_products")
+      .select("id")
+      .eq("id", rawProductId)
+      .limit(1)
+      .maybeSingle();
+    return !!data;
+  };
+
+  if (!(await productExists())) {
+    return NextResponse.json({ ok: true, recorded: false, reason: "unknown_product" });
+  }
+
   const h = await headers();
   const payload: ImpressionPayload = {
     product_id: rawProductId,
@@ -73,6 +97,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: false, error: message }, { status: 500 });
 }
+
 
 
 
