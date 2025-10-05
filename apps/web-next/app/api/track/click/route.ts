@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { getAdminClient } from "@/utils/supabase/admin";
 
 const CLICK_TABLES = ["shop_clicks", "product_clicks"] as const;
 
@@ -23,7 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "product_id is required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = getAdminClient();
+  } catch {
+    supabase = await createClient();
+  }
   const h = await headers();
   const payload: ClickPayload = {
     product_id: rawProductId,

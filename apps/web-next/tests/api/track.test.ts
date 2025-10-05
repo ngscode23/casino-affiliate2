@@ -83,7 +83,24 @@ describe("track API routes", () => {
 
   it("writes impression events to Supabase", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
-    const from = vi.fn(() => ({ insert }));
+    const buildSelectChain = (data: unknown) => {
+      const maybeSingle = vi.fn().mockResolvedValue({ data });
+      const limit = vi.fn(() => ({ maybeSingle }));
+      const eq = vi.fn(() => ({ limit }));
+      const select = vi.fn(() => ({ eq }));
+      return { select };
+    };
+
+    const from = vi.fn((table: string) => {
+      if (table === "ecom_products") {
+        return buildSelectChain({ id: "prod-1" });
+      }
+      if (table === "products") {
+        return buildSelectChain({ id: "legacy-1" });
+      }
+      return { insert };
+    });
+
     (createClient as unknown as vi.Mock).mockResolvedValue({ from } as any);
 
     const { POST } = await import("@/app/api/track/impression/route");
@@ -99,3 +116,4 @@ describe("track API routes", () => {
     expect(insert).toHaveBeenCalledTimes(1);
   });
 });
+
