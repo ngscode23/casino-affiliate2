@@ -85,8 +85,14 @@ function extractCheckout(raw: unknown): CheckoutPayload | null {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAuth(request);
-  if ("response" in auth) return auth.response;
+  // Пытаемся определить пользователя, но не блокируем гостевой чекаут
+  let userId: string | null = null;
+  try {
+    const maybeAuth = await requireAuth(request);
+    if (!("response" in maybeAuth)) {
+      userId = maybeAuth.user.id;
+    }
+  } catch {}
 
   const supabase = getAdminClient();
 
@@ -121,12 +127,12 @@ export async function POST(request: Request) {
     let rpcResponse;
     if (items.length) {
       rpcResponse = await supabase.rpc("place_order_with_items", {
-        p_user_id: auth.user.id,
+        p_user_id: userId,
         p_items: items,
         p_currency: currency,
       });
     } else {
-      rpcResponse = await supabase.rpc("place_order", { p_user_id: auth.user.id });
+      rpcResponse = await supabase.rpc("place_order", { p_user_id: userId });
     }
 
     if (rpcResponse.error) {
