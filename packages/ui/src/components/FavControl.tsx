@@ -42,12 +42,11 @@ export function FavControl({
       aria-pressed={active}
       title={active ? titleOn : titleOff}
       onClick={handleClick}
-      className={`${base} ${colorClass}`}
+      className={`${base} ${colorClass} tap-highlight-transparent`}
       data-testid={`fav-btn:${key}`}
       aria-label={active ? "Remove from favorites" : "Add to favorites"}
-      style={{ WebkitTapHighlightColor: "transparent" }}
     >
-      <span aria-hidden style={{ lineHeight: 1, fontSize: "1.15rem" }}>
+      <span aria-hidden className="leading-none text-[1.15rem]">
         {active ? "★" : "☆"}
       </span>
     </button>

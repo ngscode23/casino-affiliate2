@@ -5,7 +5,7 @@ export default function Rating({ value=0, max=5 }:{ value?: number; max?: number
   return (
     <div className="inline-flex items-center gap-1">
       {Array.from({ length: max }).map((_, i) => (
-        <span key={i} aria-hidden style={{ lineHeight: 1, fontSize: "1.05rem" }}>
+        <span key={i} aria-hidden className="leading-none text-[1.05rem]">
           {i < full ? "★" : "☆"}
         </span>
       ))}

@@ -13,29 +13,17 @@ export default function TestButton() {
   };
 
   return (
-    <div style={{ margin: "20px", display: "flex", gap: "10px" }}>
+    <div className="m-5 flex gap-3">
       <button
         onClick={throwError}
-        style={{
-          padding: "10px 20px",
-          background: "red",
-          color: "white",
-          borderRadius: "8px",
-          border: "none",
-        }}
+        className="rounded-lg border-none bg-red-600 px-5 py-2.5 text-white shadow-sm transition hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
       >
         Тест Sentry (ошибка)
       </button>
 
       <button
         onClick={sendEvent}
-        style={{
-          padding: "10px 20px",
-          background: "blue",
-          color: "white",
-          borderRadius: "8px",
-          border: "none",
-        }}
+        className="rounded-lg border-none bg-blue-600 px-5 py-2.5 text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
       >
         Тест PostHog (событие)
       </button>

@@ -32,14 +32,14 @@ export const Table = ({
   className,
   ...p
 }: React.HTMLAttributes<HTMLTableElement>) => (
-  <table className={cn("table w-full", className)} {...p} />
+  <table className={cn("w-full overflow-hidden rounded-2xl border border-border/40 bg-card/80 text-sm text-fg shadow-soft", className)} {...p} />
 );
 
 export const THead = ({
   className,
   ...p
 }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-  <thead className={cn("bg-card", className)} {...p} />
+  <thead className={cn("bg-card/60", className)} {...p} />
 );
 
 export const TBody = (
@@ -50,7 +50,7 @@ export const Tr = ({
   className,
   ...p
 }: React.HTMLAttributes<HTMLTableRowElement>) => (
-  <tr className={cn("hover:bg-slate-100 transition-colors dark:hover:bg-white/5", className)} {...p} />
+  <tr className={cn("border-b border-border/30 transition-colors hover:bg-card/70", className)} {...p} />
 );
 
 export const Th = ({
@@ -59,8 +59,7 @@ export const Th = ({
 }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
     className={cn(
-      "text-left text-[13px] uppercase tracking-wide text-[var(--text-dim)]",
-      "px-4 py-3",
+      "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted",
       className
     )}
     {...p}
@@ -71,7 +70,7 @@ export const Td = ({
   className,
   ...p
 }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
-  <td className={cn("align-middle px-4 py-3", className)} {...p} />
+  <td className={cn("px-4 py-3 align-middle text-sm text-fg", className)} {...p} />
 );
 
 /* ===========================
@@ -86,23 +85,22 @@ function DataTable<T>({
   tableProps,
 }: DataTableProps<T>) {
   return (
-    <table className={cn("table w-full", className)} {...tableProps}>
+    <table className={cn("w-full overflow-hidden rounded-2xl border border-border/40 bg-card/80 text-sm text-fg shadow-soft", className)} {...tableProps}>
       {/* Ширины колонок */}
       {!!columns.length && (
         <colgroup>
-          {columns.map((c, i) => (
-            <col
-              key={`col-${String(c.key)}-${i}`}
-              style={c.width ? { width: `${c.width}px` } : undefined}
-            />
-          ))}
+          {columns.map((c, i) => {
+            const width = typeof c.width === "number" ? Math.max(0, Math.min(512, Math.round(c.width))) : null;
+            const widthClass = width != null ? `w-px-${width}` : undefined;
+            return <col key={`col-${String(c.key)}-${i}`} className={widthClass} />;
+          })}
         </colgroup>
       )}
 
-      <thead>
+      <thead className="bg-card/60">
         <tr>
           {columns.map((c, i) => (
-            <th key={`h-${String(c.key)}-${i}`} {...c.headerProps}>
+            <th key={`h-${String(c.key)}-${i}`} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted" {...c.headerProps}>
               {c.title}
             </th>
           ))}
@@ -111,9 +109,9 @@ function DataTable<T>({
 
       <tbody>
         {rows.map((r, i) => (
-          <tr key={rowKey(r, i)}>
+          <tr key={rowKey(r, i)} className="border-b border-border/30 transition-colors hover:bg-card/70">
             {columns.map((c, j) => (
-              <td key={`c-${String(c.key)}-${i}-${j}`} {...c.cellProps}>
+              <td key={`c-${String(c.key)}-${i}-${j}`} className="px-4 py-3 align-middle text-sm text-fg" {...c.cellProps}>
                 {c.render ? c.render(r, i) : (r as any)[c.key as keyof T]}
               </td>
             ))}
@@ -125,4 +123,3 @@ function DataTable<T>({
 }
 
 export default DataTable;
-
