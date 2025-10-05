@@ -2,11 +2,83 @@
 // Note: use the shared Supabase client for direct DB/RPC calls.
 import { supabase } from "@shared/lib/supabase";
 import { getValidAccessToken } from "@shared/lib/auth";
+import { HAS_SUPABASE } from "@shared/config";
+import { products as demoProducts } from "@shared/ecom/data/products";
 // Re-export supabase instance for consumers under ecom namespace
 export { supabase };
 
+const LOCAL_ORDERS_KEY = "ecom:orders";
 
+type LocalOrderItem = { id: string; qty: number; price: number; title: string };
+type LocalOrderRecord = {
+  id: string;
+  createdAt: string;
+  currency: string;
+  subtotal: number;
+  status: string;
+  paymentStatus?: string | null;
+  checkout?: PlaceOrderCheckout;
+  items: LocalOrderItem[];
+};
 
+function readLocalOrders(): LocalOrderRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_ORDERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) => entry && typeof entry.id === "string") as LocalOrderRecord[];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalOrders(orders: LocalOrderRecord[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(orders));
+  } catch {
+    /* ignore */
+  }
+}
+
+function generateLocalOrderId(): string {
+  return `local-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createLocalOrder(items: Array<{ id: string; qty: number }>, currency: string, checkout?: PlaceOrderCheckout) {
+  if (typeof window === "undefined") {
+    throw new Error("Orders are not available offline in this environment");
+  }
+
+  const productMap = new Map(demoProducts.map((item) => [item.id, item]));
+  const enriched: LocalOrderItem[] = items
+    .filter((row) => row && typeof row.id === "string" && row.qty > 0)
+    .map((row) => {
+      const product = productMap.get(row.id) || null;
+      const price = Number(product?.price ?? 0);
+      const title = (product?.title ?? row.id).toString();
+      return { id: row.id, qty: row.qty, price, title };
+    });
+
+  const subtotal = Number(enriched.reduce((sum, row) => sum + row.price * row.qty, 0).toFixed(2));
+  const record: LocalOrderRecord = {
+    id: `local-${(Date.now()).toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    currency,
+    subtotal,
+    status: "processing",
+    paymentStatus: "pending",
+    checkout,
+    items: enriched,
+  };
+
+  const orders = readLocalOrders();
+  orders.unshift(record);
+  writeLocalOrders(orders);
+  return { order_id: record.id };
+}
 
 export type SearchProductsParams = {
   q?: string | null;
@@ -263,82 +335,172 @@ function normalizeCheckoutString(value: unknown, max = 512): string | undefined 
 }
 // Create an order for current authenticated user via Netlify function
 export async function placeOrder(
+
   items: Array<{ id: string; qty: number }>,
+
   optionsOrCurrency?: string | PlaceOrderOptions
+
 ): Promise<{ order_id: string }> {
-  const token = await getValidAccessToken();
-  if (!token) throw new Error("Not authenticated");
 
   let currency: string | undefined;
+
   let checkout: PlaceOrderCheckout | undefined;
+
   if (typeof optionsOrCurrency === "string") {
+
     currency = optionsOrCurrency;
+
   } else if (optionsOrCurrency) {
+
     currency = optionsOrCurrency.currency;
+
     checkout = optionsOrCurrency.checkout;
+
   }
+
+
 
   const checkoutPayload = (() => {
+
     if (!checkout) return undefined;
+
     const contactRaw = checkout.contact || {};
+
     const shippingRaw = checkout.shipping || {};
+
     const contact = {
+
       ...(normalizeCheckoutString(contactRaw.fullName, 160)
+
         ? { fullName: normalizeCheckoutString(contactRaw.fullName, 160)! }
+
         : {}),
+
       ...(normalizeCheckoutString(contactRaw.email, 254)
+
         ? { email: normalizeCheckoutString(contactRaw.email, 254)! }
+
         : {}),
+
     };
+
     const shipping = {
+
       ...(normalizeCheckoutString(shippingRaw.address)
+
         ? { address: normalizeCheckoutString(shippingRaw.address)! }
+
         : {}),
+
       ...(normalizeCheckoutString(shippingRaw.city)
+
         ? { city: normalizeCheckoutString(shippingRaw.city)! }
+
         : {}),
+
       ...(normalizeCheckoutString(shippingRaw.postalCode, 40)
+
         ? { postalCode: normalizeCheckoutString(shippingRaw.postalCode, 40)! }
+
         : {}),
+
       ...(normalizeCheckoutString(shippingRaw.notes, 500)
+
         ? { notes: normalizeCheckoutString(shippingRaw.notes, 500)! }
+
         : {}),
+
     };
+
     const hasContact = Object.keys(contact).length > 0;
+
     const hasShipping = Object.keys(shipping).length > 0;
+
     if (!hasContact && !hasShipping) return undefined;
+
     return {
+
       ...(hasContact ? { contact } : {}),
+
       ...(hasShipping ? { shipping } : {}),
+
     } as PlaceOrderCheckout;
+
   })();
 
+
+
+  if (!HAS_SUPABASE) {
+
+    const effectiveCurrency = currency || "USD";
+
+    return createLocalOrder(items, effectiveCurrency, checkoutPayload);
+
+  }
+
+
+
+  const token = await getValidAccessToken();
+
+  // Гостевой чекаут: продолжаем без токена
+
+
+
   const payload: Record<string, unknown> = { items };
+
   if (currency) payload.currency = currency;
+
   if (checkoutPayload) payload.checkout = checkoutPayload;
 
+
+
   const res = await apiRequest("/orders-create", {
+
     method: "POST",
+
     headers: {
+
       accept: "application/json",
+
       "content-type": "application/json",
-      authorization: `Bearer ${token}`,
+
+      // Добавляем авторизацию только если есть токен
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+
     },
+
     body: JSON.stringify(payload),
+
   });
+
   const raw = await res.text();
+
   let data: any = null;
+
   try { data = JSON.parse(raw || "null"); } catch { /* keep raw */ }
+
   if (!res.ok) {
+
     const msg = (data && (data.message || data.code)) || raw || `orders-create ${res.status}`;
+
     throw new Error(String(msg));
+
   }
+
   if (!data || data.ok === false || !data.order_id) {
+
     const msg = (data && (data.message || data.code)) || "order_failed";
+
     throw new Error(String(msg));
+
   }
+
   return { order_id: String(data.order_id) };
+
 }
+
+
+
 export type OrderListItem = {
   id: string;
   created_at: string;
@@ -357,6 +519,23 @@ export async function listOrders(params: {
   page?: number;
   page_size?: number;
 } = {}) {
+  if (!HAS_SUPABASE) {
+    const orders = readLocalOrders();
+    return {
+      items: orders.map((order) => ({
+        id: order.id,
+        created_at: order.createdAt,
+        amount_total: order.subtotal,
+        currency: order.currency,
+        status: order.status,
+        payment_status: order.paymentStatus ?? null,
+      })) as OrderListItem[],
+      count: orders.length,
+      page: 1,
+      page_size: orders.length || params.page_size || 20,
+    };
+  }
+
   const headers = await authHeaders();
   // Ensure user is authenticated
   if (!('authorization' in headers)) throw new Error("Not authenticated");
@@ -378,20 +557,92 @@ export async function listOrders(params: {
 }
 
 export async function getOrder(id: string): Promise<{
+
   order: {
+
     id: string;
+
     created_at: string;
+
     amount_subtotal: number;
+
     amount_discounts: number;
+
     amount_tax: number;
+
     amount_total: number;
+
     currency: string;
+
     status: string;
+
     payment_status?: string | null;
+
   };
+
   items: Array<{ id: string; product_id: string; title: string; qty: number; unit_price: number; total: number }>;
+
   payment?: { id: string; status: string; amount: number; currency: string; provider: string; provider_ref?: string; created_at: string } | null;
+
 }> {
+
+  if (!HAS_SUPABASE) {
+
+    const orders = readLocalOrders();
+
+    const record = orders.find((order) => order.id === id);
+
+    if (!record) {
+
+      throw new Error('Order not found');
+
+    }
+
+    return {
+
+      order: {
+
+        id: record.id,
+
+        created_at: record.createdAt,
+
+        amount_subtotal: record.subtotal,
+
+        amount_discounts: 0,
+
+        amount_tax: 0,
+
+        amount_total: record.subtotal,
+
+        currency: record.currency,
+
+        status: record.status,
+
+        payment_status: record.paymentStatus ?? null,
+
+      },
+
+      items: record.items.map((item, index) => ({
+
+        id: `${record.id}-${index}`,
+
+        product_id: item.id,
+
+        title: item.title,
+
+        qty: item.qty,
+
+        unit_price: item.price,
+
+        total: Number((item.price * item.qty).toFixed(2)),
+
+      })),
+
+      payment: null,
+
+    };
+
+  }
   const headers = await authHeaders();
   if (!('authorization' in headers)) throw new Error("Not authenticated");
   const res = await apiRequest(`/orders/${encodeURIComponent(id)}`, { headers });
@@ -407,13 +658,24 @@ export async function getOrder(id: string): Promise<{
 }
 
 export async function cancelOrder(id: string) {
+  if (!HAS_SUPABASE) {
+    const orders = readLocalOrders();
+    const record = orders.find((order) => order.id === id);
+    if (record) {
+      record.status = 'cancelled';
+      record.paymentStatus = 'cancelled';
+      writeLocalOrders(orders);
+    }
+    return true;
+  }
+
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error("Not authenticated");
-  const res = await apiRequest(`/orders/${encodeURIComponent(id)}/cancel`, { method: "POST", headers });
+  if (!('authorization' in headers)) throw new Error('Not authenticated');
+  const res = await apiRequest(`/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers });
   const raw = await res.text();
   let data: any = null;
   try {
-    data = JSON.parse(raw || "null");
+    data = JSON.parse(raw || 'null');
   } catch {
     // Ignore JSON parse errors; downstream checks use status/raw fallback.
   }
@@ -422,17 +684,47 @@ export async function cancelOrder(id: string) {
 }
 
 export async function confirmPayment(id: string, scenario?: "authorized" | "requires_action" | "failed" | "succeeded") {
+  if (!HAS_SUPABASE) {
+    const orders = readLocalOrders();
+    const record = orders.find((order) => order.id === id);
+    if (record) {
+      switch (scenario) {
+        case 'failed':
+          record.status = 'failed';
+          record.paymentStatus = 'failed';
+          break;
+        case 'requires_action':
+          record.status = 'requires_action';
+          record.paymentStatus = 'pending';
+          break;
+        case 'authorized':
+          record.status = 'processing';
+          record.paymentStatus = 'authorized';
+          break;
+        default:
+          record.status = 'succeeded';
+          record.paymentStatus = 'paid';
+          break;
+      }
+      writeLocalOrders(orders);
+      return { ok: true, status: record.status };
+    }
+    const fallbackStatus =
+      scenario === 'failed' ? 'failed' : scenario === 'requires_action' ? 'requires_action' : 'succeeded';
+    return { ok: true, status: fallbackStatus };
+  }
+
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error("Not authenticated");
+  if (!('authorization' in headers)) throw new Error('Not authenticated');
   const res = await apiRequest(
     `/orders/${encodeURIComponent(id)}/confirm-payment`,
-    { method: "POST", headers },
+    { method: 'POST', headers },
     scenario ? { scenario } : undefined
   );
   const raw = await res.text();
   let data: any = null;
   try {
-    data = JSON.parse(raw || "null");
+    data = JSON.parse(raw || 'null');
   } catch {
     // Ignore JSON parse errors; downstream checks use status/raw fallback.
   }

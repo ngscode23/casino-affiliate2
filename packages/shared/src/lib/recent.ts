@@ -3,6 +3,21 @@
 export const RECENT_KEY = "recent:offers:v1";
 export const RECENT_MAX = 12;
 
+/** Безопасная проверка режима разработки. */
+function isDevMode(): boolean {
+  try {
+    // Попытка проверить Vite-style import.meta.env.DEV
+    if ((import.meta as any)?.env?.DEV) return true;
+  } catch (_) {
+    // игнорировать синтаксические / рантайм-ошибки доступа к import.meta
+  }
+  // Запасной вариант — node-переменные окружения (SSR/Node)
+  try {
+    if (typeof process !== "undefined" && (process.env as any)?.NODE_ENV === "development") return true;
+  } catch (_) {}
+  return false;
+}
+
 /** Безопасно читаем localStorage (и фильтруем мусор). */
 function readRecent(): string[] {
   try {
@@ -12,7 +27,7 @@ function readRecent(): string[] {
     if (!Array.isArray(arr)) return [];
     return arr.filter((x) => typeof x === "string");
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[recent] read failed:", e);
+    if (isDevMode()) console.warn("[recent] read failed:", e);
     return [];
   }
 }
@@ -22,7 +37,7 @@ function writeRecent(list: string[]) {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[recent] persist failed:", e);
+    if (isDevMode()) console.warn("[recent] persist failed:", e);
   }
 }
 
@@ -50,6 +65,6 @@ export function clearRecent() {
   try {
     localStorage.removeItem(RECENT_KEY);
   } catch (e) {
-    if (import.meta.env.DEV) console.warn("[recent] clear failed:", e);
+    if (isDevMode()) console.warn("[recent] clear failed:", e);
   }
 }

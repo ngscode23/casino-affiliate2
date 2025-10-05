@@ -9,10 +9,14 @@ type Action =
   | { type: "add"; id: string; qty?: number }
   | { type: "remove"; id: string }
   | { type: "update"; id: string; qty: number }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "hydrate"; state: CartState };
 
 function reducer(state: CartState, action: Action): CartState {
   switch (action.type) {
+    case "hydrate": {
+      return action.state;
+    }
     case "add": {
       const qty = Math.max(1, action.qty ?? 1);
       const ex = state.items.find((i) => i.id === action.id);
@@ -54,26 +58,34 @@ const LS_KEY = "ecom:cart";
 
 // стало:
 export function CartProvider({ children }: React.PropsWithChildren) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => {
-    if (typeof window === "undefined") return { items: [] } as CartState;
+  const [state, dispatch] = useReducer(reducer, { items: [] });
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(LS_KEY);
-      if (raw) return JSON.parse(raw) as CartState;
+      if (raw) {
+        const parsed = JSON.parse(raw) as CartState;
+        if (Array.isArray(parsed?.items)) {
+          dispatch({ type: "hydrate", state: { items: parsed.items } });
+        }
+      }
     } catch {
-      // In SSR, avoid noisy logs; on client this rarely triggers
+      // ignore hydration read failures
+    } finally {
+      setIsHydrated(true);
     }
-    return { items: [] };
-  });
+  }, []);
 
-useEffect(() => {
-  try {
-    if (typeof window !== "undefined") {
+  useEffect(() => {
+    if (typeof window === "undefined" || !isHydrated) return;
+    try {
       window.localStorage.setItem(LS_KEY, JSON.stringify(state));
+    } catch {
+      // ignore storage errors
     }
-  } catch {
-    // ignore storage errors
-  }
-}, [state]);
+  }, [state, isHydrated]);
 
   // Cache for products coming from DB (ids not present in local dataset)
   const [dbMap, setDbMap] = useState<Map<string, Product>>(new Map());

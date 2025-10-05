@@ -164,17 +164,17 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
     <div className="p-0 overflow-auto max-h-[70vh]">
       <table className="w-full">
           <colgroup>
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "80px" }} />
-            <col style={{ width: "260px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "160px" }} />
+            <col className="w-[140px]" />
+            <col className="w-[80px]" />
+            <col className="w-[260px]" />
+            <col className="w-[140px]" />
+            <col className="w-[140px]" />
+            <col className="w-[160px]" />
             <col />
-            <col style={{ width: "140px" }} />
+            <col className="w-[140px]" />
           </colgroup>
 
-          <thead className="sticky top-0 z-10" style={{ background: "rgb(var(--bg-1) / .9)" }}>
+          <thead className="sticky top-0 z-10 bg-[color:rgb(var(--bg-1)/0.9)]">
             <tr>
               <th className="px-4 py-3 border-b border-white/10">{t("compare.addTo")}</th>
               <th className="px-4 py-3 border-b border-white/10">{t("nav.favorites") || "FAV"}</th>

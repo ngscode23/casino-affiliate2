@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useReducer,
   useCallback,
+  useState,
 } from "react";
 import { products } from "@shared/ecom/data/products";
 import type { Product } from "@shared/ecom/lib/types";
@@ -22,7 +23,8 @@ type Action =
   | { type: "add"; id: string }
   | { type: "toggle"; id: string }
   | { type: "remove"; id: string }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "hydrate"; ids: string[] };
 
 function readState(): State {
   try {
@@ -49,6 +51,8 @@ function writeState(state: State) {
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case "hydrate":
+      return { ids: action.ids };
     case "add": {
       if (state.ids.includes(action.id)) return state;
       return { ids: [...state.ids, action.id] };
@@ -86,17 +90,29 @@ const WishlistContext = createContext<Ctx | null>(null);
 // было:
 // export function WishlistProvider({ children }: React.PropsWithChildren<{}>) {
 export function WishlistProvider({ children }: React.PropsWithChildren) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => readState());
-  const SERVER_SYNC = ((import.meta as any).env?.VITE_WISHLIST_SERVER_SYNC ?? 'true') !== 'false';
+  const [state, dispatch] = useReducer(reducer, { ids: [] });
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const initial = readState();
+    if (initial.ids.length) {
+      dispatch({ type: "hydrate", ids: initial.ids });
+    }
+    setHasHydrated(true);
+  }, []);
+  const serverSyncFlag =
+    typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_WISHLIST_SERVER_SYNC;
+  const SERVER_SYNC = (serverSyncFlag ?? 'true') !== 'false';
 
   // синхронизация со storage
   useEffect(() => {
+    if (!hasHydrated) return;
     try {
       writeState(state);
     } catch {
       // ignore: storage может быть недоступен/заблокирован
     }
-  }, [state]);
+  }, [state, hasHydrated]);
 
   // ---- server sync helpers ----
   const getAccessToken = useCallback(async (): Promise<string | null> => {
@@ -254,4 +270,5 @@ export function useWishlist(): Ctx {
   }
   return ctx;
 }
+
 

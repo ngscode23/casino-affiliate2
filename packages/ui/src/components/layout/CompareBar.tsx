@@ -54,6 +54,7 @@ export default function CompareBar() {
   const barRef = useRef<HTMLDivElement | null>(null);
   const [spacerH, setSpacerH] = useState<number>(0);
   const [open, setOpen] = useState(false);
+  const spacerHeightClass = `h-bar-${Math.max(0, Math.min(512, Math.round(spacerH)))}`;
 
   const rows = useMemo(
     () =>
@@ -94,22 +95,21 @@ export default function CompareBar() {
     <div data-compare-root>
       <Sheet open={open} onOpenChange={setOpen}>
         {/* Spacer for the fixed bar. Hidden while panel is open. */}
-        {!open && <div aria-hidden style={{ height: spacerH }} />}
+        {!open && <div aria-hidden className={spacerHeightClass} />}
 
         {/* Fixed compare bar (hidden while panel open) */}
         {!open && selected.length > 0 && (
           <div className="fixed inset-x-0 bottom-4 z-[30] pointer-events-none" role="region" aria-label="Comparison bar">
             <div
-              className="pointer-events-auto mx-auto max-w-5xl rounded-2xl border border-white/10 bg-[var(--surface-elev,#141720)]/95 backdrop-blur p-3 shadow-[0_8px_30px_rgba(0,0,0,.4)]"
-              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+              className="pointer-events-auto surface mx-auto max-w-5xl rounded-2xl border border-border/40 px-4 py-3 pb-safe shadow-soft md:px-5"
               ref={barRef}
             >
               <div className="flex items-center gap-2">
-                <div className="text-sm text-[var(--text-dim)]">
+                <div className="text-sm text-muted">
                   {(t("compare.selectedFor") || "Compare") + ` (${selected.length})`}
                 </div>
                 {selected.length === 1 ? (
-                  <div className="text-xs text-[var(--text-dim)]" data-testid="compare-hint">
+                  <div className="text-xs text-muted" data-testid="compare-hint">
                     {t("compare.hintAddOneMore") || "Add one more to open compare"}
                   </div>
                 ) : null}
@@ -180,7 +180,7 @@ export default function CompareBar() {
         )}
 
         {/* Bottom panel with detailed comparison */}
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-auto rounded-t-2xl bg-[var(--bg-0)] text-[var(--text)]">
+        <SheetContent side="bottom" className="surface max-h-[80vh] overflow-auto rounded-t-2xl border border-border/40 bg-card text-fg shadow-soft">
           <SheetHeader className="sr-only">
             <SheetTitle>Compare panel</SheetTitle>
             <SheetDescription>Manage your selected casinos for comparison.</SheetDescription>
@@ -192,11 +192,11 @@ export default function CompareBar() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="text-left px-3 py-2 border-b border-white/10">{t("compare.field") || "Field"}</th>
+                  <th className="text-left px-3 py-2 border-b border-border/40">{t("compare.field") || "Field"}</th>
                   {selected.map((raw) => {
                     const o = toOfferLike(raw);
                     return (
-                      <th key={o.slug ?? o.name} className="text-left px-3 py-2 border-b border-white/10">
+                      <th key={o.slug ?? o.name} className="text-left px-3 py-2 border-b border-border/40">
                         {o.name}
                       </th>
                     );
@@ -206,7 +206,7 @@ export default function CompareBar() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.k}>
-                    <td className="px-3 py-2 text-[var(--text-dim)]">{row.k}</td>
+                    <td className="px-3 py-2 text-muted">{row.k}</td>
                     {selected.map((raw) => {
                       const o = toOfferLike(raw);
                       return (
@@ -234,4 +234,5 @@ export default function CompareBar() {
     </div>
   );
 }
+
 

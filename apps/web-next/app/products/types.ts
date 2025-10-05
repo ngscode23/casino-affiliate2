@@ -9,4 +9,7 @@ export type Product = {
   impressions: number;
   dataset: "shop" | "legacy";
   order: number;
+  createdAt?: string | null;
+  isNew?: boolean;
+  isTop?: boolean;
 };

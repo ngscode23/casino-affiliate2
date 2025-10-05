@@ -26,6 +26,7 @@ type RawProduct = {
   price: number | null;
   images: unknown;
   status?: string | null;
+  created_at?: string | null;
 };
 
 function extractImage(images: unknown): string | null {
@@ -44,6 +45,23 @@ function extractImage(images: unknown): string | null {
   return null;
 }
 
+function humanizeSlug(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function deriveTitle(raw: RawProduct, index: number): string {
+  const direct = typeof raw.title === "string" ? raw.title.trim() : "";
+  if (direct.length) return direct;
+  const slug = typeof raw.slug === "string" ? raw.slug : "";
+  const fromSlug = humanizeSlug(slug);
+  if (fromSlug.length) return fromSlug;
+  return `Product ${index + 1}`;
+}
+
 async function fetchProducts() {
   const supabase = await createClient();
 
@@ -54,7 +72,7 @@ async function fetchProducts() {
   try {
     const { data, error } = await supabase
       .from("ecom_products")
-      .select("id, slug, title, short_desc, price, images, status")
+      .select("id, slug, title, short_desc, price, images, status, created_at")
       .order("created_at", { ascending: false });
     if (!error && data) {
       rawProducts = (data as RawProduct[]).filter((row) => row.status !== "archived");
@@ -70,7 +88,7 @@ async function fetchProducts() {
     try {
       const { data, error } = await supabase
         .from("products")
-        .select("id, slug, title, description, price_cents, currency, main_image_url, status")
+        .select("id, slug, title, description, price_cents, currency, main_image_url, status, created_at")
         .order("created_at", { ascending: false });
       if (!error && data) {
         rawProducts = (data as any[])
@@ -83,6 +101,7 @@ async function fetchProducts() {
             price: typeof row.price_cents === "number" ? row.price_cents / 100 : null,
             images: row.main_image_url ?? null,
             status: row.status ?? "active",
+                        created_at: typeof row.created_at === "string" ? row.created_at : null,
           } satisfies RawProduct));
         fetchError = null;
       } else if (error) {
@@ -163,19 +182,61 @@ export default async function ProductsPage() {
   const productIds = rawProducts.map((raw) => raw.id);
   const stats = await fetchStats(supabase, productIds);
 
-  const products: Product[] = rawProducts.map((raw, index) => ({
-    id: raw.id,
-    slug: raw.slug,
-    title: raw.title,
-    description: raw.short_desc ?? null,
-    price: raw.price ?? 0,
-    mainImage: extractImage(raw.images) ?? getFallbackImage(index),
-    clicks: stats.clicks.get(raw.id) ?? 0,
-    impressions: stats.impressions.get(raw.id) ?? 0,
-    dataset,
-    order: index,
-  }));
+  const now = Date.now();
+  const NEW_WINDOW_MS = 1000 * 60 * 60 * 24 * 14;
+  const FALLBACK_NEW_LIMIT = 6;
+  const TOP_LIMIT = 6;
 
+  const popularityComparator = (a: Product, b: Product) => {
+    const ac = a.clicks || 0;
+    const bc = b.clicks || 0;
+    if (bc !== ac) return bc - ac;
+    const ai = a.impressions || 0;
+    const bi = b.impressions || 0;
+    if (bi !== ai) return bi - ai;
+    return a.order - b.order;
+  };
+
+  const products: Product[] = rawProducts.map((raw, index) => {
+    const slug = (typeof raw.slug === "string" ? raw.slug.trim() : "") || raw.id;
+    const descriptionValue = typeof raw.short_desc === "string" ? raw.short_desc.trim() : "";
+    const createdAt = typeof raw.created_at === "string" ? raw.created_at : null;
+    const createdTime = createdAt ? Date.parse(createdAt) : NaN;
+    const isNew = Number.isFinite(createdTime)
+      ? createdTime >= now - NEW_WINDOW_MS
+      : index < Math.min(FALLBACK_NEW_LIMIT, rawProducts.length);
+
+    return {
+      id: raw.id,
+      slug,
+      title: deriveTitle(raw, index),
+      description: descriptionValue.length ? descriptionValue : null,
+      price: raw.price ?? 0,
+      mainImage: extractImage(raw.images) ?? getFallbackImage(index),
+      clicks: stats.clicks.get(raw.id) ?? 0,
+      impressions: stats.impressions.get(raw.id) ?? 0,
+      dataset,
+      order: index,
+      createdAt,
+      isNew,
+      isTop: false,
+    } satisfies Product;
+  });
+
+  const topCandidates = products
+    .filter((product) => (product.clicks ?? 0) > 0 || (product.impressions ?? 0) > 0)
+    .sort(popularityComparator)
+    .slice(0, TOP_LIMIT);
+
+  const topIds = new Set(topCandidates.map((product) => product.id));
+  for (const product of products) {
+    if (topIds.has(product.id)) {
+      product.isTop = true;
+    }
+  }
+
+  // ????-????????????: ????????? ?? ????? ?????? (desc), ??? ????????? - ?? impressions
+  products.sort(popularityComparator);
   const rawOrigin = process.env.NEXT_SITE_URL ?? "";
   const base = rawOrigin.replace(/\/$/, "");
   const hasBase = base.length > 0;
@@ -201,13 +262,15 @@ export default async function ProductsPage() {
   } satisfies Record<string, unknown>;
 
   return (
-    <div className="px-4 py-6 md:px-6 xl:px-8">
+    <div className="overflow-x-hidden">
       <script
         type="application/ld+json"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <ProductsClient products={products} />
+      <div className="container pt-4 pb-10">
+        <ProductsClient products={products} />
+      </div>
     </div>
   );
 }

@@ -60,7 +60,8 @@ declare global {
 }
 export {};
 // dev helper: expose normalized offers for quick debugging in browser console (dev only)
-if (import.meta.env?.DEV && typeof window !== "undefined") {
+if (typeof import.meta !== "undefined" && (import.meta as any)?.env?.DEV && typeof window !== "undefined") {
   
   (window as any).__offersNormalized = offersNormalized;
 }
+

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import ProductImpression from "../components/ProductImpression";
 import TrackClickButton from "../components/TrackClickButton";
+import AddToCartButton from "../components/AddToCartButton";
 import { getFallbackImageByKey } from "../fallback-images";
 
 type RawProduct = {
@@ -151,6 +152,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       ? ["product_impressions", "shop_impressions"] as const
       : ["shop_impressions", "product_impressions"] as const;
 
+  // Определяем, является ли пользователь админом, чтобы показывать внутренние метрики
+  const authInfo = await supabase.auth.getUser().catch(() => ({ data: null } as any));
+  const role = (authInfo?.data?.user?.app_metadata?.role as string | undefined)?.trim() ||
+    (Array.isArray(authInfo?.data?.user?.app_metadata?.roles) && authInfo?.data?.user?.app_metadata?.roles?.[0]) ||
+    "user";
+  const isAdmin = role === "admin";
+
   const [clicks, impressions] = await Promise.all([
     stat(clickTables[0], clickTables[1]),
     stat(impressionTables[0], impressionTables[1]),
@@ -176,17 +184,22 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
         <div className="space-y-4">
           <h1 className="text-2xl font-semibold">{product.title}</h1>
-          <div className="text-sm text-neutral-500">
-            <span>Clicks: {clicks}</span>
-            <span className="mx-2 text-neutral-400">|</span>
-            <span>Impressions: {impressions}</span>
-          </div>
+          {isAdmin ? (
+            <div className="text-sm text-neutral-500">
+              <span>Clicks: {clicks}</span>
+              <span className="mx-2 text-neutral-400">|</span>
+              <span>Impressions: {impressions}</span>
+            </div>
+          ) : null}
           <div className="whitespace-pre-wrap text-neutral-700">
             {product.description ?? "No description provided."}
           </div>
           <div className="text-xl font-bold">{formatPrice(product.price, product.currency)}</div>
-          <div className="pt-2">
-            <TrackClickButton productId={product.id} dataset={product.dataset} />
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <AddToCartButton productId={product.id} title={product.title} />
+            {isAdmin ? (
+              <TrackClickButton productId={product.id} dataset={product.dataset} />
+            ) : null}
           </div>
         </div>
       </div>
