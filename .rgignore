@@ -128,6 +128,13 @@ supabase/.git/**
 .out/**/*.map
 .next/**/*.map
 
+# .next
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+*lock*.json
+*lock*.yaml
+
 # ===== public ассеты (оставим только тексты и важные метаданные) =====
 apps/**/public/**/*.png
 apps/**/public/**/*.jpg

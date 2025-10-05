@@ -5,6 +5,12 @@
     "allowJs": true,
     "incremental": true,
     "baseUrl": ".",
+    "types": [
+      "react",
+      "react-dom",
+      "next",
+      "node"
+    ],
     "paths": {
       "@/*": [
         "./*"

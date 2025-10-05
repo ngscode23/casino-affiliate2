@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns,
   },
+  experimental: {
+    externalDir: true,
+  },
+  transpilePackages: ["@shared", "@casino-affiliate/types", "@ui"],
 };
 
 export default nextConfig;

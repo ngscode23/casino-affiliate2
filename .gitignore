@@ -47,3 +47,6 @@ openai.chatgpt-*.vsix
 
 # Audit artifacts
 /audit-*.txt
+
+# Turborepo
+.turbo
