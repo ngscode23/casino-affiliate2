@@ -15,13 +15,49 @@ async function currentAdminPath(): Promise<string> {
   return "/admin";
 }
 
+function normalizeRole(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized ? normalized : null;
+}
+
 function resolveRole(user: any): string | null {
-  const appRole = user?.app_metadata?.role;
-  if (typeof appRole === "string" && appRole.trim()) return appRole.trim();
+  const directRole = normalizeRole(user?.app_metadata?.role);
+  if (directRole === "admin") return "admin";
+  if (directRole) return directRole;
+
   const roles = user?.app_metadata?.roles;
-  if (Array.isArray(roles) && roles.length && typeof roles[0] === "string") return roles[0];
-  const metaRole = user?.user_metadata?.role;
-  if (typeof metaRole === "string" && metaRole.trim()) return metaRole.trim();
+  if (Array.isArray(roles)) {
+    for (const candidate of roles) {
+      const normalized = normalizeRole(candidate);
+      if (normalized === "admin") return "admin";
+    }
+    for (const candidate of roles) {
+      const normalized = normalizeRole(candidate);
+      if (normalized) return normalized;
+    }
+  } else if (typeof roles === "string") {
+    try {
+      const parsed = JSON.parse(roles);
+      if (Array.isArray(parsed)) {
+        for (const candidate of parsed) {
+          const normalized = normalizeRole(candidate);
+          if (normalized === "admin") return "admin";
+        }
+        for (const candidate of parsed) {
+          const normalized = normalizeRole(candidate);
+          if (normalized) return normalized;
+        }
+      }
+    } catch {
+      const normalized = normalizeRole(roles);
+      if (normalized) return normalized;
+    }
+  }
+
+  const metaRole = normalizeRole(user?.user_metadata?.role);
+  if (metaRole) return metaRole;
+
   return null;
 }
 
@@ -39,7 +75,9 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   const role = resolveRole(user);
   if (role !== "admin") {
     const next = await currentAdminPath();
-    redirect(`/login?error=not_admin&next=${encodeURIComponent(next)}`);
+    const params = new URLSearchParams({ error: "not_admin", next });
+    if (role) params.set("role", role);
+    redirect(`/login?${params.toString()}`);
   }
 
   return <AdminShell>{children}</AdminShell>;

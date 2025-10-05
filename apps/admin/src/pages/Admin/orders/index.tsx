@@ -44,19 +44,48 @@ function useAdminToken() {
 async function callPayments(path: string, body: any, adminToken: string) {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("Not authenticated");
-  const url = `/api/payments${path}`;
-  const res = await fetch(url, {
+
+  // primary url
+  const primaryUrl = new URL(`/api/payments${path}`, window.location.origin).toString();
+  const baseHeaders: Record<string, string> = {
+    accept: "application/json",
+    "content-type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
+  if (adminToken) baseHeaders["x-admin-token"] = adminToken;
+
+  const primaryRes = await fetch(primaryUrl, {
     method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "x-admin-token": adminToken,
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: baseHeaders,
     body: JSON.stringify(body || {}),
+    cache: "no-store",
   });
-  if (!res.ok) throw new Error(`payments ${path} ${res.status}`);
-  return res.json();
+
+  if (primaryRes.ok) return primaryRes.json();
+
+  if (primaryRes.status === 404) {
+    // try fallbacks
+    const fallbackPaths = [`/api/admin/payments${path}`, `/.netlify/functions/payments${path}`];
+    for (const p of fallbackPaths) {
+      try {
+        const url = new URL(p, window.location.origin).toString();
+        const headers = { ...baseHeaders };
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body || {}),
+          cache: "no-store",
+        });
+        if (res.ok) return res.json();
+      } catch {
+        // ignore and try next
+      }
+    }
+    throw new Error(`payments ${path} 404`);
+  }
+
+  // other non-ok
+  throw new Error(`payments ${path} ${primaryRes.status}`);
 }
 
 export default function AdminOrdersPage() {
@@ -75,23 +104,48 @@ export default function AdminOrdersPage() {
         setError(null);
         // summary via function
         try {
-          const accessToken = await getValidAccessToken();
-          if (!accessToken) throw new Error("Not authenticated");
-          const sRes = await fetch("/api/admin/orders?days=30", { headers: { accept: "application/json", "x-admin-token": token, Authorization: `Bearer ${accessToken}` } });
-          if (sRes.ok) {
-            const s = await sRes.json();
-            if (s?.ok && mounted) setSummary({
-              total: s.total || 0,
-              pending: s.pending || 0,
-              processing: s.processing || 0,
-              succeeded: s.succeeded || 0,
-              failed: s.failed || 0,
-              cancelled: s.cancelled || 0,
-              average_check: Number(s.average_check || 0),
-              failed_share: Number(s.failed_share || 0),
-              conversion: Number(s.conversion || 0),
-            });
+          // try with access token first
+          let s: any = null;
+          try {
+            const accessToken = await getValidAccessToken();
+            if (accessToken) {
+              const sRes = await fetch("/api/admin/orders?days=30", {
+                headers: {
+                  accept: "application/json",
+                  "x-admin-token": token,
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                cache: "no-store",
+              });
+              if (sRes.ok) s = await sRes.json();
+            }
+          } catch (e) {
+            console.warn("getValidAccessToken or authorized fetch failed, will try fallback", e);
           }
+
+          // fallback: try direct fetch with only x-admin-token
+          if (!s) {
+            try {
+              const headers: Record<string, string> = { accept: "application/json" };
+              if (token) headers["x-admin-token"] = token;
+              const sRes2 = await fetch("/api/admin/orders?days=30", { headers, cache: "no-store" });
+              if (sRes2.ok) s = await sRes2.json();
+            } catch (e) {
+              console.warn("summary fallback fetch failed", e);
+            }
+          }
+
+          if (s?.ok && mounted) setSummary({
+            total: s.total || 0,
+            pending: s.pending || 0,
+            processing: s.processing || 0,
+            succeeded: s.succeeded || 0,
+            failed: s.failed || 0,
+            cancelled: s.cancelled || 0,
+            average_check: Number(s.average_check || 0),
+            failed_share: Number(s.failed_share || 0),
+            conversion: Number(s.conversion || 0),
+          });
         } catch { /* ignore */ }
         const { data, error } = await supabase
           .from("orders")

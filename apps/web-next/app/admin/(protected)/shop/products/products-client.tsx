@@ -89,13 +89,26 @@ async function fetchCategories() {
   }
 }
 
-function stringToHslColor(value: string) {
+const CATEGORY_PALETTES = [
+  "bg-[#60a5fa]",
+  "bg-[#f97316]",
+  "bg-[#34d399]",
+  "bg-[#a855f7]",
+  "bg-[#facc15]",
+  "bg-[#f472b6]",
+  "bg-[#38bdf8]",
+  "bg-[#fb7185]",
+];
+
+function pickCategoryDot(slug: string | null) {
+  const base = slug ?? "";
+  if (!base.length) return "bg-border";
   let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < base.length; i += 1) {
+    hash = base.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 60% 45%)`;
+  const idx = Math.abs(hash) % CATEGORY_PALETTES.length;
+  return CATEGORY_PALETTES[idx];
 }
 
 export function ProductsClient() {
@@ -275,7 +288,7 @@ export function ProductsClient() {
             </thead>
             <tbody>
               {items.map((product) => (
-                <tr key={product.id} className="border-b border-border/20">
+                <tr key={product.id} className="border-b border-border/20 transition-colors duration-150 hover:bg-card/60">
                   <td className="py-3 pr-4">
                     <div className="font-medium text-foreground">{product.title}</div>
                     <div className="text-xs text-muted-foreground">{product.slug}</div>
@@ -291,10 +304,7 @@ export function ProductsClient() {
                   </td>
                   <td className="py-3 pr-4">
                     <span className="inline-flex items-center gap-2 rounded-md border border-border px-2 py-1 text-xs">
-                      <span
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ background: stringToHslColor(product.category_slug ?? "-") }}
-                      />
+                      <span className={`inline-block h-2 w-2 rounded-full ${pickCategoryDot(product.category_slug)}`} />
                       {categoryLabel(product.category_slug)}
                     </span>
                   </td>

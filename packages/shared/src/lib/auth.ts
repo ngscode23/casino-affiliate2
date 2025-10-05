@@ -1,5 +1,6 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@shared/lib/supabase";
+import { HAS_SUPABASE } from "@shared/config";
 import {
   clearAuthState,
   getAuthState,
@@ -50,8 +51,35 @@ function applySession(session: Session | null, explicitUser?: User | null) {
 }
 
 let initPromise: Promise<void> | null = null;
+async function hydrateSessionFromServer(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const response = await fetch("/api/auth/session", {
+      method: "GET",
+      credentials: "include",
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) return;
+    const payload = (await response.json()) as { user: AuthUser | null; session: AuthState["session"] | null } | null;
+    if (payload && (payload.user || payload.session)) {
+      setAuthState({ user: payload.user ?? null, session: payload.session ?? null });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+
+const SUPABASE_DISABLED_MESSAGE = "Supabase auth is not configured";
+function assertSupabaseConfigured(action: string): void {
+  if (!HAS_SUPABASE) {
+    throw new Error(`${SUPABASE_DISABLED_MESSAGE}: ${action}`);
+  }
+}
 
 async function ensureInitialized(): Promise<void> {
+  if (!HAS_SUPABASE) return;
   if (!initPromise) {
     initPromise = supabase.auth
       .getSession()
@@ -64,11 +92,14 @@ async function ensureInitialized(): Promise<void> {
 }
 
 // Keep local store in sync with Supabase auth events
-supabase.auth.onAuthStateChange((_event, session) => {
-  applySession(session ?? null);
-});
+if (HAS_SUPABASE) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    applySession(session ?? null);
+  });
+}
 
 export async function signUp(email: string, password: string, metadata?: Record<string, unknown>) {
+  assertSupabaseConfigured("signUp");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -82,6 +113,7 @@ export async function signUp(email: string, password: string, metadata?: Record<
 }
 
 export async function signInWithPassword(email: string, password: string) {
+  assertSupabaseConfigured("signInWithPassword");
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
   applySession(data.session ?? null, data.user ?? null);
@@ -89,6 +121,7 @@ export async function signInWithPassword(email: string, password: string) {
 }
 
 export async function refreshSession(): Promise<void> {
+  assertSupabaseConfigured("refreshSession");
   const { data, error } = await supabase.auth.refreshSession();
   if (error || !data?.session) {
     await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
@@ -100,6 +133,7 @@ export async function refreshSession(): Promise<void> {
 }
 
 export async function ensureSession(): Promise<void> {
+  if (!HAS_SUPABASE) return;
   await ensureInitialized();
   const state = getAuthState();
   if (!state.session || isSessionExpired(state.session)) {
@@ -112,8 +146,14 @@ export async function ensureSession(): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  if (!HAS_SUPABASE) {
+    clearAuthState();
+    initPromise = null;
+    return;
+  }
   await supabase.auth.signOut();
   clearAuthState();
+  initPromise = null;
 }
 
 export function getUser(): AuthUser | null {
@@ -125,10 +165,13 @@ export function getAccessToken(): string | null {
 }
 
 export async function getValidAccessToken(): Promise<string | null> {
+  if (!HAS_SUPABASE) return null;
   await ensureSession().catch(() => undefined);
-  return getAccessToken();
+  let token = getAccessToken();
+  if (token) return token;
+  await hydrateSessionFromServer();
+  token = getAccessToken();
+  return token;
 }
 
 export const onAuthStateChange = subscribe;
-
-

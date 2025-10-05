@@ -123,7 +123,7 @@ export default function AdminDashboard() {
             <div className="text-right">
               <div className="text-2xl font-semibold">{kpis.goalPct}%</div>
               <div className="text-xs text-[var(--text-dim)] mt-1">
-                <span className="inline-flex items-center gap-1 mr-2"><span className="w-2 h-2 rounded-full" style={{background:'var(--accent,#60a5fa)'}}/>Done</span>
+                <span className="inline-flex items-center gap-1 mr-2"><span className="h-2 w-2 rounded-full bg-[var(--accent,#60a5fa)]" />Done</span>
                 <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/20"/>Remain</span>
               </div>
             </div>

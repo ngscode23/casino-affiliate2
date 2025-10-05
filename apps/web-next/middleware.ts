@@ -25,7 +25,8 @@ function hasAuthCookie(req: NextRequest, res?: NextResponse) {
 
 function requiresAuth(pathname: string) {
   // добавляй сюда приватные зоны при необходимости
-  return pathname.startsWith("/checkout") || pathname.startsWith("/account");
+  // Временно разрешаем доступ к /checkout без авторизации, чтобы не блокировать оплату
+  return pathname.startsWith("/account");
 }
 
 export async function middleware(request: NextRequest) {

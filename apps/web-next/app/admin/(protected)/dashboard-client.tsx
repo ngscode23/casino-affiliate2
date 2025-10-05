@@ -162,7 +162,7 @@ export function AdminDashboardClient() {
               <div className="text-2xl font-semibold">{kpis.goalPct}%</div>
               <div className="mt-1 text-xs text-[var(--text-dim)]">
                 <span className="mr-2 inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ background: "var(--accent,#60a5fa)" }} />
+                  <span className="h-2 w-2 rounded-full bg-[var(--accent,#60a5fa)]" />
                   Done
                 </span>
                 <span className="inline-flex items-center gap-1">

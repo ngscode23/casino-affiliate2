@@ -14,10 +14,19 @@ function json(body: unknown, statusCode = 200) {
 }
 
 export const handler: Handler = async (event) => {
-  const path = event.path || "";
+  const pathRaw = event.path || "";
+  // Normalize incoming path so handler recognizes:
+  // - /.netlify/functions/payments/create  -> /payments/create
+  // - /api/payments/webhook                -> /payments/webhook
+  // - /payments/create                     -> /payments/create
+  const path = pathRaw
+    .replace(/\/\.netlify\/functions\/payments/i, "/payments")
+    .replace(/^\/api\/payments/i, "/payments")
+    .replace(/\/+$/, "");
+
   const supa: SupabaseClient = getServiceClient();
 
-  if (/\/payments\/create$/i.test(path)) {
+  if (/(?:\/api)?\/payments\/create$/i.test(path)) {
     if (event.httpMethod !== "POST") return json({ ok: false, code: "method_not_allowed" }, 405);
     const token = (event.headers?.["x-admin-token"] || event.headers?.["X-Admin-Token"]) as string | undefined;
     if (!ADMIN_TOKEN || !token || token !== ADMIN_TOKEN) return json({ ok: false, code: "unauthorized" }, 401);
@@ -51,7 +60,7 @@ export const handler: Handler = async (event) => {
     return json({ ok: true, payment_id: (data as { id: string }).id });
   }
 
-  if (/\/payments\/webhook$/i.test(path)) {
+  if (/(?:\/api)?\/payments\/webhook$/i.test(path)) {
     if (event.httpMethod !== "POST") return json({ ok: false, code: "method_not_allowed" }, 405);
     // в реальной жизни тут верифицируешь подпись провайдера
     let raw: unknown = {};

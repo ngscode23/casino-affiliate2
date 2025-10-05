@@ -162,11 +162,11 @@ function BarChart({ daily, max }: { daily: { label: string; value: number }[]; m
         {daily.map((d) => {
           const ratio = max > 0 ? d.value / max : 0;
           const height = Math.max(2, Math.round(ratio * h));
+          const heightClass = `h-bar-${height}`;
           return (
             <div key={d.label} className="flex-1 flex flex-col items-center">
               <div
-                className="w-full bg-[var(--accent)]/80"
-                style={{ height }}
+                className={`w-full bg-[var(--accent)]/80 ${heightClass}`}
                 title={`${d.label}: ${d.value}`}
               />
               <div className="text-[10px] mt-1 text-[var(--text-dim)]">

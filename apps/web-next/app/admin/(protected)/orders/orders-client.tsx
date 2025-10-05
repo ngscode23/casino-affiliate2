@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -83,18 +82,38 @@ async function authorizedRequest(path: string, adminToken: string, init?: Reques
   headers.set("Authorization", `Bearer ${accessToken}`);
   if (adminToken) headers.set("x-admin-token", adminToken);
 
-  return fetch(path, { ...init, headers, cache: "no-store" });
+  // ensure absolute URL to avoid relative-path resolution issues
+  const url = path.startsWith("http") ? path : new URL(path, window.location.origin).toString();
+
+  return fetch(url, { ...init, headers, cache: "no-store" });
 }
 
 async function fetchSummary(adminToken: string): Promise<Summary | null> {
+  // Попытка через авторизованный запрос (если есть access token)
   try {
     const response = await authorizedRequest("/api/admin/orders?days=30", adminToken);
-    if (!response.ok) return null;
-    const json = (await response.json()) as Summary & { ok?: boolean };
+    if (response.ok) {
+      const json = (await response.json()) as Summary & { ok?: boolean };
+      if (json?.ok === false) return null;
+      return json;
+    }
+    // если 404/500 — упадём в fallback ниже
+  } catch (err) {
+    console.warn("authorizedRequest failed for summary, will try fallback:", err);
+  }
+
+  // Fallback: прямой fetch с использованием только x-admin-token (если сервер принимает)
+  try {
+    const url = new URL("/api/admin/orders?days=30", window.location.origin).toString();
+    const headers: Record<string, string> = { accept: "application/json" };
+    if (adminToken) headers["x-admin-token"] = adminToken;
+    const res = await fetch(url, { headers, cache: "no-store" });
+    if (!res.ok) return null;
+    const json = (await res.json()) as Summary & { ok?: boolean };
     if (json?.ok === false) return null;
     return json;
   } catch (error) {
-    console.warn("admin orders summary failed", error);
+    console.warn("fetchSummary fallback failed", error);
     return null;
   }
 }
@@ -134,17 +153,55 @@ async function fetchOrders(params: OrdersQueryParams, adminToken: string) {
 }
 
 async function callPayments(path: string, body: unknown, adminToken: string) {
-  const response = await authorizedRequest(`/api/payments${path}`, adminToken, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body ?? {}),
-  });
-  if (!response.ok) {
-    throw new Error(`payments ${path} ${response.status}`);
+  // primary attempt via authorizedRequest
+  try {
+    const response = await authorizedRequest(`/api/payments${path}`, adminToken, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+
+    if (response.status === 404) {
+      // try fallback endpoints if primary not found
+      const fallbackPaths = [`/api/admin/payments${path}`, `/.netlify/functions/payments${path}`];
+      for (const p of fallbackPaths) {
+        try {
+          const accessToken = await getValidAccessToken().catch(() => "");
+          const headers: Record<string, string> = {
+            accept: "application/json",
+            "content-type": "application/json",
+          };
+          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+          if (adminToken) headers["x-admin-token"] = adminToken;
+
+          const url = new URL(p, window.location.origin).toString();
+          const res = await fetch(url, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body ?? {}),
+            cache: "no-store",
+          });
+          if (res.ok) return res.json();
+          // if non-404 failure, continue to next fallback
+          if (res.status !== 404) {
+            const text = await res.text().catch(() => String(res.status));
+            throw new Error(`payments ${p} ${res.status} - ${text}`);
+          }
+        } catch {
+          // try next fallback
+        }
+      }
+      throw new Error(`payments ${path} 404`);
+    }
+
+    if (!response.ok) {
+      throw new Error(`payments ${path} ${response.status}`);
+    }
+    return response.json();
+  } catch (err) {
+    // bubble up error
+    throw err;
   }
-  return response.json();
 }
 
 function formatCurrency(amount: number, currency: string | null | undefined) {

@@ -531,15 +531,6 @@ export default function AdminShopProductsIndex() {
   );
 }
 
-function stringToHslColor(str: string, s = 60, l = 42) {
-  let hash = 0;
-  for (let i = 0; i < (str || "").length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h} ${s}% ${l}%)`;
-}
-
 function CategoryBadge({
   slug,
   categories,
@@ -552,20 +543,39 @@ function CategoryBadge({
   }
   const category = categories.find((item) => item.slug === slug);
   const name = category?.name || slug;
-  const color = category?.color || stringToHslColor(slug);
+  const palette = pickCategoryPalette(slug);
   return (
     <span
-      className="inline-flex items-center gap-1 text-xs rounded px-2 py-0.5 border"
-      style={{
-        borderColor: color,
-        background: `color-mix(in oklab, ${color} 15%, transparent)`,
-      }}
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs border ${palette.border} ${palette.bg}`}
     >
-      <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
+      <span className={`inline-block h-2 w-2 rounded-full ${palette.dot}`} />
       {name}
     </span>
   );
 }
+
+const CATEGORY_PALETTES = [
+  { border: "border-[#60a5fa]/60", bg: "bg-[#60a5fa]/15", dot: "bg-[#60a5fa]" },
+  { border: "border-[#f97316]/60", bg: "bg-[#f97316]/15", dot: "bg-[#f97316]" },
+  { border: "border-[#34d399]/60", bg: "bg-[#34d399]/15", dot: "bg-[#34d399]" },
+  { border: "border-[#a855f7]/60", bg: "bg-[#a855f7]/15", dot: "bg-[#a855f7]" },
+  { border: "border-[#facc15]/60", bg: "bg-[#facc15]/15", dot: "bg-[#facc15]" },
+  { border: "border-[#f472b6]/60", bg: "bg-[#f472b6]/15", dot: "bg-[#f472b6]" },
+  { border: "border-[#38bdf8]/60", bg: "bg-[#38bdf8]/15", dot: "bg-[#38bdf8]" },
+  { border: "border-[#fb7185]/60", bg: "bg-[#fb7185]/15", dot: "bg-[#fb7185]" },
+];
+
+function pickCategoryPalette(seed: string | null) {
+  const base = seed ?? "";
+  let hash = 0;
+  for (let i = 0; i < base.length; i++) {
+    hash = base.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % CATEGORY_PALETTES.length;
+  return CATEGORY_PALETTES[idx];
+}
+
+
 
 
 
