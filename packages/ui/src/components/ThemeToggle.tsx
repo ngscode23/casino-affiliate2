@@ -2,38 +2,25 @@
 
 import * as React from "react";
 
-type ThemeMode = "light" | "dark" | "noir";
-
-const THEME_ORDER: ThemeMode[] = ["light", "dark", "noir"];
-const THEME_LABEL: Record<ThemeMode, string> = {
-  light: "Light",
-  dark: "Dark",
-  noir: "Noir",
-};
-
-function getInitial(): ThemeMode {
+function getInitial(): "light" | "dark" {
   if (typeof window === "undefined") {
-    return "noir";
+    return "light";
   }
-
   try {
     const saved = localStorage.getItem("theme");
-    if (saved === "light" || saved === "dark" || saved === "noir") {
+    if (saved === "dark" || saved === "light") {
       return saved;
     }
   } catch {
-    // ignore inaccessible storage
+    // ignore storage access issues
   }
-
-  const root = document.documentElement;
-  if (root.classList.contains("theme-noir")) return "noir";
-  if (root.classList.contains("dark")) return "dark";
-
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 export default function ThemeToggle({ className = "" }: { className?: string }) {
-  const [mode, setMode] = React.useState<ThemeMode>("noir");
+  const [mode, setMode] = React.useState<"light" | "dark">("light");
   const hasMountedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -45,14 +32,11 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
     if (typeof document === "undefined") {
       return;
     }
-
     const root = document.documentElement;
-    root.classList.remove("dark", "theme-noir");
-
     if (mode === "dark") {
       root.classList.add("dark");
-    } else if (mode === "noir") {
-      root.classList.add("theme-noir");
+    } else {
+      root.classList.remove("dark");
     }
 
     if (hasMountedRef.current) {
@@ -66,23 +50,21 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
     }
   }, [mode]);
 
-  const currentIndex = THEME_ORDER.indexOf(mode);
-  const nextMode = THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
+  const nextMode = mode === "dark" ? "light" : "dark";
 
   return (
     <button
       type="button"
-      onClick={() => setMode(nextMode)}
+      onClick={() => setMode((value) => (value === "dark" ? "light" : "dark"))}
       className={[
         "inline-flex items-center justify-center rounded-md border border-border bg-card px-2 py-1 text-sm",
         "hover:bg-white/60 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)]",
         className,
       ].join(" ")}
-      aria-label={`Switch to ${THEME_LABEL[nextMode]} theme`}
-      title={`Switch to ${THEME_LABEL[nextMode]} theme`}
+      aria-label={mode === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      title={mode === "dark" ? "Light theme" : "Dark theme"}
     >
-      {`Theme: ${THEME_LABEL[mode]}`}
+      {nextMode === "dark" ? "Dark" : "Light"}
     </button>
   );
 }
-

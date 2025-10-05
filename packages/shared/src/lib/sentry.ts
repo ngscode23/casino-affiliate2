@@ -8,20 +8,6 @@ type SentryLike = {
   init?: (cfg: any) => void;
 };
 
-const env = (() => {
-  const fromImport = typeof import.meta !== "undefined" && (import.meta as any)?.env ? (import.meta as any).env : {};
-  const fromProcess = typeof process !== "undefined" && process?.env ? process.env : {};
-  return { ...fromProcess, ...fromImport } as Record<string, string | undefined>;
-})();
-
-const pickEnv = (...keys: string[]): string => {
-  for (const key of keys) {
-    const value = env[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
-};
-
 let Sentry: SentryLike = {
   ErrorBoundary: ({ children }) => (children as any),
 };
@@ -42,21 +28,18 @@ async function loadSentry(): Promise<typeof import("@sentry/react") | null> {
 
 export async function initSentry(): Promise<boolean> {
   if (initialized) return true;
-  const dsn = pickEnv("NEXT_PUBLIC_SENTRY_DSN", "VITE_SENTRY_DSN", "SENTRY_DSN") || undefined;
-  if (!dsn) return false;
+  const DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  if (!DSN) return false;
   const consent = getConsent();
   if (!consent?.analytics) return false;
 
   try {
     const mod = await loadSentry();
     if (!mod) return false;
-    const release =
-      pickEnv("VITE_SENTRY_RELEASE", "NEXT_PUBLIC_SENTRY_RELEASE", "SENTRY_RELEASE") || undefined;
+    const release = import.meta.env.VITE_SENTRY_RELEASE as string | undefined;
     mod.init({
-      dsn,
-      environment:
-        pickEnv("MODE", "NEXT_PUBLIC_MODE", "NODE_ENV") ||
-        (typeof process !== "undefined" ? process.env.NODE_ENV : undefined),
+      dsn: DSN,
+      environment: import.meta.env.MODE,
       release,
       tracesSampleRate: 0.1,
       replaysSessionSampleRate: 0.0,
@@ -77,5 +60,4 @@ export function bindSentryToConsent(): () => void {
 export function isSentryInitialized() { return initialized; }
 
 export { Sentry };
-
 

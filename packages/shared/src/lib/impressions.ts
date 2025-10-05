@@ -8,7 +8,7 @@ const fired = new Set<string>();
 let io: IntersectionObserver | null = null;
 const pending = new Map<Element, string>(); // element -> slug
 
-const IS_DEV = !!(typeof import.meta !== "undefined" && (import.meta as any)?.env?.DEV);
+const IS_DEV = !!((import.meta as any).env?.DEV);
 
 function getObserver(): IntersectionObserver {
   if (io) return io;
@@ -63,5 +63,4 @@ export async function trackImpression(slug: string): Promise<void> {
     }).catch(() => void 0);
   } catch { void 0 }
 }
-
 
