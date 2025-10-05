@@ -50,3 +50,7 @@ openai.chatgpt-*.vsix
 
 # Turborepo
 .turbo
+# общие
+node_modules/
+**/.netlify/
+**/.netlify/**/node_modules/
