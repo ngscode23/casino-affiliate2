@@ -17,8 +17,7 @@ let initialized = false;
 async function loadSentry(): Promise<typeof import("@sentry/react") | null> {
   try {
     const mod = await import("@sentry/react");
-    // Replace fallback with real Sentry module
-    // @ts-expect-error: reassigning to widen type at runtime
+
     Sentry = mod as unknown as SentryLike;
     return mod;
   } catch {

@@ -67,37 +67,46 @@ ChartContainer.displayName = "Chart";
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
-    ([_, config]) => config.theme || config.color,
+    ([_, item]) => item.theme || item.color,
   );
 
   if (!colorConfig.length) {
     return null;
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
-};
+  const css = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const declarations: string[] = [];
+      const legendRules: string[] = [];
 
+      colorConfig.forEach(([key, itemConfig]) => {
+        const color =
+          itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
+          itemConfig.color;
+
+        if (!color) {
+          return;
+        }
+
+        declarations.push(`  --color-${key}: ${color};`);
+        legendRules.push(
+          `${prefix} [data-chart=${id}] [data-series='${key}'] {\n  background-color: var(--color-${key});\n}`,
+        );
+      });
+
+      if (!declarations.length) {
+        return "";
+      }
+
+      const baseRule = `${prefix} [data-chart=${id}] {\n${declarations.join("\n")}\n}`;
+
+      return [baseRule, ...legendRules].join("\n");
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+};
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
 const ChartTooltipContent = React.forwardRef<
@@ -298,10 +307,8 @@ const ChartLegendContent = React.forwardRef<
                 <itemConfig.icon />
               ) : (
                 <div
+                  data-series={key}
                   className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
                 />
               )}
               {itemConfig?.label}

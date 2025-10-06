@@ -3,8 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-
-
   "scripts": {
     "changeset": "changeset",
     "dev:web-next": "turbo run dev --filter=web-next",
@@ -23,10 +21,22 @@
     "@changesets/cli": "^2.29.7",
     "@supabase/mcp-server-supabase": "^0.5.5",
     "@types/react": "^19.1.13",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "autoprefixer": "^10.4.21",
     "chokidar": "^4.0.3",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
     "husky": "^9.1.7",
+    "lightningcss": "^1.27.0",
+    "openai": "^5.21.0",
+    "puppeteer": "^24.23.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rimraf": "^6.0.1",
+    "rollup-plugin-visualizer": "^6.0.4",
     "stripe": "^12.18.0",
+    "ts-morph": "^27.0.0",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },
@@ -39,6 +49,7 @@
       "@parcel/watcher",
       "@sentry/cli",
       "@tailwindcss/oxide",
+      "lightningcss",
       "core-js",
       "esbuild",
       "netlify-cli",
@@ -54,6 +65,7 @@
     "@tailwindcss/line-clamp": "^0.4.4",
     "@types/react-dom": "^19.1.9",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "recharts": "^3.2.1"
   }
 }

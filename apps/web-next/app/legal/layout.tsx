@@ -3,10 +3,8 @@ import PageShell from "@ui/components/ui/PageShell";
 
 export default function LegalLayout({ children }: { children: ReactNode }) {
   return (
-    <PageShell className="text-[color:var(--ui-text)]">
-      <div className="space-y-8">
-        {children}
-      </div>
+    <PageShell className="text-fg">
+      <div className="space-y-8">{children}</div>
     </PageShell>
   );
 }

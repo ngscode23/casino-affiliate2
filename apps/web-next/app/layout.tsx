@@ -1,10 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { SiteLayout } from "../components/site-layout";
 import { siteConfig } from "../lib/site-config";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+import { openAISans } from "./fonts";
 
 export const metadata: Metadata = {
   title: siteConfig.name,
@@ -19,8 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <SiteLayout>{children}</SiteLayout>
+      <body className={`${openAISans.variable} font-sans antialiased`}>
+        <Suspense fallback={null}>
+          <SiteLayout>{children}</SiteLayout>
+        </Suspense>
       </body>
     </html>
   );

@@ -2,21 +2,21 @@
 
 import * as React from "react";
 
+const STORAGE_KEY = "storefront-theme";
+
 function getInitial(): "light" | "dark" {
   if (typeof window === "undefined") {
     return "light";
   }
   try {
-    const saved = localStorage.getItem("theme");
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "dark" || saved === "light") {
       return saved;
     }
   } catch {
     // ignore storage access issues
   }
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return "light";
 }
 
 export default function ThemeToggle({ className = "" }: { className?: string }) {
@@ -24,6 +24,11 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
   const hasMountedRef = React.useRef(false);
 
   React.useEffect(() => {
+    try {
+      localStorage.removeItem("theme");
+    } catch {
+      /* ignore */
+    }
     const initial = getInitial();
     setMode(initial);
   }, []);
@@ -41,7 +46,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
 
     if (hasMountedRef.current) {
       try {
-        localStorage.setItem("theme", mode);
+        localStorage.setItem(STORAGE_KEY, mode);
       } catch {
         // ignore storage failures
       }
@@ -57,8 +62,8 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
       type="button"
       onClick={() => setMode((value) => (value === "dark" ? "light" : "dark"))}
       className={[
-        "inline-flex items-center justify-center rounded-md border border-border bg-card px-2 py-1 text-sm",
-        "hover:bg-white/60 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)]",
+        "inline-flex items-center justify-center rounded-full border border-border/40 bg-card/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-muted transition-colors",
+        "hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         className,
       ].join(" ")}
       aria-label={mode === "dark" ? "Switch to light theme" : "Switch to dark theme"}

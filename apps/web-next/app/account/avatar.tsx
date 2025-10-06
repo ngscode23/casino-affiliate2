@@ -3,6 +3,20 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import Image from 'next/image'
 
+const clampSize = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  const rounded = Math.round(value)
+  if (rounded < 0) {
+    return 0
+  }
+  if (rounded > 512) {
+    return 512
+  }
+  return rounded
+}
+
 export default function Avatar({
   uid,
   url,
@@ -62,6 +76,10 @@ export default function Avatar({
     }
   }
 
+  const clampedSize = clampSize(size)
+  const avatarSizeClass = `size-px-${clampedSize}`
+  const widthClass = `w-px-${clampedSize}`
+
   return (
     <div>
       {avatarUrl ? (
@@ -70,21 +88,24 @@ export default function Avatar({
           height={size}
           src={avatarUrl}
           alt="Avatar"
-          className="avatar image"
-          style={{ height: size, width: size }}
+          className={`rounded-full border border-border/60 bg-card/60 object-cover shadow-[0_28px_68px_-36px_rgba(6,18,34,0.82)] ${avatarSizeClass}`}
         />
       ) : (
-        <div className="avatar no-image" style={{ height: size, width: size }} />
+        <div
+          className={`flex items-center justify-center rounded-full border border-dashed border-border/50 bg-card/40 text-sm font-medium text-muted ${avatarSizeClass}`}
+        >
+          No image
+        </div>
       )}
-      <div style={{ width: size }}>
-        <label className="button primary block" htmlFor="single">
+      <div className={`mt-4 flex flex-col items-center ${widthClass} max-w-full`}>
+        <label
+          className="inline-flex w-full max-w-xs items-center justify-center rounded-full border border-primary/50 bg-primary px-6 py-3 text-sm font-semibold text-primaryfg shadow-[0_24px_58px_-32px_rgba(252,50,114,0.7)] transition hover:-translate-y-[1px] hover:shadow-[0_30px_72px_-32px_rgba(252,50,114,0.82)]"
+          htmlFor="single"
+        >
           {uploading ? 'Uploading ...' : 'Upload'}
         </label>
         <input
-          style={{
-            visibility: 'hidden',
-            position: 'absolute',
-          }}
+          className="hidden"
           type="file"
           id="single"
           accept="image/*"

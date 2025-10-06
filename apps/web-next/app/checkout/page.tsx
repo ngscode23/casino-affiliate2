@@ -54,7 +54,7 @@ export default function CheckoutPage() {
     if (typeof window !== "undefined" && items.length === 0) {
       router.replace("/cart");
     }
-  }, [AUTO_REDIRECT_EMPTY_CART, items.length, router, orderId]);
+  }, [items.length, router, orderId]);
 
   useEffect(() => {
     if (!HAS_SUPABASE || orderId || !REQUIRE_AUTH_FOR_CHECKOUT) return;
@@ -64,7 +64,7 @@ export default function CheckoutPage() {
         router.replace(`/login?redirect=${encodeURIComponent("/checkout")}`);
       }
     })();
-  }, [HAS_SUPABASE, orderId, router, REQUIRE_AUTH_FOR_CHECKOUT]);
+  }, [orderId, router]);
 
   async function createPaymentIntent(order: string, accessToken: string | null) {
     const headers = new Headers({ "content-type": "application/json", accept: "application/json" });
@@ -445,6 +445,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
 
 

@@ -8,76 +8,20 @@ FILES=(
   "apps/web-next/.env.local"
 )
 
-extract_existing() {
-  local key="$1"
-  local value=""
-  for file in "${FILES[@]}"; do
-    if [[ -f "$file" ]]; then
-      value="$(grep -E "^${key}=" "$file" | tail -n 1 | cut -d'=' -f2- | tr -d '\r')"
-      if [[ -n "$value" ]]; then
-        break
-      fi
-    fi
-  done
-  printf '%s' "$value"
-}
-
-prompt_value() {
-  local __var="$1"
-  local __prompt="$2"
-  local __env_name="$3"
-  local __default="$4"
-
-  local __value="${!__env_name-}"
-  if [[ -z "$__value" ]]; then
-    __value="$__default"
-  fi
-
-  if [[ -t 0 ]]; then
-    local hint="$__prompt"
-    if [[ -n "$__value" ]]; then
-      hint+=" [$__value]"
-    fi
-    read -rp "$hint: " __input || true
-    if [[ -n "${__input-}" ]]; then
-      __value="$__input"
-    fi
-  fi
-
-  if [[ -z "$__value" ]]; then
-    echo "❌ Не задано значение для $__prompt (переменная $__env_name)." >&2
-    exit 1
-  fi
-
-  printf -v "$__var" '%s' "$__value"
-}
-
-DEFAULT_SUPA_URL="$(extract_existing NEXT_PUBLIC_SUPABASE_URL)"
-DEFAULT_SUPA_PUBLISHABLE="$(extract_existing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)"
-DEFAULT_SUPA_ANON="$(extract_existing NEXT_PUBLIC_SUPABASE_ANON_KEY)"
-DEFAULT_SUPA_SECRET="$(extract_existing SUPABASE_SECRET_KEY)"
-
-prompt_value SUPA_URL "Supabase URL" SUPABASE_URL "$DEFAULT_SUPA_URL"
-prompt_value SUPA_PUBLISHABLE "Supabase publishable/anon key" SUPABASE_PUBLISHABLE "$DEFAULT_SUPA_PUBLISHABLE"
-prompt_value SUPA_ANON "Supabase anon key" SUPABASE_ANON "$DEFAULT_SUPA_ANON"
-prompt_value SUPA_SECRET "Supabase service key" SUPABASE_SECRET "$DEFAULT_SUPA_SECRET"
-
+SUPA_URL="https://wsqhgnxmotswjantxopb.supabase.co"
+SUPA_PUBLISHABLE="sb_publishable_PemABWwYtVQnmoqmsOxSMA_nujVdFbD"
+SUPA_ANON="sb_publishable_PemABWwYtVQnmoqmsOxSMA_nujVdFbD"
+SUPA_SECRET="sb_secret_LTLCShbtpFfStSMYbOFV7Q_VV0G7syw"
 COMMENT_LINE="# при желании продублируйте:"
 PATTERN='^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_URL|SUPABASE_SECRET_KEY)='
 
 for FILE in "${FILES[@]}"; do
-  STATUS="🔧 Обновляем"
-
   if [[ ! -f "$FILE" ]]; then
-    DIRNAME="$(dirname "$FILE")"
-    if [[ "$DIRNAME" != "." ]]; then
-      mkdir -p "$DIRNAME"
-    fi
-    STATUS="🆕 Создаём"
-    : > "$FILE"
+    echo "⚠️  Файл $FILE не найден — пропускаем"
+    continue
   fi
 
-  echo "$STATUS $FILE"
+  echo "🔧 Обновляем $FILE"
 
   tmp_file="$(mktemp)"
   awk -v pattern="$PATTERN" -v comment="$COMMENT_LINE" '

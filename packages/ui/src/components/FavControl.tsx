@@ -15,8 +15,8 @@ export function FavControl({
   id,
   className,
   onToggle,
-  titleOn = "Убрать из избранного",
-  titleOff = "В избранное",
+  titleOn = "?????? ?? ??????????",
+  titleOff = "? ?????????",
 }: FavControlProps) {
   const { items = [], toggle } = useFavorites();
 
@@ -25,15 +25,17 @@ export function FavControl({
 
   const handleClick = (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.stopPropagation();
-    const toggled = toggle(key); // может вернуть boolean, а может ничего
+    const toggled = toggle(key); // ????? ??????? boolean, ? ????? ??????
     const nextActive = typeof toggled === "boolean" ? toggled : !active;
 
     onToggle?.(nextActive);
-    // Без try/catch: наш track внутри сам безопасен
+    // ??? try/catch: ??? track ?????? ??? ?????????
     track("favorite_toggle", { offer_slug: key, active: nextActive });
   };
 
-  const base = className ?? "inline-flex h-10 w-10 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40";
+  const base =
+    className ??
+    "inline-flex h-10 w-10 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40";
   const colorClass = active ? "text-amber-400 fav-pop" : "text-white/70 hover:text-white";
 
   return (
@@ -42,15 +44,13 @@ export function FavControl({
       aria-pressed={active}
       title={active ? titleOn : titleOff}
       onClick={handleClick}
-      className={`${base} ${colorClass}`}
+      className={`${base} ${colorClass} tap-highlight-transparent`}
       data-testid={`fav-btn:${key}`}
       aria-label={active ? "Remove from favorites" : "Add to favorites"}
-      style={{ WebkitTapHighlightColor: "transparent" }}
     >
-      <span aria-hidden style={{ lineHeight: 1, fontSize: "1.15rem" }}>
-        {active ? "★" : "☆"}
+      <span aria-hidden className="text-[1.15rem] leading-none">
+        {active ? "?" : "?"}
       </span>
     </button>
   );
 }
-

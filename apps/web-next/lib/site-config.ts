@@ -6,12 +6,12 @@ export const siteConfig = {
     "A modern affiliate storefront powered by Next.js and Supabase featuring real-time data, secure auth, and fast product browsing.",
   nav: [
     { href: "/", label: "Home", labelKey: "nav.home" },
-    { href: "/products", label: "Products", labelKey: "nav.catalog" },
-    { href: "/offers", label: "Offers", labelKey: "nav.offers" },
+    { href: "/products", label: "Catalog", labelKey: "nav.catalog" },
+    { href: "/cart", label: "Cart", labelKey: "nav.cart" },
+    { href: "/checkout", label: "Checkout", labelKey: "nav.checkout" },
     { href: "/favorites", label: "Favorites", labelKey: "nav.favorites" },
-    { href: "/affiliate", label: "Affiliate", labelKey: "nav.affiliate" },
+    { href: "/partner", label: "Partnership", labelKey: "nav.partner" },
     { href: "/contact", label: "Contact", labelKey: "nav.contact" },
-    { href: "/partner", label: "Partner", labelKey: "nav.partner" },
     { href: "/account", label: "Account", labelKey: "nav.account" },
   ],
   footer: {

@@ -77,61 +77,86 @@ export default function AccountForm({ user }: { user: User | null }) {
     }
 
     return (
-        <div className="form-widget">
-            <Avatar
-                uid={user?.id ?? null}
-                url={avatar_url}
-                size={150}
-                onUpload={(url) => {
-                    setAvatarUrl(url)
-                    updateProfile({ fullname, username, website, avatar_url: url })
-                }}
-            />
-            <div>
-                <label htmlFor="email">Email</label>
-                <input id="email" type="text" value={user?.email} disabled />
-            </div>
-            <div>
-                <label htmlFor="fullName">Full Name</label>
-                <input
-                    id="fullName"
-                    type="text"
-                    value={fullname || ''}
-                    onChange={(e) => setFullname(e.target.value)}
+        <div className="surface mx-auto flex w-full max-w-xl flex-col gap-8 rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/70 p-8 shadow-card">
+            <div className="flex flex-col items-center gap-4 text-center">
+                <Avatar
+                    uid={user?.id ?? null}
+                    url={avatar_url}
+                    size={150}
+                    onUpload={(url) => {
+                        setAvatarUrl(url)
+                        updateProfile({ fullname, username, website, avatar_url: url })
+                    }}
                 />
-            </div>
-            <div>
-                <label htmlFor="username">Username</label>
-                <input
-                    id="username"
-                    type="text"
-                    value={username || ''}
-                    onChange={(e) => setUsername(e.target.value)}
-                />
-            </div>
-            <div>
-                <label htmlFor="website">Website</label>
-                <input
-                    id="website"
-                    type="url"
-                    value={website || ''}
-                    onChange={(e) => setWebsite(e.target.value)}
-                />
+                <div className="space-y-1">
+                    <p className="text-sm font-medium uppercase tracking-[0.32em] text-muted/80">Account</p>
+                    <h2 className="text-2xl font-semibold text-fg">Profile preferences</h2>
+                    <p className="text-sm text-muted">
+                        Update your public information and avatar. Changes are saved instantly after upload.
+                    </p>
+                </div>
             </div>
 
-            <div>
+            <div className="grid gap-5">
+                <label className="grid gap-2" htmlFor="email">
+                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Email</span>
+                    <input
+                        id="email"
+                        type="text"
+                        value={user?.email ?? ''}
+                        disabled
+                        className="w-full rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-sm text-muted/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    />
+                </label>
+
+                <label className="grid gap-2" htmlFor="fullName">
+                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Full name</span>
+                    <input
+                        id="fullName"
+                        type="text"
+                        value={fullname || ''}
+                        onChange={(e) => setFullname(e.target.value)}
+                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                    />
+                </label>
+
+                <label className="grid gap-2" htmlFor="username">
+                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Username</span>
+                    <input
+                        id="username"
+                        type="text"
+                        value={username || ''}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                    />
+                </label>
+
+                <label className="grid gap-2" htmlFor="website">
+                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Website</span>
+                    <input
+                        id="website"
+                        type="url"
+                        value={website || ''}
+                        onChange={(e) => setWebsite(e.target.value)}
+                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                    />
+                </label>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <button
-                    className="button primary block"
+                    className="inline-flex items-center justify-center rounded-full border border-primary/60 bg-primary px-6 py-3 text-sm font-semibold text-primaryfg shadow-[0_24px_60px_-32px_rgba(252,50,114,0.7)] transition hover:-translate-y-[1px] hover:shadow-[0_32px_72px_-34px_rgba(252,50,114,0.82)]"
                     onClick={() => updateProfile({ fullname, username, website, avatar_url })}
                     disabled={loading}
                 >
-                    {loading ? 'Loading ...' : 'Update'}
+                    {loading ? 'Loading ...' : 'Update profile'}
                 </button>
-            </div>
 
-            <div>
-                <form action="/auth/signout" method="post">
-                    <button className="button block" type="submit">
+                <form action="/auth/signout" method="post" className="w-full sm:w-auto">
+                    <button
+                        className="inline-flex w-full items-center justify-center rounded-full border border-border/50 bg-transparent px-6 py-3 text-sm font-medium text-muted transition hover:border-border/70 hover:bg-card/40 hover:text-fg"
+                        type="submit"
+                    >
                         Sign out
                     </button>
                 </form>

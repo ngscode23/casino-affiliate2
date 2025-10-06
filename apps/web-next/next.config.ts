@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
+process.env.TAILWIND_DISABLE_LIGHTNINGCSS = process.env.TAILWIND_DISABLE_LIGHTNINGCSS ?? "1";
+
 const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const storageHostname = (() => {
   if (!storageUrl) return undefined;

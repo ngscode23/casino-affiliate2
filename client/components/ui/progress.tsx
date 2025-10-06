@@ -1,26 +1,45 @@
 import * as React from "react";
-import * as ProgressPrimitive from "@radix-ui/react-progress";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
->(({ className, value, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
-      className,
-    )}
-    {...props}
-  >
-    <ProgressPrimitive.Indicator
-      className="h-full w-full flex-1 bg-primary transition-all"
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-    />
-  </ProgressPrimitive.Root>
-));
-Progress.displayName = ProgressPrimitive.Root.displayName;
+type ProgressProps = React.HTMLAttributes<HTMLDivElement> & {
+  value?: number;
+  max?: number;
+};
 
-export { Progress };
+const clamp = (value: number, max: number) => {
+  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(max) || max <= 0) return 0;
+  const ratio = (value / max) * 100;
+  return Math.min(100, Math.max(0, ratio));
+};
+
+export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
+  ({ className, value = 0, max = 100, ...props }, ref) => {
+    const percent = clamp(value, max);
+    const widthClass = `w-pct-${Math.round(percent)}` as const;
+
+    return (
+      <div
+        ref={ref}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-valuenow={Math.round(percent)}
+        className={cn(
+          "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
+          className,
+        )}
+        {...props}
+      >
+        <div
+          className={cn(
+            "h-full rounded-full bg-primary transition-[width] duration-300 ease-out",
+            widthClass,
+          )}
+        />
+      </div>
+    );
+  },
+);
+Progress.displayName = "Progress";

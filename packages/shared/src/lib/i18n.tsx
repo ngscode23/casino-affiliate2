@@ -5,13 +5,18 @@ import { hydrateLangFromStorage, setLang as setLangInStore, type Lang } from "@s
 type Ctx = { lang: Lang; setLang: (l: Lang) => void };
 const I18nContext = createContext<Ctx | undefined>(undefined);
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+type I18nProviderProps = {
+  children: React.ReactNode;
+  initialLang?: Lang;
+};
+
+export function I18nProvider({ children, initialLang = "en" }: I18nProviderProps) {
+  const [lang, setLangState] = useState<Lang>(initialLang);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const initial = hydrateLangFromStorage();
-    setLangState(initial);
+    setLangState((prev) => (initial && initial !== prev ? initial : prev));
   }, []);
 
   const setLang = (l: Lang) => {
@@ -54,4 +59,3 @@ export function useI18n() {
   if (!ctx) throw new Error("useI18n must be used within <I18nProvider>");
   return ctx;
 }
-

@@ -7,6 +7,7 @@ import PageShell from "@ui/components/ui/PageShell";
 import SectionCard from "@ui/components/ui/SectionCard";
 import LinkButton from "@ui/components/ui/LinkButton";
 import { Pill } from "@ui/components/ui/Pill";
+import Tagline from "@/components/tagline";
 import { useOffers } from "@shared/features/offers/api/useOffers";
 import type { NormalizedOffer } from "@shared/lib/offers";
 import { useT } from "@shared/lib/useT";
@@ -41,10 +42,10 @@ function OffersTable({ offers, labels }: { offers: Array<Partial<NormalizedOffer
     <div className="overflow-hidden rounded-2xl border border-white/10">
       <table className="w-full text-sm">
         <colgroup>
-          <col style={{ width: "40%" }} />
-          <col style={{ width: "15%" }} />
-          <col style={{ width: "20%" }} />
-          <col style={{ width: "15%" }} />
+          <col className="w-[40%]" />
+          <col className="w-[15%]" />
+          <col className="w-[20%]" />
+          <col className="w-[15%]" />
           <col />
         </colgroup>
         <thead className="bg-white/[0.03] text-left text-white/80">
@@ -166,7 +167,7 @@ export default function AffiliateHomeClient() {
         </div>
         <div className="grid items-start gap-10 md:grid-cols-[1.1fr_0.9fr]">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <span className="tagline">{t("affiliate.hero.tagline")}</span>
+            <Tagline>{t("affiliate.hero.tagline")}</Tagline>
             <h1 className="mt-4 text-balance text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
               {t("affiliate.hero.title")}
             </h1>

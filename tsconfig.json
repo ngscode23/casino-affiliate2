@@ -2,5 +2,19 @@
   "extends": "./tsconfig.base.json",
   "include": [
     "page.tsx"
-  ]
+  ],
+ 
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["apps/web-next/*"]
+    },
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true,
+    "skipLibCheck": false
+  }
+
 }

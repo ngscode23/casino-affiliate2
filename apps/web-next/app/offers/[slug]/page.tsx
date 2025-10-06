@@ -33,25 +33,30 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ sl
   const usesExternal = Boolean(offer.link);
 
   return (
-    <PageShell className="text-[color:var(--ui-text)]">
+    <PageShell className="text-fg">
       <div className="space-y-8">
-        <Link href="/offers" className="text-sm text-blue-300 hover:text-blue-200">
+        <Link
+          href="/offers"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-primary"
+        >
           ← Back to offers
         </Link>
 
         <header className="space-y-3">
-          <span className="tagline">Offer overview</span>
-          <h1 className="text-3xl font-semibold text-white sm:text-4xl">{offer.name}</h1>
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.32em] text-muted">
+            Offer overview
+          </span>
+          <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{offer.name}</h1>
           <div className="flex flex-wrap items-center gap-2">
             <Pill tone="rating">★ {offer.rating.toFixed(1)}</Pill>
             {offer.pinned ? <Pill tone="warn">Pinned</Pill> : null}
             {offer.pinnedPlan ? <Pill tone="ok">Plan {offer.pinnedPlan}</Pill> : null}
             <Pill>{offer.license}</Pill>
           </div>
-          <p className="text-sm text-[color:var(--ui-muted)]">
+          <p className="text-sm text-muted">
             Lifetime clicks: {offer.clicks}
           </p>
-          <p className="max-w-2xl text-sm text-[color:var(--ui-muted)]">
+          <p className="max-w-2xl text-sm text-muted">
             Compare the licence, expected payout speed, and supported payment methods before sending traffic. This
             page is a lightweight port of the legacy casino affiliate view while we migrate the rest of the
             experience to Next.js.
@@ -62,33 +67,33 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ sl
           <div className="grid gap-6 md:grid-cols-3">
             <div className="space-y-4">
               <div>
-                <div className="text-sm text-[color:var(--ui-muted)]">Payout window</div>
-                <div className="text-white">
+                <div className="text-sm text-muted">Payout window</div>
+                <div className="text-lg font-semibold text-fg">
                   {offer.payout || "Not specified"}
                   {offer.payoutHours ? ` (~${offer.payoutHours}h)` : ""}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-[color:var(--ui-muted)]">Partner link</div>
-                <div className="break-all text-xs text-[color:var(--ui-muted)]">
+                <div className="text-sm text-muted">Partner link</div>
+                <div className="break-all rounded-xl border border-border/40 bg-card/60 px-3 py-2 text-xs text-muted">
                   {offer.link ?? destination}
                 </div>
               </div>
             </div>
             <div className="space-y-4 md:col-span-2">
               <div>
-                <div className="text-sm text-[color:var(--ui-muted)]">Supported methods</div>
+                <div className="text-sm text-muted">Supported methods</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(offer.methods ?? []).length ? (
                     offer.methods!.map((method) => <Pill key={method}>{method}</Pill>)
                   ) : (
-                    <span className="text-sm text-[color:var(--ui-muted)]">No payment data yet.</span>
+                    <span className="text-sm text-muted">No payment data yet.</span>
                   )}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-[color:var(--ui-muted)]">Notes</div>
-                <p className="text-sm text-[color:var(--ui-muted)]">
+                <div className="text-sm text-muted">Notes</div>
+                <p className="text-sm text-muted">
                   Legacy rich descriptions are still being migrated. For now we only show structured metadata. If
                   you need the full audit trail, jump to the original Vite dashboard or contact the team.
                 </p>
@@ -96,15 +101,15 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ sl
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-[color:var(--ui-muted)]">
+          <div className="flex flex-col gap-3 rounded-[calc(var(--radius)+0.5rem)] border border-border/40 bg-card/60 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-xl text-sm text-muted">
               Ready to send traffic? Use the tracked link below. External links open in a new tab.
             </div>
             <Link
               href={destination}
               target={usesExternal ? "_blank" : undefined}
               rel={usesExternal ? "noopener noreferrer" : undefined}
-              className="button button-primary h-11 px-6"
+              className="inline-flex h-11 items-center justify-center rounded-full border border-primary/60 bg-primary px-6 text-sm font-semibold text-primaryfg shadow-[0_24px_58px_-28px_rgba(252,50,114,0.72)] transition hover:-translate-y-[1px] hover:shadow-[0_32px_72px_-28px_rgba(252,50,114,0.86)]"
             >
               Visit partner site
             </Link>
