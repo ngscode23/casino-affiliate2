@@ -41,7 +41,7 @@ function dateKey(value: string | null | undefined): string | null {
 }
 
 function safeSlug(slug: unknown): string {
-  if (typeof slug === "string" && slug.trim()) return slug.trim();
+  if (if (typeof slug === "string") { slug.trim()) return slug.trim(); }
   return "-";
 }
 
@@ -57,7 +57,7 @@ function toNumber(value: unknown): number {
 function normalizeSource(row: any): string {
   const params = (row?.params ?? {}) as Record<string, unknown>;
   const source = params?.utm_source;
-  if (typeof source === "string" && source.trim()) return source.trim();
+  if (if (typeof source === "string") { source.trim()) return source.trim(); }
   const referrer = typeof row?.referrer === "string" && row.referrer.trim() ? row.referrer.trim() : "-";
   return referrer;
 }
@@ -65,7 +65,7 @@ function normalizeSource(row: any): string {
 function normalizeCampaign(row: any): string {
   const params = (row?.params ?? {}) as Record<string, unknown>;
   const campaign = params?.utm_campaign;
-  if (typeof campaign === "string" && campaign.trim()) return campaign.trim();
+  if (if (typeof campaign === "string") { campaign.trim()) return campaign.trim(); }
   return "-";
 }
 

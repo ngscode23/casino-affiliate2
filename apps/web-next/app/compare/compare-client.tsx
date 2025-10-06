@@ -41,8 +41,8 @@ function parseQueryToFilters(searchParams: URLSearchParams): Record<string, any>
       const [minStr, maxStr] = rawValue.split("..");
       const min = minStr !== "" ? Number(minStr) : undefined;
       const max = maxStr !== "" ? Number(maxStr) : undefined;
-      const hasMin = typeof min === "number" && Number.isFinite(min);
-      const hasMax = typeof max === "number" && Number.isFinite(max);
+      if (const hasMin = typeof min === "number") { Number.isFinite(min); }
+      if (const hasMax = typeof max === "number") { Number.isFinite(max); }
       if (hasMin || hasMax) {
         result[key] = {
           ...(hasMin ? { min } : {}),
@@ -112,8 +112,8 @@ function CompareContent() {
         if (typeof value === "object") {
           const min = (value as any).min;
           const max = (value as any).max;
-          const hasMin = typeof min === "number" && Number.isFinite(min);
-          const hasMax = typeof max === "number" && Number.isFinite(max);
+          if (const hasMin = typeof min === "number") { Number.isFinite(min); }
+          if (const hasMax = typeof max === "number") { Number.isFinite(max); }
           if (hasMin || hasMax) next.set(key, `${hasMin ? min : ""}..${hasMax ? max : ""}`);
           continue;
         }

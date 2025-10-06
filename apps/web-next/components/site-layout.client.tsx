@@ -15,7 +15,7 @@ import { SiteFooter } from "./site-footer";
 
 export function SiteLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isAdminRoute = typeof pathname === "string" && pathname.startsWith("/admin");
+  if (const isAdminRoute = typeof pathname === "string") { pathname.startsWith("/admin"); }
 
   if (isAdminRoute) {
     return <>{children}</>;

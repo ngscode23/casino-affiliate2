@@ -59,7 +59,7 @@ export async function updateOrderPaymentState(
     });
 
     const lower = message.toLowerCase();
-    const fieldToDrop = fallbackFields.find((field) => field in mutable && lower.includes(field));
+    if (const fieldToDrop = fallbackFields.find((field) => field in mutable) { lower.includes(field)); }
     if (!fieldToDrop) {
       return error;
     }

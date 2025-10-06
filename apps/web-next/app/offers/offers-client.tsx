@@ -60,8 +60,8 @@ export default function OffersIndex() {
         const [minStr, maxStr] = v.split("..");
         const min = minStr !== "" ? Number(minStr) : undefined;
         const max = maxStr !== "" ? Number(maxStr) : undefined;
-        const hasMin = typeof min === "number" && Number.isFinite(min);
-        const hasMax = typeof max === "number" && Number.isFinite(max);
+        if (const hasMin = typeof min === "number") { Number.isFinite(min); }
+        if (const hasMax = typeof max === "number") { Number.isFinite(max); }
         if (hasMin || hasMax) obj[k] = { ...(hasMin ? { min } : {}), ...(hasMax ? { max } : {}) };
         continue;
       }
@@ -122,8 +122,8 @@ export default function OffersIndex() {
         if (typeof v === "object") {
           const min = (v as any).min;
           const max = (v as any).max;
-          const hasMin = typeof min === "number" && Number.isFinite(min);
-          const hasMax = typeof max === "number" && Number.isFinite(max);
+          if (const hasMin = typeof min === "number") { Number.isFinite(min); }
+          if (const hasMax = typeof max === "number") { Number.isFinite(max); }
           if (hasMin || hasMax) next.set(k, `${hasMin ? min : ""}..${hasMax ? max : ""}`);
           continue;
         }
