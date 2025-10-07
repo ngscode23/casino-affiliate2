@@ -3,7 +3,18 @@
 import { useState, type ReactNode, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Box, Settings, Menu, Plus, BarChart3, Users, Webhook } from "lucide-react";
+import {
+  LayoutDashboard,
+  Box,
+  Settings,
+  Menu,
+  Plus,
+  BarChart3,
+  Users,
+  Webhook,
+  ScrollText,
+  TrendingUp,
+} from "lucide-react";
 
 import ThemeToggle from "@ui/components/ThemeToggle";
 import UserBadge from "./user-badge";
@@ -13,6 +24,8 @@ import clsx from "clsx";
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, match: "exact" as const },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/metrics", label: "Metrics", icon: TrendingUp },
+  { href: "/admin/offers", label: "Offers", icon: ScrollText },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/partners", label: "Partners", icon: Users },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
@@ -106,7 +119,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
 
 
 

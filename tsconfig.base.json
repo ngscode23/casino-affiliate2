@@ -42,15 +42,11 @@
       "@web-next/*": [
         "apps/web-next/*"
       ],
-      "@admin/*": [
-        "apps/admin/src/*"
-      ],
       "@functions/*": [
         "apps/functions/src/*"
       ]
     },
     "types": [
-      "vite/client",
       "node"
     ]
   },

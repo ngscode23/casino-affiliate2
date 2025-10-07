@@ -1,5 +1,4 @@
 packages:
-  - apps/admin
   - apps/functions
   - apps/web-next
   - packages/*

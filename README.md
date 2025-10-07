@@ -1,11 +1,10 @@
-# Casino Affiliate Monorepo (Vite + Netlify + Supabase)
+# Casino Affiliate Monorepo (Next.js + Supabase)
 
-Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace exposes standalone builds for the public marketing site, the admin console, and Netlify functions while sharing UI, state, and types through reusable packages.
+Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace now ships a single Next.js application (public site + admin) alongside Netlify Functions while sharing UI, state, and types through reusable packages.
 
 ## Monorepo Layout
-- `apps/web` – customer-facing site (Vite, React)
-- `apps/admin` – admin console (Vite, React)
-- `apps/functions` – Netlify Functions (TypeScript)
+- `apps/web-next` - customer-facing site + admin (Next.js App Router)
+- `apps/functions` - Netlify Functions (TypeScript)
 - `packages/ui` – shared UI components and styles
 - `packages/shared` – reusable hooks, context providers, Supabase helpers, e-commerce logic
 - `packages/types` – shared TypeScript types (DB, DTOs)
@@ -20,16 +19,15 @@ Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The
 ## Install & Workspace Scripts
 ```bash
 pnpm install          # install once at repo root
-pnpm dev:web          # run marketing site on http://localhost:5173
-pnpm dev:admin        # run admin console on http://localhost:5176
+pnpm dev:web-next     # run Next.js app on http://localhost:3000
 pnpm --filter functions dev # optional: local Netlify Functions via netlify dev
 
-pnpm build            # turbo orchestrated build (web + admin + functions)
+pnpm build            # turbo orchestrated build (web-next + functions)
 pnpm test             # run vitest in apps that define tests
 pnpm lint             # eslint across workspace
 pnpm typecheck        # tsc project-wide
 ```
-Scripts are defined at the workspace root and proxied through Turborepo. Use `pnpm --filter <pkg> <cmd>` to run package-specific scripts (e.g. `pnpm --filter web lint`).
+Scripts are defined at the workspace root and proxied through Turborepo. Use `pnpm --filter <pkg> <cmd>` to run package-specific scripts (e.g. `pnpm --filter web-next lint`).
 
 ## Supabase
 - All migrations live under `infra/supabase/migrations`
@@ -44,16 +42,14 @@ supabase db push
 
 ## Netlify Deployment
 `netlify.toml` now targets the monorepo layout:
-- Build command: `pnpm --filter web build`
-- Publish directory: `apps/web/dist`
+- Build command: `pnpm --filter web-next build`
+- Publish directory: `.next` output (Next.js)
 - Functions directory: `apps/functions/src`
-
-To deploy the admin separately, create a second site that runs `pnpm --filter admin build` and publishes `apps/admin/dist`.
 
 ## CI/CD
 - Add GitHub Actions (example: `.github/workflows/ci.yml`) that run `pnpm install`, `pnpm lint`, `pnpm test`, `pnpm build`
 - Protect the main branch by requiring the CI workflow
-- Changesets is configured in `.changeset/config.json`; release tags follow `web@1.0.0`, `ui@0.1.0`, etc.
+- Changesets is configured in `.changeset/config.json`; release tags follow `web-next@1.0.0`, `ui@0.1.0`, etc.
 
 ## Shared Packages
 - `@ui/*` – UI surface (layout, common atoms/molecules, admin widgets)
@@ -79,7 +75,7 @@ import type { Offer } from "@types/offer";
 Define env values per app via `.env.local` or Netlify UI. Shared examples live in `.env.example`. Keys reference both frontend (`VITE_...`) and server (`SUPABASE_...`, `STRIPE_...`).
 
 ## Tests
-`apps/web` contains unit tests powered by Vitest (`pnpm --filter web test`). Additional specs can be added per app. Shared utilities live with their source so aliases resolve consistently.
+`apps/web-next` contains unit tests powered by Vitest (`pnpm --filter web-next test`). Additional specs can be added per app. Shared utilities live with their source so aliases resolve consistently.
 
 ---
 
@@ -97,7 +93,7 @@ The rest of this document retains the original feature documentation for quick r
 - GA and Sentry initialize only after user grants analytics consent
 - Component `@ui/components/layout/CookieBar.tsx` shows banner and emits `consent:changed`
 - GA loader: `@ui/components/AnalyticsGateGA.tsx` (defers `gtag.js` until consent)
-- Sentry gating: `@shared/lib/sentry.ts` initialized from `apps/web/src/main.tsx`
+- Sentry gating: `@shared/lib/sentry.ts` initialized from `apps/web-next/components/site-layout.client.tsx`
 - Toggle from footer: "Cookie settings" link opens the banner to change decision
 
 ### Analytics flags
@@ -175,10 +171,9 @@ Acceptance
 - `cleanup-clicks` (Netlify Scheduled Function): removes clicks older than `CLICKS_RETENTION_DAYS` using RPC `cleanup_clicks_before`
 
 ## Scripts
-- `pnpm --filter web dev`: local dev
+- `pnpm --filter web-next dev`: local dev
 - `pnpm --filter functions dev`: local Netlify dev with Functions proxy
-- `pnpm --filter web build`: production build
-- `pnpm --filter web sitemap`: generate `apps/web/public/sitemap.xml`
+- `pnpm --filter web-next build`: production build
 
 ## License
 MIT. Brand assets are placeholders - replace with your own.

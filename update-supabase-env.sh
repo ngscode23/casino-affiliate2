@@ -4,7 +4,6 @@ set -euo pipefail
 FILES=(
   ".env"
   ".env.local"
-  "apps/admin/.env.local"
   "apps/web-next/.env.local"
 )
 

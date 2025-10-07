@@ -28,6 +28,10 @@
 - `created_at timestamptz default now()`.
 - `updated_at timestamptz default now()` — maintained by trigger.
 
+
+
+
+
 ### `public.refresh_tokens`
 - `id uuid primary key` — internal id for chaining / revocation logs.
 - `user_id uuid references auth_users(id)` — cascades on delete.

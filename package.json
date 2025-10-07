@@ -6,16 +6,13 @@
   "scripts": {
     "changeset": "changeset",
     "dev:web-next": "turbo run dev --filter=web-next",
-    "dev:admin": "turbo run dev --filter=admin",
     "dev:functions": "turbo run dev --filter=functions",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
-    "prepare": "husky",
-    "dev:admin:netlify": "netlify dev --cwd apps/admin --port 8888 --target-port 5174",
-    "dev:admin:clean": "powershell -NoProfile -Command \"$ErrorActionPreference='SilentlyContinue'; Get-Process netlify -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 150; netlify dev --cwd apps/admin --port 8888 --target-port 5174\""
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

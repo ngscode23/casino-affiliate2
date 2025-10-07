@@ -1,5 +1,5 @@
 // src/components/CompareInline.tsx
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { X } from "lucide-react";
 import { ButtonGhost } from "@ui/components/ui/Buttons";
 import { Pill } from "@ui/components/ui/Pill";
@@ -30,7 +30,7 @@ export default function CompareInline({ className = "" }: { className?: string }
       <div className="flex items-center gap-2">
         <ButtonGhost onClick={clear} className="cursor-pointer">Clear</ButtonGhost>
         <Link
-          to="/compare"
+          href="/compare"
           className="h-10 px-4 inline-flex items-center justify-center rounded-xl font-medium bg-[color:var(--brand,#3B82F6)] text-[color:var(--brand-fg,#FFFFFF)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
         >
           Open compare
@@ -39,7 +39,6 @@ export default function CompareInline({ className = "" }: { className?: string }
     </div>
   );
 }
-
 
 
 

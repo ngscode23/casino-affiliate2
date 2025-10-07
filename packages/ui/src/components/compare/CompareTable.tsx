@@ -1,6 +1,6 @@
 // src/components/compare/CompareTable.tsx
 import * as React from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { FavControl } from "@ui/components/FavControl";
 import { useCompare } from "@shared/ctx/CompareContext";
 import type { NormalizedOffer } from "@shared/lib/offers";
@@ -240,7 +240,7 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
 
                   {/* FIRM */}
                   <td className="px-4 py-3 font-semibold">
-                    <Link className="hover:underline cursor-pointer block truncate" to={`/offers/${encodeURIComponent(slug)}`}>
+                    <Link className="hover:underline cursor-pointer block truncate" href={`/offers/${encodeURIComponent(slug)}`}>
                       {o.name}
                     </Link>
                   </td>
@@ -302,5 +302,3 @@ export default function CompareTable({ offers, sortKey, sortDir, onSortChange, r
     </div>
   );
 }
-
-
