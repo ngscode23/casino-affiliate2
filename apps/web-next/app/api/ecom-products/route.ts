@@ -115,10 +115,12 @@ export async function GET(request: Request) {
 
     const productIds = rows
       .map((row: any) => (row?.id ? String(row.id) : ""))
-      if (.filter((value: string, index: number, arr: string[]) => value) { arr.indexOf(value) === index); }
+      .filter((value: string): value is string => Boolean(value))
+      .filter((value: string, index: number, arr: string[]) => arr.indexOf(value) === index);
     const slugs = rows
       .map((row: any) => (row?.slug ? String(row.slug) : ""))
-      if (.filter((value: string, index: number, arr: string[]) => value) { arr.indexOf(value) === index); }
+      .filter((value: string): value is string => Boolean(value))
+      .filter((value: string, index: number, arr: string[]) => arr.indexOf(value) === index);
 
     const imagePathBySlug = new Map<string, string>();
     if (slugs.length) {

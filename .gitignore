@@ -50,3 +50,14 @@ openai.chatgpt-*.vsix
 
 # Turborepo
 .turbo
+
+# Generated artifacts
+__pycache__/
+*.pyc
+.eslint-report.json
+eslint-summary.json
+eslint-packages.json
+diff_report.txt
+tmp/
+st/
+sanity.txt

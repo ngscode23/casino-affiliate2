@@ -71,7 +71,11 @@ async function run() {
     path.join(root, "**/*.tsx").replace(/\\/g, "/"),
   ];
 
-  const files = await fg(patterns, { dot: false, absolute: true });
+const files = await fg(patterns, {
+  dot: false,
+  absolute: true,
+  ignore: ["**/node_modules/**", "**/.next/**", "**/.turbo/**"]
+});
 
   let totalFiles = 0;
   let totalChanges = 0;

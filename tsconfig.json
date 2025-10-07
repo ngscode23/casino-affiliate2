@@ -10,7 +10,17 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["apps/web-next/*"]
+      "@/*": ["apps/web-next/*", "client/*"],
+      "@lib/*": ["client/lib/*"],
+      "@shared/*": ["packages/shared/src/*"],
+      "@ui/*": ["packages/ui/src/*"],
+      "@types/*": ["packages/types/src/types/*"],
+      "@types": ["packages/types/src/index"],
+      "@casino-affiliate/types": ["packages/types/src/index"],
+      "@casino-affiliate/types/*": ["packages/types/src/types/*"],
+      "@web-next/*": ["apps/web-next/*"],
+      "@admin/*": ["apps/admin/src/*"],
+      "@functions/*": ["apps/functions/src/*"]
     },
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,

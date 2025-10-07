@@ -13,6 +13,8 @@ vi.mock("next/headers", () => ({
 import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 
+const mockCreateClient = vi.mocked(createClient);
+
 describe("track API routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,7 +39,7 @@ describe("track API routes", () => {
   it("writes click events to Supabase", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
     const from = vi.fn(() => ({ insert }));
-    (createClient as unknown as vi.Mock).mockResolvedValue({ from } as any);
+    mockCreateClient.mockResolvedValue({ from } as any);
 
     const { POST } = await import("@/app/api/track/click/route");
     const request = new Request("http://localhost/api/track/click", {
@@ -56,7 +58,7 @@ describe("track API routes", () => {
   it("returns 500 when Supabase rejects click insert", async () => {
     const insert = vi.fn().mockResolvedValue({ error: new Error("fail") });
     const from = vi.fn(() => ({ insert }));
-    (createClient as unknown as vi.Mock).mockResolvedValue({ from } as any);
+    mockCreateClient.mockResolvedValue({ from } as any);
 
     const { POST } = await import("@/app/api/track/click/route");
     const request = new Request("http://localhost/api/track/click", {
@@ -101,7 +103,7 @@ describe("track API routes", () => {
       return { insert };
     });
 
-    (createClient as unknown as vi.Mock).mockResolvedValue({ from } as any);
+    mockCreateClient.mockResolvedValue({ from } as any);
 
     const { POST } = await import("@/app/api/track/impression/route");
     const request = new Request("http://localhost/api/track/impression", {
@@ -116,4 +118,3 @@ describe("track API routes", () => {
     expect(insert).toHaveBeenCalledTimes(1);
   });
 });
-

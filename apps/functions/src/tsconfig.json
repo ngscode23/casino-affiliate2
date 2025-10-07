@@ -1,15 +1,14 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": false,
     "outDir": "dist",
-    "moduleResolution": "bundler",
     "types": [
       "node",
       "@netlify/functions"
     ]
   },
   "include": [
-    "src"
+    "./**/*.ts"
   ]
 }

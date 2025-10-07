@@ -41,8 +41,9 @@ function dateKey(value: string | null | undefined): string | null {
 }
 
 function safeSlug(slug: unknown): string {
-  if (if (typeof slug === "string") { slug.trim()) return slug.trim(); }
-  return "-";
+  if (typeof slug !== "string") return "-";
+  const trimmed = slug.trim();
+  return trimmed || "-";
 }
 
 function toNumber(value: unknown): number {
@@ -56,17 +57,16 @@ function toNumber(value: unknown): number {
 
 function normalizeSource(row: any): string {
   const params = (row?.params ?? {}) as Record<string, unknown>;
-  const source = params?.utm_source;
-  if (if (typeof source === "string") { source.trim()) return source.trim(); }
-  const referrer = typeof row?.referrer === "string" && row.referrer.trim() ? row.referrer.trim() : "-";
-  return referrer;
+  const source = typeof params?.utm_source === "string" ? params.utm_source.trim() : "";
+  if (source) return source;
+  const referrer = typeof row?.referrer === "string" ? row.referrer.trim() : "";
+  return referrer || "-";
 }
 
 function normalizeCampaign(row: any): string {
   const params = (row?.params ?? {}) as Record<string, unknown>;
-  const campaign = params?.utm_campaign;
-  if (if (typeof campaign === "string") { campaign.trim()) return campaign.trim(); }
-  return "-";
+  const campaign = typeof params?.utm_campaign === "string" ? params.utm_campaign.trim() : "";
+  return campaign || "-";
 }
 
 export async function GET(request: Request) {

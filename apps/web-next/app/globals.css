@@ -74,6 +74,7 @@
 @layer base {
   html, body { min-height: 100%; }
   body {
+    margin: 0;
     background: rgb(var(--bg-rgb));
     color: rgb(var(--fg-rgb));
     font-family: var(--font-sans, 'OpenAI Sans', system-ui);

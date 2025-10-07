@@ -128,13 +128,14 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
   };
 
   return (
-    <aside className="hidden w-full max-w-[320px] flex-col gap-8 border-r border-border/30 bg-card/95 px-7 py-8 shadow-[0_24px_80px_-50px_rgba(153,126,92,0.35)] backdrop-blur-lg lg:flex lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-hidden">
-      <div>
-        <Link
-          href={withLang(brand.href, lang)}
-          className="group flex items-center gap-3 text-base font-semibold tracking-tight text-fg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-          aria-label={brandTagline ?? brand.name}
-        >
+    <aside className="hidden flex-shrink-0 flex-col border-r border-border/30 bg-card/95 shadow-[0_24px_80px_-50px_rgba(153,126,92,0.35)] backdrop-blur-lg lg:flex lg:min-h-screen lg:w-[320px] lg:overflow-y-auto">
+      <div className="flex flex-1 flex-col gap-8 pr-7 pl-0 py-8">
+        <div>
+          <Link
+            href={withLang(brand.href, lang)}
+            className="group flex items-center gap-3 text-base font-semibold tracking-tight text-fg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            aria-label={brandTagline ?? brand.name}
+          >
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-base font-bold text-primaryfg shadow-[0_18px_44px_-24px_rgba(189,141,90,0.38)] transition-transform duration-300 group-hover:scale-105">
             {brand.initials}
           </span>
@@ -167,53 +168,54 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
             </button>
           </div>
         </form>
-      </div>
-
-      <div className="space-y-6 overflow-y-auto pr-1 lg:flex-1">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Sections</p>
-          <nav className="mt-3 flex flex-col gap-1.5" aria-label="Primary navigation">
-            {primaryLinks.map(renderNavItem)}
-          </nav>
         </div>
-        {libraryLinks.length > 0 ? (
+
+        <div className="space-y-6 overflow-y-auto pr-1 lg:flex-1">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Library</p>
-            <nav className="mt-3 flex flex-col gap-1.5" aria-label="Library navigation">
-              {libraryLinks.map(renderNavItem)}
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Sections</p>
+            <nav className="mt-3 flex flex-col gap-1.5" aria-label="Primary navigation">
+              {primaryLinks.map(renderNavItem)}
             </nav>
           </div>
-        ) : null}
-      </div>
-
-      <div className="mt-auto space-y-5">
-        <div className="rounded-2xl border border-border/40 bg-card/80 p-5 shadow-[0_24px_72px_-48px_rgba(153,126,92,0.32)]">
-          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.26em] text-muted">
-            <span>{cartLabel}</span>
-            <span className="rounded-full bg-primary/12 px-2 py-1 text-primary">{totalQty}</span>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between gap-3 text-sm">
-            <span className="text-muted">{summaryLabel}</span>
-            <span className="text-base font-semibold text-fg">{cartSummary}</span>
-          </div>
-          <Link
-            href={withLang("/cart", lang)}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow-[0_18px_40px_-24px_rgba(189,141,90,0.45)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_48px_-24px_rgba(189,141,90,0.52)]"
-          >
-            {goToCartLabel}
-          </Link>
+          {libraryLinks.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Library</p>
+              <nav className="mt-3 flex flex-col gap-1.5" aria-label="Library navigation">
+                {libraryLinks.map(renderNavItem)}
+              </nav>
+            </div>
+          ) : null}
         </div>
 
-        <button
-          type="button"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/40 bg-card/70 px-4 py-3 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-        >
-          + New folder
-        </button>
+        <div className="mt-auto space-y-5">
+          <div className="rounded-2xl border border-border/40 bg-card/80 p-5 shadow-[0_24px_72px_-48px_rgba(153,126,92,0.32)]">
+            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.26em] text-muted">
+              <span>{cartLabel}</span>
+              <span className="rounded-full bg-primary/12 px-2 py-1 text-primary">{totalQty}</span>
+            </div>
+            <div className="mt-3 flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-muted">{summaryLabel}</span>
+              <span className="text-base font-semibold text-fg">{cartSummary}</span>
+            </div>
+            <Link
+              href={withLang("/cart", lang)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow-[0_18px_40px_-24px_rgba(189,141,90,0.45)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_48px_-24px_rgba(189,141,90,0.52)]"
+            >
+              {goToCartLabel}
+            </Link>
+          </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-card/70 px-3 py-2">
-          <LanguageSwitcher className="rounded-full bg-card px-1 py-1" />
-          <ThemeToggle className="w-auto px-4" />
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/40 bg-card/70 px-4 py-3 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          >
+            + New folder
+          </button>
+
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-card/70 px-3 py-2">
+            <LanguageSwitcher className="rounded-full bg-card px-1 py-1" />
+            <ThemeToggle className="w-auto px-4" />
+          </div>
         </div>
       </div>
     </aside>

@@ -51,7 +51,10 @@ function extractAccessToken(request: Request): string | null {
 function toAuthUserRecord(user: User): AuthUserRecord {
   const role = (() => {
     const fromApp = user.app_metadata?.role;
-    if (if (typeof fromApp === "string") { fromApp.trim()) return fromApp.trim(); }
+    if (typeof fromApp === "string") {
+      const trimmed = fromApp.trim();
+      if (trimmed) return trimmed;
+    }
     const roles = user.app_metadata?.roles;
     if (Array.isArray(roles) && typeof roles[0] === "string" && roles[0].trim()) {
       return roles[0].trim();

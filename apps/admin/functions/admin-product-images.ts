@@ -4,6 +4,15 @@ import { json, error, methodNotAllowed } from "@shared/netlify/shared/auth/http"
 import { getServiceClient } from "@shared/netlify/shared/auth/supabase";
 
 const DEFAULT_BUCKET = "product-images";
+type ImageVersionRow = {
+  id: string;
+  path: string;
+  uploaded_at: string | null;
+  uploaded_by: string | null;
+  is_current: boolean | null;
+  source_url?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
 
 function encodePath(path: string): string {
   return path
@@ -42,14 +51,14 @@ export const handler: Handler = async (event) => {
 
     if (listError) return error(500, "db", listError.message);
 
-    const versions = (data || []).map((row) => ({
+    const versions = (data || []).map((row: ImageVersionRow) => ({
       id: row.id,
       path: row.path,
       publicUrl: publicUrl(supabaseUrl, bucket, row.path),
       uploadedAt: row.uploaded_at,
       uploadedBy: row.uploaded_by,
-      isCurrent: row.is_current,
-      sourceUrl: row.source_url,
+      isCurrent: Boolean(row.is_current),
+      sourceUrl: row.source_url ?? null,
       metadata: row.metadata ?? null,
     }));
 
@@ -202,6 +211,5 @@ async function syncPrimaryImage(
 }
 
 export default handler;
-
 
 

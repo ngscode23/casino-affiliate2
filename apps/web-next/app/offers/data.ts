@@ -106,7 +106,9 @@ export async function fetchOffers(): Promise<OfferWithMeta[]> {
         }
       } else {
         const sl = await supabase.rpc("pinned_offer_slugs");
-        if (if (!sl.error) { Array.isArray(sl.data)) pinnedSlugs = sl.data.map((x: any) => String(x)); }
+        if (!sl.error && Array.isArray(sl.data)) {
+          pinnedSlugs = sl.data.map((x: any) => String(x));
+        }
       }
     } catch {}
 

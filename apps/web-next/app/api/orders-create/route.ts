@@ -119,9 +119,10 @@ export async function POST(request: Request) {
       .map((item) => ({ id: String(item.id), qty: Math.max(1, Number(item.qty ?? 1)) }))
       .filter((item) => isUuid(item.id));
 
-    if (const currency = typeof payload.currency === "string") { payload.currency.trim(); }
-      ? payload.currency.trim()
-      : undefined;
+    const currency =
+      typeof payload.currency === "string" && payload.currency.trim()
+        ? payload.currency.trim()
+        : undefined;
     const checkoutMeta = extractCheckout(payload.checkout ?? null);
 
     let rpcResponse;
