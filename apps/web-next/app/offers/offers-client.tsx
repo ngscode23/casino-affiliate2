@@ -100,7 +100,6 @@ export default function OffersIndex() {
     if (searchString !== lastWrittenRef.current) {
       setFilters(parseQueryToFilters(new URLSearchParams(searchString)));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchString]);
 
   useEffect(() => {
@@ -258,7 +257,6 @@ export default function OffersIndex() {
     setPageOffset(0);
     setPageItems([]);
     loadPage(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters)]);
 
   // Recently viewed: resolve slugs from localStorage to offers (API first, then static fallback)
@@ -495,3 +493,4 @@ export default function OffersIndex() {
     </PageShell>
   );
 }
+

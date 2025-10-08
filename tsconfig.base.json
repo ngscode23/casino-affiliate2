@@ -41,9 +41,6 @@
       ],
       "@web-next/*": [
         "apps/web-next/*"
-      ],
-      "@functions/*": [
-        "apps/functions/src/*"
       ]
     },
     "types": [

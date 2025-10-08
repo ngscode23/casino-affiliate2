@@ -110,7 +110,9 @@ export async function fetchOffers(): Promise<OfferWithMeta[]> {
           pinnedSlugs = sl.data.map((x: any) => String(x));
         }
       }
-    } catch {}
+    } catch (error) {
+      console.warn("[offers/data] failed to fetch pinned slugs", error);
+    }
 
     const pinnedSet = new Set(pinnedSlugs.map((s) => s.trim()));
 

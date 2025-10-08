@@ -92,7 +92,9 @@ export async function POST(request: Request) {
     if (!("response" in maybeAuth)) {
       userId = maybeAuth.user.id;
     }
-  } catch {}
+  } catch (error) {
+    console.warn("[orders-create] requireAuth failed, continuing anonymously", error);
+  }
 
   const supabase = getAdminClient();
 

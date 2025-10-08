@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { FormEvent } from "react";
-import { useMemo } from "react";
 import { useCart } from "@shared/ecom/lib/cart";
 import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
@@ -38,9 +37,9 @@ function withLang(href: string, lang: string) {
   return qs ? `${path}?${qs}` : `${path}?lang=${lang}`;
 }
 
-function formatCurrency(value: number, currency = "USD") {
+function formatCurrency(value: number, currency = "USD", locale = "en-US") {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       currencyDisplay: "narrowSymbol",
@@ -54,14 +53,15 @@ function formatCurrency(value: number, currency = "USD") {
 const libraryRoutes = new Set(["/favorites", "/contact", "/partner", "/account", "/cart", "/checkout"]);
 
 export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) {
+  const { lang } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const t = useT();
-  const { lang } = useI18n();
   const { totalQty, subtotal } = useCart();
 
   const searchQuery = searchParams?.get("q") ?? "";
+  const items = useMemo(() => navItems, [navItems]);
   const brandTagline = tagline ?? brand.tagline;
 
   const translate = (key: string, fallback: string) => {
@@ -71,11 +71,9 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
 
   const cartLabel = translate("nav.cart", "Cart");
   const summaryLabel = translate("cart.summaryLabel", "Subtotal");
-  const cartSummary = totalQty > 0 ? formatCurrency(subtotal || 0) : translate("cart.emptySubtotal", formatCurrency(0));
-  const searchPlaceholder = translate("header.searchPlaceholder", "Search catalog");
+  const searchPlaceholder = translate("header.searchPlaceholder", "Search products");
   const goToCartLabel = translate("cart.goToCart", "Go to cart");
 
-  const items = useMemo(() => navItems, [navItems]);
   const primaryLinks = items.filter((item) => !libraryRoutes.has(item.href));
   const libraryLinks = items.filter((item) => libraryRoutes.has(item.href));
 
@@ -92,10 +90,8 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const q = (formData.get("q") as string)?.trim();
-    const base = "/products";
-
-    const target = withLang(base, lang);
-    const [pathPart, queryPart = ""] = target.split("?");
+    const base = withLang("/products", lang);
+    const [pathPart, queryPart = ""] = base.split("?");
     const params = new URLSearchParams(queryPart);
     if (q) {
       params.set("q", q);
@@ -107,114 +103,103 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
   };
 
   const renderNavItem = (item: NavItem) => {
-    const label = item.labelKey ? t(item.labelKey) : item.label ?? item.href;
+    const label = item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href;
     const active = isActive(item.href);
+    const classes = [
+      "inline-flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+      active
+        ? "border-primary/50 bg-primary/15 text-primary"
+        : "border-transparent text-muted hover:border-primary/30 hover:bg-card/80 hover:text-fg",
+    ].join(" ");
     return (
-      <Link
-        key={item.href}
-        href={withLang(item.href, lang)}
-        className={[
-          "group inline-flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm font-semibold tracking-tight transition",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-          active
-            ? "border-primary/50 bg-primary/15 text-primary shadow-[0_18px_52px_-36px_rgba(189,141,90,0.32)]"
-            : "border-transparent text-muted hover:border-primary/30 hover:bg-card/70 hover:text-fg",
-        ].join(" ")}
-      >
+      <Link key={item.href} href={withLang(item.href, lang)} className={classes}>
         <span>{label}</span>
-        {active ? <span className="flex h-1.5 w-1.5 rounded-full bg-primary/80" aria-hidden /> : null}
+        {active ? <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden /> : null}
       </Link>
     );
   };
 
+  const locale = lang === "ru" ? "ru-RU" : "en-US";
+
   return (
-    <aside className="hidden flex-shrink-0 flex-col border-r border-border/30 bg-card/95 shadow-[0_24px_80px_-50px_rgba(153,126,92,0.35)] backdrop-blur-lg lg:flex lg:min-h-screen lg:w-[320px] lg:overflow-y-auto">
-      <div className="flex flex-1 flex-col gap-8 pr-7 pl-0 py-8">
-        <div>
-          <Link
-            href={withLang(brand.href, lang)}
-            className="group flex items-center gap-3 text-base font-semibold tracking-tight text-fg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-            aria-label={brandTagline ?? brand.name}
-          >
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-base font-bold text-primaryfg shadow-[0_18px_44px_-24px_rgba(189,141,90,0.38)] transition-transform duration-300 group-hover:scale-105">
+    <aside className="sticky top-0 flex h-screen w-[300px] max-w-[300px] flex-shrink-0 flex-col border-r border-border bg-card/95 px-6 py-10 text-fg shadow-lg backdrop-blur">
+      <div className="flex flex-1 flex-col gap-8">
+        <Link
+          href={withLang(brand.href, lang)}
+          className="group flex items-center gap-3 text-sm font-semibold text-fg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          aria-label={brandTagline ?? brand.name}
+        >
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-base font-bold text-primary">
             {brand.initials}
           </span>
-          <span className="flex flex-col">
-            <span className="text-lg font-semibold">{brand.name}</span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-base font-semibold">{brand.name}</span>
             {brandTagline ? <span className="text-xs font-medium text-muted">{brandTagline}</span> : null}
           </span>
         </Link>
 
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.28em] text-muted">Search</p>
-        <form onSubmit={onSearchSubmit} className="mt-3" role="search">
-          <label htmlFor="sidebar-search" className="sr-only">
-            {searchPlaceholder}
+        <form onSubmit={onSearchSubmit} role="search" className="space-y-2">
+          <label htmlFor="sidebar-search" className="text-xs font-semibold uppercase tracking-[0.3em] text-muted">
+            Search
           </label>
-          <div className="relative">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-inner focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
             <input
               id="sidebar-search"
               name="q"
               type="search"
               defaultValue={searchQuery}
               placeholder={searchPlaceholder}
-              className="h-11 w-full rounded-xl border border-border/40 bg-card px-4 text-sm text-fg shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition placeholder:text-muted focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+              className="h-9 w-full border-none bg-transparent text-sm text-fg placeholder:text-muted focus:outline-none"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 inline-flex h-7 -translate-y-1/2 items-center justify-center rounded-full bg-primary px-3 text-xs font-semibold text-primaryfg shadow-[0_12px_30px_-20px_rgba(189,141,90,0.45)] transition hover:brightness-110"
+              className="inline-flex h-8 items-center justify-center rounded-full bg-primary px-4 text-xs font-semibold uppercase tracking-[0.2em] text-primaryfg"
               aria-label="Submit search"
             >
-              ↵
+              Search
             </button>
           </div>
         </form>
-        </div>
 
-        <div className="space-y-6 overflow-y-auto pr-1 lg:flex-1">
+        <div className="space-y-6 overflow-y-auto pr-1">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Sections</p>
-            <nav className="mt-3 flex flex-col gap-1.5" aria-label="Primary navigation">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Sections</p>
+            <nav className="mt-3 flex flex-col gap-2" aria-label="Primary navigation">
               {primaryLinks.map(renderNavItem)}
             </nav>
           </div>
-          {libraryLinks.length > 0 ? (
+          {libraryLinks.length ? (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Library</p>
-              <nav className="mt-3 flex flex-col gap-1.5" aria-label="Library navigation">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted">Library</p>
+              <nav className="mt-3 flex flex-col gap-2" aria-label="Library navigation">
                 {libraryLinks.map(renderNavItem)}
               </nav>
             </div>
           ) : null}
         </div>
 
-        <div className="mt-auto space-y-5">
-          <div className="rounded-2xl border border-border/40 bg-card/80 p-5 shadow-[0_24px_72px_-48px_rgba(153,126,92,0.32)]">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.26em] text-muted">
+        <div className="mt-auto space-y-6">
+          <div className="rounded-2xl border border-border bg-card/80 p-5 shadow">
+            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.28em] text-muted">
               <span>{cartLabel}</span>
-              <span className="rounded-full bg-primary/12 px-2 py-1 text-primary">{totalQty}</span>
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">{totalQty}</span>
             </div>
-            <div className="mt-3 flex items-baseline justify-between gap-3 text-sm">
+            <div className="mt-3 flex items-baseline justify-between gap-3 text-sm text-fg">
               <span className="text-muted">{summaryLabel}</span>
-              <span className="text-base font-semibold text-fg">{cartSummary}</span>
+              <span className="text-base font-semibold">{formatCurrency(subtotal || 0, "USD", locale)}</span>
             </div>
             <Link
               href={withLang("/cart", lang)}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow-[0_18px_40px_-24px_rgba(189,141,90,0.45)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_48px_-24px_rgba(189,141,90,0.52)]"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             >
               {goToCartLabel}
             </Link>
           </div>
 
-          <button
-            type="button"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/40 bg-card/70 px-4 py-3 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-          >
-            + New folder
-          </button>
-
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-card/70 px-3 py-2">
-            <LanguageSwitcher className="rounded-full bg-card px-1 py-1" />
-            <ThemeToggle className="w-auto px-4" />
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
           </div>
         </div>
       </div>

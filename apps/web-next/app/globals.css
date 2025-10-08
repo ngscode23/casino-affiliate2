@@ -1,7 +1,5 @@
-/* Tailwind base directives – keep at top so PostCSS can expand them */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind base directives */
+@import "tailwindcss";
 
 /* Theme tokens (Tailwind v4 friendly) */
 :root {
@@ -90,14 +88,12 @@
   }
 }
 
-/* Minimal token utilities to work without JS config (Tailwind v4) */
+/* Minimal token utilities (if not provided by plugin) */
 @layer utilities {
   .text-fg { color: rgb(var(--fg-rgb)); }
   .text-primary { color: rgb(var(--primary-rgb)); }
-  .text-primaryfg { color: rgb(var(--primaryfg-rgb)); }
-  .text-primary-foreground { color: rgb(var(--primaryfg-rgb)); }
-  .text-muted { color: rgb(var(--mutedfg-rgb)); }
-  .text-muted-foreground { color: rgb(var(--mutedfg-rgb)); }
+  .text-primaryfg, .text-primary-foreground { color: rgb(var(--primaryfg-rgb)); }
+  .text-muted, .text-muted-foreground { color: rgb(var(--mutedfg-rgb)); }
   .text-secondary-foreground { color: rgb(var(--secondaryfg-rgb)); }
   .text-accent-foreground { color: rgb(var(--accentfg-rgb)); }
 
@@ -179,11 +175,15 @@
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
   .break-inside-avoid { break-inside: avoid; }
+
   .glass-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--border-rgb) / 0.4) transparent;
   }
   .glass-scroll::-webkit-scrollbar { width: 8px; }
-  .glass-scroll::-webkit-scrollbar-thumb { background-color: rgb(var(--border-rgb) / 0.32); border-radius: 999px; }
+  .glass-scroll::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-rgb) / 0.32);
+    border-radius: 999px;
+  }
   .glass-scroll::-webkit-scrollbar-track { background: transparent; }
 }

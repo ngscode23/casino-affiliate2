@@ -6,7 +6,6 @@
     "types": ["node"]
   },
   "include": [
-    "apps/**/vite.config.ts",
     "apps/**/vitest.config.ts"
   ],
   "exclude": [

@@ -1,8 +1,15 @@
-import type { Config } from "tailwindcss";
 import lineClamp from "@tailwindcss/line-clamp";
 import plugin from "tailwindcss/plugin";
 
 export default {
+  safelist: [
+    "grid",
+    "grid-cols-2",
+    "sm:grid-cols-3",
+    "lg:grid-cols-4",
+    "gap-6",
+    "lg:gap-8",
+  ],
   content: [
     "./apps/web/index.html",
     "./apps/web/src/**/*.{js,jsx,ts,tsx}",
@@ -226,4 +233,4 @@ export default {
       addUtilities(columnGapUtilities, ["responsive"]);
     }),
   ],
-} satisfies Config;
+};

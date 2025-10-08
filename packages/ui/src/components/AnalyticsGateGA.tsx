@@ -3,13 +3,15 @@ import { useEffect, useRef } from "react";
 import { GA_ID, enableAnalytics, setGaReady } from "@shared/lib/analytics";
 import { getConsent, onConsentChanged, applyStoredConsentToDom } from "@shared/lib/consent";
 
+const IS_DEV = process.env.NODE_ENV !== "production";
+
 export default function AnalyticsGateGA() {
   const loadedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!GA_ID) {
-      if (import.meta.env.DEV) console.info("[AnalyticsGateGA] GA_ID is empty, skip");
+      if (IS_DEV) console.info("[AnalyticsGateGA] GA_ID is empty, skip");
       return;
     }
 
@@ -29,7 +31,7 @@ export default function AnalyticsGateGA() {
         maybeEnableAfterConsent();
       };
       script.onerror = () => {
-        if (import.meta.env.DEV) console.warn("[AnalyticsGateGA] failed to load gtag.js");
+        if (IS_DEV) console.warn("[AnalyticsGateGA] failed to load gtag.js");
       };
       document.head.appendChild(script);
     };
@@ -94,5 +96,4 @@ function maybeEnableAfterConsent() {
   const consent = getConsent();
   if (consent?.analytics) enableAnalytics();
 }
-
 

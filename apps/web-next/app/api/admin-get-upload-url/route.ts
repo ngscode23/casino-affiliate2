@@ -37,11 +37,7 @@ function encodeObjectPath(path: string): string {
 }
 
 function getSupabaseUrl(): string {
-  const candidates = [
-    process.env.SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.VITE_SUPABASE_URL,
-  ];
+  const candidates = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL];
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) {
       return candidate.trim();
@@ -108,25 +104,25 @@ export async function POST(request: Request) {
     try {
       let updated = 0;
       if (skuRaw) {
-        const { data: rows, error: updateErr } = await supabase
+        const { data: skuRows, error: updateErr } = await supabase
           .from("shop.products")
           .update({ image_path: objectPath })
           .eq("sku", skuRaw)
           .select("id");
         if (updateErr) throw updateErr;
-        updated = rows?.length ?? 0;
+        updated = skuRows?.length ?? 0;
       }
       if (!updated && slugRaw) {
-        const { data: rows, error: updateErr } = await supabase
+        const { data: slugRows, error: updateErr } = await supabase
           .from("shop.products")
           .update({ image_path: objectPath })
           .eq("slug", slugRaw)
           .select("id");
         if (updateErr) throw updateErr;
-        updated = rows?.length ?? 0;
+        updated = slugRows?.length ?? 0;
       }
       if (!updated && productId) {
-        const { data: rows, error: updateErr } = await supabase
+        const { data: _rows, error: updateErr } = await supabase
           .from("shop.products")
           .update({ image_path: objectPath })
           .eq("id", productId)

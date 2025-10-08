@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useMemo, useRef, useEffect, useState } from "react";
+import Image from "next/image";
+import { memo, useCallback, useMemo, useEffect, useState } from "react";
 
 import type { Product } from "@/app/products/types";
 import { formatPrice } from "@/app/products/utils";
@@ -43,14 +43,13 @@ function BaseProductCard({ product }: ProductCardProps) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCompared, setIsCompared] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const imageRef = useRef<HTMLImageElement | null>(null);
 
   const priceLabel = useMemo(() => formatPrice(product.price), [product.price]);
   const imageSrc = useMemo(
     () => resolveImage(product.mainImage, product.slug || product.id),
     [product.mainImage, product.slug, product.id],
   );
-  const srcSet = useMemo(() => `${imageSrc} 1x, ${imageSrc} 2x`, [imageSrc]);
+  const [imageUrl, setImageUrl] = useState(imageSrc);
   const title = product.title || "Product";
   const badge = useBadge(product);
   const badgeVariant = useMemo(() => {
@@ -86,13 +85,19 @@ function BaseProductCard({ product }: ProductCardProps) {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const node = imageRef.current;
-    if (!node) return;
-    if (node.complete && node.naturalWidth > 0) {
-      setIsImageLoaded(true);
-    }
+    setImageUrl(imageSrc);
   }, [imageSrc]);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [imageUrl]);
+
+  const handleImageError = useCallback(() => {
+    const fallback = getFallbackImageByKey(product.slug || product.id);
+    if (fallback && fallback !== imageUrl) {
+      setImageUrl(fallback);
+    }
+  }, [imageUrl, product.slug, product.id]);
 
   return (
     <Link
@@ -140,27 +145,22 @@ function BaseProductCard({ product }: ProductCardProps) {
         </header>
 
         <div className="mt-6 px-7">
-          <div className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-bg to-accent/60">
-            <img
-              ref={imageRef}
-              src={imageSrc}
-              alt={title}
-              loading="lazy"
-              decoding="async"
-              srcSet={srcSet}
-              sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, (min-width: 768px) 42vw, 100vw"
-              className={cn(
-                "aspect-square w-full object-cover transition duration-500 ease-out group-hover:scale-[1.03]",
-                isImageLoaded ? "opacity-100" : "opacity-0",
-              )}
-              onLoad={handleImageLoad}
-              onError={(event) => {
-                const img = event.currentTarget;
-                if (img.dataset.fallback === "1") return;
-                img.dataset.fallback = "1";
-                img.src = getFallbackImageByKey(product.slug || product.id);
-              }}
-            />
+          <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-bg to-accent/60">
+            <div className="relative aspect-square">
+              <Image
+                src={imageUrl}
+                alt={title}
+                fill
+                loading="lazy"
+                sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, (min-width: 768px) 42vw, 100vw"
+                className={cn(
+                  "object-cover transition duration-500 ease-out group-hover:scale-[1.03]",
+                  isImageLoaded ? "opacity-100" : "opacity-0",
+                )}
+                onLoadingComplete={handleImageLoad}
+                onError={handleImageError}
+              />
+            </div>
           </div>
         </div>
 
@@ -215,5 +215,6 @@ function ProductCardSkeleton() {
 export { ProductCardSkeleton };
 
 export default memo(BaseProductCard);
+
 
 

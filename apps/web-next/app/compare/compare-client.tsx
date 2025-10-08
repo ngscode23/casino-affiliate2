@@ -132,7 +132,6 @@ function CompareContent() {
     return () => {
       if (writeTimer.current) clearTimeout(writeTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters), sortKey, sortDir, pathname]);
 
   useEffect(() => {

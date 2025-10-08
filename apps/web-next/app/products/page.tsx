@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-
 import ProductsClient from "./products-client";
 import { loadProductsData } from "./data";
 
@@ -45,7 +44,7 @@ export default async function ProductsPage({
   })();
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="bg-background">
       {structuredData ? (
         <script
           type="application/ld+json"
@@ -53,12 +52,18 @@ export default async function ProductsPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
       ) : null}
-      <div className="pt-6 pb-10">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold text-fg sm:text-2xl">Products</h1>
-        </header>
+      <section>
+        <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
+          <header className="flex flex-col gap-3 text-center sm:text-left">
+            <span className="text-sm font-medium text-muted">Product catalog</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Discover our latest selection</h1>
+            <p className="text-base text-muted sm:max-w-2xl">
+              Explore curated drops, track real-time performance, and find the right Neon gear for your next project.
+            </p>
+          </header>
+        </div>
         <ProductsClient products={products} initialQuery={initialQuery} />
-      </div>
+      </section>
     </div>
   );
 }

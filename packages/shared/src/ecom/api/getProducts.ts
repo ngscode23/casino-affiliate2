@@ -61,7 +61,7 @@ export async function getProducts(params: ProductQuery): Promise<{ items: Produc
     return { items: data.items.map(map), total: data.total };
   } catch  {
    
-    // Fallback for local dev without Netlify functions: filter in-memory dataset
+    // Fallback for local dev without Next.js API routes: filter in-memory dataset
     let items = [...localProducts] as Product[];
     const q = (params.q || "").trim().toLowerCase();
     const category = (params.category || "").trim().toLowerCase();

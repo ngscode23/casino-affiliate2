@@ -23,20 +23,9 @@ if (storageHostname) {
   });
 }
 
-remotePatterns.push({
-  protocol: "https",
-  hostname: "via.placeholder.com",
-});
-
-remotePatterns.push({
-  protocol: "https",
-  hostname: "images.pexels.com",
-});
-
-remotePatterns.push({
-  protocol: "https",
-  hostname: "images.unsplash.com",
-});
+remotePatterns.push({ protocol: "https", hostname: "via.placeholder.com" });
+remotePatterns.push({ protocol: "https", hostname: "images.pexels.com" });
+remotePatterns.push({ protocol: "https", hostname: "images.unsplash.com" });
 
 const nextConfig: NextConfig = {
   images: {
@@ -46,6 +35,15 @@ const nextConfig: NextConfig = {
     externalDir: true,
   },
   transpilePackages: ["@shared", "@casino-affiliate/types", "@ui"],
+  // Ship client-side source maps for production to satisfy Lighthouse and aid debugging
+  productionBrowserSourceMaps: true,
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      // Ensure full source maps for client bundles in production
+      config.devtool = "source-map";
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

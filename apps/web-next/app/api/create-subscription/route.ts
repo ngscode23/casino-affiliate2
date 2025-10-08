@@ -19,7 +19,6 @@ function resolveSiteOrigin(request: Request): string {
     "NEXT_PUBLIC_APP_URL",
     "SITE_ORIGIN",
     "SITE_URL",
-    "VITE_SITE_URL",
   );
   if (explicit) {
     return explicit.replace(/\/$/, "");

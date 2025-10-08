@@ -191,7 +191,7 @@ export default function AffiliateHomeClient() {
       </section>
 
       <SectionCard title={t("affiliate.sections.valueProps")} contentClassName="gap-6">
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {valueProps.map(({ icon: Icon, title, description }) => (
             <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <Icon className="h-5 w-5 text-[rgb(var(--primary))]" />

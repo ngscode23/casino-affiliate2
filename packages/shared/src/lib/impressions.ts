@@ -3,12 +3,13 @@
 
 import { useEffect, useRef } from 'react';
 import { fnUrl } from '@shared/lib/api';
+import { isDevEnvironment } from './env';
 
 const fired = new Set<string>();
 let io: IntersectionObserver | null = null;
 const pending = new Map<Element, string>(); // element -> slug
 
-const IS_DEV = !!((import.meta as any).env?.DEV);
+const IS_DEV = isDevEnvironment();
 
 function getObserver(): IntersectionObserver {
   if (io) return io;
@@ -63,4 +64,3 @@ export async function trackImpression(slug: string): Promise<void> {
     }).catch(() => void 0);
   } catch { void 0 }
 }
-

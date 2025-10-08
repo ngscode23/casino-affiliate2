@@ -18,8 +18,7 @@ function buildReturnUrl(request: Request) {
     "NEXT_PUBLIC_SITE_URL",
     "NEXT_PUBLIC_APP_URL",
     "SITE_ORIGIN",
-    "SITE_URL",
-    "VITE_SITE_URL"
+    "SITE_URL"
   );
   const base = siteOrigin || request.headers.get("origin") || "";
   if (!base) return "/admin/partners";

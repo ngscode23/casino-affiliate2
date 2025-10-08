@@ -18,6 +18,7 @@ export async function requestPasswordReset(
   _prevState: ResetState = DEFAULT_STATE,
   formData: FormData,
 ): Promise<ResetState> {
+  void _prevState;
   const email = sanitize(formData.get("email"));
 
   if (!email) {

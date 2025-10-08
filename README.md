@@ -1,10 +1,9 @@
 # Casino Affiliate Monorepo (Next.js + Supabase)
 
-Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace now ships a single Next.js application (public site + admin) alongside Netlify Functions while sharing UI, state, and types through reusable packages.
+Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace now ships a single Next.js application (public site + admin) while sharing UI, state, and types through reusable packages.
 
 ## Monorepo Layout
 - `apps/web-next` - customer-facing site + admin (Next.js App Router)
-- `apps/functions` - Netlify Functions (TypeScript)
 - `packages/ui` – shared UI components and styles
 - `packages/shared` – reusable hooks, context providers, Supabase helpers, e-commerce logic
 - `packages/types` – shared TypeScript types (DB, DTOs)
@@ -14,15 +13,14 @@ Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The
 - Node 20+
 - pnpm 9+
 - Supabase project (URL + Publishable + Service role keys)
-- Netlify account (build + scheduled functions)
+- Optional: background job runner (Supabase cron / external scheduler) for nightly maintenance RPCs
 
 ## Install & Workspace Scripts
 ```bash
 pnpm install          # install once at repo root
 pnpm dev:web-next     # run Next.js app on http://localhost:3000
-pnpm --filter functions dev # optional: local Netlify Functions via netlify dev
 
-pnpm build            # turbo orchestrated build (web-next + functions)
+pnpm build            # turbo orchestrated build (web-next)
 pnpm test             # run vitest in apps that define tests
 pnpm lint             # eslint across workspace
 pnpm typecheck        # tsc project-wide
@@ -39,12 +37,6 @@ Apply migrations with the Supabase CLI or Studio. Example:
 cd infra/supabase
 supabase db push
 ```
-
-## Netlify Deployment
-`netlify.toml` now targets the monorepo layout:
-- Build command: `pnpm --filter web-next build`
-- Publish directory: `.next` output (Next.js)
-- Functions directory: `apps/functions/src`
 
 ## CI/CD
 - Add GitHub Actions (example: `.github/workflows/ci.yml`) that run `pnpm install`, `pnpm lint`, `pnpm test`, `pnpm build`
@@ -67,12 +59,12 @@ import type { Offer } from "@types/offer";
 - Server redirect `/go/:slug` with tracking + RLS
 - Admin analytics (clicks, orders, CTR, exports)
 - i18n (RU/EN) with consent-gated analytics
-- E-commerce wishlist, cart, and reviews via Netlify Functions
+- E-commerce wishlist, cart, and reviews via Next.js server routes
 - Stripe subscriptions + customer portal integrations
 - Supabase policies and scheduled jobs (cleanup, expire partners)
 
 ## Environment Variables
-Define env values per app via `.env.local` or Netlify UI. Shared examples live in `.env.example`. Keys reference both frontend (`VITE_...`) and server (`SUPABASE_...`, `STRIPE_...`).
+Define env values per app via `.env.local`. Shared examples live in `.env.example`. Frontend-visible keys use the `NEXT_PUBLIC_...` prefix; server-only keys keep their raw names (`SUPABASE_...`, `STRIPE_...`).
 
 ## Tests
 `apps/web-next` contains unit tests powered by Vitest (`pnpm --filter web-next test`). Additional specs can be added per app. Shared utilities live with their source so aliases resolve consistently.
@@ -97,15 +89,15 @@ The rest of this document retains the original feature documentation for quick r
 - Toggle from footer: "Cookie settings" link opens the banner to change decision
 
 ### Analytics flags
-- `VITE_GA_ID` or `VITE_GA_MEASUREMENT_ID` (alias)
-- `VITE_SENTRY_DSN` (optional). Sampling is limited and only runs after consent
-- `FEATURE_POSTHOG` (default false): enables PostHog when consent is granted and key present
+- `NEXT_PUBLIC_GA_ID` or `NEXT_PUBLIC_GA_MEASUREMENT_ID`
+- `NEXT_PUBLIC_SENTRY_DSN` (optional). Sampling is limited and only runs after consent
+- `NEXT_PUBLIC_FEATURE_POSTHOG` (default false): enables PostHog when consent is granted and key present
 
 ### Paid placements (Stripe)
-- Env (Netlify): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_FEATURED`, `STRIPE_PRICE_TOP`
+- Env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_FEATURED`, `STRIPE_PRICE_TOP`
 - Create Prices in Stripe (Products → Prices) and copy `price_...` IDs to env
-- Create Webhook endpoint: `https://<your-site>/.netlify/functions/stripe-webhook` and paste signing secret to `STRIPE_WEBHOOK_SECRET`
-- Scheduled Function `expire-partners` runs daily at 02:00 UTC to unpin expired offers
+- Create Webhook endpoint: `https://<your-site>/api/payments/webhook` and paste signing secret to `STRIPE_WEBHOOK_SECRET`
+- Schedule the `expire_partner_pins` RPC (Supabase cron or external job) to unpin expired offers
 
 E2E test
 - Open `/admin/partners` → Create Checkout (choose plan, duration, slugs)
@@ -114,13 +106,13 @@ E2E test
 - After expiration, pins are removed by `expire-partners`
 
 ### Subscriptions + Customer Portal
-- Env (add to `.env` / Netlify):
+- Env (add to `.env`):
   - `STRIPE_PRICE_BASIC_MONTHLY`, `STRIPE_PRICE_FEATURED_MONTHLY`, `STRIPE_PRICE_TOP_MONTHLY`
   - `STRIPE_PRICE_BASIC_YEARLY`, `STRIPE_PRICE_FEATURED_YEARLY`, `STRIPE_PRICE_TOP_YEARLY`
   - `STRIPE_CUSTOMER_PORTAL_URL` (optional override for portal return URL)
-- Functions:
-  - `/.netlify/functions/create-subscription` - POST `{ email, plan, interval, coupon? }` - returns `{ url }` (Checkout Session)
-  - `/.netlify/functions/customer-portal` - POST `{ email }` - returns `{ url }` (Billing Portal)
+- API routes:
+  - `/api/create-subscription` - POST `{ email, plan, interval, coupon? }` - returns `{ url }` (Checkout Session)
+  - `/api/customer-portal` - POST `{ email }` - returns `{ url }` (Billing Portal)
 - Webhook updates `partners.expires_at` on `customer.subscription.created|updated|deleted` using Stripe `current_period_end`; cancels set to `now()`.
 - Admin `/admin/partners` contains a Subscriptions panel (subscribe and open portal by email).
 
@@ -137,7 +129,7 @@ E2E test
 - Per-slug mini sparklines (daily) for quick trend view
 
 Impressions
-- Frontend records impressions to `public.impressions` via `/.netlify/functions/track-impression` on first render of visible offers.
+- Frontend records impressions to `public.impressions` via `/api/track/impression` on first render of visible offers.
 - Stored fields: `slug`, `ts`, `ip_hash`, `user_agent`, `referer`, `device`, `lang` (RLS allows authenticated read only).
 
 ## Sprint 3: SaaS Packaging & Metrics
@@ -147,7 +139,7 @@ Impressions
 - Admin Metrics `/admin/metrics`: MRR, ARR, churn, ARPA, CTR (top slugs) with CSV/JSON export
 
 Env additions (frontend, optional for metrics):
-- `VITE_PLAN_BASIC_MRR`, `VITE_PLAN_FEATURED_MRR`, `VITE_PLAN_TOP_MRR` - per-plan MRR values to compute MRR/ARR/ARPA in the dashboard
+- `NEXT_PUBLIC_PLAN_BASIC_MRR`, `NEXT_PUBLIC_PLAN_FEATURED_MRR`, `NEXT_PUBLIC_PLAN_TOP_MRR` - per-plan MRR values to compute MRR/ARR/ARPA in the dashboard
 
 Acceptance
 - TypeScript passes (`pnpm typecheck`), tests pass (`pnpm test`)
@@ -158,8 +150,8 @@ Acceptance
 - Filter by `type`, pagination (50/page), and a button "Purge >30d" (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
 - Webhook payloads stored masked (emails masked, secrets removed).
 
-### Health function
-- Netlify Function `/.netlify/functions/health` returns JSON: `{ ok, time, commit, supabase: { ok }, duration_ms }`
+### Health endpoint
+- `/api/health` returns `{ ok, time, supabase: { ok }, duration_ms }`
 - Pings Supabase (light select) when server env is present
 
 ## Supabase policies summary
@@ -168,11 +160,10 @@ Acceptance
 - `public.impressions`: RLS on; authenticated select; inserts via service role only
 
 ## Cron tasks
-- `cleanup-clicks` (Netlify Scheduled Function): removes clicks older than `CLICKS_RETENTION_DAYS` using RPC `cleanup_clicks_before`
+- Schedule `/api/admin/maintenance/cleanup-clicks` (POST with `x-admin-token`) or call the `cleanup_clicks_before` RPC directly to purge old click data
 
 ## Scripts
 - `pnpm --filter web-next dev`: local dev
-- `pnpm --filter functions dev`: local Netlify dev with Functions proxy
 - `pnpm --filter web-next build`: production build
 
 ## License

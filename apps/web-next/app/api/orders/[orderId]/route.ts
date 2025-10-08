@@ -74,7 +74,7 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
       });
     }
   } catch (error) {
-    // proceed to fallback
+    console.warn("[orders/:id] order_v2 fetch failed", error);
   }
 
   try {

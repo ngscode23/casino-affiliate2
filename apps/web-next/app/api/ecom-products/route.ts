@@ -18,11 +18,7 @@ function json(body: unknown, status = 200) {
 }
 
 function pickSupabaseUrl(): string {
-  const candidates = [
-    process.env.SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.VITE_SUPABASE_URL,
-  ];
+  const candidates = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL];
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) {
       return candidate.trim();

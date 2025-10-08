@@ -1,13 +1,13 @@
 # Custom Authentication Overview
 
-## Serverless API layout
-- All auth endpoints live under `netlify/functions/auth/` to keep them grouped and tree-shaken together by Netlify.
-- Shared helpers (hashing, JWT utilities, cookie helpers) live in `netlify/functions/_shared/auth/`.
+## Server API layout
+- All auth endpoints live under `apps/web-next/app/api/auth/` and compile into the Next.js server bundle.
+- Shared helpers (hashing, JWT utilities, cookie helpers) live in `packages/shared`.
 - REST surface:
-  - `POST /.netlify/functions/auth/register`
-  - `POST /.netlify/functions/auth/login`
-  - `POST /.netlify/functions/auth/refresh`
-  - `POST /.netlify/functions/auth/logout`
+  - `POST /api/auth/register`
+  - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `POST /api/auth/logout`
 
 ## Database schema
 ### `public.auth_roles`
@@ -45,7 +45,7 @@
 ### Support objects
 - Trigger `trg_auth_users_set_updated_at` keeps `updated_at` fresh.
 - Indices: `auth_users(email)`, `auth_users(role)`, `refresh_tokens(user_id)`, partial `refresh_tokens(user_id, expires_at)` for active tokens.
-- RLS: tables restricted to the Supabase secret key (Netlify functions use the Secret key).
+- RLS: tables restricted to the Supabase secret key (server-side handlers use the Service key).
 
 ## JWT / session model
 - Access tokens: short-lived JWT (`sub`, `role`, `email`, `iat`, `exp`, `jti`).
@@ -62,4 +62,3 @@ Supabase manages access/refresh tokens. No additional JWT secrets are required b
 
 ## Migration references
 - Supabase migration: `supabase/migrations/20250916_210500_auth_schema.sql`.
-

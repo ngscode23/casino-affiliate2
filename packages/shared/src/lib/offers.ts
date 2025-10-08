@@ -1,7 +1,8 @@
 // src/lib/offers.ts
-import { slugify } from "./slug";
 import { offers as rawOffers } from "@shared/data/offers";
 import type { Offer as RawOffer } from "@shared/data/schema";
+import { slugify } from "./slug";
+import { isDevEnvironment } from "./env";
 
 /**
  * Нормализуем значение лицензии в удобочитаемую форму.
@@ -60,8 +61,6 @@ declare global {
 }
 export {};
 // dev helper: expose normalized offers for quick debugging in browser console (dev only)
-if (typeof import.meta !== "undefined" && (import.meta as any)?.env?.DEV && typeof window !== "undefined") {
-  
+if (isDevEnvironment() && typeof window !== "undefined") {
   (window as any).__offersNormalized = offersNormalized;
 }
-

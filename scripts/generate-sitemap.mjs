@@ -4,7 +4,7 @@ import path from "node:path";
 
 const ROOT = process.cwd();
 const PUBLIC_DIR = path.join(ROOT, "apps", "web", "public");
-const SITE_ORIGIN = process.env.SITE_ORIGIN || process.env.VITE_SITE_ORIGIN || "http://localhost:5173";
+const SITE_ORIGIN = process.env.SITE_ORIGIN || process.env.NEXT_PUBLIC_SITE_ORIGIN || "http://localhost:5173";
 
 const routes = [
   "/",
@@ -44,6 +44,5 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`+
 fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 fs.writeFileSync(path.join(PUBLIC_DIR, "sitemap.xml"), xml, "utf8");
 console.log(`[sitemap] generated ${urls.length} urls -> apps/web/public/sitemap.xml`);
-
 
 

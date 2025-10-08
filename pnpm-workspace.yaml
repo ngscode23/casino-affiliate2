@@ -1,4 +1,3 @@
 packages:
-  - apps/functions
   - apps/web-next
   - packages/*

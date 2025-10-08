@@ -18,6 +18,8 @@ import { useCart } from "@shared/ecom/lib/cart";
 // ];
 import { getUser } from "@shared/lib/auth";
 
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? process.env.SITE_NAME ?? "SITE";
+
 type NavItem = { to: string; key: string };
 const baseLinks: NavItem[] = [
   { to: "/", key: "nav.home" },
@@ -89,7 +91,7 @@ export default function MobileNav() {
           className="p-5"
         >
           <Link to="/" onClick={() => setOpen(false)} className="block text-xl font-extrabold">
-            {import.meta.env.VITE_SITE_NAME ?? "SITE"}
+            {SITE_NAME}
           </Link>
 
           <nav className="mt-4">
@@ -123,6 +125,5 @@ export default function MobileNav() {
     </Sheet>
   );
 }
-
 
 

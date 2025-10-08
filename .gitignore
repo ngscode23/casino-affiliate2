@@ -1,6 +1,6 @@
 # Dependencies
-node_modules/
-node_modules_old_*/
+node_modules*/
+pnpm-store/
 
 # Build outputs
 dist/
@@ -10,10 +10,9 @@ build/
 coverage/
 playwright-report/
 test-results/
-apps/*/dist/
-apps/*/.turbo/
+apps/*/{dist,.turbo}
 
-# Editor files
+# Editor / OS junk
 .vscode/*
 !.vscode/extensions.json
 .idea/
@@ -24,40 +23,36 @@ apps/*/.turbo/
 *.sln
 *.sw?
 
-# Environment
-.env
-.env.local
-.env.production
-.env.development
-.env.*.backup
+# Environment files
+.env*
+!.env.example
 
 # Netlify
 .netlify/
 
-# Misc
+# Misc build cache & logs
 *.tsbuildinfo
-.tmp/
-_archive/
-logs/
 *.log
-backup_before_cleanup_*/
-backup_before_restore/
-openai.chatgpt-*.vsix
+logs/
+tmp/
+tmp*/
+_archive/
+backup_*/
+backup_before_*/
 *.zip
 
 # Audit artifacts
-/audit-*.txt
+audit-*.txt
 
-# Turborepo
-.turbo
-
-# Generated artifacts
+# Python / Lint leftovers
 __pycache__/
 *.pyc
 .eslint-report.json
 eslint-summary.json
 eslint-packages.json
 diff_report.txt
-tmp/
-st/
 sanity.txt
+st/
+
+# VSIX bundles
+openai.chatgpt-*.vsix

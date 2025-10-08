@@ -10,7 +10,7 @@ export function PageViewTracker() {
     try {
       trackPageview(pathname);
     } catch (e) {
-      if (import.meta.env.DEV) console.warn("[PageViewTracker] pageview failed:", e);
+      if (process.env.NODE_ENV !== "production") console.warn("[PageViewTracker] pageview failed:", e);
     }
   }, [pathname]);
 

@@ -1,70 +1,85 @@
-// src/lib/recent.ts
+import { isDevEnvironment } from "./env";
 
 export const RECENT_KEY = "recent:offers:v1";
 export const RECENT_MAX = 12;
 
-/** Безопасная проверка режима разработки. */
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/** Determine whether verbose logging should be enabled. */
 function isDevMode(): boolean {
+  if (isDevEnvironment()) return true;
   try {
-    // Попытка проверить Vite-style import.meta.env.DEV
-    if ((import.meta as any)?.env?.DEV) return true;
-  } catch (_) {
-    // игнорировать синтаксические / рантайм-ошибки доступа к import.meta
+    if (typeof globalThis !== "undefined") {
+      const flag = (globalThis as any).__DEV__ ?? (globalThis as any).__DEV_MODE__;
+      if (typeof flag === "boolean") return flag;
+    }
+  } catch {
+    /* ignore access errors */
   }
-  // Запасной вариант — node-переменные окружения (SSR/Node)
-  try {
-    if (typeof process !== "undefined" && (process.env as any)?.NODE_ENV === "development") return true;
-  } catch (_) {}
   return false;
 }
 
-/** Безопасно читаем localStorage (и фильтруем мусор). */
-function readRecent(): string[] {
+function resolveStorage(): StorageLike | null {
+  if (typeof window === "undefined") return null;
+
   try {
-    const raw = localStorage.getItem(RECENT_KEY);
+    const storage = window.localStorage;
+    if (!storage) return null;
+    // Probe to ensure the caller has permission to read/write (can throw in some environments).
+    storage.getItem(RECENT_KEY);
+    return storage;
+  } catch (error) {
+    if (isDevMode()) console.warn("[recent] storage unavailable:", error);
+    return null;
+  }
+}
+
+function readRecent(storage: StorageLike): string[] {
+  try {
+    const raw = storage.getItem(RECENT_KEY);
     if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.filter((x) => typeof x === "string");
-  } catch (e) {
-    if (isDevMode()) console.warn("[recent] read failed:", e);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is string => typeof value === "string");
+  } catch (error) {
+    if (isDevMode()) console.warn("[recent] read failed:", error);
     return [];
   }
 }
 
-/** Безопасно пишем localStorage. */
-function writeRecent(list: string[]) {
+function writeRecent(storage: StorageLike, list: string[]) {
   try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
-  } catch (e) {
-    if (isDevMode()) console.warn("[recent] persist failed:", e);
+    storage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
+  } catch (error) {
+    if (isDevMode()) console.warn("[recent] persist failed:", error);
   }
 }
 
-/** Отдаём список slug'ов (последние-сначала). */
 export function getRecent(): string[] {
-  if (typeof window === "undefined") return [];
-  return readRecent();
+  const storage = resolveStorage();
+  if (!storage) return [];
+  return readRecent(storage);
 }
 
-/** Кладём slug в начало, убираем дубликаты, режем по лимиту. */
 export function pushRecent(slug: string | null | undefined) {
-  if (typeof window === "undefined") return;
+  const storage = resolveStorage();
+  if (!storage) return;
 
-  const key = String(slug ?? "").trim();
+  const key = `${slug ?? ""}`.trim();
   if (!key) return;
 
-  const list = readRecent().filter((s) => s !== key);
+  const list = readRecent(storage).filter((value) => value !== key);
   list.unshift(key);
-  writeRecent(list);
+  writeRecent(storage, list);
 }
 
-/** Полная очистка истории. */
 export function clearRecent() {
-  if (typeof window === "undefined") return;
+  const storage = resolveStorage();
+  if (!storage) return;
+
   try {
-    localStorage.removeItem(RECENT_KEY);
-  } catch (e) {
-    if (isDevMode()) console.warn("[recent] clear failed:", e);
+    storage.removeItem(RECENT_KEY);
+  } catch (error) {
+    if (isDevMode()) console.warn("[recent] clear failed:", error);
   }
 }

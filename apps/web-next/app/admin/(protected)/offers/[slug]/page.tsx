@@ -19,11 +19,16 @@ function OfferEditorSkeleton() {
   );
 }
 
-export default function AdminOfferEditorPage({ params }: { params: { slug: string } }) {
-  const slug = decodeURIComponent(params.slug ?? "");
+type AdminOfferEditorPageProps = {
+  params: Promise<{ slug: string }>;
+};
+
+export default async function AdminOfferEditorPage({ params }: AdminOfferEditorPageProps) {
+  const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug ?? "");
   return (
     <Suspense fallback={<OfferEditorSkeleton />}>
-      <OfferEditorClient slug={slug} />
+      <OfferEditorClient slug={decodedSlug} />
     </Suspense>
   );
 }

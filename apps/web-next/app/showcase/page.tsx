@@ -1,10 +1,10 @@
 "use client";
 
-import ProductCard, {
-  type ProductCardProps,
+import ShowcaseCard, {
+  type ShowcaseCardProps,
 } from "./product-card";
 
-const products: ProductCardProps[] = [
+const products: ShowcaseCardProps[] = [
   {
     title: "Smart Speaker",
     price: "$99.99",
@@ -55,15 +55,13 @@ export default function ShowcasePage() {
             Showcase storefront components
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            The original Vite demo now lives inside the Next.js app. These
-            cards are fully compatible with our shared UI kit and theming
-            tokens.
+            
           </p>
         </header>
 
         <section className="grid gap-6 md:grid-cols-2 md:gap-8">
           {products.map((product) => (
-            <ProductCard key={product.title} {...product} />
+            <ShowcaseCard key={product.title} {...product} />
           ))}
         </section>
       </main>

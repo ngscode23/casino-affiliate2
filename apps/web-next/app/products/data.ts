@@ -48,6 +48,42 @@ function deriveTitle(raw: RawProduct, index: number): string {
   if (fromSlug.length) return fromSlug;
   return `Product ${index + 1}`;
 }
+const PLACEHOLDER_PATTERNS = [
+  /dfbcgvh/i,
+  /lorem/i,
+  /ipsum/i,
+  /dummy/i,
+  /placeholder/i,
+  /sample/i,
+  /mock/i,
+  /test(\b|_)/i,
+  /untitled/i,
+  /screenshot/i,
+  /todo/i,
+  /tbd/i,
+];
+
+function isPlaceholderProduct(product: Product): boolean {
+  const title = (product.title ?? "").trim();
+  if (title.length < 4) {
+    return true;
+  }
+  if (PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(title))) {
+    return true;
+  }
+  const description = product.description;
+  if (typeof description === "string" && PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(description))) {
+    return true;
+  }
+  if (product.price <= 0) {
+    return true;
+  }
+  const image = (product.mainImage ?? "").toLowerCase();
+  if (image && (image.includes("placeholder") || image.includes("screenshot") || image.includes("ide") || image.includes("dummy"))) {
+    return true;
+  }
+  return false;
+}
 
 async function fetchRawProducts(supabase: SupabaseClient): Promise<{
   rawProducts: RawProduct[];
@@ -201,7 +237,7 @@ export async function loadProductsData(): Promise<{
 
   const now = Date.now();
 
-  const products: Product[] = rawProducts.map((raw, index) => {
+  let products: Product[] = rawProducts.map((raw, index) => {
     const slug = (typeof raw.slug === "string" ? raw.slug.trim() : "") || raw.id;
     const descriptionValue = typeof raw.short_desc === "string" ? raw.short_desc.trim() : "";
     const createdAt = typeof raw.created_at === "string" ? raw.created_at : null;
@@ -226,6 +262,11 @@ export async function loadProductsData(): Promise<{
       isTop: false,
     } satisfies Product;
   });
+
+  const cleanedProducts = products.filter((product) => !isPlaceholderProduct(product));
+  if (cleanedProducts.length > 0) {
+    products = cleanedProducts;
+  }
 
   const topCandidates = products
     .filter((product) => (product.clicks ?? 0) > 0 || (product.impressions ?? 0) > 0)
@@ -255,3 +296,7 @@ export async function loadProductsData(): Promise<{
 
   return { products, fetchError, structuredData: buildStructuredData(products) };
 }
+
+
+
+

@@ -44,7 +44,7 @@ function writeLocalOrders(orders: LocalOrderRecord[]): void {
 }
 
 function generateLocalOrderId(): string {
-  return `local-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function createLocalOrder(items: Array<{ id: string; qty: number }>, currency: string, checkout?: PlaceOrderCheckout) {
@@ -63,8 +63,9 @@ function createLocalOrder(items: Array<{ id: string; qty: number }>, currency: s
     });
 
   const subtotal = Number(enriched.reduce((sum, row) => sum + row.price * row.qty, 0).toFixed(2));
+  const orderId = generateLocalOrderId();
   const record: LocalOrderRecord = {
-    id: `local-${(Date.now()).toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    id: orderId,
     createdAt: new Date().toISOString(),
     currency,
     subtotal,
@@ -77,7 +78,7 @@ function createLocalOrder(items: Array<{ id: string; qty: number }>, currency: s
   const orders = readLocalOrders();
   orders.unshift(record);
   writeLocalOrders(orders);
-  return { order_id: record.id };
+  return { order_id: orderId };
 }
 
 export type SearchProductsParams = {
@@ -135,34 +136,20 @@ export async function searchProducts(params: SearchProductsParams = {}): Promise
 
 
 export const API_BASE = "/api";
-const API_FALLBACK = "/.netlify/functions";
-export const API_FALLBACK_BASE = API_FALLBACK;
-const API_BASES = Array.from(new Set([API_BASE, API_FALLBACK]));
 
 async function apiRequest(
   path: string,
   init: RequestInit = {},
   params?: Record<string, any>
 ): Promise<Response> {
-  let lastResponse: Response | null = null;
-  for (let i = 0; i < API_BASES.length; i += 1) {
-    const base = API_BASES[i];
-    const url = new URL(base + path, window.location.origin);
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        if (v === undefined || v === null || v === "") continue;
-        url.searchParams.set(k, String(v));
-      }
+  const url = new URL(API_BASE + path, window.location.origin);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null || v === "") continue;
+      url.searchParams.set(k, String(v));
     }
-    const res = await fetch(url.toString(), init);
-    if (res.status === 404 && i < API_BASES.length - 1) {
-      lastResponse = res;
-      continue;
-    }
-    return res;
   }
-  if (lastResponse) return lastResponse;
-  throw new Error("API request failed");
+  return fetch(url.toString(), init);
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -228,7 +215,7 @@ export async function listProducts(params: {
   return { items: data ?? [], total: count ?? 0 };
 }
 
-// отправка отзыва через Netlify endpoint
+// отправка отзыва через Next.js endpoint
 export async function addReview(p: { productId: string | number; rating: number; title: string; body: string }) {
   const headers = await authHeaders();
   if (!('authorization' in headers)) throw new Error('Not authenticated');
@@ -333,7 +320,7 @@ function normalizeCheckoutString(value: unknown, max = 512): string | undefined 
   if (trimmed.length > max) return trimmed.slice(0, max);
   return trimmed;
 }
-// Create an order for current authenticated user via Netlify function
+// Create an order for current authenticated user via Next.js function
 export async function placeOrder(
 
   items: Array<{ id: string; qty: number }>,
@@ -897,4 +884,3 @@ export function useProductsSearchV2(params: SearchProductsV2Params) {
 
   return { rows, total, loading };
 }
-

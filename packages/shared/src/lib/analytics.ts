@@ -13,44 +13,30 @@ let inited = false;
 let _analyticsEnabled = false;
 let _gaReady = false;
 
-const env = (() => {
-  const fromProcess = typeof process !== "undefined" && process.env ? process.env : {};
-  const fromImport = typeof import.meta !== "undefined" && (import.meta as any)?.env ? (import.meta as any).env : {};
-  return { ...fromImport, ...fromProcess } as Record<string, string | undefined>;
-})();
+import { envString, envFlag, isDevEnvironment } from "./env";
 
-const IS_DEV = (() => {
-  const mode = env.NODE_ENV || env.MODE || env.NEXT_PUBLIC_MODE || "";
-  return String(mode).toLowerCase() === "development";
-})();
+const IS_DEV = isDevEnvironment();
 
-function pickEnv(...keys: string[]): string {
-  for (const key of keys) {
-    const value = env[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
-}
-
-export const GA_ID: string = pickEnv(
-  "NEXT_PUBLIC_GA_ID",
-  "NEXT_PUBLIC_GA_MEASUREMENT_ID",
-  "VITE_GA_ID",
-  "VITE_GA_MEASUREMENT_ID",
-  "GA_ID",
-  "GA_MEASUREMENT_ID"
+export const GA_ID: string = envString(
+  [
+    "NEXT_PUBLIC_GA_ID",
+    "NEXT_PUBLIC_GA_MEASUREMENT_ID",
+    "GA_ID",
+    "GA_MEASUREMENT_ID",
+  ],
+  ""
 );
 
-const FEATURE_POSTHOG = pickEnv(
-  "NEXT_PUBLIC_FEATURE_POSTHOG",
-  "FEATURE_POSTHOG",
-  "VITE_FEATURE_POSTHOG"
-)
-  .toLowerCase() === "true";
+const FEATURE_POSTHOG = envFlag(
+  ["NEXT_PUBLIC_FEATURE_POSTHOG", "FEATURE_POSTHOG"],
+  false
+);
 
-const PH_KEY = pickEnv("NEXT_PUBLIC_POSTHOG_KEY", "VITE_POSTHOG_KEY", "POSTHOG_KEY") || undefined;
-const PH_HOST =
-  pickEnv("NEXT_PUBLIC_POSTHOG_HOST", "VITE_POSTHOG_HOST", "POSTHOG_HOST") || "https://app.posthog.com";
+const PH_KEY = envString(["NEXT_PUBLIC_POSTHOG_KEY", "POSTHOG_KEY"], "") || undefined;
+const PH_HOST = envString(
+  ["NEXT_PUBLIC_POSTHOG_HOST", "POSTHOG_HOST"],
+  "https://app.posthog.com"
+);
 
 // Lazy-loaded PostHog instance
 let posthogRef: (typeof import("posthog-js")['default']) | null = null;
@@ -220,5 +206,3 @@ export function trackAffiliateClick(offer_slug: string, position?: number): void
 export function trackAddToCompare(offer_slug: string, position?: number): void {
   track("add_to_compare", { offer_slug, position });
 }
-
-

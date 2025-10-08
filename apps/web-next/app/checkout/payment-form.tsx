@@ -11,7 +11,13 @@ interface CheckoutPaymentFormProps {
   onError: (message: string) => void;
 }
 
-export function CheckoutPaymentForm({ orderId, amountLabel, onSuccess, onProcessing, onError }: CheckoutPaymentFormProps) {
+export function CheckoutPaymentForm({
+  orderId,
+  amountLabel,
+  onSuccess,
+  onProcessing,
+  onError,
+}: CheckoutPaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isSubmitting, setSubmitting] = useState(false);
@@ -30,7 +36,7 @@ export function CheckoutPaymentForm({ orderId, amountLabel, onSuccess, onProcess
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/account/orders`,
+        return_url: `${window.location.origin}/account/orders/${orderId}`,
       },
       redirect: "if_required",
     });

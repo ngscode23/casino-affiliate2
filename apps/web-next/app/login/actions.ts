@@ -20,6 +20,7 @@ export async function loginAction(
   _prevState: AuthActionState = DEFAULT_STATE,
   formData: FormData,
 ): Promise<AuthActionState> {
+  void _prevState;
   const email = sanitize(formData.get("email"));
   const password = sanitize(formData.get("password"));
 
@@ -44,6 +45,7 @@ export async function signupAction(
   _prevState: AuthActionState = DEFAULT_STATE,
   formData: FormData,
 ): Promise<AuthActionState> {
+  void _prevState;
   const email = sanitize(formData.get("email"));
   const password = sanitize(formData.get("password"));
 

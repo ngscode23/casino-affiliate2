@@ -3,10 +3,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 let adminClient: SupabaseClient | null = null;
 
 function resolveConfig() {
-  const url =
-    process.env.SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   // Prefer new API names; fall back to legacy
   const key =
@@ -17,7 +14,7 @@ function resolveConfig() {
 
   if (!url || !key) {
     throw new Error(
-      "Missing Supabase admin env: set SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SECRET_KEY)"
+      "Missing Supabase admin env: set SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE)"
     );
   }
   return { url, key };

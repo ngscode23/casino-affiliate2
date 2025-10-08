@@ -34,7 +34,12 @@ export type HeroSlide = {
 
 const AUTOPLAY_INTERVAL = 6000;
 
-export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
+export type HeroSliderProps = {
+  slides: HeroSlide[];
+  className?: string;
+};
+
+function HeroSlider({ slides, className }: HeroSliderProps) {
   const safeSlides = useMemo(() => slides.filter(Boolean), [slides]);
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -65,6 +70,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     <section
       className={cn(
         "relative overflow-hidden text-white",
+        className,
         activeSlide.backgroundClass ?? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
       )}
       onMouseEnter={() => setIsPaused(true)}
@@ -73,7 +79,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
       onBlurCapture={() => setIsPaused(false)}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)]" aria-hidden />
-      <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 py-8 text-center sm:gap-6 sm:py-10 lg:py-12">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col items-center gap-6 px-4 py-8 text-center sm:px-6 sm:py-10 lg:px-8 lg:py-12">
         <div className="relative w-full">
           <div className="relative grid min-h-[220px] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,1fr)] lg:items-center">
             {safeSlides.map((slide, slideIndex) => (
@@ -94,18 +100,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                   ) : null}
                   <h1 className="text-3xl font-semibold sm:text-4xl md:text-5xl">{slide.title}</h1>
                   <p className="mt-4 text-base text-slate-200 sm:text-lg">{slide.description}</p>
-                  {slide.highlights?.length ? (
-                    <ul className="mt-4 flex flex-wrap justify-center gap-2 text-xs uppercase text-white/80 sm:text-sm lg:justify-start">
-                      {slide.highlights.map((highlight) => (
-                        <li key={`${slide.id}-${highlight}`}>
-                          <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                            {highlight}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  <HeroHighlights id={slide.id} highlights={slide.highlights} />
                   <div className="mt-6 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                     <Link
                       href={slide.primaryCta.href}
@@ -190,6 +185,9 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     </section>
   );
 }
+
+export { HeroSlider };
+export default HeroSlider;
 
 function renderVisual(slide: HeroSlide) {
   switch (slide.visual) {
@@ -362,7 +360,22 @@ function ReviewsVisual() {
 }
 
 
+function HeroHighlights({ id, highlights }: { id: string; highlights?: string[] }) {
+  if (!highlights?.length) return null;
 
+  return (
+    <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs uppercase tracking-[0.22em] text-white/70 sm:text-[13px] lg:justify-start">
+      {highlights.map((highlight, index) => (
+        <span key={`${id}-highlight-${highlight}`} className="flex items-center gap-3">
+          {index > 0 ? <span className="hidden h-px w-8 bg-white/25 sm:block" aria-hidden /> : null}
+          <span className="flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white/80">
+            {highlight}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 
 

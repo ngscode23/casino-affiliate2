@@ -13,8 +13,7 @@ import StatusBadge from "@ui/components/admin/StatusBadge";
 import { toast } from "@ui/components/common/toast";
 import { getValidAccessToken } from "@shared/lib/auth";
 
-const DEFAULT_ADMIN_TOKEN =
-  process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? process.env.VITE_ADMIN_TOKEN ?? "";
+const DEFAULT_ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
 
 interface OrderDetail {
   id: string;
@@ -357,5 +356,4 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     </Section>
   );
 }
-
 

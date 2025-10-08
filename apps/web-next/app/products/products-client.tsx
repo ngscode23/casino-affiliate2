@@ -20,14 +20,14 @@ type FiltersState = {
 const CHUNK_SIZE = 14;
 
 const DATASET_DESCRIPTORS: Record<FiltersState["dataset"], { label: string; icon: LucideIcon }> = {
-  all: { label: "Gallery", icon: Sparkles },
-  shop: { label: "Clothing", icon: Shirt },
-  legacy: { label: "Gadgets", icon: Smartphone },
+  all: { label: "All products", icon: Sparkles },
+  shop: { label: "Neon shop", icon: Shirt },
+  legacy: { label: "Archive", icon: Smartphone },
 };
 
 const LAYOUT_DESCRIPTORS: Record<LayoutMode, { label: string; icon: LucideIcon }> = {
-  masonry: { label: "Masonry", icon: LayoutGrid },
-  grid: { label: "Grid", icon: Grid3X3 },
+  masonry: { label: "Gallery masonry", icon: LayoutGrid },
+  grid: { label: "Balanced grid", icon: Grid3X3 },
   single: { label: "Single column", icon: AlignJustify },
 };
 
@@ -46,12 +46,12 @@ function datasetLabel(dataset: FiltersState["dataset"] | Product["dataset"]): st
   return "All products";
 }
 
+const GRID_LAYOUT_DEFAULT = "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8";
+
 const skeletonLayoutClass: Record<LayoutMode, string> = {
-  single: "grid grid-cols-1 gap-6",
-  masonry:
-    "grid [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] grid-flow-row-dense auto-rows-[minmax(320px,auto)] gap-4 sm:gap-5 md:gap-6 xl:gap-8 3xl:gap-10",
-  grid:
-    "grid [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))] gap-4 sm:gap-5 md:gap-6 xl:gap-8 3xl:gap-10",
+  single: "grid grid-cols-1 gap-6 sm:gap-8 lg:gap-10",
+  masonry: GRID_LAYOUT_DEFAULT,
+  grid: GRID_LAYOUT_DEFAULT,
 };
 
 const skeletonItemWrapperClass: Record<LayoutMode, string> = {
@@ -62,7 +62,7 @@ const skeletonItemWrapperClass: Record<LayoutMode, string> = {
 
 export default function ProductsClient({
   products,
-  initialLayout = "masonry",
+  initialLayout = "grid",
   initialQuery = "",
 }: {
   products: Product[];
@@ -90,28 +90,20 @@ export default function ProductsClient({
     return ["all", ...Array.from(values)] as FiltersState["dataset"][];
   }, [products]);
 
-  const datasetChips = useMemo(
+  const datasetOptions = useMemo(
     () =>
-      datasetValues.map((value) => {
-        const descriptor = DATASET_DESCRIPTORS[value] ?? {
-          label: datasetLabel(value),
-          icon: Sparkles,
-        };
-        return {
-          value,
-          label: descriptor.label,
-          Icon: descriptor.icon,
-        };
-      }),
+      datasetValues.map((value) => ({
+        value,
+        label: DATASET_DESCRIPTORS[value]?.label ?? datasetLabel(value),
+      })),
     [datasetValues],
   );
 
-  const layoutChips = useMemo(
+  const layoutOptions = useMemo(
     () =>
       (Object.entries(LAYOUT_DESCRIPTORS) as [LayoutMode, { label: string; icon: LucideIcon }][]).map(([value, descriptor]) => ({
         value,
         label: descriptor.label,
-        Icon: descriptor.icon,
       })),
     [],
   );
@@ -159,9 +151,13 @@ export default function ProductsClient({
     const visibleCount = displayed.length;
     const totalProducts = products.length;
     const parts = [visibleCount + " of " + totalProducts + " products"];
-    parts.push(numberFormatter.format(totals.clicks || 0) + " clicks");
-    parts.push(numberFormatter.format(totals.impressions || 0) + " impressions");
-    return parts.join(" · ");
+    if (totals.clicks > 0) {
+      parts.push(numberFormatter.format(totals.clicks) + " clicks");
+    }
+    if (totals.impressions > 0) {
+      parts.push(numberFormatter.format(totals.impressions) + " views");
+    }
+    return parts.join(" | ");
   }, [displayed.length, numberFormatter, products.length, totals.clicks, totals.impressions]);
 
   useEffect(() => {
@@ -226,8 +222,8 @@ export default function ProductsClient({
       params.delete("q");
     }
     const hash = window.location.hash;
-    const next = params.toString();
-    const nextUrl = `${window.location.pathname}${next ? `?${next}` : ""}${hash ?? ""}`;
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? "?" + search : ""}${hash}`;
     window.history.replaceState(null, "", nextUrl);
   }, []);
 
@@ -269,187 +265,191 @@ export default function ProductsClient({
     updateFilters(() => ({ query: "", dataset: "all", sort: "recent", layout: initialLayout }));
   }, [initialLayout, scrollToTop, updateFilters, updateUrlQuery]);
 
-  const activeFilterPills = useMemo(() => {
-    const pills: { key: string; label: string; Icon?: LucideIcon }[] = [];
-    if (filters.dataset !== "all") {
-      const descriptor = DATASET_DESCRIPTORS[filters.dataset] ?? { label: datasetLabel(filters.dataset), icon: Sparkles };
-      pills.push({ key: "dataset", label: descriptor.label, Icon: descriptor.icon });
-    }
-    const trimmedQuery = filters.query.trim();
-    if (trimmedQuery) {
-      pills.push({ key: "query", label: trimmedQuery });
-    }
-    return pills;
-  }, [filters.dataset, filters.query]);
-
   const gridItems = useMemo(
     () =>
       displayed.map((product) => {
-        const metaParts: string[] = [];
-        if (product.isNew) metaParts.push("New");
-        if (product.isTop) metaParts.push("Top");
-        metaParts.push(datasetLabel(product.dataset));
+        const priceValue = Number(product.price ?? 0);
+        const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
+        const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12) : null;
+        const meta =
+          product.clicks || product.impressions
+            ? numberFormatter.format(product.clicks || 0) + " clicks | " + numberFormatter.format(product.impressions || 0) + " views"
+            : null;
         return {
           id: product.id,
           slug: product.slug,
           title: product.title,
           subtitle: product.description,
           image: product.mainImage,
-          price: formatPrice(product.price ?? 0),
-          meta: metaParts.join(" · "),
+          price: priceValue > 0 ? formatPrice(priceValue) : null,
+          originalPrice,
+          badge,
+          meta,
         };
       }),
-    [displayed],
+    [displayed, numberFormatter],
   );
 
   const showSkeleton = !hydrated || isPending;
   const skeletonCount = showSkeleton ? Math.max(displayed.length, 8) : 0;
   const layoutMode: LayoutMode = filters.layout;
-  const activeDatasetLabel = datasetLabel(filters.dataset);
+  const datasetLabelText = filters.dataset === "all" ? "All products" : datasetLabel(filters.dataset);
+  const visibleCount = displayed.length;
+  const totalCount = products.length;
 
   return (
-    <div ref={topRef} className="pb-16 space-y-8">
-      <div className="rounded-[36px] border border-border/40 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-48px_rgba(153,126,92,0.32)] sm:px-8 lg:px-10">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Explore</p>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{activeDatasetLabel}</h1>
-            <p className="max-w-xl text-sm text-muted">
-              Curated catalog of affiliate-ready offers, updated continuously with live pricing, imagery, and performance stats.
-            </p>
-          </div>
-          <label className="flex items-center gap-3 rounded-full border border-border/40 bg-card px-4 py-2 text-sm text-muted shadow-[0_18px_46px_-32px_rgba(153,126,92,0.35)]">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em]">Sort by</span>
-            <div className="relative flex items-center">
-              <select
-                value={filters.sort}
-                onChange={(event) => handleSortChange(event.currentTarget.value as FiltersState["sort"])}
-                className="appearance-none bg-transparent pr-6 text-sm font-semibold text-fg outline-none disabled:opacity-40"
-                disabled={isPending}
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+    <div
+      ref={topRef}
+      className="w-full pt-0 pb-12 sm:pb-14 lg:pb-16"
+    >
+      <div className="grid gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
+        <aside className="flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold text-fg">Filters</h2>
+              <p className="text-sm text-muted">Refine the catalog to match what you need.</p>
             </div>
-          </label>
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-2.5">
-          {datasetChips.map(({ value, label, Icon }) => {
-            const isActive = filters.dataset === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => handleDatasetChange(value)}
-                className={[
-                  "group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                  isActive
-                    ? "border-primary/60 bg-primary text-primaryfg shadow-[0_18px_44px_-30px_rgba(189,141,90,0.45)]"
-                    : "border-border/35 bg-card/75 text-muted hover:border-primary/35 hover:text-fg",
-                ].join(" ")}
-                disabled={isPending}
-              >
-                <Icon className="h-4 w-4 transition group-hover:scale-105" />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="rounded-[30px] border border-border/30 bg-card/80 px-5 py-6 shadow-[0_20px_68px_-48px_rgba(153,126,92,0.28)] sm:px-7">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <label className="flex flex-1 items-center gap-3 rounded-xl border border-border/40 bg-card px-4 py-3 text-sm text-muted transition focus-within:border-primary/50 focus-within:bg-card/90 focus-within:text-fg focus-within:ring-2 focus-within:ring-primary/25">
-            <Search className="h-4 w-4 shrink-0 text-muted" />
-            <input
-              value={filters.query}
-              onChange={(event) => handleQueryChange(event.currentTarget.value)}
-              placeholder="Search products..."
-              className="w-full bg-transparent text-sm text-fg placeholder:text-muted focus:outline-none"
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex items-center gap-2 rounded-full bg-surface/20 px-4 py-2 text-sm font-medium text-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               disabled={isPending}
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-2.5">
-            {layoutChips.map(({ value, label, Icon }) => {
-              const isActive = filters.layout === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => handleLayoutChange(value)}
-                  className={[
-                    "group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                    isActive
-                      ? "border-primary/60 bg-primary text-primaryfg shadow-[0_16px_40px_-26px_rgba(189,141,90,0.42)]"
-                      : "border-border/35 bg-card/75 text-muted hover:border-primary/35 hover:text-fg",
-                  ].join(" ")}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="products-query" className="text-sm font-medium text-muted">
+                Search
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <input
+                  id="products-query"
+                  value={filters.query}
+                  onChange={(event) => handleQueryChange(event.currentTarget.value)}
+                  placeholder="Search products"
+                  className="h-12 w-full rounded-2xl border border-transparent bg-surface/10 pl-11 pr-4 text-sm text-fg placeholder:text-muted focus-visible:border-primary/40 focus-visible:bg-surface/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
                   disabled={isPending}
-                >
-                  <Icon className="h-4 w-4 transition group-hover:scale-110" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {activeFilterPills.length > 0 ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
-            {activeFilterPills.map((pill) => {
-              const Icon = pill.Icon;
-              return (
-                <span
-                  key={pill.key}
-                  className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-primaryfg shadow-[0_16px_40px_-28px_rgba(189,141,90,0.42)]"
-                >
-                  {Icon ? <Icon className="h-4 w-4" /> : null}
-                  <span>{pill.label}</span>
-                </span>
-              );
-            })}
-          </div>
-        ) : null}
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted">{summary}</p>
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-border/40 bg-card/80 px-5 py-2.5 text-sm font-medium text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-40"
-            disabled={isPending}
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset filters
-          </button>
-        </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-[1280px]">
-        {showSkeleton ? (
-          <div className={skeletonLayoutClass[layoutMode]}>
-            {Array.from({ length: skeletonCount }).map((_, index) => (
-              <div key={"skeleton-" + index} className={skeletonItemWrapperClass[layoutMode]}>
-                <ProductSkeleton />
+                />
               </div>
-            ))}
-          </div>
-        ) : displayed.length > 0 ? (
-          <ProductGrid items={gridItems} layout={layoutMode} />
-        ) : (
-          <EmptyState onReset={resetFilters} />
-        )}
+            </div>
 
-        <div ref={sentinelRef} aria-hidden />
-        {hasMore && !showSkeleton ? (
-          <p className="py-6 text-center text-xs text-muted" role="status">
-            Loading more products…
-          </p>
-        ) : null}
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <label htmlFor="products-dataset" className="text-sm font-medium text-muted">
+                  Dataset
+                </label>
+                <div className="relative">
+                  <select
+                    id="products-dataset"
+                    value={filters.dataset}
+                    onChange={(event) => handleDatasetChange(event.currentTarget.value as FiltersState["dataset"])}
+                    disabled={isPending}
+                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
+                  >
+                    {datasetOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="products-layout" className="text-sm font-medium text-muted">
+                  Layout
+                </label>
+                <div className="relative">
+                  <select
+                    id="products-layout"
+                    value={filters.layout}
+                    onChange={(event) => handleLayoutChange(event.currentTarget.value as LayoutMode)}
+                    disabled={isPending}
+                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
+                  >
+                    {layoutOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="products-sort" className="text-sm font-medium text-muted">
+                  Sort by
+                </label>
+                <div className="relative">
+                  <select
+                    id="products-sort"
+                    value={filters.sort}
+                    onChange={(event) => handleSortChange(event.currentTarget.value as FiltersState["sort"])}
+                    disabled={isPending}
+                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted">{summary}</p>
+        </aside>
+
+        <div className="space-y-8">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted">{datasetLabelText}</p>
+              <h2 className="text-3xl font-semibold text-fg sm:text-4xl">Products</h2>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-surface/10 px-4 py-2 text-sm font-medium text-muted">
+              {visibleCount} of {totalCount} products
+            </span>
+          </header>
+
+          <div className="space-y-6">
+            {showSkeleton ? (
+              <div className="py-6">
+                <div className={skeletonLayoutClass[layoutMode]}>
+                  {Array.from({ length: skeletonCount }).map((_, index) => (
+                    <div key={"skeleton-" + index} className={skeletonItemWrapperClass[layoutMode]}>
+                      <ProductSkeleton />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : displayed.length > 0 ? (
+              <div className="py-6">
+                <ProductGrid items={gridItems} layout={layoutMode} showAddToCart wrapWithContainer={false} />
+              </div>
+            ) : (
+              <div className="py-6">
+                <EmptyState onReset={resetFilters} />
+              </div>
+            )}
+
+            <div ref={sentinelRef} aria-hidden />
+            {hasMore && !showSkeleton ? (
+              <p className="py-6 text-center text-sm text-muted" role="status">
+                Loading more products...
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -457,12 +457,12 @@ export default function ProductsClient({
 
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div className="surface-elevated flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/40 p-12 text-center shadow-soft">
-      <p className="text-sm text-muted-foreground">No products match the current filters.</p>
+    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/20 bg-surface/10 p-12 text-center shadow-md">
+      <p className="text-sm text-muted">No products match the current filters.</p>
       <button
         type="button"
         onClick={onReset}
-        className="inline-flex items-center gap-2 rounded-xl border border-border/50 bg-card/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground transition hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="inline-flex items-center gap-2 rounded-full bg-surface/20 px-4 py-2 text-sm font-medium text-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
         Reset filters
       </button>

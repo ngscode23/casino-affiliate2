@@ -17,8 +17,7 @@
       "@types": ["packages/types/src/index"],
       "@casino-affiliate/types": ["packages/types/src/index"],
       "@casino-affiliate/types/*": ["packages/types/src/types/*"],
-      "@web-next/*": ["apps/web-next/*"],
-      "@functions/*": ["apps/functions/src/*"]
+      "@web-next/*": ["apps/web-next/*"]
     },
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,

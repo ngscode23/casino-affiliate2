@@ -15,10 +15,10 @@ export const siteConfig = {
     { href: "/account", label: "Account", labelKey: "nav.account" },
   ],
   footer: {
-    company: "Neon Shop Platform",
-    email: "hello@neonshop.dev",
+    company: "Neon Shop LLC",
+    email: "hello@neonshop.com",
     address: "12 Kohtu tn, Tallinn, Estonia",
-    phone: "+372 5551 2345",
+    phone: "+372 5555 1234",
   },
   socials: [
     { href: "https://t.me/neonshop", label: "Telegram" },

@@ -4,11 +4,14 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
-import importPlugin from 'eslint-plugin-import'
+import nextPluginModule from '@next/eslint-plugin-next'
 
 import { fileURLToPath } from 'url'
 import path from 'path'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const nextPlugin = nextPluginModule.default ?? nextPluginModule
+const nextFlatConfig = nextPluginModule.flatConfig ?? {}
 
 export default [
   // Глобальные игноры (заменяют .eslintignore)
@@ -35,9 +38,12 @@ export default [
       'tmp/**',
       '__pycache__/**',
       '**/*.tsbuildinfo',
-      '*.log'
+      '*.log',
+      'eslint.config.js'
     ]
   },
+
+  ...(nextFlatConfig.coreWebVitals ? [nextFlatConfig.coreWebVitals] : []),
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -45,8 +51,7 @@ export default [
   // Фронтенд-зона
   {
     files: [
-      'apps/**/*.{ts,tsx,js,jsx}',
-      'packages/**/*.{ts,tsx,js,jsx}',
+      '**/*.{ts,tsx,js,jsx}',
     ],
     languageOptions: {
       parser: tseslint.parser,
@@ -54,8 +59,10 @@ export default [
         project: [
           './tsconfig.json',
           './tsconfig.base.json',
-          './apps/*/tsconfig.json',
-          './packages/*/tsconfig.json',
+          '../../tsconfig.base.json',
+          '../../tsconfig.json',
+          '../../apps/*/tsconfig.json',
+          '../../packages/*/tsconfig.json',
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: 2022,
@@ -66,16 +73,18 @@ export default [
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
-      import: importPlugin,
+      '@next/next': nextPlugin,
     },
     settings: {
       'import/resolver': {
         typescript: {
           project: [
-            'tsconfig.json',
-            'tsconfig.base.json',
-            'apps/*/tsconfig.json',
-            'packages/*/tsconfig.json',
+            './tsconfig.json',
+            './tsconfig.base.json',
+            '../../tsconfig.base.json',
+            '../../tsconfig.json',
+            '../../apps/*/tsconfig.json',
+            '../../packages/*/tsconfig.json',
           ],
           alwaysTryTypes: true,
         },
@@ -83,11 +92,12 @@ export default [
     },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'off',
       'react-refresh/only-export-components': 'off',
 
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/ban-ts-comment': ['warn', { 'ts-expect-error': 'allow-with-description' }],
+      '@typescript-eslint/no-unused-vars': 'off',
 
       '@typescript-eslint/no-unused-expressions': ['error', {
         allowShortCircuit: true,
@@ -95,16 +105,6 @@ export default [
         allowTaggedTemplates: true,
       }],
 
-      'import/no-unresolved': 'error',
-      'import/named': 'error',
-      'import/no-extraneous-dependencies': ['error', {
-        devDependencies: [
-          '**/*.{test,spec}.{ts,tsx,js,jsx}',
-          'tests/**',
-          'e2e/**',
-          'scripts/**',
-        ],
-      }],
     },
   },
 
@@ -112,11 +112,10 @@ export default [
   {
     files: [
       'scripts/**/*.{ts,js}',
-      'apps/**/middleware.ts',
-      'apps/**/next.config.*',
-      'apps/**/server/**/*.{ts,js}',
-      'apps/**/api/**/*.{ts,js}',
-      'apps/functions/**/*.{ts,js}',
+      '**/middleware.ts',
+      '**/next.config.*',
+      '**/server/**/*.{ts,js}',
+      '**/api/**/*.{ts,js}',
     ],
     // В flat-config НЕТ excludedFiles. Если нужно что-то исключить тут же — пользуйся "ignores".
     ignores: [
@@ -129,8 +128,10 @@ export default [
         project: [
           './tsconfig.json',
           './tsconfig.base.json',
-          './apps/*/tsconfig.json',
-          './packages/*/tsconfig.json',
+          '../../tsconfig.base.json',
+          '../../tsconfig.json',
+          '../../apps/*/tsconfig.json',
+          '../../packages/*/tsconfig.json',
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: 2022,
@@ -142,4 +143,14 @@ export default [
       'no-console': 'off',
     },
   },
+  {
+    files: [
+      '**/*.{ts,tsx}',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ]
+
+

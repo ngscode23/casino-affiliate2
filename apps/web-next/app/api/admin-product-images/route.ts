@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const productId = url.searchParams.get("productId")?.trim();
   if (!productId) return json({ ok: false, error: "bad_request", message: "productId required" }, 400);
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
     return json({ ok: false, error: "misconfig", message: "SUPABASE_URL missing" }, 500);
   }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   const auth = await requireAdmin(request);
   if ("response" in auth) return auth.response;
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
     return json({ ok: false, error: "misconfig", message: "SUPABASE_URL missing" }, 500);
   }

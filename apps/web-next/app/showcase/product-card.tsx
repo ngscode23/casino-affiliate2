@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { Heart } from "lucide-react";
 import { cn } from "@shared/lib/utils";
 
 export type ProductBadgeVariant = "new" | "sale" | "bestseller" | "default";
 
-export interface ProductCardProps {
+export interface ShowcaseCardProps {
   title: string;
   badge?: {
     label: string;
@@ -26,13 +27,13 @@ const badgeStyles: Record<ProductBadgeVariant, string> = {
   default: "bg-accent text-accent-foreground",
 };
 
-export function ProductCard({
+export function ShowcaseCard({
   title,
   badge,
   price,
   originalPrice,
   image,
-}: ProductCardProps) {
+}: ShowcaseCardProps) {
   return (
     <article className="relative flex h-full flex-col rounded-[calc(var(--radius)+0.25rem)] bg-card p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
       <header className="flex items-start justify-between">
@@ -57,12 +58,13 @@ export function ProductCard({
         </button>
       </header>
 
-      <div className="mt-6 overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-background to-accent/60">
-        {/* eslint-disable-next-line @next/next/no-img-element -- simple marketing showcase */}
-        <img
+      <div className="mt-6 overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-background to-accent/60 relative aspect-square">
+        <Image
           src={image.src}
           alt={image.alt}
-          className="aspect-square w-full object-cover"
+          fill
+          sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, (min-width: 768px) 42vw, 100vw"
+          className="object-cover"
           loading="lazy"
         />
       </div>
@@ -91,4 +93,5 @@ export function ProductCard({
   );
 }
 
-export default ProductCard;
+export default ShowcaseCard;
+

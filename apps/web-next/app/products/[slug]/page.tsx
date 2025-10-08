@@ -96,7 +96,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         dataset: "shop",
       } satisfies RawProduct;
     }
-  } catch {}
+  } catch (error) {
+    console.warn("[products/:slug] primary fetch failed", error);
+  }
 
   if (!raw) {
     try {
@@ -119,7 +121,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           dataset: "legacy",
         } as RawProduct;
       }
-    } catch {}
+    } catch (error) {
+      console.warn("[products/:slug] legacy fetch failed", error);
+    }
   }
 
   if (!raw || raw.status === "archived") {
@@ -206,3 +210,4 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     </div>
   );
 }
+

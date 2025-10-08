@@ -1,3 +1,35 @@
+declare const EdgeRuntime: string | undefined;
+
+const globalForPatch = globalThis as typeof globalThis & {
+  __importUnsupportedPatched?: boolean;
+};
+
+// Next edge runtime runs globals.ts multiple times under Turbopack/HMR, causing
+// Object.defineProperty(globalThis, "__import_unsupported", ...) to throw because the
+// property is non-configurable after the first definition. Patch defineProperty once
+// so repeated definitions are ignored instead of crashing the middleware bootstrap.
+if (
+  typeof EdgeRuntime === "string" &&
+  !globalForPatch.__importUnsupportedPatched
+) {
+  const originalDefineProperty = Object.defineProperty;
+  Object.defineProperty = function definePropertyPatched(
+    target: any,
+    property: PropertyKey,
+    attributes: PropertyDescriptor
+  ) {
+    if (
+      target === globalThis &&
+      property === "__import_unsupported" &&
+      Object.prototype.hasOwnProperty.call(globalThis, "__import_unsupported")
+    ) {
+      return target;
+    }
+    return originalDefineProperty(target, property, attributes);
+  };
+  globalForPatch.__importUnsupportedPatched = true;
+}
+
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
 

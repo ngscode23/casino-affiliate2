@@ -1,4 +1,4 @@
--- Minimal order placement RPC used by Netlify orders-create function
+-- Minimal order placement RPC used by Next.js orders-create route
 begin;
 
 create or replace function public.place_order(p_user_id uuid)

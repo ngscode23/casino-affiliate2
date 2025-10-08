@@ -14,20 +14,35 @@ let Sentry: SentryLike = {
 
 let initialized = false;
 
+const env = typeof process !== "undefined" && process?.env ? process.env : {};
+
+function pickEnv(...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function isDev(): boolean {
+  const mode = pickEnv("NEXT_PUBLIC_APP_ENV", "APP_ENV", "NODE_ENV") ?? "";
+  return mode.toLowerCase() === "development";
+}
+
 async function loadSentry(): Promise<typeof import("@sentry/react") | null> {
   try {
     const mod = await import("@sentry/react");
-
     Sentry = mod as unknown as SentryLike;
     return mod;
   } catch {
+    if (isDev()) console.warn("[sentry] failed to import @sentry/react");
     return null;
   }
 }
 
 export async function initSentry(): Promise<boolean> {
   if (initialized) return true;
-  const DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  const DSN = pickEnv("NEXT_PUBLIC_SENTRY_DSN", "SENTRY_DSN");
   if (!DSN) return false;
   const consent = getConsent();
   if (!consent?.analytics) return false;
@@ -35,10 +50,11 @@ export async function initSentry(): Promise<boolean> {
   try {
     const mod = await loadSentry();
     if (!mod) return false;
-    const release = import.meta.env.VITE_SENTRY_RELEASE as string | undefined;
+    const release = pickEnv("NEXT_PUBLIC_SENTRY_RELEASE", "SENTRY_RELEASE");
+    const environment = pickEnv("NEXT_PUBLIC_APP_ENV", "APP_ENV", "NODE_ENV") ?? "production";
     mod.init({
       dsn: DSN,
-      environment: import.meta.env.MODE,
+      environment,
       release,
       tracesSampleRate: 0.1,
       replaysSessionSampleRate: 0.0,
@@ -46,7 +62,8 @@ export async function initSentry(): Promise<boolean> {
     });
     initialized = true;
     return true;
-  } catch {
+  } catch (error) {
+    if (isDev()) console.warn("[sentry.init] failed:", error);
     return false;
   }
 }
@@ -59,4 +76,3 @@ export function bindSentryToConsent(): () => void {
 export function isSentryInitialized() { return initialized; }
 
 export { Sentry };
-

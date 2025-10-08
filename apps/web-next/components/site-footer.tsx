@@ -38,45 +38,63 @@ export function SiteFooter() {
     );
   };
 
+  const primaryNav = siteConfig.nav.slice(0, 5);
+  const resolveNavLabel = (item: (typeof siteConfig.nav)[number]) => {
+    if (!item.labelKey) return item.label;
+    const translation = t(item.labelKey);
+    if (translation && translation !== item.labelKey) {
+      return translation;
+    }
+    return item.label;
+  };
+
   return (
-    <footer className="mt-10">
-      <div className="surface rounded-3xl border border-border/40 px-6 py-8 shadow-soft">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-3">
-            <p className="text-sm text-muted">{tagline}</p>
+    <footer className="mt-16">
+      <div className="rounded-[32px] border border-border/35 bg-card/92 px-6 py-10 shadow-soft sm:px-10 sm:py-14">
+        <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr_1fr]">
+          <div className="space-y-5">
+            <div>
+              <h2 className="text-base font-semibold text-fg">{siteConfig.name}</h2>
+              <p className="mt-2 max-w-sm text-sm text-muted">{tagline}</p>
+            </div>
             <LanguageSwitcher />
           </div>
 
-          <div className="grid gap-6 text-sm text-muted md:grid-cols-2 md:gap-12">
-            <div className="space-y-1">
-              <div className="font-semibold text-fg">{siteConfig.footer.company}</div>
-              {siteConfig.footer.address ? <div>{siteConfig.footer.address}</div> : null}
-              {siteConfig.footer.phone ? <div>{siteConfig.footer.phone}</div> : null}
-              {siteConfig.footer.email ? (
-                <a href={`mailto:${siteConfig.footer.email}`} className="block text-sm text-muted transition hover:text-primary">
-                  {siteConfig.footer.email}
-                </a>
-              ) : null}
-            </div>
+          <div className="space-y-2 text-sm text-muted">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Contact</h3>
+            {siteConfig.footer.address ? <div className="text-sm text-muted">{siteConfig.footer.address}</div> : null}
+            {siteConfig.footer.phone ? <div className="text-sm text-muted">{siteConfig.footer.phone}</div> : null}
+            {siteConfig.footer.email ? (
+              <a href={`mailto:${siteConfig.footer.email}`} className="block text-sm text-muted transition hover:text-primary">
+                {siteConfig.footer.email}
+              </a>
+            ) : null}
+          </div>
 
+          <div className="grid gap-6 text-sm text-muted sm:grid-cols-2 lg:grid-cols-1">
             <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Explore</h3>
+              {primaryNav.map((item) => (
+                <div key={item.href}>{renderLink(item.href, resolveNavLabel(item))}</div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Connect</h3>
               {siteConfig.socials.map((social: { href: string; label: string }) => (
                 <div key={social.href}>{renderLink(social.href, social.label)}</div>
               ))}
             </div>
-          </div>
-
-          <div className="grid gap-2 text-sm text-muted sm:grid-cols-2 sm:gap-3">
-            {legalLinks.map((item) => (
-              <div key={item.href}>{renderLink(item.href, item.label)}</div>
-            ))}
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Legal</h3>
+              {legalLinks.map((item) => (
+                <div key={item.href}>{renderLink(item.href, item.label)}</div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 border-t border-border/40 pt-4 text-xs text-muted md:flex-row md:items-center md:justify-between">
-          <span>
-            {siteConfig.footer.company ? `${year} ${siteConfig.footer.company}` : year}
-          </span>
+        <div className="mt-10 flex flex-col gap-3 border-t border-border/30 pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+          <span>{siteConfig.footer.company ? `${year} ${siteConfig.footer.company}` : year}</span>
           {rights ? <span>{rights}</span> : null}
         </div>
       </div>

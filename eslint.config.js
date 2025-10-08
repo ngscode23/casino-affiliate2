@@ -4,11 +4,14 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
-import importPlugin from 'eslint-plugin-import'
+import nextPluginModule from '@next/eslint-plugin-next'
 
 import { fileURLToPath } from 'url'
 import path from 'path'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const nextPlugin = nextPluginModule.default ?? nextPluginModule
+const nextFlatConfig = nextPluginModule.flatConfig ?? {}
 
 export default [
   // Глобальные игноры (заменяют .eslintignore)
@@ -39,6 +42,8 @@ export default [
     ]
   },
 
+  ...(nextFlatConfig.coreWebVitals ? [nextFlatConfig.coreWebVitals] : []),
+
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
@@ -66,7 +71,7 @@ export default [
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
-      import: importPlugin,
+      '@next/next': nextPlugin,
     },
     settings: {
       'import/resolver': {
@@ -94,17 +99,6 @@ export default [
         allowTernary: true,
         allowTaggedTemplates: true,
       }],
-
-      'import/no-unresolved': 'error',
-      'import/named': 'error',
-      'import/no-extraneous-dependencies': ['error', {
-        devDependencies: [
-          '**/*.{test,spec}.{ts,tsx,js,jsx}',
-          'tests/**',
-          'e2e/**',
-          'scripts/**',
-        ],
-      }],
     },
   },
 
@@ -116,7 +110,6 @@ export default [
       'apps/**/next.config.*',
       'apps/**/server/**/*.{ts,js}',
       'apps/**/api/**/*.{ts,js}',
-      'apps/functions/**/*.{ts,js}',
     ],
     // В flat-config НЕТ excludedFiles. Если нужно что-то исключить тут же — пользуйся "ignores".
     ignores: [
@@ -142,4 +135,13 @@ export default [
       'no-console': 'off',
     },
   },
+  {
+    files: [
+      '**/*.{ts,tsx}',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ]
+

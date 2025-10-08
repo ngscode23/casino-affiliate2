@@ -14,8 +14,7 @@ import { supabase } from "@shared/lib/supabase";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { useDebounce } from "@shared/hooks/useDebounce";
 
-const DEFAULT_ADMIN_TOKEN =
-  process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? process.env.VITE_ADMIN_TOKEN ?? "";
+const DEFAULT_ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
 
 interface Payment {
   id: string;
@@ -153,55 +152,17 @@ async function fetchOrders(params: OrdersQueryParams, adminToken: string) {
 }
 
 async function callPayments(path: string, body: unknown, adminToken: string) {
-  // primary attempt via authorizedRequest
-  try {
-    const response = await authorizedRequest(`/api/payments${path}`, adminToken, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body ?? {}),
-    });
+  const response = await authorizedRequest(`/api/payments${path}`, adminToken, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
 
-    if (response.status === 404) {
-      // try fallback endpoints if primary not found
-      const fallbackPaths = [`/api/admin/payments${path}`, `/.netlify/functions/payments${path}`];
-      for (const p of fallbackPaths) {
-        try {
-          const accessToken = await getValidAccessToken().catch(() => "");
-          const headers: Record<string, string> = {
-            accept: "application/json",
-            "content-type": "application/json",
-          };
-          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-          if (adminToken) headers["x-admin-token"] = adminToken;
-
-          const url = new URL(p, window.location.origin).toString();
-          const res = await fetch(url, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body ?? {}),
-            cache: "no-store",
-          });
-          if (res.ok) return res.json();
-          // if non-404 failure, continue to next fallback
-          if (res.status !== 404) {
-            const text = await res.text().catch(() => String(res.status));
-            throw new Error(`payments ${p} ${res.status} - ${text}`);
-          }
-        } catch {
-          // try next fallback
-        }
-      }
-      throw new Error(`payments ${path} 404`);
-    }
-
-    if (!response.ok) {
-      throw new Error(`payments ${path} ${response.status}`);
-    }
-    return response.json();
-  } catch (err) {
-    // bubble up error
-    throw err;
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `payments ${path} ${response.status}`);
   }
+  return response.json();
 }
 
 function formatCurrency(amount: number, currency: string | null | undefined) {
@@ -364,7 +325,7 @@ export function OrdersClient() {
       </Card>
 
       {summaryCards ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {summaryCards.map((card) => (
             <Card key={card.label} className="p-4">
               <div className="text-sm text-muted-foreground">{card.label}</div>

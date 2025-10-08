@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, Fragment } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { listOrders, getOrder, getProductsByIds, confirmPayment, cancelOrder } from "@shared/ecom/api/client";
-import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuthState } from "@shared/lib/authStore";
+
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 type OrderRow = {
   id?: string | number;
@@ -81,7 +82,7 @@ export default function OrderHistory() {
         setLoading(true);
         setError(null);
         if (!user) {
-          if ((import.meta as any).env?.DEV) {
+          if (IS_DEV) {
             const demo: OrderRow[] = [
               { order_no: "DEMO-1001", created_at: new Date().toISOString(), status: "succeeded", amount: 29.9, currency: "EUR" },
             ];
@@ -449,4 +450,3 @@ export default function OrderHistory() {
     </div>
   );
 }
-

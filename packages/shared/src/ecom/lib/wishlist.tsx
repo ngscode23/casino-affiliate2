@@ -9,8 +9,9 @@ import React, {
 } from "react";
 import { products } from "@shared/ecom/data/products";
 import type { Product } from "@shared/ecom/lib/types";
-import { API_BASE, API_FALLBACK_BASE } from "@shared/ecom/api/client";
+import { API_BASE } from "@shared/ecom/api/client";
 import { getValidAccessToken, onAuthStateChange } from "@shared/lib/auth";
+import { envFlag } from "../../lib/env";
 
 /**
  * Храним в localStorage объект вида { ids: string[] }
@@ -100,9 +101,10 @@ export function WishlistProvider({ children }: React.PropsWithChildren) {
     }
     setHasHydrated(true);
   }, []);
-  const serverSyncFlag =
-    typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_WISHLIST_SERVER_SYNC;
-  const SERVER_SYNC = (serverSyncFlag ?? 'true') !== 'false';
+  const SERVER_SYNC = envFlag(
+    ["NEXT_PUBLIC_WISHLIST_SERVER_SYNC", "WISHLIST_SERVER_SYNC"],
+    true
+  );
 
   // синхронизация со storage
   useEffect(() => {
@@ -132,11 +134,7 @@ export function WishlistProvider({ children }: React.PropsWithChildren) {
     let lastErr: any = null;
     while (attempt < tries) {
       try {
-        let res = await fetch(path, init);
-        if (res.status === 404 && path.startsWith(API_BASE)) {
-          const fallback = API_FALLBACK_BASE + path.slice(API_BASE.length);
-          res = await fetch(fallback, init);
-        }
+        const res = await fetch(path, init);
         if (res.status >= 500 || res.status === 429) throw new Error(`HTTP ${res.status}`);
         return res;
       } catch (e) {
@@ -270,5 +268,3 @@ export function useWishlist(): Ctx {
   }
   return ctx;
 }
-
-
