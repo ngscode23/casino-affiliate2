@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { Link } from "react-router-dom";
 import type { Product } from "@shared/ecom/lib/types";
 import Rating from "@ui/components/common/rating";

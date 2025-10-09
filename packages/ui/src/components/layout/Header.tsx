@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // src/components/layout/Header.tsx
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import LinkButton from "@ui/components/ui/LinkButton";
