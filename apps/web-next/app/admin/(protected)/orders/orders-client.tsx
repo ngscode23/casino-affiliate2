@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 
 import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
@@ -11,6 +12,8 @@ import Button from "@ui/components/common/button";
 import StatusBadge from "@ui/components/admin/StatusBadge";
 import { toast } from "@ui/components/common/toast";
 import { supabase } from "@shared/lib/supabase";
+import OrdersTable from "./OrdersTable";
+const LazyOrdersTable = dynamic(() => import("./OrdersTable"), { ssr: false });
 import { getValidAccessToken } from "@shared/lib/auth";
 import { useDebounce } from "@shared/hooks/useDebounce";
 
@@ -347,7 +350,25 @@ export function OrdersClient() {
         <div className="text-sm text-muted-foreground">No orders.</div>
       ) : (
         <div className="space-y-4">
-          <div className="overflow-x-auto">
+          {/* Defer heavy table to a lazy chunk */}
+          <LazyOrdersTable
+            orders={orders}
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            setPage={setPage}
+            token={token}
+            onOrdersChange={setOrders}
+            onRefresh={handleRefresh}
+          />
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/* Legacy table left here for reference (trimmed in favor of LazyOrdersTable) */
+/*
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -550,8 +571,4 @@ export function OrdersClient() {
               </Button>
             </div>
           </div>
-        </div>
-      )}
-    </Section>
-  );
-}
+*/

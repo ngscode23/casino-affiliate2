@@ -11,7 +11,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
-    "prepare": "husky"
+    "prepare": "husky",
+    "gen:db:types": "node scripts/gen-db-types.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

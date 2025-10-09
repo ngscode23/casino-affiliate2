@@ -36,10 +36,9 @@ describe("track API routes", () => {
     expect(response.status).toBe(400);
   });
 
-  it("writes click events to Supabase", async () => {
-    const insert = vi.fn().mockResolvedValue({ error: null });
-    const from = vi.fn(() => ({ insert }));
-    mockCreateClient.mockResolvedValue({ from } as any);
+  it("writes click events via RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateClient.mockResolvedValue({ rpc } as any);
 
     const { POST } = await import("@/app/api/track/click/route");
     const request = new Request("http://localhost/api/track/click", {
@@ -50,15 +49,12 @@ describe("track API routes", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("shop_clicks");
-    expect(insert).toHaveBeenCalledTimes(1);
-    expect(insert.mock.calls[0][0]).toMatchObject({ product_id: "prod-1" });
+    expect(rpc).toHaveBeenCalledWith("log_click", expect.objectContaining({ product_id: "prod-1" }));
   });
 
-  it("returns 500 when Supabase rejects click insert", async () => {
-    const insert = vi.fn().mockResolvedValue({ error: new Error("fail") });
-    const from = vi.fn(() => ({ insert }));
-    mockCreateClient.mockResolvedValue({ from } as any);
+  it("returns 500 when RPC rejects click", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: new Error("fail") });
+    mockCreateClient.mockResolvedValue({ rpc } as any);
 
     const { POST } = await import("@/app/api/track/click/route");
     const request = new Request("http://localhost/api/track/click", {
@@ -83,8 +79,8 @@ describe("track API routes", () => {
     expect(response.status).toBe(400);
   });
 
-  it("writes impression events to Supabase", async () => {
-    const insert = vi.fn().mockResolvedValue({ error: null });
+  it("writes impression events via RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
     const buildSelectChain = (data: unknown) => {
       const maybeSingle = vi.fn().mockResolvedValue({ data });
       const limit = vi.fn(() => ({ maybeSingle }));
@@ -100,10 +96,10 @@ describe("track API routes", () => {
       if (table === "products") {
         return buildSelectChain({ id: "legacy-1" });
       }
-      return { insert };
+      return {} as any;
     });
 
-    mockCreateClient.mockResolvedValue({ from } as any);
+    mockCreateClient.mockResolvedValue({ from, rpc } as any);
 
     const { POST } = await import("@/app/api/track/impression/route");
     const request = new Request("http://localhost/api/track/impression", {
@@ -114,7 +110,6 @@ describe("track API routes", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("shop_impressions");
-    expect(insert).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("log_impression", expect.objectContaining({ product_id: "prod-1" }));
   });
 });

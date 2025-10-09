@@ -44,6 +44,16 @@ function parsePayload(body: unknown): OrderPayload {
   return body as OrderPayload;
 }
 
+function sanitizeQuantity(value: unknown): number {
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) return Math.max(1, Math.round(value));
+    return 1;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.round(parsed));
+}
+
 function normalizeField(value: unknown, max = 512): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -118,7 +128,7 @@ export async function POST(request: Request) {
     const rawItems = Array.isArray(payload.items) ? payload.items : [];
     const items = rawItems
       .filter((item): item is { id: string; qty?: number } => Boolean(item && item.id))
-      .map((item) => ({ id: String(item.id), qty: Math.max(1, Number(item.qty ?? 1)) }))
+      .map((item) => ({ id: String(item.id), qty: sanitizeQuantity(item.qty ?? 1) }))
       .filter((item) => isUuid(item.id));
 
     const currency =

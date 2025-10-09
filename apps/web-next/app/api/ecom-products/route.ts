@@ -78,6 +78,8 @@ export async function GET(request: Request) {
         { count: "exact" }
       );
 
+    const DEFAULT_STATUSES = ["active", "published"] as const;
+
     if (ids.length) {
       query = query.in("id", ids);
     } else {
@@ -87,7 +89,12 @@ export async function GET(request: Request) {
       const maxVal = Number(max);
       if (!Number.isNaN(maxVal) && max !== null && max !== "") query = query.lte("price", maxVal);
       if (q) query = query.or(`title.ilike.%${q}%,short_desc.ilike.%${q}%`);
-      if (status && status !== "all") query = query.eq("status", status);
+      if (status && status !== "all") {
+        query = query.eq("status", status);
+      } else {
+        // Restrict to active/published by default to leverage partial indexes
+        query = query.in("status", DEFAULT_STATUSES as unknown as string[]);
+      }
     }
 
     const minRatingVal = Number(minRating);

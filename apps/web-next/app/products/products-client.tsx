@@ -1,12 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, RotateCcw, Search, Shirt, Smartphone, Sparkles } from "lucide-react";
+import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles } from "lucide-react";
+import dynamic from "next/dynamic";
 import type { LucideIcon } from "lucide-react";
 
-import { ProductGrid, ProductSkeleton } from "@/components/ProductGrid";
+import { ProductSkeleton } from "@/components/ProductGrid";
+const ProductGrid = dynamic(() => import("@/components/ProductGrid").then(m => m.ProductGrid), {
+  ssr: false,
+  loading: () => null,
+});
 import type { Product } from "./types";
 import { formatPrice } from "./utils";
+const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
+const LayoutPicker = dynamic(() => import("./filters/LayoutPicker"), { ssr: false });
 
 type LayoutMode = "grid" | "single" | "masonry";
 
@@ -95,6 +102,7 @@ export default function ProductsClient({
       datasetValues.map((value) => ({
         value,
         label: DATASET_DESCRIPTORS[value]?.label ?? datasetLabel(value),
+        icon: DATASET_DESCRIPTORS[value]?.icon ?? Sparkles,
       })),
     [datasetValues],
   );
@@ -104,6 +112,7 @@ export default function ProductsClient({
       (Object.entries(LAYOUT_DESCRIPTORS) as [LayoutMode, { label: string; icon: LucideIcon }][]).map(([value, descriptor]) => ({
         value,
         label: descriptor.label,
+        icon: descriptor.icon,
       })),
     [],
   );
@@ -302,29 +311,19 @@ export default function ProductsClient({
       ref={topRef}
       className="w-full pt-0 pb-12 sm:pb-14 lg:pb-16"
     >
-      <div className="grid gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
-        <aside className="flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h2 className="text-base font-semibold text-fg">Filters</h2>
-              <p className="text-sm text-muted">Refine the catalog to match what you need.</p>
-            </div>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex items-center gap-2 rounded-full bg-surface/20 px-4 py-2 text-sm font-medium text-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-              disabled={isPending}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reset
-            </button>
-          </div>
+      <div className="grid items-start gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
+        <aside className="flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
+          <header className="space-y-1 text-fg">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Neon Shop</span>
+            <h2 className="text-2xl font-semibold">Filters</h2>
+            <p className="text-sm text-muted">
+              Refine the catalog to match what you need.
+            </p>
+          </header>
 
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="products-query" className="text-sm font-medium text-muted">
-                Search
-              </label>
+          <div className="flex flex-col gap-6">
+            <section className="flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Search</span>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <input
@@ -332,82 +331,74 @@ export default function ProductsClient({
                   value={filters.query}
                   onChange={(event) => handleQueryChange(event.currentTarget.value)}
                   placeholder="Search products"
-                  className="h-12 w-full rounded-2xl border border-transparent bg-surface/10 pl-11 pr-4 text-sm text-fg placeholder:text-muted focus-visible:border-primary/40 focus-visible:bg-surface/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
                   disabled={isPending}
                 />
               </div>
-            </div>
+            </section>
 
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <label htmlFor="products-dataset" className="text-sm font-medium text-muted">
-                  Dataset
-                </label>
-                <div className="relative">
-                  <select
-                    id="products-dataset"
-                    value={filters.dataset}
-                    onChange={(event) => handleDatasetChange(event.currentTarget.value as FiltersState["dataset"])}
-                    disabled={isPending}
-                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
-                  >
-                    {datasetOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                </div>
-              </div>
+            <DatasetPicker
+              value={filters.dataset}
+              options={datasetOptions}
+              onChange={(v) => handleDatasetChange(v as FiltersState["dataset"])}
+              isPending={isPending}
+            />
 
-              <div className="space-y-2">
-                <label htmlFor="products-layout" className="text-sm font-medium text-muted">
-                  Layout
-                </label>
-                <div className="relative">
-                  <select
-                    id="products-layout"
-                    value={filters.layout}
-                    onChange={(event) => handleLayoutChange(event.currentTarget.value as LayoutMode)}
-                    disabled={isPending}
-                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
-                  >
-                    {layoutOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                </div>
-              </div>
+            <LayoutPicker
+              value={filters.layout}
+              options={layoutOptions}
+              onChange={(v) => handleLayoutChange(v as LayoutMode)}
+              isPending={isPending}
+            />
 
-              <div className="space-y-2">
-                <label htmlFor="products-sort" className="text-sm font-medium text-muted">
-                  Sort by
-                </label>
-                <div className="relative">
-                  <select
-                    id="products-sort"
-                    value={filters.sort}
-                    onChange={(event) => handleSortChange(event.currentTarget.value as FiltersState["sort"])}
-                    disabled={isPending}
-                    className="h-12 w-full appearance-none rounded-2xl border border-transparent bg-surface/10 px-4 pr-10 text-sm font-medium text-fg focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-70"
-                  >
-                    {sortOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                </div>
+            <section className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-fg">Sort by</span>
+              <div className="relative">
+                <select
+                  id="products-sort"
+                  value={filters.sort}
+                  onChange={(event) => handleSortChange(event.currentTarget.value as FiltersState["sort"])}
+                  disabled={isPending}
+                  className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               </div>
+            </section>
+
+            <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70">
+                <span>{datasetLabelText}</span>
+                <span>
+                  {visibleCount} / {totalCount}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-muted">{summary}</p>
+            </section>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={isPending}
+                className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-60"
+              >
+                Reset filters
+              </button>
+              <button
+                type="button"
+                onClick={scrollToTop}
+                className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+              >
+                Back to top
+              </button>
             </div>
           </div>
-
-          <p className="text-sm text-muted">{summary}</p>
         </aside>
 
         <div className="space-y-8">

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
-process.env.TAILWIND_DISABLE_LIGHTNINGCSS = process.env.TAILWIND_DISABLE_LIGHTNINGCSS ?? "1";
+process.env.TAILWIND_DISABLE_LIGHTNINGCSS =
+  process.env.TAILWIND_DISABLE_LIGHTNINGCSS ?? process.env.DISABLE_LIGHTNINGCSS ?? "0";
+process.env.LIGHTNINGCSS_FORCE_WASM = process.env.LIGHTNINGCSS_FORCE_WASM ?? "1";
 
 const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const storageHostname = (() => {
@@ -35,8 +37,8 @@ const nextConfig: NextConfig = {
     externalDir: true,
   },
   transpilePackages: ["@shared", "@casino-affiliate/types", "@ui"],
-  // Ship client-side source maps for production to satisfy Lighthouse and aid debugging
-  productionBrowserSourceMaps: true,
+  // Allow opt-in source maps for debugging without bloating production bundles by default
+  productionBrowserSourceMaps: process.env.NEXT_PROD_SOURCE_MAPS === "1",
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {
       // Ensure full source maps for client bundles in production

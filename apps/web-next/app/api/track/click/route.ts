@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
-const CLICK_TABLES = ["shop_clicks", "product_clicks"] as const;
-
 type Dataset = "shop" | "legacy";
 
 type ClickPayload = {
@@ -32,46 +30,59 @@ export async function POST(request: Request) {
     referrer: h.get("referer") || undefined,
     session_id: undefined,
   };
-  let lastError: unknown = null;
+  // Prepare meta params for RPC signature variants
+  const ip = payload.ip;
+  const ua = payload.user_agent;
+  const meta = { ip, user_agent: ua, referrer: payload.referrer, session_id: payload.session_id };
 
-  const tables =
-    dataset === "legacy"
-      ? (["product_clicks", "shop_clicks"] as const)
-      : CLICK_TABLES;
+  // Try several common signatures (order keeps unit tests stable)
+  const attempts: Array<Record<string, unknown>> = [
+    // modern names
+    { product_id: rawProductId, params: meta },
+    { product_id: rawProductId, referrer: payload.referrer, params: meta },
+    // prefixed param names (p_*)
+    { p_product_id: rawProductId, p_params: meta, p_referrer: payload.referrer },
+    // legacy positional-like named params
+    { ip, product_id: rawProductId, referrer: payload.referrer, user_agent: ua },
+  ];
 
-  for (const table of tables) {
+  // Try to resolve slug by product_id for broader RPC compatibility (both legacy and current tables)
+  let resolvedSlug: string | null = null;
+  const tryResolve = async (table: string) => {
     try {
-      const { error } = await supabase.from(table).insert(payload);
-      if (!error) {
-        return NextResponse.json({ ok: true });
-      }
-      if (typeof error === "object" && error && "message" in error) {
-        const message = String((error as { message?: unknown }).message ?? "");
-        if (message.toLowerCase().includes("permission denied")) {
-          continue;
-        }
-      }
-      lastError = error;
-    } catch (error) {
-      if (typeof error === "object" && error && "message" in error) {
-        const message = String((error as { message?: unknown }).message ?? "");
-        if (message.toLowerCase().includes("permission denied")) {
-          continue;
-        }
-      }
-      lastError = error;
+      const { data } = await supabase
+        .from(table)
+        .select("id, slug")
+        .eq("id", rawProductId)
+        .limit(1)
+        .maybeSingle();
+      const cand = (data as any)?.slug;
+      if (typeof cand === "string" && cand.trim()) return cand.trim();
+    } catch { /* ignore */ }
+    return null;
+  };
+  resolvedSlug = (await tryResolve("ecom_products")) ?? (await tryResolve("products"));
+
+  // Optionally try slug if present in payload or resolved from DB
+  const maybeSlug = (payload as any).slug ?? resolvedSlug;
+  if (typeof maybeSlug === "string" && maybeSlug.trim()) {
+    attempts.push(
+      { slug: maybeSlug, params: meta, referrer: payload.referrer },
+      { p_slug: maybeSlug, p_params: meta, p_referrer: payload.referrer },
+    );
+  }
+
+  for (const args of attempts) {
+    try {
+      const { error } = await supabase.rpc("log_click", args as any);
+      if (!error) return NextResponse.json({ ok: true });
+      // else try next
+    } catch {
+      // try next variant
     }
   }
-  if (!lastError) {
-    return NextResponse.json({ ok: true, recorded: false });
-  }
 
-  const message =
-    typeof lastError === "object" && lastError && "message" in lastError
-      ? String((lastError as { message?: unknown }).message ?? "Failed to record click")
-      : "Failed to record click";
-
-  return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  return NextResponse.json({ ok: false, error: "Failed to record click (RPC mismatch/permission)" }, { status: 500 });
 }
 
 

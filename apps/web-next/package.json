@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prestart": "node ../../scripts/patch-next-manifest.mjs .next",
     "dev": "pnpm exec next dev --turbopack",
     "build": "next build",
     "start": "next start",

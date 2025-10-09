@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
 import { adminFetch } from "@shared/lib/api";
+import { getValidAccessToken } from "@shared/lib/auth";
 
 type MetricsResponse = {
   days: number;
@@ -113,7 +114,14 @@ export function MetricsClient() {
         setError(null);
         setData(null);
 
-        const res = await adminFetch(`/api/metrics?days=${days}`);
+        const token = await getValidAccessToken();
+        if (!token) {
+          throw new Error("Not authenticated");
+        }
+
+        const res = await adminFetch(`/api/metrics?days=${days}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || `${res.status} ${res.statusText}`);

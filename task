@@ -1,78 +1,72 @@
-ТЫ лузер проавлил этот таска 
+Вот краткий чек‑лист того, что мы сделали в этом раунде, с файлами и целями.
 
-TASK: Lockdown fix for catalog/home grid & container (diagnose → enforce → verify)
-Phase 0 — Preflight (mandatory)
-Выведи краткий план (5–8 строк): какие компоненты трогаешь и почему. Дальше действуй без вопросов.
-Phase 1 — Diagnose (mandatory, no code yet)
-Короткий отчёт, почему:
+Фильтры и витрина
 
-На каталоге карточки занимают всю ширину экрана и контейнер не ограничивает до ~1280.
-На главной карточки тоже раздуты.
+Обновил визуальный стиль фильтра под карточку Neon:
+packages/ui/src/components/FilterSidebar.tsx
+На странице каталога разнес фильтры и сделал части ленивыми:
+Добавил компоненты: apps/web-next/app/products/filters/DatasetPicker.tsx, apps/web-next/app/products/filters/LayoutPicker.tsx
+Подключил через dynamic() и вынес ProductGrid в lazy‑чанк:
+apps/web-next/app/products/products-client.tsx
+Ограничил рост высоты фильтра (не тянется за сеткой):
+items-start на гриде и self-start у aside в apps/web-next/app/products/products-client.tsx
+Главная
 
-Укажи:
+Оформил hero‑slider динамически на главной (через client‑шлюз):
+apps/web-next/components/hero-slider-client.tsx (уже dynamic внутри)
+app/page теперь использует HeroSliderClient:
+apps/web-next/app/page.tsx
+Аналитика (админ)
 
-какие родительские обёртки дают неправильную ширину (слишком широкие/узкие, вложенные контейнеры, дубли контейнеров, не тот флаг «оборачивать контейнером»);
-какие правила ширины или фикс-ширины у ближайших родителей/карточек мешают сетке (любые фиксированные ширины/макс-ширины/fit-width/basis);
-есть ли дубли версий карточки (встроенная локальная vs каноническая) и конфликтующие стили;
-применяются ли responsive-классы (если нет — почему).
+Вынес 2 графика в отдельные динамические блоки:
+apps/web-next/app/admin/(protected)/analytics/charts/Spark.tsx
+apps/web-next/app/admin/(protected)/analytics/charts/ClicksByDay.tsx
+apps/web-next/app/admin/(protected)/analytics/charts/SlugSparklines.tsx
+Подключение в: apps/web-next/app/admin/(protected)/analytics/analytics-client.tsx
+Checkout (C) — разделение и динамический Stripe
 
-Максимум 10 строк, конкретные причины.
-Phase 2 — Enforce the layout
-Цели, неизменяемые:
+Вынес всю клиентскую логику чек‑аута в отдельный Client Component:
+apps/web-next/app/checkout/checkout-client.tsx
+Серверная страница стала тонким обёртчиком:
+apps/web-next/app/checkout/page.tsx
+Stripe грузится лениво (dynamic, ssr:false):
+apps/web-next/components/stripe/StripeElementsProvider.tsx (используется клиентом)
+apps/web-next/app/checkout/payment-form.tsx (подключается через dynamic в checkout‑client)
+Orders (D) — таблица отдельно и лениво
 
-Обе страницы: один центрированный контейнер порядка 1280 px на десктопе.
-Каталог: 4/3/2 колонки по брейкпоинтам; карточки одного размера; нормальные отступы.
-Главная: тот же контейнер; карточки не гиганты.
+Вынес таблицу заказов в отдельный компонент и лениво подключил:
+apps/web-next/app/admin/(protected)/orders/OrdersTable.tsx
+apps/web-next/app/admin/(protected)/orders/orders-client.tsx (подключение через dynamic)
+Общая обвязка для авторизованных запросов/платежей:
+apps/web-next/app/admin/(protected)/orders/orders-api.ts
+Сборка/старт и конфиг
 
-Правила:
+Сделал минификацию CSS включённой по умолчанию, сорс‑мапы — только по флагу:
+apps/web-next/next.config.ts (TAILWIND_DISABLE_LIGHTNINGCSS/ NEXT_PROD_SOURCE_MAPS + WASM fallback)
+Обход бага стартового манифеста Next (E/dataRoutes):
+scripts/patch-next-manifest.mjs
+добавлен prestart в apps/web-next/package.json
+Подсказал запуск на другом порту и как убить занятый 3000.
+Исправил типовую несовместимость пропсов в DatasetPicker/LayoutPicker (касты на месте вызова).
+Инструменты диагностики
 
-Правь существующие компоненты.
-Разрешено создание/удаление только если это строго необходимо для устранения дубликатов/конфликтов. В этом случае:
+Добавил скрипт подсчёта LOC с вычитанием комментариев/пустых строк и топ‑крупных файлов:
+scripts/analyze-loc.mjs
+Показали реальную картину: Files: 169 | Raw: 18 430 | Non‑blank: 16 322 | Code: 16 242; client‑код ≈ 9 448 строк (≈58%).
+Что осталось/на заметку
 
-делай safe-delete (перемещение в корзину проекта),
-добавь Justification Note: почему без этого нельзя, что именно удалено/создано, как откатить.
+Lightning CSS native может хандрить в вашей среде. Для анализа/пробы билда можно временно:
+PowerShell: $env:TAILWIND_DISABLE_LIGHTNINGCSS="1"; pnpm --filter web-next build
+Турбопак vs Webpack: предупреждение о конфиге — это норм при смешанном режиме. Если захотите, переведём кастомную конфигурацию под Turbopack.
+Как запускать
 
+Dev: pnpm --filter web-next dev
+Prod:
+Сборка (при необходимости с отключением LC): $env:TAILWIND_DISABLE_LIGHTNINGCSS="1"; pnpm --filter web-next build
+Старт: $env:PORT=3001; pnpm --filter web-next start
+Предлагаемые следующие шаги
 
-Никаких новых CSS-файлов и inline-стилей.
-Данные/провайдеры не трогать.
-Используй единственную каноническую карточку. Убери локальные дубликаты или переключи на канон.
-
-Что именно обеспечить в результате:
-
-Контейнер вокруг секции есть в одном экземпляре и реально ограничивает ширину; нет вложенных конкурирующих контейнеров.
-Родители грида не имеют фикс-ширин и не ломают ширину (никаких кастомных width/max-width у ближайших родителей).
-Грид реально даёт 2/3/4 колонки, а карточки не задают себе фикс-ширину и не «выламывают» сетку.
-Медиа в карточке с постоянным соотношением сторон; CTA прижат вниз.
-
-Phase 3 — Verify (mandatory)
-Выведи:
-
-измеренную ширину контейнера на десктопе (~1280);
-число колонок на десктопе/планшете/мобиле;
-список убранных фикс-ширин/дубликатов;
-подтверждение, что нет лишних контейнеров.
-
-Acceptance criteria
-
-На обеих страницах контейнер центрирован и ~1280 на десктопе.
-Каталог: 4/3/2 колонки, карточки одинаковой геометрии, без растяжения на всю ширину экрана.
-Нет фикс-ширин на карточке и её ближайших родителях.
-Нет дублей карточек/гридов; используется каноническая карточка.
-Нет новых файлов стилей, нет inline.
-Консоль без ошибок гидрации/импорта.
-
-Hard constraints
-
-Do exactly this. Любая «улучшайзинг-самодеятельность» запрещена.
-Если нужен create/delete — только с Justification Note и safe-delete.
-
-
-Если опять начнёт играть в художника, добавь в конец:
-“If container width is still >1280 or cards still span full screen, revert and try again. No partial fixes accepted.”
-И да, на всякий случай добей его проверками локально:
-
-убери все фикс-ширины на ближайших родителях карточек,
-не допускай двух контейнеров вокруг одной и той же секции,
-выкинь локальные версии ProductCard внутри грида.
-
-Хватит кормить его токенами за Excel-эстетику.
+Аналитика: вынести «Top slugs», «Top sources», «UTM» в динамические блоки и (по желанию) добавить виртуализацию.
+Витрина: по результатам Lighthouse — при необходимости лениво подгрузить карточку товара или дополнительные панели.
+Подключить @next/bundle-analyzer по флагу ANALYZE для предметного отчёта.
+Если хочешь, могу сразу заняться виртуализацией таблицы Orders или дальше «расслаивать» блоки в analytics.
