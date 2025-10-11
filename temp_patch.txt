@@ -1,0 +1,129 @@
+*** Begin Patch
+*** Update File: apps/web-next/app/api/reviews/list/route.ts
+@@
+-export async function GET(request: Request) {
++function parseIntInRange(value: string | null, min: number, max: number, fallback: number): number {
++  const n = Number(value ?? "");
++  if (!Number.isFinite(n)) return fallback;
++  return Math.min(max, Math.max(min, Math.trunc(n)));
++}
++
++function encodeCursor(input: { ts: string; uid: string }): string {
++  try {
++    return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
++  } catch {
++    return "";
++  }
++}
++
++function decodeCursor(raw: string | null): { ts: string; uid: string } | null {
++  if (!raw) return null;
++  try {
++    const json = Buffer.from(raw, "base64url").toString("utf8");
++    const obj = JSON.parse(json) as { ts?: string; uid?: string };
++    if (obj && typeof obj.ts === "string" && typeof obj.uid === "string") return { ts: obj.ts, uid: obj.uid };
++  } catch {
++    /* ignore */
++  }
++  return null;
++}
++
++export async function GET(request: Request) {
+@@
+-    const sourceSchema = params.get("source_schema")?.trim() ?? "";
+-    const sourceTable = params.get("source_table")?.trim() ?? "";
+-    const sourcePk = params.get("source_pk")?.trim() ?? "";
++    const sourceSchema = params.get("source_schema")?.trim() ?? "";
++    const sourceTable = params.get("source_table")?.trim() ?? "";
++    const sourcePk = params.get("source_pk")?.trim() ?? "";
++
++    const sort = (params.get("sort")?.trim() || "newest") as
++      | "newest"
++      | "oldest"
++      | "rating_desc"
++      | "rating_asc";
++    const ratingFilterRaw = params.get("rating");
++    const ratingFilter = ["1", "2", "3", "4", "5"].includes(ratingFilterRaw || "")
++      ? Number(ratingFilterRaw)
++      : null;
++    const limit = parseIntInRange(params.get("limit"), 5, 50, 20);
++    const cursor = decodeCursor(params.get("cursor"));
+@@
+-    const { data: items, error: itemsErr } = await supabase
+-      .from("product_reviews_raw")
+-      .select("rating, title, body, created_at")
+-      .eq("product_id", productUid)
+-      .eq("status", "approved")
+-      .order("created_at", { ascending: false, nullsFirst: false })
+-      .limit(100);
++    // Base query
++    let query = supabase
++      .from("product_reviews_raw")
++      .select("rating, title, body, created_at, user_id")
++      .eq("product_id", productUid)
++      .eq("status", "approved");
++
++    if (ratingFilter) {
++      query = query.eq("rating", ratingFilter);
++    }
++
++    // Sorting + pagination (keyset for created_at sorts)
++    const asc = sort === "oldest";
++    if (sort === "newest" || sort === "oldest") {
++      query = query.order("created_at", { ascending: asc, nullsFirst: false }).order("user_id", { ascending: asc });
++      if (cursor) {
++        const op = asc ? "gt" : "lt"; // for oldest: created_at > ts; for newest: created_at < ts
++        const where = `${op}.created_at.${cursor.ts},and(created_at.eq.${cursor.ts},${op}.user_id.${cursor.uid})`;
++        query = query.or(where);
++      }
++    } else if (sort === "rating_desc" || sort === "rating_asc") {
++      query = query.order("rating", { ascending: sort === "rating_asc" }).order("created_at", { ascending: false });
++    }
++
++    query = query.limit(limit + 1);
++
++    const { data: items, error: itemsErr } = await query;
+@@
+-    const { data: stats, error: statsErr } = await supabase
++    const { data: stats, error: statsErr } = await supabase
+       .from("product_rating_stats")
+       .select("avg_rating, ratings_count")
+       .eq("product_uid", productUid)
+       .maybeSingle();
+@@
+-    let own: Record<string, unknown> | null = null;
++    // Buckets (1..5) for the product (independent of current rating filter)
++    const { data: bucketsRows } = await supabase
++      .from("product_reviews_raw")
++      .select("rating, count:rating")
++      .eq("product_id", productUid)
++      .eq("status", "approved")
++      .group("rating");
++
++    const countsMap = new Map<number, number>();
++    (bucketsRows as any[] | null)?.forEach((r) => countsMap.set(Number(r.rating), Number(r.count)));
++    const totalApproved = Array.from({ length: 5 }).reduce((sum, _v, i) => sum + (countsMap.get(i + 1) || 0), 0) || 1;
++    const buckets = [5, 4, 3, 2, 1].map((score) => {
++      const value = countsMap.get(score) || 0;
++      return { score, value, percent: Math.round((value / totalApproved) * 100) };
++    });
++
++    let own: Record<string, unknown> | null = null;
+@@
+-    return json({ ok: true, items: items ?? [], stats: stats ?? null, own_review: own });
++    // nextCursor
++    let nextCursor: string | null = null;
++    let sliced = items ?? [];
++    if (sliced.length > limit) {
++      const last = sliced[limit - 1];
++      sliced = sliced.slice(0, limit);
++      if (sort === "newest" || sort === "oldest") {
++        nextCursor = encodeCursor({ ts: String(last.created_at), uid: String((last as any).user_id) });
++      }
++    }
++
++    // Strip user_id from payload
++    const safeItems = sliced.map((r: any) => ({ rating: r.rating, title: r.title, body: r.body, created_at: r.created_at }));
++
++    return json({ ok: true, items: safeItems, stats: stats ?? null, own_review: own, buckets, nextCursor });
+*** End Patch

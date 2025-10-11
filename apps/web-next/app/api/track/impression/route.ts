@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
 type Dataset = "shop" | "legacy";
+const DEBUG = process.env.TRACK_DEBUG === "1";
 
 type ImpressionPayload = {
   product_id: string;
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "product_id is required" }, { status: 400 });
   }
 
-    const supabase = await createClient();
+  const supabase = await createClient();
 
   const fetchProduct = async (): Promise<{ exists: boolean; slug: string | null }> => {
     if (dataset === "legacy") {
@@ -79,21 +80,47 @@ export async function POST(request: Request) {
     );
   }
 
+  let attemptIndex = 0;
+  let lastError: { code?: string | null; message?: string } | null = null;
+
   for (const args of attempts) {
+    attemptIndex += 1;
     try {
       const { error } = await supabase.rpc("log_impression", args as any);
       if (!error) return NextResponse.json({ ok: true });
-      // if error – try next signature
-      // eslint-disable-next-line no-continue
-      continue;
-    } catch {
-      // try next signature
-      // eslint-disable-next-line no-continue
-      continue;
+      lastError = { code: error.code, message: error.message };
+      if (DEBUG) {
+        console.warn("[track:impression]", {
+          attempt: attemptIndex,
+          code: error.code ?? "unknown",
+          message: error.message ?? "rpc_error",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastError = { code: "exception", message };
+      if (DEBUG) {
+        console.warn("[track:impression]", {
+          attempt: attemptIndex,
+          code: "exception",
+          message,
+        });
+      }
     }
   }
 
-  return NextResponse.json({ ok: false, error: "Failed to record impression (RPC mismatch/permission)" }, { status: 500 });
+  const responseInit: ResponseInit = { status: 500 };
+  if (DEBUG && lastError) {
+    const normalizedMessage = String(lastError.message ?? "unknown").replace(/\s+/g, " ").trim();
+    responseInit.headers = {
+      "x-track-debug": `${lastError.code ?? "unknown"}:${normalizedMessage}`,
+    };
+  }
+
+  return NextResponse.json(
+    { ok: false, error: "Failed to record impression (RPC mismatch/permission)" },
+    responseInit
+  );
 }
 
 

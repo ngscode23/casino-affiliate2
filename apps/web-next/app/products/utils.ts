@@ -1,4 +1,4 @@
-export function formatPrice(value: number, currency = "USD") {
+export function formatPrice(value: number, currency = "EUR") {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -12,6 +12,6 @@ export function formatPrice(value: number, currency = "USD") {
     }).format(value);
   } catch {
     const fallback = value.toFixed(2);
-    return currency === "USD" ? "$" + fallback : fallback + " " + currency;
+    return `${fallback} ${currency}`;
   }
 }

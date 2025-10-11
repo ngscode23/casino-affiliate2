@@ -151,8 +151,43 @@ export default function OrdersTable({
                               }
                             }}
                           >
-                            Mark failed
+                          Mark failed
                           </Button>
+                          {/* Refund button visible for paid/fulfilled */}
+                          {(/^(paid|fulfilled)$/i).test(order.status) ? (
+                            <Button
+                              variant="soft"
+                              className="h-9 min-h-0 px-3 text-xs"
+                              onClick={async () => {
+                                try {
+                                  const amountStr = window.prompt(
+                                    `Сумма возврата в ${order.currency.toUpperCase()} (пусто = полный)`,
+                                    "",
+                                  );
+                                  let amount_cents: number | undefined = undefined;
+                                  if (amountStr && amountStr.trim()) {
+                                    const parsed = Number(amountStr.replace(",", "."));
+                                    if (!(parsed > 0)) {
+                                      toast("Некорректная сумма", { variant: "error" });
+                                      return;
+                                    }
+                                    amount_cents = Math.round(parsed * 100);
+                                  }
+                                  const reason = window.prompt(
+                                    "Причина возврата (duplicate/fraudulent/requested_by_customer/другое)",
+                                    "requested_by_customer",
+                                  ) || undefined;
+                                  await callPayments("/refund", { order_id: order.id, amount_cents, reason }, token);
+                                  toast("Возврат создан", { variant: "success" });
+                                  onRefresh();
+                                } catch (err) {
+                                  toast(err instanceof Error ? err.message : String(err), { variant: "error" });
+                                }
+                              }}
+                            >
+                              Refund
+                            </Button>
+                          ) : null}
                         </>
                       ) : null}
                     </div>
@@ -174,4 +209,3 @@ export default function OrdersTable({
     </div>
   );
 }
-

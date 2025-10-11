@@ -6,6 +6,7 @@
   "scripts": {
     "prestart": "node ../../scripts/patch-next-manifest.mjs .next",
     "dev": "pnpm exec next dev --turbopack",
+    "dev:webpack": "pnpm exec next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",

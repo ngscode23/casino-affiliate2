@@ -1,0 +1,15 @@
+# Установите базовый URL локального сервера Next.js
+@base = http://localhost:3000
+
+### Создать/переиспользовать PaymentIntent для заказа
+POST {{base}}/api/payments/create
+Content-Type: application/json
+
+{
+  "order_id": "00000000-0000-0000-0000-000000000000"
+}
+
+### (Webhook вызывается Stripe CLI, этот вызов здесь только для справки)
+# POST {{base}}/api/payments/webhook
+# Stripe подписывает запрос, поэтому напрямую дергать не имеет смысла.
+

@@ -20,7 +20,7 @@ export const SheetOverlay = React.forwardRef<
     <Dialog.Overlay
       ref={ref}
       className={cn(
-        "fixed inset-0 z-50 bg-black/70 backdrop-blur-[2px]",
+        "fixed inset-0 z-[150] bg-black/70 backdrop-blur-[2px]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
@@ -54,7 +54,7 @@ export const SheetContent = React.forwardRef<
         aria-describedby={undefined}
         aria-labelledby={undefined}
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-card text-[var(--text)] shadow-xl transition ease-in-out",
+          "fixed z-[160] flex flex-col gap-4 bg-card text-[var(--text)] shadow-xl transition ease-in-out",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right"  && "inset-y-0 right-0 h-full w-3/4 border-l border-border shadow-xl sm:max-w-sm data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",

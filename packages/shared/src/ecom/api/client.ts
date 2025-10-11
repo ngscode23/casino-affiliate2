@@ -216,9 +216,29 @@ export async function listProducts(params: {
 }
 
 // отправка отзыва через Next.js endpoint
-export async function addReview(p: { productId: string | number; rating: number; title: string; body: string }) {
+export type AddReviewResponse = {
+  ok?: boolean;
+  review?: {
+    rating: number;
+    title: string;
+    body: string;
+    status?: string;
+    created_at?: string;
+    updated_at?: string;
+  } | null;
+  stats?: { avg_rating: number; ratings_count: number } | null;
+  code?: string;
+  message?: string;
+};
+
+export async function addReview(p: {
+  productId: string | number;
+  rating: number;
+  title: string;
+  body: string;
+}): Promise<AddReviewResponse> {
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error('Not authenticated');
+  // Authorization заголовок добавляем, если доступен; сервер также примет cookie-сессию
   const res = await apiRequest('/reviews/add', {
     method: 'POST',
     headers,
@@ -238,7 +258,11 @@ export async function addReview(p: { productId: string | number; rating: number;
       throw new Error(raw || `reviews/add ${res.status}`);
     }
   }
-  return true;
+  try {
+    return JSON.parse(raw || 'null') as AddReviewResponse;
+  } catch {
+    return { ok: true };
+  }
 }
 
 export const api = { get };
@@ -525,7 +549,7 @@ export async function listOrders(params: {
 
   const headers = await authHeaders();
   // Ensure user is authenticated
-  if (!('authorization' in headers)) throw new Error("Not authenticated");
+  // Authorization включаем по возможности; SSR cookie достаточно для /api/*
   const res = await apiRequest("/orders", { headers }, params);
   const raw = await res.text();
   let data: any = null;
@@ -631,7 +655,7 @@ export async function getOrder(id: string): Promise<{
 
   }
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error("Not authenticated");
+  // Authorization добавляется по возможности; сервер использует cookie при отсутствии
   const res = await apiRequest(`/orders/${encodeURIComponent(id)}`, { headers });
   const raw = await res.text();
   let data: any = null;
@@ -657,7 +681,7 @@ export async function cancelOrder(id: string) {
   }
 
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error('Not authenticated');
+  // Authorization заголовок необязателен; оставляем cookie‑сессию
   const res = await apiRequest(`/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers });
   const raw = await res.text();
   let data: any = null;
@@ -702,7 +726,7 @@ export async function confirmPayment(id: string, scenario?: "authorized" | "requ
   }
 
   const headers = await authHeaders();
-  if (!('authorization' in headers)) throw new Error('Not authenticated');
+  // Authorization заголовок необязателен; оставляем cookie‑сессию
   const res = await apiRequest(
     `/orders/${encodeURIComponent(id)}/confirm-payment`,
     { method: 'POST', headers },

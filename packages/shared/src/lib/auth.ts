@@ -101,13 +101,48 @@ export async function refreshSession(): Promise<void> {
 
 export async function ensureSession(): Promise<void> {
   await ensureInitialized();
-  const state = getAuthState();
+  let state = getAuthState();
   if (!state.session || isSessionExpired(state.session)) {
     await refreshSession().catch(async () => {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw new Error(error.message);
       applySession(data.session ?? null);
     });
+  }
+
+  state = getAuthState();
+  if (state.user) return;
+
+  if (typeof window !== "undefined") {
+    try {
+      const response = await fetch("/api/auth/session", {
+        method: "GET",
+        headers: { accept: "application/json" },
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (response.ok) {
+        const json = (await response.json()) as { user?: Partial<AuthUser> | null } | null;
+        const apiUser = json?.user;
+        if (apiUser && apiUser.id) {
+          setAuthState({
+            user: {
+              id: String(apiUser.id),
+              email: String(apiUser.email ?? ""),
+              role: String(apiUser.role ?? "user"),
+              isActive: Boolean(apiUser.isActive ?? true),
+              metadata: (apiUser.metadata as Record<string, unknown>) ?? null,
+              createdAt: String(apiUser.createdAt ?? new Date().toISOString()),
+              updatedAt: String(apiUser.updatedAt ?? apiUser.createdAt ?? new Date().toISOString()),
+              lastLoginAt: (apiUser.lastLoginAt as string | null) ?? null,
+            },
+            session: getAuthState().session,
+          });
+        }
+      }
+    } catch {
+      // ignore network issues; UI will continue to treat user as anonymous
+    }
   }
 }
 

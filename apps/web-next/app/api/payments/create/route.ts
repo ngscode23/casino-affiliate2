@@ -1,78 +1,17 @@
-import { json, toNumber } from "../../orders/utils";
+import { json } from "../../orders/utils";
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
-import { ensureStripe, normalizeCurrency, upsertPaymentRecord, updateOrderPaymentState, type AdminSupabaseClient } from "../utils";
+import {
+  ensureStripe,
+  normalizeCurrency,
+  resolveOrderAmount,
+  upsertPaymentRecord,
+  updateOrderPaymentState,
+  type OrderRow,
+} from "../utils";
 import type Stripe from "stripe";
 
-type OrderRow = {
-  id: string;
-  user_id: string | null;
-  status: string | null;
-  amount_cents: number | null;
-  currency: string | null;
-  paid_at: string | null;
-  payment_intent_id: string | null;
-  subtotal?: number | string | null;
-  discount_total?: number | string | null;
-  shipping_total?: number | string | null;
-  grand_total?: number | string | null;
-};
-
 const ORDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-async function resolveAmountCents(
-  supabase: AdminSupabaseClient,
-  orderId: string,
-  row: OrderRow
-): Promise<{ amountCents: number; currency: string }> {
-  let amountCents = Number(row.amount_cents ?? 0);
-  let currency = normalizeCurrency(row.currency);
-
-  if (!(amountCents > 0)) {
-    const { data: viewRow } = await supabase
-      .from("order_v2")
-      .select("amount_total, currency")
-      .eq("id", orderId)
-      .maybeSingle();
-    if (viewRow) {
-      amountCents = Math.round(toNumber((viewRow as any).amount_total) * 100);
-      currency = normalizeCurrency((viewRow as any).currency) || currency;
-    }
-  }
-
-  if (!(amountCents > 0)) {
-    const subtotal = toNumber(row.subtotal);
-    const discount = toNumber(row.discount_total);
-    const shipping = toNumber(row.shipping_total);
-    const grand = toNumber(row.grand_total);
-    const fallbackTotal = grand || subtotal - discount + shipping;
-    if (fallbackTotal > 0) {
-      amountCents = Math.round(fallbackTotal * 100);
-    }
-  }
-
-  if (!(amountCents > 0)) {
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("total, qty, unit_price")
-      .eq("order_id", orderId);
-
-    if (Array.isArray(items)) {
-      const sum = items.reduce((acc, item: any) => {
-        const total = toNumber(item.total);
-        if (total > 0) return acc + total;
-        const qty = toNumber(item.qty);
-        const unit = toNumber(item.unit_price);
-        return acc + qty * unit;
-      }, 0);
-      if (sum > 0) {
-        amountCents = Math.round(sum * 100);
-      }
-    }
-  }
-
-  return { amountCents, currency };
-}
 
 export async function POST(request: Request) {
   try {
@@ -116,13 +55,14 @@ export async function POST(request: Request) {
       return json({ ok: false, code: "already_paid" }, 409);
     }
 
-    const { amountCents, currency } = await resolveAmountCents(supabase, orderId, orderRow);
+    const { amountCents, currency, source, itemsCount } = await resolveOrderAmount(supabase, orderId, orderRow);
     if (!(amountCents > 0)) {
       await supabase
         .from("orders")
         .update({ status: "failed" })
         .eq("id", orderId);
-      return json({ ok: false, code: "invalid_amount" }, 422);
+      const debug = process.env.PAYMENTS_DEBUG === "1" ? { calc_source: source, amount_cents: amountCents, currency, items_count: itemsCount ?? null } : undefined;
+      return json({ ok: false, code: "invalid_amount", ...(debug ? { debug } : {}) }, 422);
     }
 
     let stripe;
@@ -153,25 +93,34 @@ export async function POST(request: Request) {
       try {
         const fetched = await stripe.paymentIntents.retrieve(existingIntentId);
         if (fetched.status === "succeeded") {
-          const updateError = await updateOrderPaymentState(supabase, orderId, {
-            status: "paid",
-            paid_at: fetched.created ? new Date(fetched.created * 1000).toISOString() : new Date().toISOString(),
-            payment_intent_id: fetched.id,
-            amount_cents: amountCents,
-            currency,
-          });
+          const updateError = await updateOrderPaymentState(
+            supabase,
+            orderId,
+            {
+              status: "paid",
+              paid_at: fetched.created ? new Date(fetched.created * 1000).toISOString() : new Date().toISOString(),
+              payment_intent_id: fetched.id,
+              amount_cents: amountCents,
+              currency,
+            },
+            { allowedStatuses: ["pending", "failed"] }
+          );
           if (updateError) {
             return json({ ok: false, code: "db", message: updateError.message || String(updateError) }, 500);
           }
           await upsertPaymentRecord(supabase, orderId, fetched, currency, amountCents);
           return json({ ok: false, code: "already_paid" }, 409);
         }
-        if (fetched.amount !== amountCents || fetched.currency !== currency) {
-          intent = await stripe.paymentIntents.update(existingIntentId, {
-            amount: amountCents,
-            currency,
-            metadata: { order_id: orderId, user_id: auth.user.id },
-          });
+        const fetchedCurrency = normalizeCurrency(fetched.currency);
+        if (fetched.amount !== amountCents || fetchedCurrency !== currency) {
+          return json(
+            {
+              ok: false,
+              code: "amount_mismatch",
+              message: "stripe_payment_intent_amount_mismatch",
+            },
+            409
+          );
         } else {
           intent = fetched;
         }
@@ -192,13 +141,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const updateError = await updateOrderPaymentState(supabase, orderId, {
-      status: intent.status === "succeeded" ? "paid" : "pending",
-      paid_at: intent.status === "succeeded" ? new Date().toISOString() : null,
-      payment_intent_id: intent.id,
-      amount_cents: amountCents,
-      currency,
-    });
+    const isSucceeded = intent.status === "succeeded";
+    const updateError = await updateOrderPaymentState(
+      supabase,
+      orderId,
+      {
+        status: isSucceeded ? "paid" : "pending",
+        paid_at: isSucceeded ? new Date().toISOString() : null,
+        payment_intent_id: intent.id,
+        amount_cents: amountCents,
+        currency,
+      },
+      { allowedStatuses: ["pending", "failed"] }
+    );
 
     if (updateError) {
       return json({ ok: false, code: "db", message: updateError.message || String(updateError) }, 500);
@@ -210,11 +165,13 @@ export async function POST(request: Request) {
       return json({ ok: false, code: "stripe_error", message: "missing_client_secret" }, 502);
     }
 
+    const debug = process.env.PAYMENTS_DEBUG === "1" ? { calc_source: source, amount_cents: amountCents, currency, items_count: itemsCount ?? null } : undefined;
     return json({
       ok: true,
       order_id: orderId,
       client_secret: intent.client_secret,
       status: intent.status,
+      ...(debug ? { debug } : {}),
     });
   } catch (error: any) {
     const message = error?.message ?? "internal_error";

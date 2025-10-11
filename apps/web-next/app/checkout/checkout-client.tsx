@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useCart } from "@shared/ecom/lib/cart";
-import { getProductBySlug, placeOrder } from "@shared/ecom/api/client";
+import { getProductBySlug, getProductsByIds, placeOrder } from "@shared/ecom/api/client";
 import type { PlaceOrderCheckout } from "@shared/ecom/api/client";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { HAS_SUPABASE } from "@shared/config";
@@ -18,6 +18,8 @@ const StripeElementsProvider = dynamic(
 const CheckoutPaymentForm = dynamic(() => import("./payment-form").then((m) => m.CheckoutPaymentForm), {
   ssr: false,
 });
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function formatPrice(value: number, currency = "EUR") {
   try {
@@ -32,8 +34,6 @@ function formatPrice(value: number, currency = "EUR") {
   }
 }
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 type CheckoutSnapshot = { items: ReturnType<typeof useCart>["items"]; subtotal: number; currency: string };
 type CheckoutStep = "form" | "payment" | "complete";
 
@@ -42,7 +42,7 @@ const AUTO_REDIRECT_EMPTY_CART = false;
 
 export default function CheckoutClient() {
   const router = useRouter();
-  const { items, subtotal, clear } = useCart();
+  const { items, subtotal, clear, remove } = useCart();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>("form");
@@ -75,7 +75,9 @@ export default function CheckoutClient() {
           setIsAuthVerified(true);
           return;
         }
-      } catch {}
+      } catch {
+        // ignore fallthrough
+      }
 
       try {
         const response = await fetch("/api/auth/session", {
@@ -88,7 +90,9 @@ export default function CheckoutClient() {
           setIsAuthVerified(true);
           return;
         }
-      } catch {}
+      } catch {
+        // ignore fallthrough
+      }
 
       if (!cancelled) {
         router.replace(`/login?redirect=${encodeURIComponent("/checkout")}`);
@@ -123,7 +127,6 @@ export default function CheckoutClient() {
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    const snapshotCopy = { items: items.map((row) => ({ ...row })), subtotal, currency: orderCurrency } as CheckoutSnapshot;
 
     try {
       let accessToken: string | null = null;
@@ -135,35 +138,120 @@ export default function CheckoutClient() {
           return;
         }
       }
+      const currencySource = HAS_SUPABASE ? "ecom_products" : "local_fallback";
 
-      let normalizedItems: Array<{ id: string; qty: number }> = [];
+      const invalidCartIds: string[] = [];
+      const resolvedItems: Array<{ cartId: string; productId: string; qty: number }> = [];
+
+      for (const row of items) {
+        const qty = Number.isFinite(row.qty) ? Math.floor(row.qty) : 0;
+        if (qty <= 0) {
+          invalidCartIds.push(row.id);
+          continue;
+        }
+
+        let resolvedId = "";
+        if (UUID_PATTERN.test(String(row.id))) {
+          resolvedId = String(row.id);
+        } else if (row.product?.id && UUID_PATTERN.test(row.product.id)) {
+          resolvedId = row.product.id;
+        } else if (row.product?.slug) {
+          try {
+            const prod = await getProductBySlug(row.product.slug);
+            if (prod?.id && UUID_PATTERN.test(prod.id)) {
+              resolvedId = prod.id;
+            }
+          } catch {
+            // ignore lookup failures
+          }
+        }
+
+        if (!resolvedId) {
+          if (!HAS_SUPABASE) {
+            resolvedId = String(row.id);
+          } else {
+            invalidCartIds.push(row.id);
+            continue;
+          }
+        }
+
+        resolvedItems.push({ cartId: row.id, productId: resolvedId, qty });
+      }
+
+      if (invalidCartIds.length) {
+        console.warn("[cart:validation]", {
+          stage: "invalid_cart_ids",
+          cart_items_in: items.length,
+          cart_items_valid: resolvedItems.length,
+          missing_ids: invalidCartIds,
+          aggregated_items: resolvedItems.map(({ productId, qty }) => ({ productId, qty })),
+          currency_source: currencySource,
+        });
+        invalidCartIds.forEach((cartId) => remove(cartId));
+        setError("Removed unavailable or invalid items from your cart. Please review and try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const aggregated = new Map<string, { qty: number; cartIds: Set<string> }>();
+      for (const entry of resolvedItems) {
+        const current = aggregated.get(entry.productId);
+        if (current) {
+          current.qty += entry.qty;
+          current.cartIds.add(entry.cartId);
+        } else {
+          aggregated.set(entry.productId, { qty: entry.qty, cartIds: new Set([entry.cartId]) });
+        }
+      }
+
+      const uniqueProductIds = Array.from(aggregated.keys());
+      // Build normalized items once and reuse below (for logs and placeOrder)
+      const normalizedItems = uniqueProductIds.map((id) => ({
+        id,
+        qty: aggregated.get(id)!.qty,
+      }));
+
+      if (!uniqueProductIds.length) {
+        setError("Your cart is empty.");
+        setIsSubmitting(false);
+        return;
+      }
 
       if (HAS_SUPABASE) {
-        const mapped = await Promise.all(
-          items.map(async (row) => {
-            const rawId = String(row.product?.id ?? row.id ?? "");
-            if (uuidPattern.test(rawId)) {
-              return row.qty > 0 ? { id: rawId, qty: row.qty } : null;
+        let catalogProducts: Awaited<ReturnType<typeof getProductsByIds>>;
+        try {
+          catalogProducts = await getProductsByIds(uniqueProductIds);
+        } catch (lookupError) {
+          const message = lookupError instanceof Error ? lookupError.message : "Unable to verify products.";
+          setError(message);
+          setIsSubmitting(false);
+          return;
+        }
+
+        const availableIds = new Set(catalogProducts.map((product) => product.id));
+        const missingInCatalog = uniqueProductIds.filter((id) => !availableIds.has(id));
+        if (missingInCatalog.length) {
+          console.warn("[cart:validation]", {
+            stage: "missing_catalog",
+            cart_items_in: items.length,
+            cart_items_valid: normalizedItems.length,
+            missing_ids: missingInCatalog,
+            aggregated_items: normalizedItems,
+            currency_source: currencySource,
+          });
+          missingInCatalog.forEach((productId) => {
+            const record = aggregated.get(productId);
+            if (record) {
+              record.cartIds.forEach((cartId) => remove(cartId));
             }
-            const slug = String(row.product?.slug ?? "");
-            if (!slug || row.qty <= 0) return null;
-            try {
-              const prod = await getProductBySlug(slug);
-              if (prod && uuidPattern.test(prod.id)) {
-                return { id: prod.id, qty: row.qty };
-              }
-            } catch {}
-            return null;
-          }),
-        );
-        normalizedItems = mapped.filter((e): e is { id: string; qty: number } => Boolean(e));
-      } else {
-        normalizedItems = items.filter((row) => row.qty > 0).map((row) => ({ id: String(row.id), qty: row.qty }));
+          });
+          setError("Some items are no longer available and were removed from your cart.");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      if (!normalizedItems.length) {
-        throw new Error("Could not match cart items with products. Please refresh and try again.");
-      }
+      // normalizedItems already computed above
 
       const contactFullName = formData.get("fullName")?.toString().trim() ?? "";
       const contactEmail = formData.get("email")?.toString().trim() ?? "";
@@ -189,6 +277,21 @@ export default function CheckoutClient() {
       }
 
       const checkoutPayload = checkout.contact || checkout.shipping ? checkout : undefined;
+      const snapshotCopy = {
+        items: items.map((row) => ({ ...row })),
+        subtotal,
+        currency: orderCurrency,
+      } as CheckoutSnapshot;
+
+      console.info("[cart:validation]", {
+        stage: "ready_for_checkout",
+        cart_items_in: items.length,
+        cart_items_valid: normalizedItems.length,
+        missing_ids: [],
+        aggregated_items: normalizedItems,
+        currency_source: currencySource,
+      });
+
       const result = await placeOrder(normalizedItems, { currency: orderCurrency, checkout: checkoutPayload });
       const createdOrderId = result.order_id;
 
@@ -210,7 +313,27 @@ export default function CheckoutClient() {
       (event.currentTarget as HTMLFormElement).reset();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to place order.";
-      setError(message);
+      const unknownMatch = typeof message === "string" ? message.match(/unknown_product_ids:\s*(\[[^\]]*\])/i) : null;
+      if (unknownMatch) {
+        try {
+          const parsed = JSON.parse(unknownMatch[1]);
+          if (Array.isArray(parsed)) {
+            parsed.map(String).forEach((productId) => {
+              const cartEntry = items.find((row) => row.product?.id === productId || row.id === productId);
+              if (cartEntry) remove(cartEntry.id);
+            });
+            console.warn("[cart:error]", {
+              code: "unknown_product_ids",
+              ids: parsed,
+            });
+          }
+        } catch {
+          // ignore parse failures
+        }
+        setError("Some items are no longer available and were removed from your cart.");
+      } else {
+        setError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }

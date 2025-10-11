@@ -255,11 +255,3 @@ try {
   stderr.write(`Ошибка: ${e?.message || e}\n`);
   exit(1);
 }
-
-
-
-
-
-
-
-

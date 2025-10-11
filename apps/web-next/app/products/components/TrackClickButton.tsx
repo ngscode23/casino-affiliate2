@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { attachUtm } from "@shared/lib/utm";
 
 export default function TrackClickButton({
   productId,
@@ -16,7 +17,7 @@ export default function TrackClickButton({
       await fetch("/api/track/click", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, dataset }),
+        body: JSON.stringify(attachUtm({ product_id: productId, dataset })),
       });
     } finally {
       setLoading(false);
@@ -34,3 +35,4 @@ export default function TrackClickButton({
     </button>
   );
 }
+

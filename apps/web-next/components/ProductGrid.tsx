@@ -32,7 +32,7 @@ type ProductGridProps = {
 
 export const PRODUCT_GRID_CONTAINER = "max-w-screen-xl mx-auto px-6 sm:px-8 lg:px-10";
 const CONTAINER_BASE = PRODUCT_GRID_CONTAINER;
-const GRID_DEFAULT = "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8";
+const GRID_DEFAULT = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8";
 
 const layoutClasses: Record<LayoutMode, string> = {
   single: "grid grid-cols-1 gap-6 sm:gap-8 lg:gap-10",

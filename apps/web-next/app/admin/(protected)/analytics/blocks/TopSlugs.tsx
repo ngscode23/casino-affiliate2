@@ -3,7 +3,24 @@
 import Card from "@ui/components/common/card";
 import VirtualList from "./VirtualList";
 
-type TopSlug = { slug: string; clicks: number; impressions: number; ctr: number };
+type TopSlug = {
+  slug: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  paid?: number;
+  cr?: number;
+  revenue?: Record<string, number>;
+};
+
+function formatRevenue(map?: Record<string, number>): string {
+  if (!map) return "—";
+  const entries = Object.entries(map);
+  if (entries.length === 0) return "—";
+  return entries
+    .map(([cur, amount]) => `${(amount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${cur}`)
+    .join(" · ");
+}
 
 export default function TopSlugs({
   data,
@@ -51,22 +68,28 @@ export default function TopSlugs({
           itemHeight={36}
           keyExtractor={(item) => item.slug}
           renderItem={(entry) => (
-            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto] items-center gap-3 text-xs sm:text-sm">
+            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 text-xs sm:text-sm">
               <span className="truncate font-medium text-white">{entry.slug}</span>
               <span className="text-right">{entry.clicks}</span>
               <span className="text-right">{entry.impressions}</span>
               <span className="text-right text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right">{entry.paid ?? 0}</span>
+              <span className="text-right text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
             </div>
           )}
         />
       ) : (
         <div className="space-y-2 text-sm text-white/80">
           {data.slice(0, 10).map((entry) => (
-            <div key={entry.slug} className="grid grid-cols-[minmax(0,1fr),auto,auto,auto] gap-3 text-xs sm:text-sm">
+            <div key={entry.slug} className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] gap-3 text-xs sm:text-sm">
               <span className="truncate font-medium text-white">{entry.slug}</span>
               <span className="text-right">{entry.clicks}</span>
               <span className="text-right">{entry.impressions}</span>
               <span className="text-right text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right">{entry.paid ?? 0}</span>
+              <span className="text-right text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
             </div>
           ))}
         </div>
@@ -74,4 +97,3 @@ export default function TopSlugs({
     </Card>
   );
 }
-

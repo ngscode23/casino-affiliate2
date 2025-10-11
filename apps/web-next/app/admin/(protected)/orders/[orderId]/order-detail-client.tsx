@@ -84,12 +84,11 @@ function useAdminToken() {
 
 async function authorizedRequest(path: string, adminToken: string) {
   const accessToken = await getValidAccessToken();
-  if (!accessToken) throw new Error("Not authenticated");
 
   const headers = new Headers({
     accept: "application/json",
-    Authorization: `Bearer ${accessToken}`,
   });
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (adminToken) headers.set("x-admin-token", adminToken);
 
   return fetch(path, { headers, cache: "no-store" });
@@ -356,4 +355,3 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     </Section>
   );
 }
-

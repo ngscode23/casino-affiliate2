@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { ShoppingCart } from "lucide-react";
 
 import { useCart } from "@shared/ecom/lib/cart";
+import { track } from "@shared/lib/analytics";
 import { toast } from "@ui/components/common/toast";
 import cn from "@shared/lib/cn";
 
@@ -17,6 +18,9 @@ type AddToCartButtonProps = {
   className?: string;
   variant?: Variant;
   onAddAction?: () => void;
+  quantity?: number;
+  analyticsEventName?: string;
+  analyticsParams?: Record<string, unknown>;
 };
 
 export default function AddToCartButton({
@@ -26,6 +30,9 @@ export default function AddToCartButton({
   className,
   variant = "solid",
   onAddAction,
+  quantity = 1,
+  analyticsEventName = "add_to_cart",
+  analyticsParams,
 }: AddToCartButtonProps) {
   const { add } = useCart();
   const [pending, setPending] = useState(false);
@@ -37,15 +44,25 @@ export default function AddToCartButton({
       if (pending) return;
       setPending(true);
       try {
-        add(productId, 1);
+        add(productId, quantity);
         const name = (title ?? "").trim() || "Product";
         toast(`${name} added to cart`, { variant: "success" });
+        try {
+          const payload = {
+            product_id: productId,
+            qty: quantity,
+            ...analyticsParams,
+          };
+          track({ name: analyticsEventName, params: payload });
+        } catch {
+          /* noop */
+        }
         onAddAction?.();
       } finally {
         setTimeout(() => setPending(false), 400);
       }
     },
-    [add, onAddAction, pending, productId, title],
+    [add, analyticsEventName, analyticsParams, onAddAction, pending, productId, quantity, title],
   );
 
   const baseClass =

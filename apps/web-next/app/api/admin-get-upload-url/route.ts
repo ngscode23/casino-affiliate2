@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       let updated = 0;
       if (skuRaw) {
         const { data: skuRows, error: updateErr } = await supabase
-          .from("shop.products")
+          .from("ecom_products")
           .update({ image_path: objectPath })
           .eq("sku", skuRaw)
           .select("id");
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       }
       if (!updated && slugRaw) {
         const { data: slugRows, error: updateErr } = await supabase
-          .from("shop.products")
+          .from("ecom_products")
           .update({ image_path: objectPath })
           .eq("slug", slugRaw)
           .select("id");
@@ -123,14 +123,14 @@ export async function POST(request: Request) {
       }
       if (!updated && productId) {
         const { data: _rows, error: updateErr } = await supabase
-          .from("shop.products")
+          .from("ecom_products")
           .update({ image_path: objectPath })
           .eq("id", productId)
           .select("id");
         if (updateErr) throw updateErr;
       }
     } catch (updateErr) {
-      console.warn("admin-get-upload-url: failed to update shop.products", updateErr);
+      console.warn("admin-get-upload-url: failed to update ecom_products", updateErr);
     }
 
     const uploadUrl = toAbsoluteUrl(supabaseUrl, data.signedUrl ?? "");

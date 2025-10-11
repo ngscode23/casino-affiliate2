@@ -6,7 +6,7 @@ import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
 import Input from "@ui/components/common/input";
 import Button from "@ui/components/common/button";
-import { supabase } from "@shared/lib/supabase";
+import { adminFetch } from "@shared/lib/api";
 
 const PAGE_SIZE = 50;
 
@@ -33,19 +33,14 @@ export function WebhooksClient() {
         setError(null);
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
-        let builder: any = supabase
-          .from("webhook_logs")
-          .select("id,type,created_at,payload")
-          .order("created_at", { ascending: false })
-          .range(from, to);
-        if (query.trim()) {
-          builder = builder.ilike("type", `%${query.trim()}%`);
-        }
-        const { data, error: dbError } = await builder;
-        if (dbError) throw dbError;
-        if (!cancelled) {
-          setRows((data as WebhookLogRow[]) ?? []);
-        }
+        const qs = new URLSearchParams();
+        qs.set("page", String(page));
+        qs.set("pageSize", String(PAGE_SIZE));
+        if (query.trim()) qs.set("q", query.trim());
+        const res = await adminFetch(`/api/admin/webhooks/logs?${qs.toString()}`);
+        if (!res.ok) throw new Error(await res.text());
+        const payload = (await res.json()) as { ok: boolean; rows?: WebhookLogRow[] };
+        if (!cancelled) setRows(payload.rows ?? []);
       } catch (err: any) {
         if (!cancelled) {
           setError(String(err?.message ?? err));
@@ -69,15 +64,12 @@ export function WebhooksClient() {
   async function purge() {
     try {
       const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      const { error: rpcError } = await (supabase as any).rpc("purge_webhook_logs", { cutoff_ts: cutoff });
-      if (rpcError) throw rpcError;
+      const res = await adminFetch(`/api/admin/webhooks/purge`, { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
       setPage(0);
-      const { data } = await (supabase as any)
-        .from("webhook_logs")
-        .select("id,type,created_at,payload")
-        .order("created_at", { ascending: false })
-        .range(0, PAGE_SIZE - 1);
-      setRows((data as WebhookLogRow[]) ?? []);
+      const res2 = await adminFetch(`/api/admin/webhooks/logs?page=0&pageSize=${PAGE_SIZE}`);
+      const payload2 = (await res2.json()) as { ok: boolean; rows?: WebhookLogRow[] };
+      setRows(payload2.rows ?? []);
     } catch (err: any) {
       window.alert(`Purge failed: ${String(err?.message ?? err)}`);
     }

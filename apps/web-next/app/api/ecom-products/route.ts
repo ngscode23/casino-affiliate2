@@ -114,7 +114,43 @@ export async function GET(request: Request) {
     const supabaseUrl = pickSupabaseUrl();
     const bucket = DEFAULT_BUCKET;
 
-    const rows = Array.isArray(data) ? data : [];
+    let rows = Array.isArray(data) ? data : [];
+
+    // Fallback: if fetching by specific ids and some are missing in ecom_products,
+    // try to enrich from legacy `products` table so корзина может посчитать сумму.
+    if (ids.length && rows.length < ids.length) {
+      try {
+        const foundIds = new Set<string>(rows.map((r: any) => String(r?.id ?? "")));
+        const missingIds = ids.filter((id) => !foundIds.has(id));
+        if (missingIds.length) {
+          const { data: legacyRows, error: legacyErr } = await client
+            .from("products")
+            .select("id, slug, title, price_cents, currency, main_image_url, status")
+            .in("id", missingIds);
+          if (!legacyErr && Array.isArray(legacyRows) && legacyRows.length) {
+            const mapped = legacyRows.map((p: any) => ({
+              id: String(p.id),
+              sku: null,
+              slug: String(p.slug ?? ""),
+              title: String(p.title ?? "Untitled"),
+              price: typeof p.price_cents === "number" ? p.price_cents / 100 : 0,
+              rating: null,
+              images: p.main_image_url ? [String(p.main_image_url)] : [],
+              short_desc: null,
+              category_slug: null,
+              tags: null,
+              specs: null,
+              created_at: null,
+              status: String(p.status ?? "active"),
+              image_path: null,
+            }));
+            rows = rows.concat(mapped);
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn("ecom-products: legacy fallback failed", fallbackErr);
+      }
+    }
 
     const productIds = rows
       .map((row: any) => (row?.id ? String(row.id) : ""))
@@ -129,7 +165,7 @@ export async function GET(request: Request) {
     if (slugs.length) {
       try {
         const { data: slugRows, error: slugErr } = await client
-          .from("shop.products")
+          .from("ecom_products")
           .select("slug,image_path")
           .in("slug", slugs);
         if (!slugErr && Array.isArray(slugRows)) {
@@ -140,7 +176,7 @@ export async function GET(request: Request) {
           }
         }
       } catch (slugErr) {
-        console.warn("ecom-products: shop.products lookup failed", slugErr);
+        console.warn("ecom-products: ecom_products slug lookup failed", slugErr);
       }
     }
 

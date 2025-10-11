@@ -26,6 +26,7 @@ export default function ReviewList({ sourceSchema, sourceTable, sourcePk, reload
         url.searchParams.set("source_schema", sourceSchema);
         url.searchParams.set("source_table", sourceTable);
         url.searchParams.set("source_pk", sourcePk);
+        url.searchParams.set("limit", "100");
         const res = await fetch(url.toString(), { headers: { accept: "application/json" } });
         let json: unknown = {};
         try { json = await res.json(); } catch (_e) { /* handled */ void _e; }
@@ -81,4 +82,3 @@ export default function ReviewList({ sourceSchema, sourceTable, sourcePk, reload
     </div>
   );
 }
-

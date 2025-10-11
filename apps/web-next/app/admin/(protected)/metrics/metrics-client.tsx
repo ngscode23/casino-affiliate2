@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
 import { adminFetch } from "@shared/lib/api";
-import { getValidAccessToken } from "@shared/lib/auth";
 
 type MetricsResponse = {
   days: number;
@@ -92,10 +91,8 @@ export function MetricsClient() {
 
   useEffect(() => {
     const nextValue = normalizeDays(searchParams?.get("days"));
-    if (nextValue !== days) {
-      setDays(nextValue);
-    }
-  }, [days, searchParams]);
+    setDays((prev) => (prev === nextValue ? prev : nextValue));
+  }, [searchParams]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -114,14 +111,7 @@ export function MetricsClient() {
         setError(null);
         setData(null);
 
-        const token = await getValidAccessToken();
-        if (!token) {
-          throw new Error("Not authenticated");
-        }
-
-        const res = await adminFetch(`/api/metrics?days=${days}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await adminFetch(`/api/metrics?days=${days}`);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || `${res.status} ${res.statusText}`);

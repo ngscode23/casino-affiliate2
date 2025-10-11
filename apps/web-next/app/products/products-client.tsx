@@ -53,7 +53,7 @@ function datasetLabel(dataset: FiltersState["dataset"] | Product["dataset"]): st
   return "All products";
 }
 
-const GRID_LAYOUT_DEFAULT = "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8";
+const GRID_LAYOUT_DEFAULT = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8";
 
 const skeletonLayoutClass: Record<LayoutMode, string> = {
   single: "grid grid-cols-1 gap-6 sm:gap-8 lg:gap-10",
@@ -279,7 +279,7 @@ export default function ProductsClient({
       displayed.map((product) => {
         const priceValue = Number(product.price ?? 0);
         const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
-        const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12) : null;
+        const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12, product.currency) : null;
         const meta =
           product.clicks || product.impressions
             ? numberFormatter.format(product.clicks || 0) + " clicks | " + numberFormatter.format(product.impressions || 0) + " views"
@@ -290,7 +290,7 @@ export default function ProductsClient({
           title: product.title,
           subtitle: product.description,
           image: product.mainImage,
-          price: priceValue > 0 ? formatPrice(priceValue) : null,
+          price: priceValue > 0 ? formatPrice(priceValue, product.currency) : null,
           originalPrice,
           badge,
           meta,

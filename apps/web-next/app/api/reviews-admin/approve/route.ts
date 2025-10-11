@@ -1,3 +1,5 @@
+import { revalidateTag } from "next/cache";
+
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import {
@@ -37,6 +39,19 @@ export async function POST(request: Request) {
     const result = await applyReviewStatus(supabase, productUid, userId, "approved");
     if ("error" in result && result.error) {
       return json({ ok: false, code: "db", message: result.error.message }, 500);
+    }
+    if (result.changed) {
+      const { error: refreshErr } = await supabase.rpc("refresh_product_rating_stats", {
+        p_product_id: productUid,
+      });
+      if (refreshErr) {
+        return json({ ok: false, code: "db", message: refreshErr.message }, 500);
+      }
+      try {
+        revalidateTag(`reviews:${productUid}`);
+      } catch {
+        // ignore revalidation failures
+      }
     }
 
     return json({ ok: true, changed: result.changed ?? false });

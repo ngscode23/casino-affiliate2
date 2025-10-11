@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/utils/supabase/server";
-import { getFallbackImage } from "./fallback-images";
+import { getAdminClient } from "@/utils/supabase/admin";
+import { getFallbackImageByKey } from "./fallback-images";
 import type { Product } from "./types";
 
 type Dataset = "shop" | "legacy";
@@ -11,9 +11,12 @@ export type RawProduct = {
   title: string;
   short_desc: string | null;
   price: number | null;
+  currency: string | null;
   images: unknown;
+  image_path: string | null;
   status?: string | null;
   created_at?: string | null;
+  category_slug?: string | null;
 };
 
 function extractImage(images: unknown): string | null {
@@ -85,6 +88,29 @@ function isPlaceholderProduct(product: Product): boolean {
   return false;
 }
 
+const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
+const SUPABASE_ORIGIN = (() => {
+  const raw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return raw.replace(/\/$/, "");
+})();
+
+function toStoragePublicUrl(path: string | null): string | null {
+  if (!path || !SUPABASE_ORIGIN) return null;
+  const normalized = path.replace(/^\/+/, "");
+  const encodedPath = normalized
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  return `${SUPABASE_ORIGIN}/storage/v1/object/public/${encodeURIComponent(PRODUCT_IMAGE_BUCKET)}/${encodedPath}`;
+}
+
+function normalizeImageUrl(input: string | null): string | null {
+  if (!input) return null;
+  if (/^https?:/i.test(input)) return input;
+  return toStoragePublicUrl(input);
+}
+
 async function fetchRawProducts(supabase: SupabaseClient): Promise<{
   rawProducts: RawProduct[];
   dataset: Dataset;
@@ -97,7 +123,9 @@ async function fetchRawProducts(supabase: SupabaseClient): Promise<{
   try {
     const { data, error } = await supabase
       .from("ecom_products")
-      .select("id, slug, title, short_desc, price, images, status, created_at")
+      .select(
+        "id, slug, title, short_desc, price, currency, images, image_path, status, created_at, category_slug",
+      )
       .order("created_at", { ascending: false });
     if (!error && data) {
       rawProducts = (data as RawProduct[]).filter((row) => row.status !== "archived");
@@ -124,9 +152,12 @@ async function fetchRawProducts(supabase: SupabaseClient): Promise<{
             title: String(row.title ?? ""),
             short_desc: (row.description as string) ?? null,
             price: typeof row.price_cents === "number" ? row.price_cents / 100 : null,
+            currency: typeof row.currency === "string" ? String(row.currency).toUpperCase() : "USD",
             images: row.main_image_url ?? null,
+            image_path: null,
             status: row.status ?? "active",
             created_at: typeof row.created_at === "string" ? row.created_at : null,
+            category_slug: null,
           })) as RawProduct[];
         fetchError = null;
       } else if (error) {
@@ -135,6 +166,19 @@ async function fetchRawProducts(supabase: SupabaseClient): Promise<{
     } catch (err) {
       fetchError = err;
     }
+  }
+
+  if (rawProducts.length) {
+    rawProducts = rawProducts.filter((row) => {
+      const status = String(row.status ?? "").toLowerCase();
+      const priceValue = Number(row.price ?? 0);
+      return (status === "published" || status === "active") && priceValue > 0;
+    });
+
+    rawProducts = rawProducts.map((row) => ({
+      ...row,
+      currency: typeof row.currency === "string" ? row.currency.toUpperCase() : dataset === "shop" ? "EUR" : "USD",
+    }));
   }
 
   return { rawProducts, dataset, fetchError };
@@ -210,7 +254,7 @@ function buildStructuredData(products: Product[]) {
       image: product.mainImage ?? undefined,
       offers: {
         "@type": "Offer",
-        priceCurrency: "USD",
+        priceCurrency: product.currency || "EUR",
         price: Number.isFinite(product.price) ? product.price.toFixed(2) : "0.00",
         availability: "https://schema.org/InStock",
       },
@@ -223,11 +267,41 @@ export async function loadProductsData(): Promise<{
   fetchError: unknown;
   structuredData: Record<string, unknown> | null;
 }> {
-  const supabase = await createClient();
+  const supabase = getAdminClient();
   const { rawProducts, dataset, fetchError } = await fetchRawProducts(supabase);
 
   if (!rawProducts.length) {
     return { products: [], fetchError, structuredData: null };
+  }
+
+  const latestImages = new Map<string, string>();
+  if (dataset === "shop") {
+    const candidates = rawProducts.filter((row) => {
+      const primary = normalizeImageUrl(extractImage(row.images));
+      const byPath = normalizeImageUrl(row.image_path ?? null);
+      return !primary && !byPath;
+    });
+    const idsNeedingImages = candidates.map((row) => row.id).filter(Boolean);
+    if (idsNeedingImages.length) {
+      try {
+        const { data: latestRows, error: latestError } = await supabase
+          .from("ecom_product_images_latest")
+          .select("product_id, source_url")
+          .in("product_id", idsNeedingImages);
+        if (!latestError && Array.isArray(latestRows)) {
+          for (const row of latestRows) {
+            if (row?.product_id && typeof row.source_url === "string" && row.source_url.trim()) {
+              const normalized = normalizeImageUrl(row.source_url.trim());
+              if (normalized) {
+                latestImages.set(String(row.product_id), normalized);
+              }
+            }
+          }
+        }
+      } catch (latestError) {
+        console.warn("products:data: latest image lookup failed", latestError);
+      }
+    }
   }
 
   const stats = await fetchStats(
@@ -236,6 +310,8 @@ export async function loadProductsData(): Promise<{
   );
 
   const now = Date.now();
+  const usedLatestImages: string[] = [];
+  const fallbackImagesUsed: string[] = [];
 
   let products: Product[] = rawProducts.map((raw, index) => {
     const slug = (typeof raw.slug === "string" ? raw.slug.trim() : "") || raw.id;
@@ -246,13 +322,35 @@ export async function loadProductsData(): Promise<{
       ? createdTime >= now - NEW_WINDOW_MS
       : index < Math.min(FALLBACK_NEW_LIMIT, rawProducts.length);
 
+    const currency = (raw.currency ?? (dataset === "shop" ? "EUR" : "USD")).toUpperCase();
+
+    let mainImage: string | null = null;
+    if (dataset === "shop") {
+      const primary = normalizeImageUrl(extractImage(raw.images));
+      mainImage = primary ?? normalizeImageUrl(raw.image_path ?? null);
+      if (!mainImage) {
+        const latest = latestImages.get(raw.id);
+        if (latest) {
+          mainImage = latest;
+          usedLatestImages.push(raw.id);
+        }
+      }
+    } else {
+      mainImage = extractImage(raw.images);
+    }
+    if (!mainImage) {
+      mainImage = getFallbackImageByKey(raw.id);
+      fallbackImagesUsed.push(raw.id);
+    }
+
     return {
       id: raw.id,
       slug,
       title: deriveTitle(raw, index),
       description: descriptionValue.length ? descriptionValue : null,
-      price: raw.price ?? 0,
-      mainImage: extractImage(raw.images) ?? getFallbackImage(index),
+      price: Number(raw.price ?? 0),
+      currency,
+      mainImage,
       clicks: stats.clicks.get(raw.id) ?? 0,
       impressions: stats.impressions.get(raw.id) ?? 0,
       dataset,
@@ -292,6 +390,14 @@ export async function loadProductsData(): Promise<{
     const impressionDiff = (b.impressions || 0) - (a.impressions || 0);
     if (impressionDiff !== 0) return impressionDiff;
     return a.order - b.order;
+  });
+
+  console.info("[catalog:load]", {
+    dataset,
+    total_products: products.length,
+    used_latest_image: usedLatestImages.length > 0,
+    fallback_images: fallbackImagesUsed.length,
+    currency_source: dataset === "shop" ? "ecom_products" : "legacy",
   });
 
   return { products, fetchError, structuredData: buildStructuredData(products) };

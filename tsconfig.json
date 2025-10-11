@@ -21,7 +21,7 @@
     },
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
-    "skipLibCheck": false
+    "skipLibCheck": true
   }
 
 }

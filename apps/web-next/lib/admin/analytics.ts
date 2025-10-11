@@ -1,60 +1,32 @@
-import { getValidAccessToken } from "@shared/lib/auth";
 import { adminFetch } from "@shared/lib/api";
+import type { AnalyticsRangePreset, AnalyticsSnapshot } from "@/app/api/admin/analytics/types";
 
-export type AnalyticsRangePreset = "7" | "30" | "90" | "custom";
+export type {
+  AnalyticsDayPoint,
+  AnalyticsSlugEntry,
+  AnalyticsSourceEntry,
+  AnalyticsUtmEntry,
+  AnalyticsBreakdownEntry,
+  AnalyticsKpi,
+  AnalyticsFunnel,
+  AnalyticsSnapshot,
+  AnalyticsCompareBlock,
+} from "@/app/api/admin/analytics/types";
+
+export type { AnalyticsRangePreset } from "@/app/api/admin/analytics/types";
 
 export interface AnalyticsFilters {
   range?: AnalyticsRangePreset;
   from?: string;
   to?: string;
-}
-
-export interface AnalyticsDayPoint {
-  date: string;
-  count: number;
-}
-
-export interface AnalyticsSlugEntry {
-  slug: string;
-  clicks: number;
-  impressions: number;
-  ctr: number;
-}
-
-export interface AnalyticsSourceEntry {
-  source: string;
-  count: number;
-}
-
-export interface AnalyticsUtmEntry {
-  source: string;
-  campaign: string;
-  count: number;
-}
-
-export interface AnalyticsBreakdownEntry {
-  device?: string;
-  lang?: string;
-  count: number;
-}
-
-export interface AnalyticsSnapshot {
-  range: { from: string; to: string };
-  totals: { clicks: number; impressions: number };
-  byDay: {
-    clicks: AnalyticsDayPoint[];
-    impressions: AnalyticsDayPoint[];
-  };
-  topSlugs: AnalyticsSlugEntry[];
-  sparkline: Record<string, AnalyticsDayPoint[]>;
-  topSources: AnalyticsSourceEntry[];
-  utm: AnalyticsUtmEntry[];
-  devices: Array<{ device: string; count: number }>;
-  languages: Array<{ lang: string; count: number }>;
-  meta: {
-    limit: number;
-    generatedAt: string;
-  };
+  slug?: string[];
+  utm_source?: string[];
+  utm_campaign?: string[];
+  device?: string[];
+  lang?: string[];
+  referrer_host?: string[];
+  limit?: number;
+  compare?: boolean;
 }
 
 function buildQuery(filters?: AnalyticsFilters): string {
@@ -65,21 +37,38 @@ function buildQuery(filters?: AnalyticsFilters): string {
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
   }
+  const multi = (key: keyof AnalyticsFilters, paramName: string) => {
+    const value = filters[key];
+    if (!value) return;
+    const list = Array.isArray(value) ? value : [value];
+    list
+      .flatMap((item) => {
+        if (typeof item === "string") return item.split(",");
+        return String(item);
+      })
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => params.append(paramName, item));
+  };
+  multi("slug", "slug");
+  multi("utm_source", "utm_source");
+  multi("utm_campaign", "utm_campaign");
+  multi("device", "device");
+  multi("lang", "lang");
+  multi("referrer_host", "referrer_host");
+  if (typeof filters.limit === "number" && Number.isFinite(filters.limit)) {
+    params.set("limit", String(Math.max(1, Math.floor(filters.limit))));
+  }
+  if (filters.compare) params.set("compare", "1");
   if (!params.size) return "";
   return `?${params.toString()}`;
 }
 
 export async function loadAnalytics(filters?: AnalyticsFilters): Promise<AnalyticsSnapshot> {
-  const accessToken = await getValidAccessToken();
-  if (!accessToken) throw new Error("Not authenticated");
-
   const query = buildQuery(filters);
+  // Авторизация: куки SSR + x-admin-token через adminFetch. Bearer-токен не обязателен.
   const response = await adminFetch(`/api/admin/analytics${query}`, {
     method: "GET",
-    headers: {
-      accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
     cache: "no-store",
   });
 

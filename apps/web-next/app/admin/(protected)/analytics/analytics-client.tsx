@@ -11,6 +11,8 @@ import {
   type AnalyticsFilters,
   type AnalyticsRangePreset,
   type AnalyticsSnapshot,
+  type AnalyticsKpi,
+  type AnalyticsFunnel,
   type AnalyticsDayPoint,
 } from "@/lib/admin/analytics";
 
@@ -97,18 +99,85 @@ export function AdminAnalyticsClient() {
   const isCustom = range === "custom";
   const lastUpdated = snapshot?.meta.generatedAt ? new Date(snapshot.meta.generatedAt) : null;
 
+  function KpiCard({ label, value }: { label: string; value: string }) {
+    return (
+      <Card className="p-4">
+        <div className="text-sm text-[var(--text-dim)]">{label}</div>
+        <div className="mt-1 text-2xl font-semibold">{value}</div>
+      </Card>
+    );
+  }
+
+  function formatPct(num: number): string {
+    if (!Number.isFinite(num)) return "0%";
+    return `${(num * 100).toFixed(1)}%`;
+  }
+
+  function formatMoneyMap(map?: AnalyticsKpi["revenueByCurrency"], fallback = "—") {
+    if (!map || Object.keys(map).length === 0) return fallback;
+    const entries = Object.entries(map);
+    return entries
+      .map(([cur, amount]) => `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${cur}`)
+      .join(" · ");
+  }
+
+  function FunnelView({ funnel }: { funnel?: AnalyticsFunnel }) {
+    const f = funnel || { impressions: 0, clicks: 0, payment_attempts: 0, paid: 0 };
+    const step1 = f.impressions;
+    const step2 = f.clicks;
+    const step3 = f.payment_attempts;
+    const step4 = f.paid;
+    const ctr = step1 > 0 ? step2 / step1 : 0;
+    const cr = step2 > 0 ? step4 / step2 : 0;
+    const pa = step2 > 0 ? step3 / step2 : 0;
+    return (
+      <Card className="p-4">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--text-dim)]">Funnel</h2>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div>
+            <div className="text-xs text-[var(--text-dim)]">Impressions</div>
+            <div className="text-lg font-semibold">{step1.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-xs text-[var(--text-dim)]">Clicks</div>
+            <div className="text-lg font-semibold">{step2.toLocaleString()}</div>
+            <div className="text-xs text-[var(--text-dim)]">CTR {formatPct(ctr)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-[var(--text-dim)]">Payment attempts</div>
+            <div className="text-lg font-semibold">{step3.toLocaleString()}</div>
+            <div className="text-xs text-[var(--text-dim)]">Attempts/Click {formatPct(pa)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-[var(--text-dim)]">Paid</div>
+            <div className="text-lg font-semibold">{step4.toLocaleString()}</div>
+            <div className="text-xs text-[var(--text-dim)]">CR {formatPct(cr)}</div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   function handleExportTopSlugsCSV() {
     if (!snapshot) return;
-    exportCSV(
-      `top-slugs-${range}.csv`,
-      ["slug", "clicks", "impressions", "ctr"],
-      snapshot.topSlugs.map((entry) => [
+    const headers = ["slug", "clicks", "impressions", "ctr", "paid", "cr", "revenue"];
+    const rows = snapshot.topSlugs.map((entry) => {
+      const rev = entry.revenue
+        ? Object.entries(entry.revenue)
+            .map(([cur, amt]) => `${(amt ?? 0).toFixed(2)} ${cur}`)
+            .join(" | ")
+        : "";
+      return [
         entry.slug,
-        entry.clicks.toString(),
-        entry.impressions.toString(),
-        entry.ctr.toFixed(4),
-      ]),
-    );
+        String(entry.clicks ?? 0),
+        String(entry.impressions ?? 0),
+        (entry.ctr ?? 0).toFixed(4),
+        String(entry.paid ?? 0),
+        (entry.cr ?? 0).toFixed(4),
+        rev,
+      ];
+    });
+    exportCSV(`top-slugs-${range}.csv`, headers, rows);
   }
 
   function handleExportTopSlugsJSON() {
@@ -212,6 +281,26 @@ export function AdminAnalyticsClient() {
         <Card className="border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</Card>
       ) : snapshot ? (
         <div className="grid gap-4 lg:grid-cols-2">
+          {/* KPI cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
+            <KpiCard label="Impressions" value={(snapshot.totals.impressions || 0).toLocaleString()} />
+            <KpiCard label="Clicks" value={(snapshot.totals.clicks || 0).toLocaleString()} />
+            <KpiCard
+              label="CTR"
+              value={formatPct((snapshot.totals.impressions || 0) > 0 ? (snapshot.totals.clicks || 0) / (snapshot.totals.impressions || 1) : 0)}
+            />
+            <KpiCard label="Paid" value={(snapshot.funnel?.paid || 0).toLocaleString()} />
+            <KpiCard
+              label="CR (Click→Paid)"
+              value={formatPct((snapshot.funnel?.clicks || 0) > 0 ? (snapshot.funnel?.paid || 0) / (snapshot.funnel?.clicks || 1) : 0)}
+            />
+            <KpiCard label="Revenue" value={formatMoneyMap(snapshot.kpi?.revenueByCurrency)} />
+            <KpiCard label="Net" value={formatMoneyMap(snapshot.kpi?.netByCurrency)} />
+          </div>
+
+          {/* Funnel */}
+          <FunnelView funnel={snapshot.funnel} />
+
           <ClicksByDay data={snapshot.byDay.clicks} label={presetLabel} />
 
           <TopSlugsBlock
@@ -266,4 +355,3 @@ export function AdminAnalyticsClient() {
     </Section>
   );
 }
-

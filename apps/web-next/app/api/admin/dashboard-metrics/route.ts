@@ -53,6 +53,32 @@ function buildDailyBuckets(reference: Date): Array<{ key: string; label: string 
   return buckets;
 }
 
+function normalizeStatus(status: string | null | undefined, paymentStatus: string | null | undefined): string {
+  const rawStatus = (status || "").toLowerCase();
+  const rawPayment = (paymentStatus || "").toLowerCase();
+
+  if (rawStatus === "paid" || rawStatus === "fulfilled" || rawPayment === "succeeded") {
+    return "succeeded";
+  }
+  if (rawStatus === "processing" || rawPayment === "processing") {
+    return "processing";
+  }
+  if (rawStatus === "pending" || rawPayment === "requires_confirmation" || rawPayment === "requires_action") {
+    return "pending";
+  }
+  if (
+    rawStatus === "failed" ||
+    rawStatus === "cancelled" ||
+    rawStatus === "canceled" ||
+    rawStatus === "refunded" ||
+    rawPayment === "canceled" ||
+    rawPayment === "failed"
+  ) {
+    return "failed";
+  }
+  return rawStatus || rawPayment || "pending";
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin(request);
   if ("response" in auth) return auth.response;
@@ -107,14 +133,14 @@ export async function GET(request: Request) {
 
       const amountTotal = toNumber(row.amount_total);
       const expenseValue = toNumber(row.amount_discounts) + toNumber(row.amount_tax);
-      const status = (row.status || "").toLowerCase();
+      const status = normalizeStatus(row.status, row.payment_status);
       const monthKey = `${createdAt.getUTCFullYear()}-${String(createdAt.getUTCMonth() + 1).padStart(2, "0")}`;
       const bucket = monthMap.get(monthKey);
       if (bucket) {
         if (status === "succeeded") {
           bucket.sales += amountTotal;
           bucket.expenses += expenseValue;
-        } else if (status === "failed" || status === "cancelled" || status === "refunded") {
+        } else if (status === "failed") {
           bucket.expenses += expenseValue;
         }
       }

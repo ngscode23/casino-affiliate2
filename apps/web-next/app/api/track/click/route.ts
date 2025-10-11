@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
 type Dataset = "shop" | "legacy";
+const DEBUG = process.env.TRACK_DEBUG === "1";
 
 type ClickPayload = {
   product_id: string;
@@ -72,17 +73,47 @@ export async function POST(request: Request) {
     );
   }
 
+  let attemptIndex = 0;
+  let lastError: { code?: string | null; message?: string } | null = null;
+
   for (const args of attempts) {
+    attemptIndex += 1;
     try {
       const { error } = await supabase.rpc("log_click", args as any);
       if (!error) return NextResponse.json({ ok: true });
-      // else try next
-    } catch {
-      // try next variant
+      lastError = { code: error.code, message: error.message };
+      if (DEBUG) {
+        console.warn("[track:click]", {
+          attempt: attemptIndex,
+          code: error.code ?? "unknown",
+          message: error.message ?? "rpc_error",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastError = { code: "exception", message };
+      if (DEBUG) {
+        console.warn("[track:click]", {
+          attempt: attemptIndex,
+          code: "exception",
+          message,
+        });
+      }
     }
   }
 
-  return NextResponse.json({ ok: false, error: "Failed to record click (RPC mismatch/permission)" }, { status: 500 });
+  const responseInit: ResponseInit = { status: 500 };
+  if (DEBUG && lastError) {
+    const normalizedMessage = String(lastError.message ?? "unknown").replace(/\s+/g, " ").trim();
+    responseInit.headers = {
+      "x-track-debug": `${lastError.code ?? "unknown"}:${normalizedMessage}`,
+    };
+  }
+
+  return NextResponse.json(
+    { ok: false, error: "Failed to record click (RPC mismatch/permission)" },
+    responseInit
+  );
 }
 
 

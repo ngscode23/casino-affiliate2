@@ -42,7 +42,15 @@ export default [
     ]
   },
 
-  ...(nextFlatConfig.coreWebVitals ? [nextFlatConfig.coreWebVitals] : []),
+  // Применяем правила Next.js только к приложению Next
+  ...(nextFlatConfig.coreWebVitals
+    ? [
+        {
+          ...nextFlatConfig.coreWebVitals,
+          files: ['apps/web-next/**/*.{ts,tsx,js,jsx}'],
+        },
+      ]
+    : []),
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -102,6 +110,15 @@ export default [
     },
   },
 
+  // Явно отключаем специфичные для Next правила в пакетах, чтобы избежать
+  // предупреждений вида "Pages directory cannot be found".
+  {
+    files: ['packages/**/*.{ts,tsx,js,jsx}'],
+    rules: {
+      '@next/next/no-html-link-for-pages': 'off',
+    },
+  },
+
   // Сервер/скрипты (Node)
   {
     files: [
@@ -145,3 +162,4 @@ export default [
   },
 ]
 
+""

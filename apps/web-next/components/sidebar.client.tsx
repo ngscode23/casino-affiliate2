@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@shared/ecom/lib/cart";
 import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
+import { cn } from "@shared/lib/cn";
 import ThemeToggle from "@ui/components/ThemeToggle";
 import LanguageSwitcher from "@ui/components/layout/LanguageSwitcher";
 
@@ -26,6 +27,9 @@ export type SidebarClientProps = {
   navItems: NavItem[];
   brand: Brand;
   tagline?: string;
+  className?: string;
+  onNavigate?: () => void;
+  variant?: "sidebar" | "drawer";
 };
 
 function withLang(href: string, lang: string) {
@@ -50,9 +54,16 @@ function formatCurrency(value: number, currency = "USD", locale = "en-US") {
   }
 }
 
-const libraryRoutes = new Set(["/favorites", "/contact", "/partner", "/account", "/cart", "/checkout"]);
+const libraryRoutes = new Set(["/favorites", "/contact", "/partner", "/account", "/account/reviews", "/cart", "/checkout"]);
 
-export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) {
+export function SidebarClient({
+  navItems,
+  brand,
+  tagline,
+  className,
+  onNavigate,
+  variant = "sidebar",
+}: SidebarClientProps) {
   const { lang } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -83,7 +94,7 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
     if (href === "/products") {
       return pathname === "/products" || pathname.startsWith("/products/");
     }
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return pathname === href;
   };
 
   const onSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -100,6 +111,7 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
     }
     const qs = params.toString();
     router.push(qs ? `${pathPart}?${qs}` : pathPart);
+    onNavigate?.();
   };
 
   const renderNavItem = (item: NavItem) => {
@@ -113,7 +125,12 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
         : "border-transparent text-muted hover:border-primary/30 hover:bg-card/80 hover:text-fg",
     ].join(" ");
     return (
-      <Link key={item.href} href={withLang(item.href, lang)} className={classes}>
+      <Link
+        key={item.href}
+        href={withLang(item.href, lang)}
+        className={classes}
+        onClick={() => onNavigate?.()}
+      >
         <span>{label}</span>
         {active ? <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden /> : null}
       </Link>
@@ -121,13 +138,23 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
   };
 
   const locale = lang === "ru" ? "ru-RU" : "en-US";
+  const Wrapper = variant === "sidebar" ? "aside" : "div";
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[300px] max-w-[300px] flex-shrink-0 flex-col border-r border-border bg-card/95 px-6 py-10 text-fg shadow-lg backdrop-blur">
+    <Wrapper
+      className={cn(
+        "flex h-full w-full flex-col bg-card px-6 py-10 text-fg",
+        variant === "sidebar"
+          ? "sticky top-0 h-screen max-w-[300px] flex-shrink-0 border-r border-border shadow-lg backdrop-blur max-[922px]:hidden z-[200]"
+          : "max-w-[360px] overflow-y-auto pb-16 pt-8",
+        className,
+      )}
+    >
       <div className="flex flex-1 flex-col gap-8">
         <Link
           href={withLang(brand.href, lang)}
           className="group flex items-center gap-3 text-sm font-semibold text-fg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+          onClick={() => onNavigate?.()}
           aria-label={brandTagline ?? brand.name}
         >
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-base font-bold text-primary">
@@ -192,6 +219,7 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
             <Link
               href={withLang("/cart", lang)}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+              onClick={() => onNavigate?.()}
             >
               {goToCartLabel}
             </Link>
@@ -203,7 +231,7 @@ export function SidebarClient({ navItems, brand, tagline }: SidebarClientProps) 
           </div>
         </div>
       </div>
-    </aside>
+    </Wrapper>
   );
 }
 

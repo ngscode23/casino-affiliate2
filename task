@@ -1,72 +1,142 @@
-Вот краткий чек‑лист того, что мы сделали в этом раунде, с файлами и целями.
+Таск: Прокачка страницы товара /products/[slug]
 
-Фильтры и витрина
+Цель
 
-Обновил визуальный стиль фильтра под карточку Neon:
-packages/ui/src/components/FilterSidebar.tsx
-На странице каталога разнес фильтры и сделал части ленивыми:
-Добавил компоненты: apps/web-next/app/products/filters/DatasetPicker.tsx, apps/web-next/app/products/filters/LayoutPicker.tsx
-Подключил через dynamic() и вынес ProductGrid в lazy‑чанк:
-apps/web-next/app/products/products-client.tsx
-Ограничил рост высоты фильтра (не тянется за сеткой):
-items-start на гриде и self-start у aside в apps/web-next/app/products/products-client.tsx
-Главная
+Поднять конверсию и доверие за счет полноценной карточки товара: улучшить первый экран, добавить галерею, характеристики, отзывы, схожие товары, SEO/разметку и события аналитики.
+Результат
 
-Оформил hero‑slider динамически на главной (через client‑шлюз):
-apps/web-next/components/hero-slider-client.tsx (уже dynamic внутри)
-app/page теперь использует HeroSliderClient:
-apps/web-next/app/page.tsx
-Аналитика (админ)
+Production‑ready страница товара с отзывами, вариантами (UI), галереей, sticky‑CTA на мобиле, блоками доверия, JSON‑LD и корректными событиями аналитики.
+Скоуп
 
-Вынес 2 графика в отдельные динамические блоки:
-apps/web-next/app/admin/(protected)/analytics/charts/Spark.tsx
-apps/web-next/app/admin/(protected)/analytics/charts/ClicksByDay.tsx
-apps/web-next/app/admin/(protected)/analytics/charts/SlugSparklines.tsx
-Подключение в: apps/web-next/app/admin/(protected)/analytics/analytics-client.tsx
-Checkout (C) — разделение и динамический Stripe
+Только фронтенд в apps/web-next; серверные ручки — в пределах имеющихся API (+ простой POST для отзывов при необходимости).
+БД/миграции — минимально (если нужно RPC для отзывов). Без интеграции внешних провайдеров (кроме уже подключенных).
+Файлы/директории
 
-Вынес всю клиентскую логику чек‑аута в отдельный Client Component:
-apps/web-next/app/checkout/checkout-client.tsx
-Серверная страница стала тонким обёртчиком:
-apps/web-next/app/checkout/page.tsx
-Stripe грузится лениво (dynamic, ssr:false):
-apps/web-next/components/stripe/StripeElementsProvider.tsx (используется клиентом)
-apps/web-next/app/checkout/payment-form.tsx (подключается через dynamic в checkout‑client)
-Orders (D) — таблица отдельно и лениво
+Страница: apps/web-next/app/products/[slug]/page.tsx
+Грид: apps/web-next/components/ProductGrid.tsx
+Кнопки/трекер: apps/web-next/app/products/components/*
+Новые компоненты (создать):
+apps/web-next/components/ProductGallery.tsx
+apps/web-next/components/ProductStickyCTA.tsx
+apps/web-next/components/ProductReviews.tsx
+apps/web-next/components/ProductMetadata.tsx (JSON‑LD + meta)
+apps/web-next/components/ProductSpecs.tsx (характеристики/accordion)
+План работ (итерациями)
 
-Вынес таблицу заказов в отдельный компонент и лениво подключил:
-apps/web-next/app/admin/(protected)/orders/OrdersTable.tsx
-apps/web-next/app/admin/(protected)/orders/orders-client.tsx (подключение через dynamic)
-Общая обвязка для авторизованных запросов/платежей:
-apps/web-next/app/admin/(protected)/orders/orders-api.ts
-Сборка/старт и конфиг
+Above the fold
+Добавить хлебные крошки (Home › Каталог › Категория › Товар) + «Back to products».
+В заголовок: рейтинг + число отзывов.
+Бейдж наличия + ETA доставки: «В наличии • 2–4 дня».
+Sticky‑CTA для мобильных: цена + Add to cart + Track click (появляется при скролле, липнет к низу).
+Acceptance:
+На десктопе все элементы видны без скролла.
+На мобиле появляется lip‑панель при скролле вниз; кнопки кликабельны.
+Медиа‑галерея
+Компонент ProductGallery:
+Главное изображение, под ним миниатюры.
+Увеличение при hover на десктопе; zoom/lightbox по клику.
+Плейсхолдер/blur при отсутствии картинки.
+Acceptance:
+Переключение картинок не дергает верстку.
+В лайтбоксе доступны все фото; Esc закрывает.
+Варианты/опции (UI‑поверхность)
+Переключатели «Цвет/Память/Размер» (даже если пока 1 вариант).
+Изменение изображения/цены при выборе варианта.
+Недоступные варианты — disabled с подсказкой.
+Источник: product.specs или временный mock до ввода реальных variants.
+Acceptance:
+Выбор варианта меняет цену/фото; disabled варианты не кликаются.
+Характеристики и описание
+Компонент ProductSpecs:
+«Кратко» (3–5 буллетов).
+«Характеристики» — сворачиваемый accordion (из product.specs).
+Доп. карточки: «Что в коробке», «Гарантия/Возврат».
+Acceptance:
+Контент не ломает layout при длинных списках; все свертывается.
+Отзывы (Reviews MVP)
+Компонент ProductReviews:
+Список отзывов, сортировка по дате/полезности.
+Полосы распределения рейтинга 5→1.
+Форма «Оставить отзыв» (звезды + текст).
+Бэкенд:
+Если есть RPC add_product_review — использовать.
+Если нет — временный /api/reviews (in‑memory/kv или Supabase insert).
+Acceptance:
+Отправка формы не ломает страницу; отзыв появляется в списке (без перезагрузки).
+Валидация на клиенте (рейтинг обязателен, текст > N символов).
+Сопутствующее/История
+«Похожие товары» (по категории) и «Недавно смотрели» (localStorage).
+Использовать ProductGrid (без SSR — client‑side подгрузка).
+Acceptance:
+Гриды показывают 6–8 карточек; responsive не ломается.
+Доверие и оплата
+Бейджи оплаты (Stripe/Visa/Mastercard/ApplePay).
+Блок доверия: «14 дней на возврат / Поддержка 24/7 / Гарантия подлинности».
+Acceptance:
+Блоки не сдвигают CTA; на мобиле превращаются в список.
+Аналитика
+На mount: track({ name: 'view_item', params: { product_id, slug, price } }).
+На Add‑to‑cart: track({ name: 'add_to_cart', params: { product_id, qty } }).
+Сохранить UTM при исходящих ссылках (attachUtm, appendStoredParams уже есть).
+Acceptance:
+События уходят 1 раз; не дубятся при re‑render.
+SEO/разметка
+generateMetadata в странице: title/description/canonical.
+JSON‑LD Product:
+name, image[], description, brand, sku, offers (priceCurrency, price, availability), aggregateRating.
+OG/Twitter tags.
+Acceptance:
+В DevTools → Elements виден корректный <script type="application/ld+json"> без ошибок валидатора.
+Реализация (подсказки)
 
-Сделал минификацию CSS включённой по умолчанию, сорс‑мапы — только по флагу:
-apps/web-next/next.config.ts (TAILWIND_DISABLE_LIGHTNINGCSS/ NEXT_PROD_SOURCE_MAPS + WASM fallback)
-Обход бага стартового манифеста Next (E/dataRoutes):
-scripts/patch-next-manifest.mjs
-добавлен prestart в apps/web-next/package.json
-Подсказал запуск на другом порту и как убить занятый 3000.
-Исправил типовую несовместимость пропсов в DatasetPicker/LayoutPicker (касты на месте вызова).
-Инструменты диагностики
+Хлебные крошки:
+Берем category_slug из товара (если есть); иначе «Каталог».
+Компонент простой, без внешних зависимостей.
+Sticky‑CTA:
+Hook useEffect + useState по scrollY, breakpoint sm.
+Внутри — кнопки Add to cart / Track click / цена.
+Галерея:
+Image + миниатюры: активная миниатюра подсвечена, кликом меняем state.
+Лайтбокс — простейший на Portal/absolute overlay.
+Варианты:
+Пока данные из specs (например, specs.colors, specs.storage).
+Объединяем в state выбранный вариант, пересчитываем цену.
+Отзывы:
+Форма: контролируемые поля; POST к API; optimistic update в список.
+События аналитики
 
-Добавил скрипт подсчёта LOC с вычитанием комментариев/пустых строк и топ‑крупных файлов:
-scripts/analyze-loc.mjs
-Показали реальную картину: Files: 169 | Raw: 18 430 | Non‑blank: 16 322 | Code: 16 242; client‑код ≈ 9 448 строк (≈58%).
-Что осталось/на заметку
+Вызовы в page.tsx (view_item); Add to cart — в AddToCartButton; внешние ссылки — трекер клика в ActionLink.
+Интеграция JSON‑LD
 
-Lightning CSS native может хандрить в вашей среде. Для анализа/пробы билда можно временно:
-PowerShell: $env:TAILWIND_DISABLE_LIGHTNINGCSS="1"; pnpm --filter web-next build
-Турбопак vs Webpack: предупреждение о конфиге — это норм при смешанном режиме. Если захотите, переведём кастомную конфигурацию под Turbopack.
-Как запускать
+Собираем объект Product; рендерим:
+<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+Тест‑чеклист
 
-Dev: pnpm --filter web-next dev
-Prod:
-Сборка (при необходимости с отключением LC): $env:TAILWIND_DISABLE_LIGHTNINGCSS="1"; pnpm --filter web-next build
-Старт: $env:PORT=3001; pnpm --filter web-next start
-Предлагаемые следующие шаги
+Десктоп/мобайл: sticky‑CTA, галерея, аккордеоны.
+Лайтбокс: открытие/закрытие Esc/Backdrop.
+Отзывы: добавление, сортировка, формы.
+Lighthouse: Perf >= 80, SEO >= 90 (target).
+Аналитика: ровно 1 view_item при заходе; события на CTA.
+Definition of Done
 
-Аналитика: вынести «Top slugs», «Top sources», «UTM» в динамические блоки и (по желанию) добавить виртуализацию.
-Витрина: по результатам Lighthouse — при необходимости лениво подгрузить карточку товара или дополнительные панели.
-Подключить @next/bundle-analyzer по флагу ANALYZE для предметного отчёта.
-Если хочешь, могу сразу заняться виртуализацией таблицы Orders или дальше «расслаивать» блоки в analytics.
+Страница корректно отображается на 320/768/1024/1440.
+События аналитики и UTM работают.
+JSON‑LD валиден (schema.org validator).
+Нет ошибок в консоли; pnpm --filter web-next build проходит.
+Линт/тайпчек без ошибок.
+Что вне скоупа
+
+Полноценный вариантный каталог (SKU‑матрицы) — только UI; сервер/БД можно добавить в отдельной итерации.
+Оплата/доставка интеграции — только визуальные блоки/доверие.
+Как запускать (для ревью)
+
+Env: настроить NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
+Build: pnpm --filter web-next build (если нужно: NEXT_DISABLE_LIGHTNINGCSS=1).
+Start: pnpm --filter web-next start.
+Приоритет первой итерации
+
+Above the fold (хлебные крошки, рейтинг, наличие, sticky‑CTA).
+Галерея изображений.
+Похожие товары.
+JSON‑LD/SEO.
+Базовые отзывы (список + форма).

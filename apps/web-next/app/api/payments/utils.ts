@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { toNumber } from "../orders/utils";
 
 export type AdminSupabaseClient = ReturnType<typeof getAdminClient>;
 
@@ -26,6 +27,80 @@ export function normalizeCurrency(input: string | null | undefined): string {
   return normalized || "usd";
 }
 
+export type OrderRow = {
+  id: string;
+  user_id: string | null;
+  status: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  paid_at: string | null;
+  payment_intent_id: string | null;
+  subtotal?: number | string | null;
+  discount_total?: number | string | null;
+  shipping_total?: number | string | null;
+  grand_total?: number | string | null;
+};
+
+export async function resolveOrderAmount(
+  supabase: AdminSupabaseClient,
+  orderId: string,
+  row: OrderRow
+): Promise<{ amountCents: number; currency: string; source: string; itemsCount?: number }> {
+  let amountCents = Number(row.amount_cents ?? 0);
+  let currency = normalizeCurrency(row.currency);
+  let source = "orders";
+  let itemsCount: number | undefined = undefined;
+
+  if (!(amountCents > 0)) {
+    const { data: viewRow } = await supabase
+      .from("order_v2")
+      .select("amount_total, currency")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (viewRow) {
+      amountCents = Math.round(toNumber((viewRow as any).amount_total) * 100);
+      currency = normalizeCurrency((viewRow as any).currency) || currency;
+      source = "order_v2";
+    }
+  }
+
+  if (!(amountCents > 0)) {
+    const subtotal = toNumber(row.subtotal);
+    const discount = toNumber(row.discount_total);
+    const shipping = toNumber(row.shipping_total);
+    const grand = toNumber(row.grand_total);
+    const fallbackTotal = grand || subtotal - discount + shipping;
+    if (fallbackTotal > 0) {
+      amountCents = Math.round(fallbackTotal * 100);
+      source = "totals";
+    }
+  }
+
+  if (!(amountCents > 0)) {
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("total, qty, unit_price")
+      .eq("order_id", orderId);
+
+    if (Array.isArray(items)) {
+      itemsCount = items.length;
+      const sum = items.reduce((acc, item: any) => {
+        const total = toNumber(item.total);
+        if (total > 0) return acc + total;
+        const qty = toNumber(item.qty);
+        const unit = toNumber(item.unit_price);
+        return acc + qty * unit;
+      }, 0);
+      if (sum > 0) {
+        amountCents = Math.round(sum * 100);
+        source = "items";
+      }
+    }
+  }
+
+  return { amountCents, currency, source, itemsCount };
+}
+
 export function mapPaymentStatus(status: Stripe.PaymentIntent.Status): string {
   switch (status) {
     case "succeeded":
@@ -39,16 +114,29 @@ export function mapPaymentStatus(status: Stripe.PaymentIntent.Status): string {
   }
 }
 
+type UpdateOrderPaymentStateOptions = {
+  allowedStatuses?: string[];
+};
+
 export async function updateOrderPaymentState(
   supabase: AdminSupabaseClient,
   orderId: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  options: UpdateOrderPaymentStateOptions = {}
 ) {
   const mutable: Record<string, unknown> = { ...payload };
   const fallbackFields = ["amount_cents", "currency", "payment_intent_id", "paid_at", "status"];
+  const allowedStatuses = options.allowedStatuses?.filter((value) => typeof value === "string" && value.trim());
 
   while (Object.keys(mutable).length) {
-    const { error } = await supabase.from("orders").update(mutable).eq("id", orderId);
+    let query = supabase.from("orders").update(mutable).eq("id", orderId);
+    if (allowedStatuses?.length) {
+      query = query.in(
+        "status",
+        allowedStatuses.map((value) => value.trim().toLowerCase())
+      );
+    }
+    const { error } = await query;
     if (!error) return null;
 
     const message = String(error.message || "");

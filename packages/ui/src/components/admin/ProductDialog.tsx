@@ -1,6 +1,4 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
-
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogClose } from "@ui/components/common/dialog";
 import { useEffect, useState } from "react";
 import Button from "@ui/components/common/button";
@@ -200,5 +198,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
     </Dialog>
   );
 }
+
+
 
 

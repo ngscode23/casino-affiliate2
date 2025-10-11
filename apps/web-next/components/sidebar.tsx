@@ -10,13 +10,22 @@ function toInitials(name: string): string {
   return initials || "NS";
 }
 
-export function Sidebar() {
+type SidebarProps = {
+  className?: string;
+  onNavigate?: () => void;
+  variant?: "sidebar" | "drawer";
+};
+
+export function Sidebar({ className, onNavigate, variant = "sidebar" }: SidebarProps) {
   const { nav, name, tagline } = siteConfig;
   return (
     <SidebarClient
       navItems={nav}
       brand={{ name, initials: toInitials(name), href: "/", tagline }}
       tagline={tagline}
+      className={className}
+      onNavigate={onNavigate}
+      variant={variant}
     />
   );
 }

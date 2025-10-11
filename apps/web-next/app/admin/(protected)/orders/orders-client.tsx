@@ -77,11 +77,10 @@ function useAdminToken() {
 
 async function authorizedRequest(path: string, adminToken: string, init?: RequestInit) {
   const accessToken = await getValidAccessToken();
-  if (!accessToken) throw new Error("Not authenticated");
 
   const headers = new Headers(init?.headers ?? {});
   headers.set("accept", "application/json");
-  headers.set("Authorization", `Bearer ${accessToken}`);
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (adminToken) headers.set("x-admin-token", adminToken);
 
   // ensure absolute URL to avoid relative-path resolution issues

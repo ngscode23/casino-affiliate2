@@ -1,4 +1,3 @@
-import { getValidAccessToken } from "@shared/lib/auth";
 import { adminFetch } from "@shared/lib/api";
 
 export type BarPoint = { label: string; value: number };
@@ -37,22 +36,12 @@ async function fetchJson<T>(input: RequestInfo, init: RequestInit): Promise<T> {
 }
 
 export async function loadDashboardMetrics(): Promise<DashboardMetrics> {
-  const accessToken = await getValidAccessToken();
-  if (!accessToken) throw new Error("Not authenticated");
-
-  const headers = new Headers({
-    accept: "application/json",
-    Authorization: `Bearer ${accessToken}`,
+  // Authorization отправляем, если доступен в браузере (автоматически через cookie).
+  // adminFetch добавит x-admin-token из env при наличии.
+  const payload = await fetchJson<{ metrics: DashboardMetrics }>("/api/admin/dashboard-metrics", {
+    method: "GET",
+    cache: "no-store",
   });
-
-  const payload = await fetchJson<{ metrics: DashboardMetrics }>(
-    "/api/admin/dashboard-metrics",
-    {
-      method: "GET",
-      headers,
-      cache: "no-store",
-    },
-  );
 
   if (!payload?.metrics) {
     throw new Error("Metrics payload missing");
