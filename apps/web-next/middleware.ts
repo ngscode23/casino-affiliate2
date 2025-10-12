@@ -31,7 +31,7 @@ if (
 }
 
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "@/utils/supabase/middleware";
+import { updateSession } from "./utils/supabase/middleware";
 
 const RAW_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -130,3 +130,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+
