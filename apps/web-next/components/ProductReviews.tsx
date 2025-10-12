@@ -468,7 +468,7 @@ const fetchReviews = useCallback(
     [user, title, body, rating, productId, fetchReviews, slug, summary.count, summary.average],
   );
   return (
-    <section id="reviews" aria-label="Отзывы" className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-6">
+    <section id="reviews" aria-label="Отзывы" className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-fg">Отзывы покупателей</h2>
@@ -477,7 +477,7 @@ const fetchReviews = useCallback(
             <span className="font-semibold text-fg">{summary.count}</span> отзывов
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <label htmlFor="reviews-sort" className="text-xs uppercase tracking-[0.24em] text-muted sm:whitespace-nowrap">
             Сортировка
           </label>
@@ -485,8 +485,8 @@ const fetchReviews = useCallback(
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-4 rounded-2xl border border-border/30 bg-card/70 p-4">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-4 rounded-2xl border border-border/30 bg-card/70 p-4">
           <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-muted">Распределение</h3>
           <ul className="space-y-2">
             {buckets.map((bucket) => {
@@ -520,7 +520,7 @@ const fetchReviews = useCallback(
           </ul>
         </aside>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border/30 bg-card/70 p-4">
             <h3 className="text-lg font-semibold text-fg">{isEditing ? "Редактировать отзыв" : "Оставить отзыв"}</h3>
             <div>
@@ -603,12 +603,12 @@ const fetchReviews = useCallback(
               </p>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <span className="text-xs text-muted-foreground">Минимум {MIN_BODY_LENGTH} символов</span>
               <button
                 type="submit"
                 disabled={!canSubmit || submitting}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-semibold text-primaryfg transition hover:-translate-y-[1px] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-primary px-6 text-sm font-semibold text-primaryfg transition hover:-translate-y-[1px] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {submitting ? "Отправка..." : (isEditing ? "Сохранить изменения" : "Отправить отзыв")}
               </button>
@@ -639,8 +639,8 @@ const fetchReviews = useCallback(
               <div className="space-y-4">
                 <ul className="space-y-4">
                   {items.map((review, idx) => (
-                    <li key={`${review.created_at}-${idx}`} className="rounded-2xl border border-border/30 bg-card/70 p-4">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <li key={`${review.created_at}-${idx}`} className="rounded-2xl border border-border/30 bg-card/70 p-4 overflow-hidden">
+                      <div className="flex flex-wrap items-start gap-2 text-sm sm:items-center">
                         <div className="flex items-center gap-1 text-amber-400">
                           {Array.from({ length: 5 }).map((_, starIdx) => (
                             <Star
@@ -652,12 +652,12 @@ const fetchReviews = useCallback(
                             />
                           ))}
                         </div>
-                        <span className="font-medium text-fg">{review.title || `Отзыв ${idx + 1}`}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-medium text-fg flex-1 min-w-0 break-words">{review.title || `Отзыв ${idx + 1}`}</span>
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground text-right">
                           {new Date(review.created_at).toLocaleDateString("ru-RU")}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm leading-relaxed text-fg/90">{review.body}</p>
+                      <p className="mt-2 break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{review.body}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>Этот отзыв был полезен?</span>
                         <button
@@ -736,7 +736,7 @@ function ReviewSortSelect({
       <SelectPrimitive.Trigger
         id="reviews-sort"
         className={cn(
-          "inline-flex h-10 w-full max-w-[240px] items-center justify-between gap-3 rounded-full border border-border/50 bg-card px-4 text-sm font-medium text-fg shadow-[0_14px_40px_-24px_rgba(15,23,42,0.55)] transition",
+          "inline-flex h-10 w-full sm:max-w-[240px] items-center justify-between gap-3 rounded-full border border-border/50 bg-card px-4 text-sm font-medium text-fg shadow-[0_14px_40px_-24px_rgba(15,23,42,0.55)] transition",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
           "data-[state=open]:border-primary/60 data-[state=open]:ring-2 data-[state=open]:ring-primary/40",
         )}
