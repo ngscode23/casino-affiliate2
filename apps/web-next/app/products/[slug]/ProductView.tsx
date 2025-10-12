@@ -42,6 +42,21 @@ const TRUST_POINTS = [
   { title: "Гарантия подлинности", icon: <ShieldCheck className="h-4 w-4" aria-hidden /> },
 ];
 
+const REVIEW_BUCKET_ORDER = [5, 4, 3, 2, 1] as const;
+type ReviewBucketScore = (typeof REVIEW_BUCKET_ORDER)[number];
+type ReviewBucket = { score: ReviewBucketScore; count: number; percent: number };
+
+type ReviewStatsEventDetail = {
+  summary?: { average?: number | null; count?: number | null };
+  buckets?: Array<{ score?: number; count?: number; value?: number; rating?: number; percent?: number }>;
+};
+
+type ReviewFilterEventDetail = { rating: number | null };
+
+const REVIEW_SET_FILTER_EVENT = 'product-reviews:set-filter';
+const REVIEW_FILTER_CHANGE_EVENT = 'product-reviews:filter-change';
+const REVIEW_STATS_EVENT = 'product-reviews:stats';
+
 function buildInitialSelection(variants: ProductVariantGroup[]): SelectionState {
   const next: SelectionState = {};
   for (const group of variants) {
@@ -99,6 +114,55 @@ function composeGallery(product: ProductData, selection: SelectionState): string
   return Array.from(extras);
 }
 
+function normalizeReviewBuckets(source: ReviewStatsEventDetail["buckets"]): ReviewBucket[] {
+  const counts = new Map<ReviewBucketScore, number>();
+  const percents = new Map<ReviewBucketScore, number>();
+
+  if (Array.isArray(source)) {
+    for (const raw of source) {
+      const scoreValue = Number(raw?.score ?? raw?.rating);
+      if (!Number.isFinite(scoreValue)) continue;
+      const score = scoreValue as ReviewBucketScore;
+      if (!REVIEW_BUCKET_ORDER.includes(score)) continue;
+
+      const countValue = Number(raw?.count ?? raw?.value ?? 0);
+      if (Number.isFinite(countValue) && countValue >= 0) {
+        counts.set(score, countValue);
+      }
+
+      const percentValue = Number(raw?.percent);
+      if (Number.isFinite(percentValue) && percentValue >= 0) {
+        percents.set(score, percentValue);
+      }
+    }
+  }
+
+  const total = Array.from(counts.values()).reduce((sum, value) => sum + value, 0);
+  return REVIEW_BUCKET_ORDER.map((score) => {
+    const count = counts.get(score) ?? 0;
+    const percent = total > 0 ? Math.round((count / total) * 100) : percents.get(score) ?? 0;
+    return { score, count, percent };
+  });
+}
+
+function normalizeAverageRating(input: number | null | undefined): number {
+  const raw = Number(input ?? 0);
+  if (!Number.isFinite(raw)) return 0;
+  let value = raw;
+  if (value > 5 && value <= 100) {
+    value = value / 20;
+  }
+  if (value < 0) value = 0;
+  if (value > 5) value = 5;
+  return Number(value.toFixed(2));
+}
+
+function normalizeRatingsCount(value: number | null | undefined): number {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.max(0, Math.trunc(numeric));
+}
+
 function ProductClientEffects({ product }: { product: ProductData }) {
   useEffect(() => {
     try {
@@ -112,6 +176,37 @@ function ProductClientEffects({ product }: { product: ProductData }) {
 }
 
 type RecentProductsState = { loading: boolean; items: ProductGridItem[] };
+
+function ReviewFilterChip({
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border/40 text-muted-foreground hover:border-border/70 hover:text-fg",
+        disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-[1px]",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
 
 function RecentProducts({ currentSlug }: { currentSlug: string }) {
   const [{ loading, items }, setState] = useState<RecentProductsState>(() => ({ loading: true, items: [] }));
@@ -156,6 +251,14 @@ function RecentProducts({ currentSlug }: { currentSlug: string }) {
 export default function ProductView({ product, breadcrumbs, admin, similar }: ProductViewProps) {
   const [selection, setSelection] = useState<SelectionState>(() => buildInitialSelection(product.variants));
   const [activeImage, setActiveImage] = useState<string | undefined>(product.gallery[0]);
+  const [reviewStats, setReviewStats] = useState<{ average: number; count: number }>(() => ({
+    average: normalizeAverageRating(product.reviewSummary.average),
+    count: normalizeRatingsCount(product.reviewSummary.count),
+  }));
+  const [reviewBuckets, setReviewBuckets] = useState<ReviewBucket[]>(() =>
+    REVIEW_BUCKET_ORDER.map((score) => ({ score, count: 0, percent: 0 })),
+  );
+  const [activeReviewFilter, setActiveReviewFilter] = useState<ReviewBucketScore | null>(null);
 
   const gallery = useMemo(() => composeGallery(product, selection), [product, selection]);
   const { raw: finalPrice, formatted: formattedPrice } = useMemo(
@@ -163,6 +266,98 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     [product, selection],
   );
   const variantLabel = useMemo(() => formatVariantLabel(product.variants, selection), [product.variants, selection]);
+  const reviewAverage = Number.isFinite(reviewStats.average) ? reviewStats.average : 0;
+  const reviewCount = Number.isFinite(reviewStats.count) ? reviewStats.count : 0;
+  const reviewAverageLabel = reviewCount > 0 ? reviewAverage.toFixed(1) : "—";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const controller = new AbortController();
+    let active = true;
+
+    (async () => {
+      try {
+        const url = new URL("/api/reviews/list", window.location.origin);
+        url.searchParams.set("product_id", product.id);
+        url.searchParams.set("limit", "1");
+        const response = await fetch(url.toString(), {
+          headers: { accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const json = (await response.json()) as {
+          stats?: { avg_rating?: number | null; ratings_count?: number | null };
+          buckets?: ReviewStatsEventDetail["buckets"];
+        };
+        if (!active) return;
+        setReviewStats((prev) => {
+          const avg = normalizeAverageRating(
+            typeof json?.stats?.avg_rating === "number" ? json.stats.avg_rating : prev.average,
+          );
+          const count = normalizeRatingsCount(
+            typeof json?.stats?.ratings_count === "number" ? json.stats.ratings_count : prev.count,
+          );
+          return { average: avg, count };
+        });
+        if (json?.buckets) {
+          setReviewBuckets(normalizeReviewBuckets(json.buckets));
+        }
+      } catch {
+        /* ignore network errors */
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [product.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStats = (event: Event) => {
+      const detail = (event as CustomEvent<ReviewStatsEventDetail>).detail;
+      if (!detail) return;
+      if (detail.summary) {
+        setReviewStats((prev) => ({
+          average:
+            detail.summary && "average" in detail.summary && detail.summary.average !== undefined
+              ? normalizeAverageRating(detail.summary.average)
+              : prev.average,
+          count:
+            detail.summary && "count" in detail.summary && detail.summary.count !== undefined
+              ? normalizeRatingsCount(detail.summary.count)
+              : prev.count,
+        }));
+      }
+      if (detail.buckets) {
+        setReviewBuckets(normalizeReviewBuckets(detail.buckets));
+      }
+    };
+
+    const handleFilterChange = (event: Event) => {
+      const detail = (event as CustomEvent<ReviewFilterEventDetail>).detail;
+      if (!detail) {
+        setActiveReviewFilter(null);
+        return;
+      }
+      const rating = detail.rating;
+      if (typeof rating === "number" && REVIEW_BUCKET_ORDER.includes(rating as ReviewBucketScore)) {
+        setActiveReviewFilter(rating as ReviewBucketScore);
+      } else {
+        setActiveReviewFilter(null);
+      }
+    };
+
+    window.addEventListener(REVIEW_STATS_EVENT, handleStats);
+    window.addEventListener(REVIEW_FILTER_CHANGE_EVENT, handleFilterChange);
+
+    return () => {
+      window.removeEventListener(REVIEW_STATS_EVENT, handleStats);
+      window.removeEventListener(REVIEW_FILTER_CHANGE_EVENT, handleFilterChange);
+    };
+  }, []);
 
   const handleVariantSelect = useCallback(
     (group: ProductVariantGroup, option: ProductVariantOption) => {
@@ -178,6 +373,33 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
   const handleGalleryChange = useCallback((url: string) => {
     setActiveImage(url);
   }, []);
+
+  const handleReviewFilterSelect = useCallback(
+    (score: ReviewBucketScore | null) => {
+      if (score !== null && !REVIEW_BUCKET_ORDER.includes(score)) return;
+      setActiveReviewFilter(score);
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(
+            new CustomEvent<ReviewFilterEventDetail>(REVIEW_SET_FILTER_EVENT, {
+              detail: { rating: score },
+            }),
+          );
+        } catch {
+          /* ignore */
+        }
+        const target = document.getElementById("reviews");
+        if (target) {
+          try {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch {
+            target.scrollIntoView();
+          }
+        }
+      }
+    },
+    [],
+  );
 
   const onAdd = useCallback(() => {
     try {
@@ -247,9 +469,9 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
                 {product.availabilityLabel}
               </span>
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-fg">
-                ★ {product.reviewSummary.average.toFixed(1)}
+                ★ {reviewAverageLabel}
                 <span className="text-muted-foreground">
-                  ({product.reviewSummary.count} отзыв{product.reviewSummary.count % 10 === 1 ? "" : "ов"})
+                  ({reviewCount} отзыв{reviewCount % 10 === 1 && reviewCount % 100 !== 11 ? "" : "ов"})
                 </span>
               </span>
             </div>
@@ -257,6 +479,60 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
             {product.shortDescription ? (
               <p className="text-sm leading-relaxed text-fg/80">{product.shortDescription}</p>
             ) : null}
+
+            <div className="rounded-2xl border border-border/40 bg-card/80 p-4 shadow-inner">
+              <div className="flex flex-col gap-1">
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Отзывы покупателей</div>
+                <div className="flex items-end gap-2 text-2xl font-semibold text-fg">
+                  {reviewAverageLabel}
+                  <span className="text-xs font-medium text-muted-foreground">/ 5</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  На основе <span className="font-semibold text-fg">{reviewCount}</span> отзывов
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ReviewFilterChip
+                  label={`Все (${reviewCount})`}
+                  active={activeReviewFilter === null}
+                  disabled={reviewCount === 0}
+                  onClick={() => handleReviewFilterSelect(null)}
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                {reviewBuckets.map((bucket) => {
+                  const active = activeReviewFilter === bucket.score;
+                  const disabled = bucket.count === 0;
+                  return (
+                    <button
+                      key={bucket.score}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        if (!disabled) handleReviewFilterSelect(bucket.score);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                        active
+                          ? "border-primary/60 bg-primary/10 text-primary"
+                          : "border-border/40 text-muted-foreground hover:border-border/70 hover:text-fg",
+                        disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-[1px]",
+                      )}
+                      aria-pressed={active}
+                    >
+                      <span className="w-10 text-left font-medium text-fg">{bucket.score}★</span>
+                      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border/40" aria-hidden>
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                          style={{ width: `${bucket.percent}%` }}
+                        />
+                      </div>
+                      <span className="w-16 text-right text-xs text-muted-foreground">{bucket.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {product.variants.length ? (
               <div className="space-y-4">

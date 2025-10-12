@@ -51,6 +51,34 @@ type RatingScore = (typeof RATING_ORDER)[number];
 type Bucket = { score: RatingScore; count: number; percent: number };
 const PAGE_SIZE = 20;
 
+type ReviewFilterEventDetail = { rating: number | null };
+type ReviewStatsEventDetail = {
+  summary?: { average?: number | null; count?: number | null };
+  buckets?: Array<{ score?: number; count?: number; value?: number; rating?: number; percent?: number }>;
+};
+
+function normalizeAverageRating(value: unknown, fallback = 0): number {
+  const numeric = Number(value ?? fallback ?? 0);
+  let rating = Number.isFinite(numeric) ? numeric : Number(fallback ?? 0);
+  if (!Number.isFinite(rating)) rating = 0;
+  if (rating > 5 && rating <= 100) {
+    rating = rating / 20;
+  }
+  if (rating < 0) rating = 0;
+  if (rating > 5) rating = 5;
+  return Number(rating.toFixed(2));
+}
+
+function normalizeRatingsCount(value: unknown, fallback = 0): number {
+  const numeric = Number(value ?? fallback ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.max(0, Math.trunc(numeric));
+}
+
+const REVIEW_SET_FILTER_EVENT = "product-reviews:set-filter";
+const REVIEW_FILTER_CHANGE_EVENT = "product-reviews:filter-change";
+const REVIEW_STATS_EVENT = "product-reviews:stats";
+
 function normalizeBuckets(input: ReviewsResponse["buckets"]): Bucket[] {
   const map = new Map<RatingScore, Bucket>();
   if (Array.isArray(input)) {
@@ -96,8 +124,12 @@ export default function ProductReviews({ productId, slug, initialAverage, initia
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<ReviewItem[]>([]);
-  const [summary, setSummary] = useState({ average: initialAverage, count: initialCount });
+const [items, setItems] = useState<ReviewItem[]>([]);
+const [summary, setSummary] = useState({
+  average: normalizeAverageRating(initialAverage),
+  count: normalizeRatingsCount(initialCount),
+});
+const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "—";
   const [ownReview, setOwnReview] = useState<OwnReview | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -212,14 +244,27 @@ const fetchReviews = useCallback(
             : typeof json.items?.length === "number"
               ? json.items.length
               : initialCount;
-        setSummary({
-          average: Number.isFinite(avg) ? Number(avg) : initialAverage,
-          count: Number(count) || 0,
-        });
+        const nextSummary = {
+          average: normalizeAverageRating(avg, summary.average),
+          count: normalizeRatingsCount(count, summary.count),
+        };
+        setSummary(nextSummary);
         setOwnReview(json.own_review ?? null);
         setNextCursor(json.nextCursor ?? null);
         setHasMore(Boolean(json.nextCursor ?? json.hasMore));
-        setBuckets(normalizeBuckets(json.buckets));
+        const normalizedBuckets = normalizeBuckets(json.buckets);
+        setBuckets(normalizedBuckets);
+        if (typeof window !== "undefined") {
+          try {
+            window.dispatchEvent(
+              new CustomEvent<ReviewStatsEventDetail>(REVIEW_STATS_EVENT, {
+                detail: { summary: nextSummary, buckets: normalizedBuckets },
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
+        }
         setError(null);
       } catch (err: any) {
         const message = err?.message ?? "Не удалось загрузить отзывы";
@@ -240,14 +285,71 @@ const fetchReviews = useCallback(
     [productId, sortKey, activeRating, initialAverage, initialCount],
   );
 
-  const handleBucketSelect = useCallback((score: RatingScore) => {
-    setActiveRating((prev) => (prev === score ? null : score));
+  const resetFilterState = useCallback(() => {
     setNextCursor(null);
     setHasMore(false);
     setItems([]);
     setLoading(true);
     setError(null);
   }, []);
+
+  const setRatingDirect = useCallback(
+    (next: RatingScore | null) => {
+      setActiveRating((prev) => {
+        if (prev === next) return prev;
+        resetFilterState();
+        return next;
+      });
+    },
+    [resetFilterState],
+  );
+
+  const handleBucketSelect = useCallback(
+    (score: RatingScore) => {
+      setActiveRating((prev) => {
+        const next = prev === score ? null : score;
+        if (next !== prev) {
+          resetFilterState();
+        }
+        return next;
+      });
+    },
+    [resetFilterState],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleExternal = (event: Event) => {
+      const detail = (event as CustomEvent<ReviewFilterEventDetail>).detail;
+      if (!detail) {
+        setRatingDirect(null);
+        return;
+      }
+      const rating = detail.rating;
+      if (rating === null || rating === undefined) {
+        setRatingDirect(null);
+        return;
+      }
+      if (typeof rating === "number" && RATING_ORDER.includes(rating as RatingScore)) {
+        setRatingDirect(rating as RatingScore);
+      }
+    };
+    window.addEventListener(REVIEW_SET_FILTER_EVENT, handleExternal);
+    return () => window.removeEventListener(REVIEW_SET_FILTER_EVENT, handleExternal);
+  }, [setRatingDirect]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.dispatchEvent(
+        new CustomEvent<ReviewFilterEventDetail>(REVIEW_FILTER_CHANGE_EVENT, {
+          detail: { rating: activeRating },
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [activeRating]);
 
   const handleLoadMore = useCallback(async () => {
     if (loadingMore || !nextCursor) return;
@@ -343,8 +445,8 @@ const fetchReviews = useCallback(
           setOwnReview(response.review);
         }
         if (response.stats) {
-          const nextCount = Number(response.stats.ratings_count ?? summary.count) || summary.count;
-          const nextAverage = Number(response.stats.avg_rating ?? summary.average) || summary.average;
+          const nextCount = normalizeRatingsCount(response.stats.ratings_count, summary.count);
+          const nextAverage = normalizeAverageRating(response.stats.avg_rating, summary.average);
           setSummary({ count: nextCount, average: nextAverage });
         }
         try {
@@ -371,7 +473,7 @@ const fetchReviews = useCallback(
         <div>
           <h2 className="text-2xl font-semibold text-fg">Отзывы покупателей</h2>
           <p className="text-sm text-muted-foreground">
-            Средняя оценка: <span className="font-semibold text-fg">{summary.average.toFixed(1)}</span> на основе{" "}
+            Средняя оценка: <span className="font-semibold text-fg">{summaryAverageLabel}</span> на основе{" "}
             <span className="font-semibold text-fg">{summary.count}</span> отзывов
           </p>
         </div>

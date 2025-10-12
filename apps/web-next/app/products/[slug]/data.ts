@@ -38,6 +38,18 @@ export type ProductReviewSummary = {
   count: number;
 };
 
+function normalizeAverageRating(input: number | null | undefined, fallback = 0): number {
+  const raw = Number(input ?? fallback ?? 0);
+  if (!Number.isFinite(raw)) return Number(fallback) || 0;
+  let value = raw;
+  if (value > 5 && value <= 100) {
+    value = value / 20;
+  }
+  if (value < 0) value = 0;
+  if (value > 5) value = 5;
+  return Number(value.toFixed(2));
+}
+
 export type ProductReviewPreview = {
   rating: number;
   title: string | null;
@@ -508,7 +520,7 @@ async function loadReviewSummary(
 ): Promise<ProductReviewSummary> {
   if (!productUid) {
     return {
-      average: Number(fallbackRating ?? 0),
+      average: 0,
       count: 0,
     };
   }
@@ -520,19 +532,19 @@ async function loadReviewSummary(
       .maybeSingle();
     if (error || !data) {
       return {
-        average: Number(fallbackRating ?? 0),
+        average: 0,
         count: 0,
       };
     }
-    const avg = Number(data.avg_rating ?? fallbackRating ?? 0);
+    const avg = normalizeAverageRating(data.avg_rating, fallbackRating ?? 0);
     const count = Number(data.ratings_count ?? 0);
     return {
-      average: Number.isFinite(avg) ? avg : Number(fallbackRating ?? 0),
+      average: Number.isFinite(count) && count > 0 ? avg : 0,
       count: Number.isFinite(count) ? count : 0,
     };
   } catch {
     return {
-      average: Number(fallbackRating ?? 0),
+      average: 0,
       count: 0,
     };
   }

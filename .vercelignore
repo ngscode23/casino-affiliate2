@@ -1,0 +1,12 @@
+.git/
+.github/
+.husky/
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+dist/
+build/
+coverage/
+logs/
+tmp/

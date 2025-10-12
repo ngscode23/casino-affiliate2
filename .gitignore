@@ -56,3 +56,4 @@ st/
 
 # VSIX bundles
 openai.chatgpt-*.vsix
+.vercel
