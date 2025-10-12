@@ -787,6 +787,7 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
           shippingEstimate: parsed.shippingEstimate,
           availabilityLabel: resolveAvailabilityLabel(row.status, parsed.shippingEstimate),
           reviewSummary,
+          recentReviews: [],
           productUid,
           brand: parsed.brand,
         };
