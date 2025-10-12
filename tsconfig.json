@@ -21,7 +21,13 @@
     },
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": [
+      "next",
+      "react",
+      "react-dom",
+      "node"
+    ]
   }
 
 }
