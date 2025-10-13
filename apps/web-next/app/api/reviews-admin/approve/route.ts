@@ -2,13 +2,7 @@ import { revalidateTag } from "next/cache";
 
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
-import {
-  applyReviewStatus,
-  ensureAdminToken,
-  isUuid,
-  json,
-  resolveProductUid,
-} from "../utils";
+import { applyReviewStatus, ensureAdminToken, isUuid, json, resolveProductUid } from "../utils";
 
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
@@ -24,31 +18,36 @@ export async function POST(request: Request) {
     return json({ ok: false, code: "bad_json" }, 400);
   }
 
-  const userId = typeof payload.user_id === "string" ? payload.user_id.trim() : "";
-  if (!isUuid(userId)) {
-    return json({ ok: false, code: "bad_request", message: "user_id invalid" }, 400);
+  const reviewId = typeof payload.review_id === "string" ? payload.review_id.trim() : "";
+  if (!isUuid(reviewId)) {
+    return json({ ok: false, code: "bad_request", message: "review_id invalid" }, 400);
   }
 
   try {
     const supabase = getAdminClient();
-    const productUid = await resolveProductUid(supabase, payload);
+    let productUid = typeof payload.product_uid === "string" ? payload.product_uid.trim() : "";
+
     if (!productUid) {
-      return json({ ok: false, code: "bad_request", message: "unknown product" }, 400);
+      const resolved = await resolveProductUid(supabase, payload);
+      productUid = resolved ?? "";
     }
 
-    const result = await applyReviewStatus(supabase, productUid, userId, "approved");
+    const normalizedProductUid = productUid && isUuid(productUid) ? productUid : null;
+
+    const result = await applyReviewStatus(supabase, reviewId, normalizedProductUid, "approved");
     if ("error" in result && result.error) {
       return json({ ok: false, code: "db", message: result.error.message }, 500);
     }
-    if (result.changed) {
+    const targetProductUid = result.productUid ?? normalizedProductUid;
+    if (result.changed && targetProductUid && isUuid(targetProductUid)) {
       const { error: refreshErr } = await supabase.rpc("refresh_product_rating_stats", {
-        p_product_id: productUid,
+        p_product_id: targetProductUid,
       });
       if (refreshErr) {
         return json({ ok: false, code: "db", message: refreshErr.message }, 500);
       }
       try {
-        revalidateTag(`reviews:${productUid}`);
+        revalidateTag(`reviews:${targetProductUid}`);
       } catch {
         // ignore revalidation failures
       }

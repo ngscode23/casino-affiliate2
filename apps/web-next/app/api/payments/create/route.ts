@@ -3,6 +3,7 @@ import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import {
   ensureStripe,
+  mapPaymentStatus,
   normalizeCurrency,
   resolveOrderAmount,
   upsertPaymentRecord,
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const status = String(orderRow.status || "").toLowerCase();
-    if (status === "paid" || status === "succeeded" || orderRow.paid_at) {
+    if (status === "succeeded" || orderRow.paid_at) {
       return json({ ok: false, code: "already_paid" }, 409);
     }
 
@@ -97,11 +98,12 @@ export async function POST(request: Request) {
             supabase,
             orderId,
             {
-              status: "paid",
+              status: "succeeded",
               paid_at: fetched.created ? new Date(fetched.created * 1000).toISOString() : new Date().toISOString(),
               payment_intent_id: fetched.id,
               amount_cents: amountCents,
               currency,
+              payment_status: mapPaymentStatus(fetched.status),
             },
             { allowedStatuses: ["pending", "failed"] }
           );
@@ -142,15 +144,17 @@ export async function POST(request: Request) {
     }
 
     const isSucceeded = intent.status === "succeeded";
+    const paymentStatus = mapPaymentStatus(intent.status);
     const updateError = await updateOrderPaymentState(
       supabase,
       orderId,
       {
-        status: isSucceeded ? "paid" : "pending",
+        status: isSucceeded ? "succeeded" : "pending",
         paid_at: isSucceeded ? new Date().toISOString() : null,
         payment_intent_id: intent.id,
         amount_cents: amountCents,
         currency,
+        payment_status: paymentStatus,
       },
       { allowedStatuses: ["pending", "failed"] }
     );

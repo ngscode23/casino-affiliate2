@@ -17,12 +17,15 @@ import {
 } from "@shared/ecom/api/client";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "", label: "Все" },
-  { value: "pending", label: "Ожидает" },
-  { value: "processing", label: "В обработке" },
-  { value: "succeeded", label: "Оплачен" },
-  { value: "failed", label: "Ошибка" },
-  { value: "cancelled", label: "Отменён" },
+  { value: "", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "succeeded", label: "Succeeded" },
+  { value: "failed", label: "Failed" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "refunded", label: "Refunded" },
+  { value: "partial_refund", label: "Partial refund" },
+  { value: "requires_action", label: "Requires action" },
 ];
 
 type OrderDetail = Awaited<ReturnType<typeof getOrder>>;
@@ -35,21 +38,25 @@ function statusLabel(value: string | null | undefined) {
   const normalized = (value ?? "").toLowerCase();
   switch (normalized) {
     case "pending":
-      return "Ожидает";
+      return "Pending";
     case "processing":
-      return "В обработке";
+      return "Processing";
     case "succeeded":
-      return "Оплачен";
+      return "Succeeded";
     case "failed":
-      return "Ошибка";
+      return "Failed";
     case "cancelled":
-      return "Отменён";
+      return "Cancelled";
+    case "refunded":
+      return "Refunded";
+    case "partial_refund":
+      return "Partial refund";
     case "requires_action":
-      return "Требует действия";
+      return "Requires action";
     case "authorized":
-      return "Авторизован";
+      return "Authorized";
     default:
-      return value || "—";
+      return value || "-";
   }
 }
 
@@ -62,7 +69,10 @@ function statusClass(value: string | null | undefined) {
     case "authorized":
       return "bg-sky-500/10 text-sky-200 border border-sky-500/30";
     case "succeeded":
+    case "refunded":
       return "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30";
+    case "partial_refund":
+      return "bg-amber-500/10 text-amber-200 border border-amber-500/30";
     case "failed":
     case "cancelled":
       return "bg-rose-500/10 text-rose-200 border border-rose-500/30";
@@ -542,3 +552,7 @@ export function OrdersClient() {
     </Section>
   );
 }
+
+
+
+

@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Section from "@ui/components/common/section";
 import Card from "@ui/components/common/card";
@@ -47,6 +47,14 @@ interface PaymentRow {
   created_at: string;
 }
 
+interface RefundRow {
+  refund_id: string;
+  amount_cents: number;
+  currency: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
 interface HistoryRow {
   id: string;
   from_status: string | null;
@@ -55,6 +63,7 @@ interface HistoryRow {
   reason: string | null;
   created_at: string;
 }
+
 
 function useAdminToken() {
   const [token, setToken] = useState("");
@@ -82,18 +91,16 @@ function useAdminToken() {
   return { token, setToken: save };
 }
 
-async function authorizedRequest(path: string, adminToken: string) {
+async function authorizedRequest(path: string, adminToken: string, init: RequestInit = {}) {
   const accessToken = await getValidAccessToken();
 
-  const headers = new Headers({
-    accept: "application/json",
-  });
+  const headers = new Headers(init.headers || {});
+  headers.set("accept", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (adminToken) headers.set("x-admin-token", adminToken);
 
-  return fetch(path, { headers, cache: "no-store" });
+  return fetch(path, { ...init, headers, cache: "no-store" });
 }
-
 function formatCurrency(amount: number, currency: string | null | undefined) {
   const cur = (currency || "EUR").toUpperCase();
   try {
@@ -112,6 +119,10 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [refunds, setRefunds] = useState<RefundRow[]>([]);
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncError, setResyncError] = useState<string | null>(null);
+  const [resyncMessage, setResyncMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -138,6 +149,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           setItems(Array.isArray(json.items) ? (json.items as OrderItemRow[]) : []);
           setPayments(Array.isArray(json.payments) ? (json.payments as PaymentRow[]) : []);
           setHistory(Array.isArray(json.statusHistory) ? (json.statusHistory as HistoryRow[]) : []);
+          setRefunds(Array.isArray(json.refunds) ? (json.refunds as RefundRow[]) : []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -152,6 +164,17 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     };
   }, [orderId, token, refreshToken]);
 
+  const refundTotalCents = useMemo(
+    () => refunds.reduce((sum, row) => sum + (row.amount_cents ?? 0), 0),
+    [refunds]
+  );
+
+  const refundAmountLabel = useMemo(() => {
+    if (refundTotalCents <= 0 || !order) return null;
+    const currency = refunds[0]?.currency || order.currency;
+    return formatCurrency(refundTotalCents / 100, currency);
+  }, [refundTotalCents, refunds, order]);
+
   const totals = order
     ? [
         { label: "Subtotal", value: formatCurrency(order.amount_subtotal, order.currency) },
@@ -163,7 +186,70 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
   const handleRefresh = () => {
     setRefreshToken((value) => value + 1);
+    setResyncMessage(null);
+    setResyncError(null);
     toast("Reloading order", { variant: "success" });
+  };
+
+  const handleResync = async () => {
+    if (!order) return;
+    try {
+      setResyncing(true);
+      setResyncError(null);
+      setResyncMessage(null);
+      const response = await authorizedRequest(
+        "/api/payments/resync",
+        token,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ order_id: order.id }),
+        }
+      );
+
+      let payload: any = null;
+      try {
+        payload = await response.clone().json();
+      } catch {
+        payload = null;
+      }
+      if (!payload) {
+        const textBody = await response.text().catch(() => "");
+        if (textBody) payload = { message: textBody };
+      }
+
+      if (response.status === 202) {
+        setResyncMessage(
+          payload?.reason || payload?.message || "Resync queued for manual review."
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        if (
+          response.status === 403 &&
+          (payload?.code === "admin_sim_ip_forbidden" || payload?.code === "forbidden")
+        ) {
+          setResyncError(
+            "Access denied (IP not allowed). Add your IP to ADMIN_SIM_ALLOWED_IPS and try again."
+          );
+        } else {
+          setResyncError(payload?.message || payload?.error || `Resync failed (${response.status})`);
+        }
+        return;
+      }
+
+      setResyncMessage(
+        payload?.payment_status
+          ? `Synced payment status: ${payload.payment_status}`
+          : "Stripe resync completed."
+      );
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      setResyncError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResyncing(false);
+    }
   };
 
   return (
@@ -217,11 +303,40 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Payment status</div>
-                <div className="text-sm capitalize">{order.payment_status || "-"}</div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <StatusBadge status={order.payment_status ?? "unknown"} />
+                  {refundAmountLabel ? (
+                    <span className="text-xs text-muted-foreground">Refunded: {refundAmountLabel}</span>
+                  ) : null}
+                </div>
+                {order.payment_status === "requires_action" ? (
+                  <div className="text-xs text-amber-300">
+                    Stripe reports that additional customer action is required.
+                  </div>
+                ) : null}
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Customer</div>
                 <div className="text-sm">{order.user_id || "-"}</div>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-sm text-muted-foreground">Stripe sync</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                  <Button
+                    variant="soft"
+                    className="h-9 min-h-0 px-3 text-xs"
+                    onClick={handleResync}
+                    disabled={resyncing}
+                  >
+                    {resyncing ? "Resyncing..." : "Resync from Stripe"}
+                  </Button>
+                  {resyncMessage ? (
+                    <span className="text-xs text-emerald-300">{resyncMessage}</span>
+                  ) : null}
+                  {resyncError ? (
+                    <span className="text-xs text-rose-400">{resyncError}</span>
+                  ) : null}
+                </div>
               </div>
             </div>
           </Card>
@@ -303,7 +418,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                         </span>
                       </div>
                       <div className="mt-1 flex items-center justify-between text-sm">
-                        <span className="capitalize">{payment.status}</span>
+                        <StatusBadge status={payment.status} />
                         <span>
                           {formatCurrency(payment.amount, payment.currency || order.currency)}
                         </span>
@@ -317,6 +432,35 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 </ul>
               )}
             </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Refunds</h2>
+              {refunds.length > 0 ? (
+                <span className="text-xs text-muted-foreground">Total: {refundAmountLabel ?? "-"}</span>
+              ) : null}
+            </div>
+            {refunds.length === 0 ? (
+              <div className="mt-3 text-sm text-muted-foreground">No refunds recorded.</div>
+            ) : (
+              <ul className="mt-3 space-y-3 text-sm">
+                {refunds.map((refund) => (
+                  <li key={refund.refund_id} className="rounded-lg border border-border/40 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs">{refund.refund_id}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(refund.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span>{refund.reason || "—"}</span>
+                      <span>{formatCurrency(refund.amount_cents / 100, refund.currency || order.currency)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
 
             <Card className="p-4">
               <h2 className="text-base font-semibold">Status history</h2>
@@ -355,3 +499,13 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     </Section>
   );
 }
+
+
+
+
+
+
+
+
+
+

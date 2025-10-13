@@ -119,5 +119,56 @@ describe("/api/payments/refund", () => {
     expect(body.refund_id).toBe("re_1");
     expect(rpc).toHaveBeenCalledWith("refund_order_apply", expect.objectContaining({ p_order_id: expect.any(String) }));
   });
-});
 
+  it("passes amount and normalized reason to Stripe", async () => {
+    const orderRow = {
+      id: "o1",
+      status: "paid",
+      amount_cents: 1500,
+      currency: "usd",
+      payment_intent_id: "pi_1",
+      paid_at: new Date().toISOString(),
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: orderRow, error: null });
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ select }));
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    supabaseMock = { from, rpc };
+
+    refundsCreate.mockResolvedValue({
+      id: "re_norm",
+      amount: 600,
+      currency: "usd",
+      reason: "requested_by_customer",
+    });
+
+    const { POST } = await import("@/app/api/payments/refund/route");
+    const request = new Request("http://localhost/api/payments/refund", {
+      method: "POST",
+      body: JSON.stringify({
+        order_id: "00000000-0000-4000-8000-000000000000",
+        amount_cents: 600,
+        reason: "Fraud suspected",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    expect(refundsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_intent: "pi_1",
+        amount: 600,
+        reason: "fraudulent",
+      })
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "refund_order_apply",
+      expect.objectContaining({
+        p_order_id: "00000000-0000-4000-8000-000000000000",
+        p_reason: "Fraud suspected",
+      })
+    );
+  });
+});

@@ -56,3 +56,16 @@ stripe trigger payment_intent.succeeded
 
 При `TRACK_DEBUG=1` запросы к `/api/track/click` и `/api/track/impression` при ошибке возвращают заголовок `x-track-debug` с кодом/сообщением последней попытки RPC, а в консоль летят `console.warn`.
 
+## Локальные юнит‑тесты вебхука
+
+Когда нужно быстро прогнать свежие тесты для `apps/web-next/app/api/payments/webhook`, используйте:
+
+```bash
+pnpm --filter web-next exec vitest run tests/api/payments.webhook.test.ts
+```
+
+Альтернатива через npm-скрипт `test` (если удобнее):
+
+```bash
+pnpm --filter web-next test -- tests/api/payments.webhook.test.ts
+```

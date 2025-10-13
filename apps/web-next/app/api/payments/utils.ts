@@ -39,6 +39,7 @@ export type OrderRow = {
   discount_total?: number | string | null;
   shipping_total?: number | string | null;
   grand_total?: number | string | null;
+  metadata_b?: Record<string, unknown> | null;
 };
 
 export async function resolveOrderAmount(
@@ -105,13 +106,32 @@ export function mapPaymentStatus(status: Stripe.PaymentIntent.Status): string {
   switch (status) {
     case "succeeded":
       return "succeeded";
+    case "requires_action":
+      return "requires_action";
+    case "requires_capture":
+      return "authorized";
     case "canceled":
-      return "failed";
+      return "canceled";
     case "processing":
       return "processing";
+    case "requires_payment_method":
+      return "failed";
+    case "requires_confirmation":
+      return "pending";
     default:
       return "pending";
   }
+}
+
+export function mergeOrderMetadata(
+  existing: unknown,
+  patch: Record<string, unknown>
+): Record<string, unknown> {
+  const base =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? (existing as Record<string, unknown>)
+      : {};
+  return { ...base, ...patch };
 }
 
 type UpdateOrderPaymentStateOptions = {
@@ -125,7 +145,14 @@ export async function updateOrderPaymentState(
   options: UpdateOrderPaymentStateOptions = {}
 ) {
   const mutable: Record<string, unknown> = { ...payload };
-  const fallbackFields = ["amount_cents", "currency", "payment_intent_id", "paid_at", "status"];
+  const fallbackFields = [
+    "metadata_b",
+    "amount_cents",
+    "currency",
+    "payment_intent_id",
+    "paid_at",
+    "status",
+  ];
   const allowedStatuses = options.allowedStatuses?.filter((value) => typeof value === "string" && value.trim());
 
   while (Object.keys(mutable).length) {

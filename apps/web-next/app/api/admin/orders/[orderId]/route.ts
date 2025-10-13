@@ -39,7 +39,7 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
       .from("order_items")
       .select("id, product_id, title, qty, unit_price, total")
       .eq("order_id", orderId)
-      .order("created_at", { ascending: true });
+      .order("id", { ascending: true });
 
     if (itemsError) {
       return json({ ok: false, error: itemsError.message || "db" }, 500);
@@ -66,12 +66,23 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
       return json({ ok: false, error: historyError.message || "db" }, 500);
     }
 
+    const { data: refunds, error: refundsError } = await supabase
+      .from("payment_refunds")
+      .select("refund_id, amount_cents, currency, reason, created_at")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: false });
+
+    if (refundsError) {
+      return json({ ok: false, error: refundsError.message || "db" }, 500);
+    }
+
     return json({
       ok: true,
       order,
       items: items ?? [],
       payments: payments ?? [],
       statusHistory: statusHistory ?? [],
+      refunds: refunds ?? [],
     });
   } catch (error: unknown) {
     return json({ ok: false, error: String((error as Error)?.message ?? error) }, 500);

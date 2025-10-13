@@ -146,8 +146,8 @@ Acceptance
 - New routes documented; Checkout and Portal work if Stripe env configured
 
 ### Webhooks page
-- `/admin/webhooks` shows `public.webhook_logs` (latest first)
-- Filter by `type`, pagination (50/page), and a button "Purge >30d" (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
+- `/admin/webhooks` shows `public.webhook_logs_app` (latest first) while keeping the legacy `webhook_logs` view untouched for existing consumers.
+- Filter by `event_type`, `log_status`, pagination (50/page), and a button "Purge >30d" (RPC `purge_webhook_logs(cutoff_ts timestamptz)`).
 - Webhook payloads stored masked (emails masked, secrets removed).
 
 ### Health endpoint

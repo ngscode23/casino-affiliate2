@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -14,12 +14,14 @@ import {
   Webhook,
   ScrollText,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 
 import ThemeToggle from "@ui/components/ThemeToggle";
 import UserBadge from "./user-badge";
 import { signOut } from "@shared/lib/auth";
 import clsx from "clsx";
+import { fetchPendingReviews } from "@/lib/admin/reviews";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, match: "exact" as const },
@@ -97,6 +99,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </button>
           <div className="font-semibold tracking-tight">Admin Panel</div>
           <div className="ml-auto flex items-center gap-3">
+            <PendingReviewsButton />
             <button
               className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1 text-sm shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"
               onClick={() => router.push("/admin/shop/products/new")}
@@ -117,6 +120,51 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <main className="flex-1 bg-bg">{children}</main>
       </div>
     </div>
+  );
+}
+
+function PendingReviewsButton() {
+  const router = useRouter();
+  const [count, setCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadCount = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { total } = await fetchPendingReviews(1);
+      setCount(total);
+    } catch {
+      // ignore errors, badge will stay hidden
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCount();
+    const timer = window.setInterval(() => {
+      void loadCount();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadCount]);
+
+  const badge = count != null && count > 0 ? (count > 99 ? "99+" : String(count)) : null;
+
+  return (
+    <button
+      type="button"
+      className="relative inline-flex h-9 items-center justify-center rounded-md border border-border bg-white px-2 text-sm shadow-sm transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"
+      onClick={() => router.push("/admin#pending-reviews")}
+      title="View pending reviews"
+      aria-label="View pending reviews"
+    >
+      <MessageSquare size={16} />
+      {!loading && badge ? (
+        <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[rgb(var(--primary))] px-1 text-[10px] font-semibold leading-4 text-white shadow">
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
 }
 

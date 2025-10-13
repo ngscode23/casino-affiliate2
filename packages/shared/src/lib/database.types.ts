@@ -771,6 +771,7 @@ export type Database = {
           metadata_b: Json | null
           paid_at: string | null
           payment_intent_id: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
           shipping_total: number
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -789,6 +790,7 @@ export type Database = {
           metadata_b?: Json | null
           paid_at?: string | null
           payment_intent_id?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           shipping_total?: number
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -807,6 +809,7 @@ export type Database = {
           metadata_b?: Json | null
           paid_at?: string | null
           payment_intent_id?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           shipping_total?: number
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -1873,6 +1876,15 @@ export type Database = {
           livemode: boolean
           mismatch_reason: string | null
           mode: string | null
+          notified_desync: boolean | null
+          notified_failed: boolean | null
+          notified_refunded: boolean | null
+          notified_requires_action: boolean | null
+          notified_succeeded: boolean | null
+          processing_error: string | null
+          processing_state: string | null
+          stripe_amount_cents: number | null
+          stripe_currency: string | null
           raw: Json | null
           type: string
         }
@@ -1887,6 +1899,15 @@ export type Database = {
           livemode: boolean
           mismatch_reason?: string | null
           mode?: string | null
+          notified_desync?: boolean | null
+          notified_failed?: boolean | null
+          notified_refunded?: boolean | null
+          notified_requires_action?: boolean | null
+          notified_succeeded?: boolean | null
+          processing_error?: string | null
+          processing_state?: string | null
+          stripe_amount_cents?: number | null
+          stripe_currency?: string | null
           raw?: Json | null
           type: string
         }
@@ -1901,6 +1922,15 @@ export type Database = {
           livemode?: boolean
           mismatch_reason?: string | null
           mode?: string | null
+          notified_desync?: boolean | null
+          notified_failed?: boolean | null
+          notified_refunded?: boolean | null
+          notified_requires_action?: boolean | null
+          notified_succeeded?: boolean | null
+          processing_error?: string | null
+          processing_state?: string | null
+          stripe_amount_cents?: number | null
+          stripe_currency?: string | null
           raw?: Json | null
           type?: string
         }
@@ -2491,12 +2521,49 @@ export type Database = {
           request_headers: Json | null
           response_body: Json | null
           response_headers: Json | null
+          log_status: string | null
           source: string | null
           status: number | null
           type: string | null
           url: string | null
           webhook_id: string | null
           webhook_mode: string | null
+        }
+        Relationships: []
+      }
+      webhook_logs_app: {
+        Row: {
+          created_at: string
+          error: Json | null
+          event_id: string | null
+          event_type: string
+          http_status: number | null
+          id: string
+          log_status: string
+          message: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: Json | null
+          event_id?: string | null
+          event_type: string
+          http_status?: number | null
+          id?: string
+          log_status?: string
+          message?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: Json | null
+          event_id?: string | null
+          event_type?: string
+          http_status?: number | null
+          id?: string
+          log_status?: string
+          message?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -2837,6 +2904,10 @@ export type Database = {
         Args: { cutoff_ts?: string }
         Returns: number
       }
+      purge_processed_events: {
+        Args: { cutoff_ts?: string }
+        Returns: undefined
+      }
       recalc_order_totals: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -2989,6 +3060,9 @@ export type Database = {
         | "captured"
         | "paid"
         | "canceled"
+        | "refunded"
+        | "partial_refund"
+        | "requires_action"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3132,6 +3206,9 @@ export const Constants = {
         "captured",
         "paid",
         "canceled",
+        "refunded",
+        "partial_refund",
+        "requires_action",
       ],
     },
   },

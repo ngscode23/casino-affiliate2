@@ -8,6 +8,7 @@ import Card from "@ui/components/common/card";
 import Input from "@ui/components/common/input";
 import Select from "@ui/components/common/select";
 import Button from "@ui/components/common/button";
+import StatusBadge from "@ui/components/admin/StatusBadge";
 import { supabase } from "@shared/lib/supabase";
 import { fnUrl } from "@shared/lib/api";
 
@@ -430,10 +431,24 @@ export function PartnersClient() {
   );
 }
 
+type WebhookLogRow = {
+  id: string;
+  event_type: string;
+  event_id: string | null;
+  created_at: string;
+  log_status: string;
+  source: string | null;
+  message: string | null;
+  error: Record<string, unknown> | null;
+};
+
 function WebhookLogsCard() {
-  const [rows, setRows] = useState<Array<{ type: string; created_at: string; payload: unknown }>>([]);
+  const [rows, setRows] = useState<WebhookLogRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventType, setEventType] = useState("");
+  const [status, setStatus] = useState("");
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -442,14 +457,23 @@ function WebhookLogsCard() {
       try {
         setLoading(true);
         setError(null);
-        const { data, error: dbError } = await (supabase as any)
-          .from("webhook_logs")
-          .select("type,created_at,payload")
-          .order("created_at", { ascending: false })
-          .limit(100);
-        if (dbError) throw dbError;
+
+        const params = new URLSearchParams({ pageSize: "50" });
+        if (eventType.trim()) params.set("q", eventType.trim());
+        if (status.trim()) params.set("status", status.trim());
+
+        const response = await fetch(`/api/admin/webhooks/logs?${params.toString()}`, {
+          headers: { accept: "application/json" },
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Failed to load webhook logs (${response.status})`);
+        }
+
+        const json: any = await response.json();
         if (!cancelled) {
-          setRows((data as Array<{ type: string; created_at: string; payload: unknown }>) ?? []);
+          setRows(Array.isArray(json.rows) ? (json.rows as WebhookLogRow[]) : []);
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -465,29 +489,58 @@ function WebhookLogsCard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [eventType, status, refreshToken]);
 
   return (
     <Card className="p-6">
-      <h2 className="mb-3 font-semibold">Webhook logs (last 100)</h2>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="font-semibold">Webhook logs</h2>
+        <Input
+          className="h-9 w-[160px]"
+          placeholder="Event type"
+          value={eventType}
+          onChange={(event) => setEventType(event.target.value)}
+        />
+        <Input
+          className="h-9 w-[140px]"
+          placeholder="Status"
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+        />
+        <Button
+          variant="soft"
+          className="h-9 min-h-0 px-3 text-xs"
+          onClick={() => setRefreshToken((value) => value + 1)}
+          disabled={loading}
+        >
+          Refresh
+        </Button>
+      </div>
       {loading ? (
         <div>Loading logs.</div>
       ) : error ? (
         <div className="text-red-400">{error}</div>
       ) : rows.length ? (
         <div className="space-y-2 text-sm">
-          {rows.map((row, index) => (
-            <div key={`${row.type}-${row.created_at}-${index}`} className="rounded border border-white/10 p-2">
-              <div className="flex justify-between">
-                <span>{row.type}</span>
-                <span className="text-[var(--text-dim)]">{row.created_at}</span>
+          {rows.map((row) => (
+            <div key={row.id} className="rounded border border-white/10 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs text-[var(--text-bright)]">{row.event_type}</span>
+                <StatusBadge status={row.log_status} />
+                {row.source ? <span className="text-xs text-[var(--text-dim)]">{row.source}</span> : null}
+                <span className="ml-auto text-xs text-[var(--text-dim)]">
+                  {new Date(row.created_at).toLocaleString()}
+                </span>
               </div>
-              <details className="mt-1">
-                <summary className="cursor-pointer text-[var(--text-dim)]">payload</summary>
-                <pre className="whitespace-pre-wrap break-words text-xs">
-                  {JSON.stringify(row.payload, null, 2)}
-                </pre>
-              </details>
+              {row.message ? <div className="mt-2 text-xs">{row.message}</div> : null}
+              {row.error ? (
+                <details className="mt-2 text-xs">
+                  <summary className="cursor-pointer text-[var(--text-dim)]">details</summary>
+                  <pre className="whitespace-pre-wrap break-words text-xs">
+                    {JSON.stringify(row.error, null, 2)}
+                  </pre>
+                </details>
+              ) : null}
             </div>
           ))}
         </div>

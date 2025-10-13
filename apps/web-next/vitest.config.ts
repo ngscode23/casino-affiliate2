@@ -14,6 +14,7 @@ export default defineConfig({
       { find: "@shared/", replacement: path.resolve(__dirname, "../..", "packages/shared/src/") },
       { find: "@ui", replacement: path.resolve(__dirname, "../..", "packages/ui/src") },
       { find: "@ui/", replacement: path.resolve(__dirname, "../..", "packages/ui/src/") },
+      { find: "@sentry/node", replacement: path.resolve(__dirname, "tests/__mocks__/sentry-node.ts") },
     ],
   },
   esbuild: {

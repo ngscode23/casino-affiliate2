@@ -68,63 +68,77 @@ export async function resolveProductUid(
   return null;
 }
 
+type ReviewTarget = {
+  source_schema?: string | null;
+  source_table?: string | null;
+  source_pk?: string | null;
+  product_uid?: string | null;
+};
+
+function parseCompositeKey(sourceTable: string | null | undefined, sourcePk: string | null | undefined) {
+  if (!sourcePk) return null;
+  const parts = sourcePk.split(":");
+  if (parts.length < 2) return null;
+  const [productPart, userPart] = parts;
+  if (!isUuid(userPart)) return null;
+
+  const table = (sourceTable ?? "product_reviews_raw").trim() || "product_reviews_raw";
+  if (table === "reviews") {
+    const productIdNumber = Number(productPart);
+    if (!Number.isFinite(productIdNumber)) return null;
+    return { table, productId: productIdNumber, userId: userPart };
+  }
+  if (table === "product_reviews_raw") {
+    const productId = productPart.trim();
+    if (!productId) return null;
+    return { table, productId, userId: userPart };
+  }
+
+  return null;
+}
+
 export async function applyReviewStatus(
   supabase: SupabaseClient,
-  productUid: string,
-  userId: string,
+  reviewId: string,
+  productUid: string | null,
   newStatus: "approved" | "rejected",
 ) {
+  if (!isUuid(reviewId)) {
+    return { changed: false };
+  }
+
   const { data: review, error: findError } = await supabase
     .from("reviews_unified")
-    .select("id, status")
-    .eq("product_uid", productUid)
-    .eq("user_id", userId)
-    .neq("status", newStatus)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .select("id, status, product_uid")
+    .eq("id", reviewId)
     .maybeSingle();
 
   if (findError) {
     return { error: findError };
   }
-  if (!review) {
+  if (!review || review.status === newStatus) {
     return { changed: false };
   }
 
   const rpcRes = await supabase.rpc("admin_set_review_status", { p_review_id: review.id, p_status: newStatus });
-  if (!rpcRes.error) {
-    return { changed: true };
+  if (rpcRes.error) {
+    return { error: rpcRes.error };
   }
 
-  const drop = await supabase
-    .from("reviews_unified")
-    .update({ status: "rejected" })
-    .eq("product_uid", productUid)
-    .eq("user_id", userId)
-    .in("status", ["pending", "approved"])
-    .neq("id", review.id);
+  const targetProduct =
+    productUid && isUuid(productUid)
+      ? productUid
+      : typeof review.product_uid === "string" && isUuid(review.product_uid)
+        ? review.product_uid
+        : null;
 
-  if (drop.error) {
-    return { error: drop.error };
+  if (targetProduct) {
+    try {
+      await supabase.rpc("refresh_product_rating_stats", { p_product_id: targetProduct });
+    } catch {
+      // best-effort
+    }
   }
 
-  const update = await supabase
-    .from("reviews_unified")
-    .update({ status: newStatus })
-    .eq("id", review.id)
-    .select("id")
-    .single();
-
-  if (update.error) {
-    return { error: update.error };
-  }
-
-  try {
-    await supabase.rpc("recalc_product_rating", { p_product_uid: productUid });
-  } catch {
-    // rating recalculation is best-effort
-  }
-
-  return { changed: true };
+  return { changed: true, productUid: targetProduct };
 }
-

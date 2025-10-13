@@ -20,10 +20,11 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const limit = clampLimit(url.searchParams.get("limit"));
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from("product_reviews_admin_v")
       .select(
         "id, product_uid, source_schema, source_table, source_pk, product_title, product_slug, rating, review_title, review_body, status, created_at",
+        { count: "exact" },
       )
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       return json({ ok: false, code: "db", message: error.message }, 500);
     }
 
-    return json({ ok: true, items: data ?? [] });
+    return json({ ok: true, items: data ?? [], total: typeof count === "number" ? count : (data ?? []).length });
   } catch (error: any) {
     return json(
       { ok: false, code: "internal", message: String(error?.message ?? error) },

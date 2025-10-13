@@ -10,7 +10,6 @@ import Button from "@ui/components/common/button";
 import Input from "@ui/components/common/input";
 import Skeleton from "@ui/components/common/skeleton";
 import { toast } from "@ui/components/common/toast";
-import { supabase } from "@shared/lib/supabase";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { adminFetch } from "@shared/lib/api";
 import { normalizeSku, slugifyTitle } from "@shared/lib/normalize";
@@ -25,6 +24,14 @@ interface Category {
 
 interface EditorProps {
   productId?: string | null;
+}
+
+async function authorizedFetch(input: string, init?: RequestInit) {
+  const accessToken = await getValidAccessToken().catch(() => null);
+  const headers = new Headers(init?.headers);
+  if (!headers.has("accept")) headers.set("accept", "application/json");
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  return adminFetch(input, { ...init, headers });
 }
 
 function generateSku() {
@@ -92,57 +99,106 @@ export function ProductEditorClient({ productId }: EditorProps) {
         setLoading(true);
         setError(null);
 
-        const { data: catData, error: catError } = await supabase
-          .from("ecom_categories")
-          .select("slug,name")
-          .order("name");
-        if (catError) throw catError;
-        if (!cancelled && Array.isArray(catData)) {
-          setCategories(catData as Category[]);
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const categoriesUrl = origin
+          ? new URL("/api/ecom-categories", origin).toString()
+          : "/api/ecom-categories";
+        const categoriesResponse = await authorizedFetch(categoriesUrl, { cache: "no-store" });
+        if (!categoriesResponse.ok) {
+          throw new Error(await categoriesResponse.text());
+        }
+        const categoriesJson = await categoriesResponse.json();
+        if (!cancelled && Array.isArray(categoriesJson?.items)) {
+          setCategories(categoriesJson.items as Category[]);
         }
 
         if (!currentId) {
+          setOriginalSnapshot(null);
+          setIsDirty(false);
           setLoading(false);
           return;
         }
 
-        const { data, error: productError } = await supabase
-          .from("ecom_products")
-          .select(
-            "id,slug,sku,title,price,rating,images,short_desc,category_slug,status,tags,specs"
-          )
-          .eq("id", currentId)
-          .maybeSingle();
+        const productsUrl = origin
+          ? new URL("/api/ecom-products", origin)
+          : new URL("/api/ecom-products", "http://localhost");
+        productsUrl.searchParams.set("ids", currentId);
+        productsUrl.searchParams.set("limit", "1");
 
-        if (productError) throw productError;
-        if (data && !cancelled) {
-          setTitle(data.title ?? "");
-          setSlug(data.slug ?? "");
-          setSku(data.sku ?? "");
-          setPrice(data.price != null ? String(data.price) : "0");
-          setCategory(data.category_slug ?? null);
-          setStatus((data.status as string | null) ?? "draft");
-          setRating(data.rating != null ? String(data.rating) : "0");
-          setShortDesc(data.short_desc ?? "");
-          setTags(Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : "");
-          setImages(Array.isArray(data.images) ? (data.images as string[]) : []);
-          setSpecsJson(JSON.stringify(data.specs ?? {}, null, 2));
+        const productResponse = await authorizedFetch(productsUrl.toString(), { cache: "no-store" });
+        if (!productResponse.ok) {
+          throw new Error(await productResponse.text());
+        }
+        const productJson = await productResponse.json();
+        const product =
+          Array.isArray(productJson?.items) && productJson.items.length
+            ? (productJson.items[0] as Record<string, any>)
+            : null;
+
+        if (product && !cancelled) {
+          const nextTitle = String(product.title ?? "");
+          const nextSlug = String(product.slug ?? "");
+          const nextSku = product.sku != null ? String(product.sku) : "";
+          const nextPrice = product.price != null ? String(product.price) : "0";
+          const nextCategory = product.category_slug != null ? String(product.category_slug) : null;
+          const rawStatus = typeof product.status === "string" ? product.status : "draft";
+          const nextStatus =
+            rawStatus === "published" || rawStatus === "archived" ? rawStatus : "draft";
+          const nextRating = product.rating != null ? String(product.rating) : "0";
+          const nextShortDesc = product.short_desc != null ? String(product.short_desc) : "";
+          const nextTags = Array.isArray(product.tags)
+            ? (product.tags as (string | null | undefined)[])
+                .map((value) => (value ? String(value) : ""))
+                .filter(Boolean)
+                .join(", ")
+            : "";
+          const nextImages = Array.isArray(product.images)
+            ? (product.images as (string | null | undefined)[])
+                .map((value) => (value ? String(value) : ""))
+                .filter(Boolean)
+            : [];
+          const nextSpecsObject =
+            product.specs && typeof product.specs === "object"
+              ? (product.specs as Record<string, unknown>)
+              : {};
+
+          let specsJsonString = "{}";
+          try {
+            specsJsonString = JSON.stringify(nextSpecsObject, null, 2);
+            setSpecsError(null);
+          } catch (err) {
+            console.warn("Failed to stringify specs", err);
+          }
+
+          setTitle(nextTitle);
+          setSlug(nextSlug);
+          setSku(nextSku);
+          setPrice(nextPrice);
+          setCategory(nextCategory);
+          setStatus(nextStatus);
+          setRating(nextRating);
+          setShortDesc(nextShortDesc);
+          setTags(nextTags);
+          setImages(nextImages);
+          setSpecsJson(specsJsonString);
 
           const snapshot = snapshotState({
-            title: data.title ?? "",
-            slug: data.slug ?? "",
-            sku: data.sku ?? "",
-            price: data.price != null ? String(data.price) : "0",
-            category: data.category_slug ?? null,
-            status: (data.status as string | null) ?? "draft",
-            rating: data.rating != null ? String(data.rating) : "0",
-            shortDesc: data.short_desc ?? "",
-            tags: Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : "",
-            images: Array.isArray(data.images) ? (data.images as string[]) : [],
-            specs: data.specs ?? {},
+            title: nextTitle,
+            slug: nextSlug,
+            sku: nextSku,
+            price: nextPrice,
+            category: nextCategory,
+            status: nextStatus,
+            rating: nextRating,
+            shortDesc: nextShortDesc,
+            tags: nextTags,
+            images: nextImages,
+            specs: nextSpecsObject,
           });
           setOriginalSnapshot(snapshot);
           setIsDirty(false);
+        } else if (!cancelled) {
+          setError("Product not found");
         }
       } catch (err) {
         if (!cancelled) {
