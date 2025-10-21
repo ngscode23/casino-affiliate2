@@ -11,6 +11,7 @@ export const siteConfig = {
     { href: "/checkout", label: "Checkout", labelKey: "nav.checkout" },
     { href: "/contact", label: "Contact", labelKey: "nav.contact" },
     { href: "/account", label: "Account", labelKey: "nav.account" },
+    { href: "/account/orders", label: "My orders", labelKey: "nav.orders" },
     { href: "/account/reviews", label: "My reviews", labelKey: "nav.myReviews" },
   ],
   footer: {

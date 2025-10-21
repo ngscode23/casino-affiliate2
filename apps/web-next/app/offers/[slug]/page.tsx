@@ -16,9 +16,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title: "Offer not found",
     };
   }
+  const description = `License: ${offer.license}. Payout: ${offer.payout || "N/A"}. Methods: ${(offer.methods || []).join(", ")}.`;
+  const canonicalPath = `/offers/${encodeURIComponent(offer.slug)}`;
   return {
     title: `${offer.name} offer overview`,
-    description: `Licence: ${offer.license}. Payout: ${offer.payout || "N/A"}. Methods: ${(offer.methods || []).join(", ")}.`,
+    description: description.slice(0, 160),
+    alternates: { canonical: canonicalPath },
+    openGraph: {
+      type: "website",
+      title: offer.name,
+      description,
+      url: canonicalPath,
+    },
+    twitter: {
+      card: "summary",
+      title: offer.name,
+      description,
+    },
   };
 }
 

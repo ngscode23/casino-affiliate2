@@ -303,6 +303,11 @@
       }
     }
   },
+  "header": {
+    "searchPlaceholder": "Поиск товаров...",
+    "searchLabel": "Поиск",
+    "searchButton": "Искать"
+  },
   "footer": {
     "allRightsReserved": "Все права защищены."
   }

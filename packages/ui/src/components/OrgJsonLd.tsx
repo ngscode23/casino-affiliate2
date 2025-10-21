@@ -1,5 +1,6 @@
 // src/components/OrgJsonLd.tsx
 import { SITE_NAME, SITE_URL, SITE_LOGO } from "@shared/config";
+import { serializeJsonLd } from "@shared/lib/jsonld";
 
 export default function OrgJsonLd() {
   const jsonLd = {
@@ -13,7 +14,7 @@ export default function OrgJsonLd() {
     <script
       type="application/ld+json"
       suppressHydrationWarning
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

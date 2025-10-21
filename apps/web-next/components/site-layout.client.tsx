@@ -14,6 +14,7 @@ import { Sidebar } from "./sidebar";
 import { ensureUtmContext } from "@shared/lib/utm";
 import { Sheet, SheetContent, SheetTrigger } from "@ui/components/common/sheet";
 import { ensureSession } from "@shared/lib/auth";
+import { CompareProvider } from "@shared/ctx/CompareContext";
 
 export function SiteLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -31,6 +32,7 @@ export function SiteLayoutClient({ children }: { children: ReactNode }) {
 
   return (
     <I18nProvider initialLang="en">
+      <CompareProvider>
       <UtmBootstrap />
       <LangFromSearchParams />
       <CartProvider>
@@ -72,6 +74,7 @@ export function SiteLayoutClient({ children }: { children: ReactNode }) {
           <CookieBar />
         </WishlistProvider>
       </CartProvider>
+      </CompareProvider>
     </I18nProvider>
   );
 }

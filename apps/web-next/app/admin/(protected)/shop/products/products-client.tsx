@@ -13,6 +13,7 @@ import StatusBadge from "@ui/components/admin/StatusBadge";
 import ProductDialog from "@ui/components/admin/ProductDialog";
 import { toast } from "@ui/components/common/toast";
 import { getValidAccessToken } from "@shared/lib/auth";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import { adminFetch } from "@shared/lib/api";
 
 interface ProductRow {
@@ -116,7 +117,7 @@ export function ProductsClient() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
+  const [query, setQuery] = useState(() => sanitizeSearchParam(searchParams?.get("q")));
   const [status, setStatus] = useState(() => searchParams?.get("status") ?? "all");
   const [category, setCategory] = useState(() => searchParams?.get("category") ?? "all");
   const [items, setItems] = useState<ProductRow[]>([]);

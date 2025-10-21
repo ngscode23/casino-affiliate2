@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const SORT_WHITELIST = new Set(["rating", "price", "title", "created_at"]);
 const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET || "product-images";
@@ -55,8 +56,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const params = url.searchParams;
 
-    const q = (params.get("q") || "").trim();
-    const category = (params.get("category") || "").trim();
+    const q = sanitizeSearchParam(params.get("q"));
+    const category = sanitizeSearchParam(params.get("category"));
     const min = params.get("min");
     const max = params.get("max");
     const sortRaw = params.get("sort") || "rating";

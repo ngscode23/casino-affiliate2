@@ -1,0 +1,28 @@
+{
+  "_note": "Edit include/exclude to customize the URL list. Use '*' suffix in exclude entries for prefix matches.",
+  "include": [
+    "/",
+    "/products",
+    "/offers",
+    "/favorites",
+    "/contact",
+    "/how-we-rank",
+    "/affiliate"
+  ],
+  "exclude": [
+    "/account*",
+    "/admin*",
+    "/seller*",
+    "/checkout*",
+    "/login*",
+    "/register*"
+  ],
+  "dynamic": {
+    "/products/[slug]": [
+      "/products/iphone17"
+    ],
+    "/offers/[slug]": [
+      "/offers/demo-offer"
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const DAY_MS = 86_400_000;
 
@@ -91,7 +92,7 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize")) || 25, 1), 100);
     const statusFilter = searchParams.get("status")?.trim().toLowerCase();
-    const query = searchParams.get("q")?.trim();
+    const query = sanitizeSearchParam(searchParams.get("q"));
     const from = searchParams.get("from")?.trim();
     const to = searchParams.get("to")?.trim();
 

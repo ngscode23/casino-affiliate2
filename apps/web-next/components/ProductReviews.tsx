@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronDown, Star, ThumbsDown, ThumbsUp } from "lucide-react";
-import * as SelectPrimitive from "@radix-ui/react-select";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { Star, ThumbsDown, ThumbsUp } from "lucide-react";
 import { addReview } from "@shared/ecom/api/client";
 import { useAuthState } from "@shared/lib/authStore";
 import { track } from "@shared/lib/analytics";
@@ -20,6 +19,7 @@ type ReviewItem = {
   title: string;
   body: string;
   created_at: string;
+  createdLabel: string;
   author_id: string;
   votes: ReviewVotes;
 };
@@ -50,6 +50,27 @@ const RATING_ORDER = [5, 4, 3, 2, 1] as const;
 type RatingScore = (typeof RATING_ORDER)[number];
 type Bucket = { score: RatingScore; count: number; percent: number };
 const PAGE_SIZE = 20;
+const STAR_INDEXES = [0, 1, 2, 3, 4] as const;
+const REVIEW_DATE_FORMATTER =
+  typeof Intl !== "undefined" ? new Intl.DateTimeFormat("ru-RU") : undefined;
+
+function formatReviewDate(value: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  if (REVIEW_DATE_FORMATTER) {
+    try {
+      return REVIEW_DATE_FORMATTER.format(date);
+    } catch {
+      /* ignore format errors */
+    }
+  }
+  try {
+    return date.toLocaleDateString("ru-RU");
+  } catch {
+    return value;
+  }
+}
 
 type ReviewFilterEventDetail = { rating: number | null };
 type ReviewStatsEventDetail = {
@@ -119,11 +140,66 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "rating_asc", label: "По рейтингу (1→5)" },
 ];
 
+type IdleCleanup = () => void;
+
+function runOnIdle(callback: () => void): IdleCleanup | undefined {
+  if (typeof window === "undefined") return undefined;
+  const win = window as typeof window & {
+    requestIdleCallback?: (cb: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  if (typeof win.requestIdleCallback === "function") {
+    const handle = win.requestIdleCallback(() => callback(), { timeout: 1800 });
+    return () => {
+      win.cancelIdleCallback?.(handle);
+    };
+  }
+  if (process.env.NODE_ENV !== "production" && typeof queueMicrotask === "function") {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) callback();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }
+  const timeout = setTimeout(callback, 180);
+  return () => clearTimeout(timeout);
+}
+
+function ReviewsPlaceholder() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="h-6 w-40 rounded-full bg-border/30" />
+        <div className="h-10 w-48 rounded-full bg-border/20" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div key={idx} className="h-8 rounded-full bg-border/20" />
+        ))}
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 2 }).map((_, idx) => (
+          <div key={idx} className="space-y-2 rounded-2xl border border-border/30 bg-card/70 p-4">
+            <div className="h-4 w-32 rounded-full bg-border/30" />
+            <div className="h-3 w-full rounded-full bg-border/20" />
+            <div className="h-3 w-5/6 rounded-full bg-border/20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductReviews({ productId, slug, initialAverage, initialCount }: ProductReviewsProps) {
   const { user } = useAuthState();
+  const containerRef = useRef<HTMLElement | null>(null);
+  const inflightRequest = useRef<AbortController | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 const [items, setItems] = useState<ReviewItem[]>([]);
 const [summary, setSummary] = useState({
   average: normalizeAverageRating(initialAverage),
@@ -144,6 +220,34 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    return () => inflightRequest.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    if (ready) return;
+    if (typeof window === "undefined") return;
+
+    const node = containerRef.current;
+    const markReady = () => setReady(true);
+
+    if (node && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            markReady();
+          }
+        },
+        { rootMargin: "160px 0px" },
+      );
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    const idleCleanup = runOnIdle(markReady);
+    return () => idleCleanup?.();
+  }, [ready]);
 
   const canSubmit = hydrated && Boolean(user);
   const isEditing = Boolean(ownReview);
@@ -167,7 +271,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
     }
   }, [ownReview, submitting]);
 
-    const handleSortChange = useCallback((next: SortKey) => {
+  const handleSortChange = useCallback((next: SortKey) => {
     setSortKey(next);
     setNextCursor(null);
     setHasMore(false);
@@ -176,7 +280,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
     setError(null);
   }, []);
 
-const fetchReviews = useCallback(
+  const fetchReviews = useCallback(
     async (
       { cursor, append = false, silent = false }: { cursor?: string | null; append?: boolean; silent?: boolean } = {},
     ) => {
@@ -189,6 +293,9 @@ const fetchReviews = useCallback(
       } else {
         setError(null);
       }
+      inflightRequest.current?.abort();
+      const controller = new AbortController();
+      inflightRequest.current = controller;
       try {
         const url = new URL("/api/reviews/list", window.location.origin);
         url.searchParams.set("product_id", productId);
@@ -203,6 +310,7 @@ const fetchReviews = useCallback(
         const res = await fetch(url.toString(), {
           headers: { accept: "application/json" },
           credentials: "include",
+          signal: controller.signal,
         });
         const json = (await res.json()) as ReviewsResponse;
         if (!res.ok || json.ok === false) {
@@ -226,6 +334,7 @@ const fetchReviews = useCallback(
               title: typeof (raw as any)?.title === "string" ? (raw as any).title : "",
               body: typeof (raw as any)?.body === "string" ? (raw as any).body : "",
               created_at: createdAt,
+              createdLabel: formatReviewDate(createdAt),
               author_id: authorId,
               votes: {
                 helpful: Number.isFinite(helpfulRaw) ? helpfulRaw : 0,
@@ -236,7 +345,6 @@ const fetchReviews = useCallback(
             } satisfies ReviewItem;
           })
           .filter((item) => Boolean(item.created_at));
-        setItems((prev) => (isAppend ? dedupeReviews([...prev, ...normalized]) : dedupeReviews(normalized)));
         const avg = typeof json.stats?.avg_rating === "number" ? json.stats.avg_rating : initialAverage;
         const count =
           typeof json.stats?.ratings_count === "number"
@@ -248,37 +356,48 @@ const fetchReviews = useCallback(
           average: normalizeAverageRating(avg, summary.average),
           count: normalizeRatingsCount(count, summary.count),
         };
-        setSummary(nextSummary);
-        setOwnReview(json.own_review ?? null);
-        setNextCursor(json.nextCursor ?? null);
-        setHasMore(Boolean(json.nextCursor ?? json.hasMore));
         const normalizedBuckets = normalizeBuckets(json.buckets);
-        setBuckets(normalizedBuckets);
+        startTransition(() => {
+          setItems((prev) => (isAppend ? dedupeReviews([...prev, ...normalized]) : dedupeReviews(normalized)));
+          setSummary(nextSummary);
+          setOwnReview(json.own_review ?? null);
+          setNextCursor(json.nextCursor ?? null);
+          setHasMore(Boolean(json.nextCursor ?? json.hasMore));
+          setBuckets(normalizedBuckets);
+          setError(null);
+        });
         if (typeof window !== "undefined") {
-          try {
-            window.dispatchEvent(
-              new CustomEvent<ReviewStatsEventDetail>(REVIEW_STATS_EVENT, {
-                detail: { summary: nextSummary, buckets: normalizedBuckets },
-              }),
-            );
-          } catch {
-            /* ignore */
-          }
+          runOnIdle(() => {
+            try {
+              window.dispatchEvent(
+                new CustomEvent<ReviewStatsEventDetail>(REVIEW_STATS_EVENT, {
+                  detail: { summary: nextSummary, buckets: normalizedBuckets },
+                }),
+              );
+            } catch {
+              /* ignore */
+            }
+          });
         }
-        setError(null);
       } catch (err: any) {
+        if (err?.name === "AbortError") return;
         const message = err?.message ?? "Не удалось загрузить отзывы";
-        setError(message);
-        if (!isAppend) {
-          setItems([]);
-          setNextCursor(null);
-          setHasMore(false);
-        }
+        startTransition(() => {
+          setError(message);
+          if (!isAppend) {
+            setItems([]);
+            setNextCursor(null);
+            setHasMore(false);
+          }
+        });
       } finally {
-        if (isAppend) {
-          setLoadingMore(false);
-        } else if (!silent) {
-          setLoading(false);
+        if (inflightRequest.current === controller) {
+          inflightRequest.current = null;
+          if (isAppend) {
+            setLoadingMore(false);
+          } else if (!silent) {
+            setLoading(false);
+          }
         }
       }
     },
@@ -413,8 +532,9 @@ const fetchReviews = useCallback(
   );
 
   useEffect(() => {
+    if (!ready) return;
     fetchReviews();
-  }, [fetchReviews]);
+  }, [ready, fetchReviews]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -449,14 +569,16 @@ const fetchReviews = useCallback(
           const nextAverage = normalizeAverageRating(response.stats.avg_rating, summary.average);
           setSummary({ count: nextCount, average: nextAverage });
         }
-        try {
-          track({
-            name: "submit_review",
-            params: { product_id: productId, slug, rating },
-          });
-        } catch {
-          /* ignore analytics errors */
-        }
+        runOnIdle(() => {
+          try {
+            track({
+              name: "submit_review",
+              params: { product_id: productId, slug, rating },
+            });
+          } catch {
+            /* ignore analytics errors */
+          }
+        });
         await fetchReviews({ silent: true });
         setFormSuccess(true);
       } catch (err: any) {
@@ -467,8 +589,27 @@ const fetchReviews = useCallback(
     },
     [user, title, body, rating, productId, fetchReviews, slug, summary.count, summary.average],
   );
+
+  if (!ready) {
+    return (
+      <section
+        id="reviews"
+        aria-label="Отзывы"
+        ref={containerRef}
+        className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-4 sm:p-6"
+      >
+        <ReviewsPlaceholder />
+      </section>
+    );
+  }
+
   return (
-    <section id="reviews" aria-label="Отзывы" className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-4 sm:p-6">
+    <section
+      id="reviews"
+      aria-label="Отзывы"
+      ref={containerRef}
+      className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-4 sm:p-6"
+    >
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-fg">Отзывы покупателей</h2>
@@ -477,12 +618,21 @@ const fetchReviews = useCallback(
             <span className="font-semibold text-fg">{summary.count}</span> отзывов
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-          <label htmlFor="reviews-sort" className="text-xs uppercase tracking-[0.24em] text-muted sm:whitespace-nowrap">
-            Сортировка
-          </label>
-          <ReviewSortSelect value={sortKey} onChange={handleSortChange} />
-        </div>
+        <label className="flex w-full flex-col gap-2 text-xs uppercase tracking-[0.24em] text-muted sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+          <span className="sm:whitespace-nowrap">Сортировка</span>
+          <select
+            id="reviews-sort"
+            value={sortKey}
+            onChange={(event) => handleSortChange(event.target.value as SortKey)}
+            className="h-10 rounded-xl border border-border/40 bg-card px-3 text-sm font-medium text-fg shadow-[0_14px_40px_-24px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card sm:min-w-[210px]"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -526,7 +676,7 @@ const fetchReviews = useCallback(
             <div>
               <p className="text-sm text-muted-foreground">Оценка товара</p>
               <div className="mt-2 flex items-center gap-1">
-                {Array.from({ length: 5 }).map((_, idx) => {
+                {STAR_INDEXES.map((idx) => {
                   const value = idx + 1;
                   return (
                     <button
@@ -642,7 +792,7 @@ const fetchReviews = useCallback(
                     <li key={`${review.created_at}-${idx}`} className="rounded-2xl border border-border/30 bg-card/70 p-4 overflow-hidden">
                       <div className="flex flex-wrap items-start gap-2 text-sm sm:items-center">
                         <div className="flex items-center gap-1 text-amber-400">
-                          {Array.from({ length: 5 }).map((_, starIdx) => (
+                          {STAR_INDEXES.map((starIdx) => (
                             <Star
                               key={starIdx}
                               className={cn(
@@ -654,10 +804,10 @@ const fetchReviews = useCallback(
                         </div>
                         <span className="font-medium text-fg flex-1 min-w-0 break-words">{review.title || `Отзыв ${idx + 1}`}</span>
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground text-right">
-                          {new Date(review.created_at).toLocaleDateString("ru-RU")}
+                          {review.createdLabel || formatReviewDate(review.created_at) || "—"}
                         </span>
                       </div>
-                      <p className="mt-2 break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{review.body}</p>
+                      <p className="mt-2 [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{review.body}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>Этот отзыв был полезен?</span>
                         <button
@@ -723,69 +873,6 @@ const fetchReviews = useCallback(
     </section>
   );
 }
-
-function ReviewSortSelect({
-  value,
-  onChange,
-}: {
-  value: SortKey;
-  onChange: (next: SortKey) => void;
-}) {
-  return (
-    <SelectPrimitive.Root value={value} onValueChange={(next) => onChange(next as SortKey)}>
-      <SelectPrimitive.Trigger
-        id="reviews-sort"
-        className={cn(
-          "inline-flex h-10 w-full sm:max-w-[240px] items-center justify-between gap-3 rounded-full border border-border/50 bg-card px-4 text-sm font-medium text-fg shadow-[0_14px_40px_-24px_rgba(15,23,42,0.55)] transition",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-          "data-[state=open]:border-primary/60 data-[state=open]:ring-2 data-[state=open]:ring-primary/40",
-        )}
-        aria-label="Сортировка отзывов"
-      >
-        <SelectPrimitive.Value placeholder="Выберите сортировку" />
-        <SelectPrimitive.Icon asChild>
-          <ChevronDown
-            className="h-4 w-4 text-muted transition-transform duration-200 data-[state=open]:rotate-180"
-            aria-hidden
-          />
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          className={cn(
-            "z-[260] w-[var(--radix-select-trigger-width)] min-w-[220px] overflow-hidden rounded-2xl border border-border/60 bg-[rgba(12,18,28,0.98)] text-sm text-fg shadow-[0_32px_80px_-32px_rgba(11,17,26,0.8)] backdrop-blur",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          )}
-          position="popper"
-          sideOffset={6}
-        >
-          <SelectPrimitive.Viewport className="p-1">
-            {SORT_OPTIONS.map((option) => (
-              <SelectPrimitive.Item
-                key={option.value}
-                value={option.value}
-                className={cn(
-                  "relative flex w-full select-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm transition",
-                  "text-muted-foreground data-[state=checked]:text-primary data-[state=checked]:font-semibold",
-                  "data-[highlighted]:bg-primary/10 data-[highlighted]:text-primary data-[highlighted]:outline-none",
-                )}
-              >
-                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="flex items-center text-primary">
-                  <Check className="h-4 w-4" aria-hidden />
-                </SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
-  );
-}
-
-
 
 
 

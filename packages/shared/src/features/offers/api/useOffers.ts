@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import type { NormalizedOffer } from "@shared/lib/offers";
 import { getOffers } from "./getOffers";
 
+// simple in-memory cache to avoid refetching across multiple mounts/pages
+let __offersCache: { data: NormalizedOffer[]; ts: number } | null = null;
+let __offersPending: Promise<NormalizedOffer[]> | null = null;
+const OFFERS_TTL_MS = 60 * 1000; // 1 minute
+
 export function useOffers() {
   const [offers, setOffers] = useState<NormalizedOffer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,9 +19,18 @@ export function useOffers() {
     (async () => {
       try {
         setIsLoading(true);
-        const data = await getOffers();
+        const now = Date.now();
+        const cached = __offersCache && now - __offersCache.ts < OFFERS_TTL_MS ? __offersCache.data : null;
+        const data = cached
+          ? cached
+          : (__offersPending ||= getOffers().then((res) => {
+              __offersCache = { data: res, ts: Date.now() };
+              __offersPending = null;
+              return res;
+            }));
+        const resolved = Array.isArray(data) ? data : await data;
         if (!cancelled) {
-          setOffers(data);
+          setOffers(resolved);
           setError(null);
         }
       } catch (e: any) {

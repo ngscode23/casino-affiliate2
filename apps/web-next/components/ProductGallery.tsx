@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@ui/components/common/dialog";
+import { Maximize2 } from "lucide-react";
 import { cn } from "@shared/lib/cn";
+
+type ProductGalleryLightboxComponent = typeof import("./ProductGalleryLightbox").default;
 
 type ProductGalleryProps = {
   title: string;
   images: string[];
   fallbackImage: string;
   activeImage?: string | null;
-  onActiveChange?: (nextUrl: string, index: number) => void;
+  onActiveChangeAction?: (nextUrl: string, index: number) => void;
 };
 
 const ZOOM_SCALE = 1.1;
@@ -21,7 +22,7 @@ export default function ProductGallery({
   images,
   fallbackImage,
   activeImage,
-  onActiveChange,
+  onActiveChangeAction,
 }: ProductGalleryProps) {
   const list = useMemo(() => {
     const normalized = Array.isArray(images) ? images.filter(Boolean) : [];
@@ -42,6 +43,7 @@ export default function ProductGallery({
   }, [activeImage, list, index]);
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [Lightbox, setLightbox] = useState<ProductGalleryLightboxComponent | null>(null);
   const [transformOrigin, setTransformOrigin] = useState("center center");
 
   const current = list[index] ?? fallbackImage;
@@ -50,9 +52,9 @@ export default function ProductGallery({
     (next: number) => {
       const normalized = (next + list.length) % list.length;
       setIndex(normalized);
-      onActiveChange?.(list[normalized], normalized);
+      onActiveChangeAction?.(list[normalized], normalized);
     },
-    [list, onActiveChange],
+    [list, onActiveChangeAction],
   );
 
   const handlePrev = useCallback(() => {
@@ -89,6 +91,14 @@ export default function ProductGallery({
     setTransformOrigin("center center");
   }, []);
 
+  const openLightbox = useCallback(async () => {
+    if (!Lightbox) {
+      const mod = await import("./ProductGalleryLightbox");
+      setLightbox(() => mod.default);
+    }
+    setLightboxOpen(true);
+  }, [Lightbox]);
+
   return (
     <div className="space-y-4">
       <div
@@ -102,7 +112,8 @@ export default function ProductGallery({
             src={current}
             alt={title}
             fill
-            priority
+            priority={index === 0}
+            quality={70}
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 560px"
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
             style={{ transformOrigin }}
@@ -116,7 +127,7 @@ export default function ProductGallery({
           <button
             type="button"
             className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white shadow-lg transition hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            onClick={() => setLightboxOpen(true)}
+            onClick={openLightbox}
             aria-label="Открыть в предпросмотре"
           >
             <Maximize2 className="h-4 w-4" aria-hidden />
@@ -142,7 +153,9 @@ export default function ProductGallery({
                   src={image}
                   alt="Миниатюра"
                   fill
+                  quality={60}
                   sizes="80px"
+                  loading="lazy"
                   className="object-cover"
                 />
               ) : (
@@ -155,63 +168,18 @@ export default function ProductGallery({
         </div>
       ) : null}
 
-      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent
-          showCloseButton={false}
-          className="fixed inset-0 flex items-center justify-center border-none bg-transparent p-0 shadow-none outline-none"
-        >
-          <div className="relative h-[80vh] w-[min(90vw,900px)] overflow-hidden rounded-3xl bg-black/80 p-6 shadow-2xl">
-            <DialogTitle className="sr-only">Предпросмотр изображения {title}</DialogTitle>
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              className="absolute right-6 top-6 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-              aria-label="Закрыть предпросмотр"
-            >
-              <X className="h-5 w-5" aria-hidden />
-            </button>
-
-            {list.length > 1 ? (
-              <button
-                type="button"
-                onClick={handlePrev}
-                className="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
-                aria-label="Предыдущее фото"
-              >
-                <ChevronLeft className="h-6 w-6" aria-hidden />
-              </button>
-            ) : null}
-
-            {current ? (
-              <Image
-                key={`lightbox-${current}`}
-                src={current}
-                alt={title}
-                fill
-                sizes="900px"
-                className="pointer-events-none select-none object-contain"
-              />
-            ) : null}
-
-            {list.length > 1 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="absolute right-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
-                aria-label="Следующее фото"
-              >
-                <ChevronRight className="h-6 w-6" aria-hidden />
-              </button>
-            ) : null}
-
-            {list.length > 1 ? (
-              <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2 rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
-                {index + 1} / {list.length}
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {Lightbox ? (
+        <Lightbox
+          title={title}
+          open={lightboxOpen}
+          onOpenChangeAction={setLightboxOpen}
+          images={list}
+          index={index}
+          current={current}
+          onPrevAction={handlePrev}
+          onNextAction={handleNext}
+        />
+      ) : null}
     </div>
   );
 }

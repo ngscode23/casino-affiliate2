@@ -1,15 +1,12 @@
-"use client";
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { LifeBuoy, RotateCcw, ShieldCheck } from "lucide-react";
-import AddToCartButton from "@/app/products/components/AddToCartButton";
+import dynamic from "next/dynamic";
 import ProductImpression from "@/app/products/components/ProductImpression";
 import TrackClickButton from "@/app/products/components/TrackClickButton";
 import ProductGallery from "@/components/ProductGallery";
-import ProductStickyCTA from "@/components/ProductStickyCTA";
 import ProductSpecs from "@/components/ProductSpecs";
-import ProductReviews from "@/components/ProductReviews";
 import { ProductGrid } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
@@ -34,13 +31,80 @@ type ProductViewProps = {
 
 type SelectionState = Record<string, ProductVariantOption | undefined>;
 
+const ProductStickyCTA = dynamic(() => import("@/components/ProductStickyCTA"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const ProductReviews = dynamic(() => import("@/components/ProductReviews"), {
+  ssr: false,
+  loading: () => <ReviewsSkeleton />,
+});
+const TrustPanel = dynamic(() => import("./TrustPanel.client"), {
+  ssr: false,
+  loading: () => null,
+});
+const RecentProducts = dynamic(() => import("./RecentProducts.client"), {
+  ssr: false,
+  loading: () => null,
+});
+const ProductActionPanel = dynamic(() => import("./ProductActionPanel.client"), {
+  ssr: false,
+  loading: () => null,
+});
+
 const RECENT_KEY = "recent:products:v1";
 const PAYMENT_METHODS = ["Visa", "Mastercard", "Apple Pay", "Stripe"];
-const TRUST_POINTS = [
-  { title: "14 дней на возврат", icon: <RotateCcw className="h-4 w-4" aria-hidden /> },
-  { title: "Поддержка 24/7", icon: <LifeBuoy className="h-4 w-4" aria-hidden /> },
-  { title: "Гарантия подлинности", icon: <ShieldCheck className="h-4 w-4" aria-hidden /> },
-];
+
+function ReviewsSkeleton() {
+  return (
+    <section className="space-y-4 rounded-3xl border border-border/40 bg-card/60 p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="h-6 w-40 rounded-full bg-border/30" />
+        <div className="h-10 w-48 rounded-full bg-border/20" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div key={idx} className="h-8 rounded-full bg-border/20" />
+        ))}
+      </div>
+      <div className="space-y-4">
+        {Array.from({ length: 2 }).map((_, idx) => (
+          <div
+            key={`skeleton-review-${idx}`}
+            className="space-y-3 rounded-2xl border border-border/30 bg-card/70 p-4"
+          >
+            <div className="h-4 w-32 rounded-full bg-border/30" />
+            <div className="h-3 w-full rounded-full bg-border/20" />
+            <div className="h-3 w-5/6 rounded-full bg-border/20" />
+            <div className="h-3 w-2/3 rounded-full bg-border/20" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+
+type IdleCleanup = () => void;
+
+function runOnIdle(callback: () => void): IdleCleanup | undefined {
+  if (typeof window === "undefined") return undefined;
+  const win = window as typeof window & {
+    requestIdleCallback?: (cb: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+
+  if (typeof win.requestIdleCallback === "function") {
+    const handle = win.requestIdleCallback(() => callback(), { timeout: 1500 });
+    return () => {
+      win.cancelIdleCallback?.(handle);
+    };
+  }
+
+  const timeout = setTimeout(callback, 120);
+  return () => clearTimeout(timeout);
+}
 
 const REVIEW_BUCKET_ORDER = [5, 4, 3, 2, 1] as const;
 type ReviewBucketScore = (typeof REVIEW_BUCKET_ORDER)[number];
@@ -165,17 +229,20 @@ function normalizeRatingsCount(value: number | null | undefined): number {
 
 function ProductClientEffects({ product }: { product: ProductData }) {
   useEffect(() => {
-    try {
-      track({ name: "view_item", params: { product_id: product.id, slug: product.slug, price: product.price } });
-    } catch {
-      /* noop */
-    }
-    pushRecent(product.slug);
+    const cleanup = runOnIdle(() => {
+      try {
+        track({ name: "view_item", params: { product_id: product.id, slug: product.slug, price: product.price } });
+      } catch {
+        /* noop */
+      }
+      pushRecent(product.slug);
+    });
+    return () => {
+      cleanup?.();
+    };
   }, [product.id, product.slug, product.price]);
   return null;
 }
-
-type RecentProductsState = { loading: boolean; items: ProductGridItem[] };
 
 function ReviewFilterChip({
   label,
@@ -205,46 +272,6 @@ function ReviewFilterChip({
     >
       {label}
     </button>
-  );
-}
-
-function RecentProducts({ currentSlug }: { currentSlug: string }) {
-  const [{ loading, items }, setState] = useState<RecentProductsState>(() => ({ loading: true, items: [] }));
-
-  useEffect(() => {
-    const list = getRecentSlugs().filter((slug) => slug !== currentSlug);
-    if (!list.length) {
-      setState({ loading: false, items: [] });
-      return;
-    }
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const url = new URL("/api/products/lookup", window.location.origin);
-        url.searchParams.set("slugs", list.join(","));
-        url.searchParams.set("limit", "8");
-        const res = await fetch(url.toString(), {
-          signal: controller.signal,
-          headers: { accept: "application/json" },
-        });
-        if (!res.ok) throw new Error("Failed to load recently viewed");
-        const json = (await res.json()) as { ok: boolean; items: ProductGridItem[] };
-        if (controller.signal.aborted) return;
-        setState({ loading: false, items: Array.isArray(json.items) ? json.items : [] });
-      } catch {
-        if (!controller.signal.aborted) setState({ loading: false, items: [] });
-      }
-    })();
-    return () => controller.abort();
-  }, [currentSlug]);
-
-  if (loading || items.length === 0) return null;
-
-  return (
-    <section className="space-y-4">
-      <h2 className="text-xl font-semibold text-fg">Вы недавно смотрели</h2>
-      <ProductGrid items={items} wrapWithContainer={false} />
-    </section>
   );
 }
 
@@ -453,7 +480,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
             images={gallery}
             fallbackImage={product.fallbackImage}
             activeImage={activeImage}
-            onActiveChange={(_, idx) => handleGalleryChange(gallery[idx] ?? product.fallbackImage)}
+            onActiveChangeAction={(_, idx) => handleGalleryChange(gallery[idx] ?? product.fallbackImage)}
           />
         </div>
 
@@ -567,64 +594,26 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-muted">Цена</div>
-                <div className="text-3xl font-semibold text-fg">{formattedPrice}</div>
-              </div>
-              <AddToCartButton
-                productId={product.id}
-                title={product.title}
-                label="Добавить в корзину"
-                className="h-12 rounded-full px-6 text-sm font-semibold"
-                quantity={1}
-                analyticsParams={{
-                  product_id: product.id,
-                  slug: product.slug,
-                  price: finalPrice,
-                  variant: variantLabel ?? undefined,
-                  dataset: product.dataset,
-                }}
-              />
-              {admin.isAdmin ? (
-                <TrackClickButton productId={product.id} dataset={product.dataset} />
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {PAYMENT_METHODS.map((method) => (
-                <div
-                  key={method}
-                  className="flex items-center gap-3 rounded-2xl border border-border/30 bg-card/80 px-3 py-2 text-sm text-fg/90"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    {method.slice(0, 2)}
-                  </span>
-                  <span>{method}</span>
-                </div>
-              ))}
-            </div>
+            <ProductActionPanel
+              productId={product.id}
+              title={product.title}
+              formattedPrice={formattedPrice}
+              finalPrice={finalPrice}
+              dataset={product.dataset}
+              variantLabel={variantLabel}
+              onAddAction={onAdd}
+              analyticsParams={{
+                product_id: product.id,
+                slug: product.slug,
+                variant: variantLabel ?? undefined,
+                dataset: product.dataset,
+              }}
+              isAdmin={admin.isAdmin}
+              paymentMethods={PAYMENT_METHODS}
+            />
           </div>
 
-          <div className="space-y-3 rounded-3xl border border-border/40 bg-card/70 p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-muted">Мы заботимся о вас</h3>
-            <ul className="space-y-3">
-              {TRUST_POINTS.map((point) => (
-                <li key={point.title} className="flex items-center gap-3 text-sm text-fg/90">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    {point.icon}
-                  </span>
-                  <span>{point.title}</span>
-                </li>
-              ))}
-            </ul>
-            {admin.isAdmin ? (
-              <div className="rounded-2xl border border-dashed border-border/50 bg-card/80 px-4 py-3 text-xs text-muted-foreground">
-                <div>Clicks: <span className="font-semibold text-fg">{admin.clicks}</span></div>
-                <div>Impressions: <span className="font-semibold text-fg">{admin.impressions}</span></div>
-              </div>
-            ) : null}
-          </div>
+          <TrustPanel isAdmin={admin.isAdmin} clicks={admin.clicks} impressions={admin.impressions} />
         </aside>
       </div>
 
@@ -668,3 +657,4 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     </div>
   );
 }
+

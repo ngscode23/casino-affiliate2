@@ -6,8 +6,8 @@ import { OrdersClient } from "./orders-client";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Мои заказы",
-  description: "История заказов и управление платежами.",
+  title: "Order History",
+  description: "Review and manage your previous purchases.",
 };
 
 export default async function AccountOrdersPage() {

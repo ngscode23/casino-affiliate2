@@ -5,11 +5,7 @@ import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartpho
 import dynamic from "next/dynamic";
 import type { LucideIcon } from "lucide-react";
 
-import { ProductSkeleton } from "@/components/ProductGrid";
-const ProductGrid = dynamic(() => import("@/components/ProductGrid").then(m => m.ProductGrid), {
-  ssr: false,
-  loading: () => null,
-});
+import { ProductGrid, ProductSkeleton, PRODUCT_GRID_LAYOUTS } from "@/components/ProductGrid";
 import type { Product } from "./types";
 import { formatPrice } from "./utils";
 const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
@@ -24,7 +20,7 @@ type FiltersState = {
   layout: LayoutMode;
 };
 
-const CHUNK_SIZE = 14;
+const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
 
 const DATASET_DESCRIPTORS: Record<FiltersState["dataset"], { label: string; icon: LucideIcon }> = {
   all: { label: "All products", icon: Sparkles },
@@ -53,12 +49,10 @@ function datasetLabel(dataset: FiltersState["dataset"] | Product["dataset"]): st
   return "All products";
 }
 
-const GRID_LAYOUT_DEFAULT = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8";
-
 const skeletonLayoutClass: Record<LayoutMode, string> = {
-  single: "grid grid-cols-1 gap-6 sm:gap-8 lg:gap-10",
-  masonry: GRID_LAYOUT_DEFAULT,
-  grid: GRID_LAYOUT_DEFAULT,
+  single: PRODUCT_GRID_LAYOUTS.single,
+  masonry: PRODUCT_GRID_LAYOUTS.masonry,
+  grid: PRODUCT_GRID_LAYOUTS.grid,
 };
 
 const skeletonItemWrapperClass: Record<LayoutMode, string> = {
@@ -83,8 +77,10 @@ export default function ProductsClient({
     sort: "recent",
     layout: initialLayout,
   });
+  const [queryInput, setQueryInput] = useState(normalizedInitialQuery);
   const [visible, setVisible] = useState(CHUNK_SIZE);
-  const [hydrated, setHydrated] = useState(false);
+  // Render real grid on SSR; skeleton only during transitions
+  const [hydrated] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -170,15 +166,14 @@ export default function ProductsClient({
   }, [displayed.length, numberFormatter, products.length, totals.clicks, totals.impressions]);
 
   useEffect(() => {
+    setQueryInput(normalizedInitialQuery);
     setFilters((prev) => {
       if (prev.query === normalizedInitialQuery) return prev;
       return { ...prev, query: normalizedInitialQuery };
     });
   }, [normalizedInitialQuery]);
 
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  // no-op; hydrated starts as true to avoid SSR skeleton
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -236,13 +231,21 @@ export default function ProductsClient({
     window.history.replaceState(null, "", nextUrl);
   }, []);
 
-  const handleQueryChange = useCallback(
-    (value: string) => {
-      updateFilters((prev) => ({ ...prev, query: value }));
-      updateUrlQuery(value);
-    },
-    [updateFilters, updateUrlQuery],
-  );
+  useEffect(() => {
+    if (queryInput === filters.query) return;
+    const timeout = window.setTimeout(() => {
+      updateFilters((prev) => {
+        if (prev.query === queryInput) return prev;
+        return { ...prev, query: queryInput };
+      });
+      updateUrlQuery(queryInput);
+    }, 180);
+    return () => window.clearTimeout(timeout);
+  }, [filters.query, queryInput, updateFilters, updateUrlQuery]);
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQueryInput(value);
+  }, []);
 
   const handleDatasetChange = useCallback(
     (value: FiltersState["dataset"]) => {
@@ -270,9 +273,9 @@ export default function ProductsClient({
 
   const resetFilters = useCallback(() => {
     scrollToTop();
-    updateUrlQuery("");
+    setQueryInput("");
     updateFilters(() => ({ query: "", dataset: "all", sort: "recent", layout: initialLayout }));
-  }, [initialLayout, scrollToTop, updateFilters, updateUrlQuery]);
+  }, [initialLayout, scrollToTop, updateFilters]);
 
   const gridItems = useMemo(
     () =>
@@ -299,7 +302,7 @@ export default function ProductsClient({
     [displayed, numberFormatter],
   );
 
-  const showSkeleton = !hydrated || isPending;
+  const showSkeleton = isPending;
   const skeletonCount = showSkeleton ? Math.max(displayed.length, 8) : 0;
   const layoutMode: LayoutMode = filters.layout;
   const datasetLabelText = filters.dataset === "all" ? "All products" : datasetLabel(filters.dataset);
@@ -323,12 +326,12 @@ export default function ProductsClient({
 
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Search</span>
+              <label htmlFor="products-query" className="text-xs font-semibold uppercase tracking-wide text-muted">Search</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <input
                   id="products-query"
-                  value={filters.query}
+                  value={queryInput}
                   onChange={(event) => handleQueryChange(event.currentTarget.value)}
                   placeholder="Search products"
                   className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
@@ -352,7 +355,7 @@ export default function ProductsClient({
             />
 
             <section className="flex flex-col gap-2">
-              <span className="text-sm font-semibold text-fg">Sort by</span>
+              <label htmlFor="products-sort" className="text-sm font-semibold text-fg">Sort by</label>
               <div className="relative">
                 <select
                   id="products-sort"

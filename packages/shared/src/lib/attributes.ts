@@ -2,13 +2,28 @@
 import { supabase } from '@shared/lib/supabase';
 import type { AttributeRegistryItem, AttributeValueMap, ProductAttributeRow } from '@casino-affiliate/types';
 
+let __registryCache: { data: AttributeRegistryItem[]; ts: number } | null = null;
+const REGISTRY_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function fetchAttributeRegistry(): Promise<AttributeRegistryItem[]> {
-  const { data, error } = await supabase
-    .from('attributes_registry')
-    .select('*')
-    .order('key', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as AttributeRegistryItem[];
+  const now = Date.now();
+  if (__registryCache && now - __registryCache.ts < REGISTRY_TTL_MS) {
+    return __registryCache.data;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('attributes_registry')
+      .select('*')
+      .order('key', { ascending: true });
+    if (error) throw error;
+    const list = (data ?? []) as AttributeRegistryItem[];
+    __registryCache = { data: list, ts: now };
+    return list;
+  } catch {
+    // On failure, do not throw repeatedly; keep cache empty but set timestamp to avoid tight loops
+    __registryCache = { data: [], ts: now };
+    return [];
+  }
 }
 
 export async function fetchProductAttributes(productIds?: (string | number)[], keys?: string[]): Promise<ProductAttributeRow[]> {

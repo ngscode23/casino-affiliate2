@@ -2,6 +2,19 @@
 
 export type JsonLd = Record<string, unknown>;
 
+/**
+ * Convert JSON-LD payload into a string safe for embedding inside <script> tags.
+ * Escapes characters that could prematurely close the tag or introduce HTML.
+ */
+export function serializeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")
+    .replace(/&/g, "\\u0026");
+}
+
 // Хелпер для абсолютных ссылок
 function abs(baseUrl: string, u: string) {
   try {
@@ -22,7 +35,7 @@ export function injectJsonLd(id: string, data: Record<string, unknown>) {
   const script = document.createElement("script");
   script.type = "application/ld+json";
   script.id = id;
-  script.text = JSON.stringify(data);
+  script.text = serializeJsonLd(data);
   document.head.appendChild(script);
 }
 
@@ -40,7 +53,7 @@ export function upsertJsonLd(id: string, data: JsonLd): () => void {
     head.appendChild(el);
   }
 
-  el.text = JSON.stringify(data);
+  el.text = serializeJsonLd(data);
 
   return () => {
     const n = document.getElementById(id);

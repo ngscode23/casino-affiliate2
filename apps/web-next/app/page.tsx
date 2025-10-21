@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ProductGrid, type ProductGridItem } from "@/components/ProductGrid";
 import { HeroSliderClient } from "@/components/hero-slider-client";
 import type { HeroSlide } from "@/components/hero-slider";
+import { serializeJsonLd } from "@shared/lib/jsonld";
 import { createClient } from "@/utils/supabase/server";
 import { loadProductsData } from "./products/data";
 import type { Product } from "./products/types";
@@ -30,7 +31,7 @@ export default async function HomePage() {
         <script
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
         />
       ) : null}
 

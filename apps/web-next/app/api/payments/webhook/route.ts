@@ -1,4 +1,4 @@
-import { json } from "../../orders/utils";
+import { json as jsonResponse } from "../../orders/utils";
 import { getAdminClient } from "@/utils/supabase/admin";
 import {
   ensureStripe,
@@ -13,11 +13,19 @@ import {
 import type Stripe from "stripe";
 import { notifyPayment } from "../notify";
 import { emitPaymentMetric, recordWebhookLog, type WebhookLogStatus } from "../observability";
+import { resetOrdersCache } from "@shared/sdk/ordersClient";
 
 const ORDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MUTABLE_STATUSES = ["pending", "failed"];
 
 export const runtime = "nodejs";
+
+function json(body: unknown, status = 200) {
+  if (status < 400) {
+    resetOrdersCache();
+  }
+  return jsonResponse(body, status);
+}
 
 function extractOrderId(intent: Stripe.PaymentIntent): string | null {
   const value = intent.metadata?.order_id || intent.metadata?.orderId || "";

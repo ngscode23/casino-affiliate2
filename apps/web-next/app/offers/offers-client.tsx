@@ -13,17 +13,19 @@ import { useT } from "@shared/lib/useT";
 import Skeleton from "@ui/components/common/skeleton";
 import { toast } from "@ui/components/common/toast";
 
-import OfferListFeature from "@shared/features/offers/components/OfferListFeature";
+import dynamic from "next/dynamic";
+const OfferListFeature = dynamic(() => import("@shared/features/offers/components/OfferListFeature"), { ssr: false });
 import { useOffers } from "@shared/features/offers/api/useOffers";
 import { getOffersPaged } from "@shared/features/offers/api/getOffersPaged";
 import type { OffersFilterState } from "@shared/features/offers/components/OfferFiltersFeature";
 import { fetchAttributeRegistry, fetchProductAttributes, toValueMap } from "@shared/lib/attributes";
 import type { AttributeRegistryItem } from "@casino-affiliate/types/attributes";
-import FiltersBuilder from "@ui/builders/FiltersBuilder";
+const FiltersBuilder = dynamic(() => import("@ui/builders/FiltersBuilder"), { ssr: false });
 import { supabase } from "@shared/lib/supabase";
 
 import { getRecent, clearRecent } from "@shared/lib/recent";
 import { offersNormalized, type NormalizedOffer } from "@shared/lib/offers";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 export default function OffersIndex() {
   const t = useT();
@@ -45,7 +47,7 @@ export default function OffersIndex() {
       if (!v) continue;
       if (k === "page" || k === "limit" || k === "offset") continue;
       if (k === "q" || k === "license") {
-        obj[k] = v;
+        obj[k] = k === "q" ? sanitizeSearchParam(v) : v;
         continue;
       }
       if (k === "sort") {
@@ -150,17 +152,35 @@ export default function OffersIndex() {
   }, [filters, pathname, router, searchString]);
 
 
-  // Load attribute registry and values for current page (client-side attr-filter support)
+  // Load attribute registry after initial paint (idle), чтобы не блокировать LCP
   useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const meta = await fetchAttributeRegistry();
-        if (!active) return;
-        setAttrMeta(meta);
-      } catch { /* noop */ }
-    })();
-    return () => { active = false; };
+    const run = () => {
+      (async () => {
+        try {
+          const meta = await fetchAttributeRegistry();
+          if (!active) return;
+          setAttrMeta(meta);
+        } catch { /* noop */ }
+      })();
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = (window as any).requestIdleCallback(run, { timeout: 1200 });
+      return () => {
+        active = false;
+        (window as any).cancelIdleCallback?.(id);
+      };
+    }
+    if (typeof window !== "undefined") {
+      const id = setTimeout(run, 300);
+      return () => {
+        active = false;
+        clearTimeout(id);
+      };
+    }
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Resolve numeric product IDs for current page and fetch their attributes (no slug in product_id)
@@ -189,9 +209,18 @@ export default function OffersIndex() {
         setSlugToId(map);
         const ids = Object.values(map);
         if (ids.length) {
-          const rows = await fetchProductAttributes(ids as any);
-          if (!active) return;
-          setAttrValues(toValueMap(rows));
+          const hydrate = async () => {
+            try {
+              const rows = await fetchProductAttributes(ids as any);
+              if (!active) return;
+              setAttrValues(toValueMap(rows));
+            } catch { /* noop */ }
+          };
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(hydrate, { timeout: 1500 });
+          } else {
+            setTimeout(hydrate, 400);
+          }
         } else {
           setAttrValues({});
         }

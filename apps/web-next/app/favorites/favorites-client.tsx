@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Share2 } from "lucide-react";
 
-import Script from "next/script";
 import PageShell from "@ui/components/ui/PageShell";
 import SectionCard from "@ui/components/ui/SectionCard";
 import { ButtonGhost, ButtonPrimary } from "@ui/components/ui/Buttons";
@@ -14,6 +13,7 @@ import { offersNormalized, type NormalizedOffer } from "@shared/lib/offers";
 import { useFavorites } from "@shared/lib/useFavorites";
 import { useOffers } from "@shared/features/offers/api/useOffers";
 import { SITE_URL } from "@shared/config";
+import { serializeJsonLd } from "@shared/lib/jsonld";
 import { useT } from "@shared/lib/useT";
 import { toast } from "@ui/components/common/toast";
 
@@ -165,13 +165,13 @@ export default function FavoritesPageClient() {
 
   return (
     <>
-  <script
-    id="favorites-jsonld"
-    type="application/ld+json"
-    suppressHydrationWarning
-    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-  />
-  <PageShell>
+      <script
+        id="favorites-jsonld"
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
+      <PageShell>
     <h1 className="mb-4 text-3xl font-semibold tracking-tight sm:text-4xl">
       {t('nav.favorites') ?? 'Favorites'}
     </h1>

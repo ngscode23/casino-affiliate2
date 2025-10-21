@@ -1195,30 +1195,6 @@ export type Database = {
           },
         ]
       }
-      review_votes: {
-        Row: {
-          created_at: string
-          product_id: string
-          review_author_id: string
-          value: number
-          voter_id: string
-        }
-        Insert: {
-          created_at?: string
-          product_id: string
-          review_author_id: string
-          value: number
-          voter_id: string
-        }
-        Update: {
-          created_at?: string
-          product_id?: string
-          review_author_id?: string
-          value?: number
-          voter_id?: string
-        }
-        Relationships: []
-      }
       products: {
         Row: {
           category_slug: string | null
@@ -1371,6 +1347,30 @@ export type Database = {
           ip_hash?: string
           last_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      review_votes: {
+        Row: {
+          created_at: string
+          product_id: string
+          review_author_id: string
+          value: number
+          voter_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_id: string
+          review_author_id: string
+          value: number
+          voter_id: string
+        }
+        Update: {
+          created_at?: string
+          product_id?: string
+          review_author_id?: string
+          value?: number
+          voter_id?: string
         }
         Relationships: []
       }
@@ -1876,16 +1876,16 @@ export type Database = {
           livemode: boolean
           mismatch_reason: string | null
           mode: string | null
-          notified_desync: boolean | null
-          notified_failed: boolean | null
-          notified_refunded: boolean | null
-          notified_requires_action: boolean | null
-          notified_succeeded: boolean | null
+          notified_desync: boolean
+          notified_failed: boolean
+          notified_refunded: boolean
+          notified_requires_action: boolean
+          notified_succeeded: boolean
           processing_error: string | null
           processing_state: string | null
+          raw: Json | null
           stripe_amount_cents: number | null
           stripe_currency: string | null
-          raw: Json | null
           type: string
         }
         Insert: {
@@ -1899,16 +1899,16 @@ export type Database = {
           livemode: boolean
           mismatch_reason?: string | null
           mode?: string | null
-          notified_desync?: boolean | null
-          notified_failed?: boolean | null
-          notified_refunded?: boolean | null
-          notified_requires_action?: boolean | null
-          notified_succeeded?: boolean | null
+          notified_desync?: boolean
+          notified_failed?: boolean
+          notified_refunded?: boolean
+          notified_requires_action?: boolean
+          notified_succeeded?: boolean
           processing_error?: string | null
           processing_state?: string | null
+          raw?: Json | null
           stripe_amount_cents?: number | null
           stripe_currency?: string | null
-          raw?: Json | null
           type: string
         }
         Update: {
@@ -1922,16 +1922,16 @@ export type Database = {
           livemode?: boolean
           mismatch_reason?: string | null
           mode?: string | null
-          notified_desync?: boolean | null
-          notified_failed?: boolean | null
-          notified_refunded?: boolean | null
-          notified_requires_action?: boolean | null
-          notified_succeeded?: boolean | null
+          notified_desync?: boolean
+          notified_failed?: boolean
+          notified_refunded?: boolean
+          notified_requires_action?: boolean
+          notified_succeeded?: boolean
           processing_error?: string | null
           processing_state?: string | null
+          raw?: Json | null
           stripe_amount_cents?: number | null
           stripe_currency?: string | null
-          raw?: Json | null
           type?: string
         }
         Relationships: []
@@ -2029,6 +2029,42 @@ export type Database = {
         Update: {
           coalesce?: boolean | null
           id?: number
+        }
+        Relationships: []
+      }
+      webhook_logs_app: {
+        Row: {
+          created_at: string
+          error: Json | null
+          event_id: string | null
+          event_type: string | null
+          http_status: number | null
+          id: string
+          log_status: string
+          message: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: Json | null
+          event_id?: string | null
+          event_type?: string | null
+          http_status?: number | null
+          id?: string
+          log_status?: string
+          message?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: Json | null
+          event_id?: string | null
+          event_type?: string | null
+          http_status?: number | null
+          id?: string
+          log_status?: string
+          message?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -2521,49 +2557,12 @@ export type Database = {
           request_headers: Json | null
           response_body: Json | null
           response_headers: Json | null
-          log_status: string | null
           source: string | null
           status: number | null
           type: string | null
           url: string | null
           webhook_id: string | null
           webhook_mode: string | null
-        }
-        Relationships: []
-      }
-      webhook_logs_app: {
-        Row: {
-          created_at: string
-          error: Json | null
-          event_id: string | null
-          event_type: string
-          http_status: number | null
-          id: string
-          log_status: string
-          message: string | null
-          source: string | null
-        }
-        Insert: {
-          created_at?: string
-          error?: Json | null
-          event_id?: string | null
-          event_type: string
-          http_status?: number | null
-          id?: string
-          log_status?: string
-          message?: string | null
-          source?: string | null
-        }
-        Update: {
-          created_at?: string
-          error?: Json | null
-          event_id?: string | null
-          event_type?: string
-          http_status?: number | null
-          id?: string
-          log_status?: string
-          message?: string | null
-          source?: string | null
         }
         Relationships: []
       }
@@ -2588,7 +2587,7 @@ export type Database = {
               to_status: Database["public"]["Enums"]["order_status"]
             }
           | { p_from: string; p_to: string }
-        Returns: boolean
+        Returns: undefined
       }
       _order_validate_transition: {
         Args: {
@@ -2641,6 +2640,10 @@ export type Database = {
         Args: { event: Json }
         Returns: undefined
       }
+      apply_successful_payment: {
+        Args: { p_order: string }
+        Returns: undefined
+      }
       cart_add_item: {
         Args: { p_product_id: string; p_qty: number; p_user_id: string }
         Returns: undefined
@@ -2678,6 +2681,7 @@ export type Database = {
           metadata_b: Json | null
           paid_at: string | null
           payment_intent_id: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
           shipping_total: number
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -2776,6 +2780,10 @@ export type Database = {
           units_sold: number
         }[]
       }
+      get_product_rating_stats: {
+        Args: { p_product_id: string }
+        Returns: Json
+      }
       insert_product_impression: {
         Args: {
           p_ip?: unknown
@@ -2830,6 +2838,10 @@ export type Database = {
           | { p_params?: Json; p_product_id: string; p_referrer?: string }
           | { p_params?: Json; p_referrer?: string; p_slug: string }
         Returns: undefined
+      }
+      mark_orders_as_sim: {
+        Args: { p_mark?: boolean; p_order_ids: string[] }
+        Returns: number
       }
       meta_columns: {
         Args: { schemas?: string[]; tbl?: string }
@@ -2898,15 +2910,25 @@ export type Database = {
         Args:
           | { p_currency?: string; p_items: Json; p_user_id: string }
           | { payload: Json }
-        Returns: string
+        Returns: {
+          order_id: string
+        }[]
       }
-      purge_webhook_logs: {
-        Args: { cutoff_ts?: string }
-        Returns: number
+      purge_hanging_orders: {
+        Args: { p_cutoff?: string; p_dry_run?: boolean }
+        Returns: {
+          order_id: string
+          reason: string
+          removed: boolean
+        }[]
       }
       purge_processed_events: {
         Args: { cutoff_ts?: string }
         Returns: undefined
+      }
+      purge_webhook_logs: {
+        Args: { cutoff_ts?: string }
+        Returns: number
       }
       recalc_order_totals: {
         Args: { p_order_id: string }

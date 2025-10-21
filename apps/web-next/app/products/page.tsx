@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ProductsClient from "./products-client";
 import { loadProductsData } from "./data";
+import { serializeJsonLd } from "@shared/lib/jsonld";
 
 export const metadata: Metadata = {
   title: "Product catalog - Neon Shop",
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function ProductsPage({
   searchParams,
@@ -49,7 +50,7 @@ export default async function ProductsPage({
         <script
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
         />
       ) : null}
       <section>

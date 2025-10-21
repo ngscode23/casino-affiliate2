@@ -1,7 +1,7 @@
 import type { ProductData } from "@/app/products/[slug]/data";
 import { formatCurrency } from "@/app/products/[slug]/data";
 import { SITE_NAME, SITE_URL } from "@shared/config";
-import { makeBreadcrumbsLD } from "@shared/lib/jsonld";
+import { makeBreadcrumbsLD, serializeJsonLd } from "@shared/lib/jsonld";
 
 type Breadcrumb = { name: string; url: string };
 
@@ -97,11 +97,11 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbsJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbsJsonLd) }}
       />
       <div itemScope itemType="https://schema.org/Product" className="hidden">
         <meta itemProp="name" content={product.title} />

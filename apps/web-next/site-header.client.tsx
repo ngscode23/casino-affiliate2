@@ -7,6 +7,7 @@ import { siteConfig } from "../lib/site-config";
 import { useCart } from "@shared/ecom/lib/cart";
 import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import ThemeToggle from "@ui/components/ThemeToggle";
 import LanguageSwitcher from "@ui/components/layout/LanguageSwitcher";
 
@@ -34,7 +35,7 @@ export function SiteHeaderClient() {
   const { totalQty } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const searchQuery = searchParams?.get("q") ?? "";
+  const searchQuery = sanitizeSearchParam(searchParams?.get("q"));
   const items = useMemo<NavItem[]>(() => siteConfig.nav, []);
 
   const translate = (key: string, fallback: string) => {
@@ -97,6 +98,7 @@ export function SiteHeaderClient() {
       <Link
         key={item.href}
         href={withLang(item.href, lang)}
+        prefetch={false}
         onClick={() => setMenuOpen(false)}
         className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
       >
@@ -143,6 +145,7 @@ export function SiteHeaderClient() {
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:px-6 lg:h-20 lg:px-8">
         <Link
           href={withLang("/", lang)}
+          prefetch={false}
           className="flex items-center gap-3 rounded-full border border-border/40 bg-card/80 px-4 py-2 text-sm font-semibold text-fg transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-base font-bold text-primary">
@@ -159,6 +162,7 @@ export function SiteHeaderClient() {
         <div className="ml-auto flex items-center gap-2">
           <Link
             href={withLang("/cart", lang)}
+            prefetch={false}
             className="hidden items-center gap-2 rounded-full border border-border/40 bg-card/70 px-3 py-2 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg lg:inline-flex"
           >
             <span>{cartLabel}</span>
@@ -195,6 +199,7 @@ export function SiteHeaderClient() {
         </nav>
         <Link
           href={withLang("/cart", lang)}
+          prefetch={false}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow-[0_20px_48px_-30px_rgba(252,50,114,0.52)] transition hover:-translate-y-[1px]"
         >
           <span>{cartLabel}</span>
@@ -214,6 +219,7 @@ export function SiteHeaderClient() {
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={withLang("/cart", lang)}
+                prefetch={false}
                 onClick={() => setMenuOpen(false)}
                 className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-primary/50 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-32px_rgba(252,50,114,0.38)] transition hover:-translate-y-[1px]"
               >

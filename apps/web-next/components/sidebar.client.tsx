@@ -7,6 +7,7 @@ import { useCart } from "@shared/ecom/lib/cart";
 import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
 import { cn } from "@shared/lib/cn";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import ThemeToggle from "@ui/components/ThemeToggle";
 import LanguageSwitcher from "@ui/components/layout/LanguageSwitcher";
 
@@ -71,7 +72,7 @@ export function SidebarClient({
   const t = useT();
   const { totalQty, subtotal } = useCart();
 
-  const searchQuery = searchParams?.get("q") ?? "";
+  const searchQuery = sanitizeSearchParam(searchParams?.get("q"));
   const items = useMemo(() => navItems, [navItems]);
   const brandTagline = tagline ?? brand.tagline;
 

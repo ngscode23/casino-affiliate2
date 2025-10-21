@@ -11,6 +11,18 @@ import cn from "@shared/lib/cn";
 
 type Variant = "solid" | "overlay" | "soft";
 
+function scheduleIdle(callback: () => void) {
+  if (typeof window === "undefined") return;
+  const win = window as typeof window & {
+    requestIdleCallback?: (cb: IdleRequestCallback, options?: IdleRequestOptions) => number;
+  };
+  if (typeof win.requestIdleCallback === "function") {
+    win.requestIdleCallback(() => callback(), { timeout: 1200 });
+    return;
+  }
+  setTimeout(callback, 0);
+}
+
 type AddToCartButtonProps = {
   productId: string;
   title?: string;
@@ -48,15 +60,17 @@ export default function AddToCartButton({
         const name = (title ?? "").trim() || "Product";
         toast(`${name} added to cart`, { variant: "success" });
         try {
-          const payload = {
-            product_id: productId,
-            qty: quantity,
-            ...analyticsParams,
-          };
+        const payload = {
+          product_id: productId,
+          qty: quantity,
+          ...analyticsParams,
+        };
+        scheduleIdle(() => {
           track({ name: analyticsEventName, params: payload });
-        } catch {
-          /* noop */
-        }
+        });
+      } catch {
+        /* noop */
+      }
         onAddAction?.();
       } finally {
         setTimeout(() => setPending(false), 400);

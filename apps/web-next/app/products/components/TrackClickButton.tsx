@@ -11,16 +11,38 @@ export default function TrackClickButton({
 }) {
   const [loading, setLoading] = useState(false);
 
-  async function onClick() {
-    try {
-      setLoading(true);
-      await fetch("/api/track/click", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(attachUtm({ product_id: productId, dataset })),
-      });
-    } finally {
-      setLoading(false);
+  function onClick() {
+    if (loading) return;
+    setLoading(true);
+    const payload = attachUtm({ product_id: productId, dataset });
+
+    const win = window as typeof window & {
+      requestIdleCallback?: (cb: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const send = async () => {
+      try {
+        await fetch("/api/track/click", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        /* noop */
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (typeof win.requestIdleCallback === "function") {
+      const handle = win.requestIdleCallback(send, { timeout: 2000 });
+      setTimeout(() => {
+        win.cancelIdleCallback?.(handle);
+        send();
+      }, 2100);
+    } else {
+      setTimeout(send, 50);
     }
   }
 

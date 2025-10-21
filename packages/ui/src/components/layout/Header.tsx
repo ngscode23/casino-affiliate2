@@ -15,6 +15,7 @@ import categories from "@shared/ecom/data/categories";
 import { useCart } from "@shared/ecom/lib/cart";
 import ThemeToggle from "@ui/components/ThemeToggle";
 import { getUser } from "@shared/lib/auth";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 export default function Header() {
   const t = useT();
@@ -63,6 +64,14 @@ export default function Header() {
     if (isLoggedIn) base.splice(2, 0, { to: "/account/orders", label: "Мои заказы" });
     return base;
   }, [isLoggedIn, t]);
+
+  const initialQuery = useMemo(() => {
+    try {
+      return sanitizeSearchParam(new URLSearchParams(location.search).get("q"));
+    } catch {
+      return "";
+    }
+  }, [location.search]);
 
   function onSearchSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -114,7 +123,7 @@ export default function Header() {
                 type="search"
                 placeholder="Search products…"
                 className="flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--ui-accent-20)] dark:border-white/15"
-                defaultValue={new URLSearchParams(location.search).get("q") || ""}
+                defaultValue={initialQuery}
               />
               <button
                 type="submit"

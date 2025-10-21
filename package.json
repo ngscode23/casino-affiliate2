@@ -12,7 +12,8 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "prepare": "husky",
-    "gen:db:types": "node scripts/gen-db-types.mjs"
+    "gen:db:types": "node scripts/gen-db-types.mjs",
+    "audit:lighthouse": "node ./scripts/run-lighthouse.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
@@ -28,14 +29,17 @@
     "codex": "^0.2.3",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-no-unsanitized": "^4.1.4",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.8",
     "eslint-visitor-keys": "4.2.1",
     "fast-glob": "^3.3.3",
     "husky": "^9.1.7",
     "ignore": "^7.0.5",
+    "lighthouse": "^13.0.0",
     "lightningcss": "^1.27.0",
     "openai": "^5.23.2",
+    "playwright": "^1.56.1",
     "puppeteer": "^24.23.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",

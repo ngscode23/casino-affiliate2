@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { listOrders, getOrder, getProductsByIds, confirmPayment, cancelOrder } from "@shared/ecom/api/client";
 import { toast } from "sonner";
 import { useAuthState } from "@shared/lib/authStore";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -63,7 +64,7 @@ export default function OrderHistory() {
   // Инициализация из URL
   useEffect(() => {
     const s = searchParams.get("status") || "";
-    const q0 = searchParams.get("q") || "";
+    const q0 = sanitizeSearchParam(searchParams.get("q"));
     const sort0 = searchParams.get("sort") || "created_at desc";
     const p0 = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
     const ps0 = Math.max(1, parseInt(searchParams.get("page_size") || "10", 10) || 10);

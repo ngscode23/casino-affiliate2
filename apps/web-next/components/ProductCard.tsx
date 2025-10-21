@@ -102,8 +102,7 @@ function BaseProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={href}
-      prefetch
-      aria-label={`View ${title} for ${priceLabel}`}
+      prefetch={false}
       className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       <article className="surface relative flex h-full flex-col rounded-[calc(var(--radius)+0.75rem)] shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
@@ -168,7 +167,7 @@ function BaseProductCard({ product }: ProductCardProps) {
           <div className="mt-6 flex-1">
             <h2 className="text-xl font-semibold tracking-tight text-fg">{title}</h2>
             {product.description ? (
-              <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
+              <p className="mt-3 line-clamp-2 text-sm text-fg/80">{product.description}</p>
             ) : null}
           </div>
           <div className="mt-6 flex items-baseline justify-between gap-3 text-sm">

@@ -4,7 +4,8 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
-import AddToCartButton from "@/app/products/components/AddToCartButton";
+import dynamic from "next/dynamic";
+const AddToCartButton = dynamic(() => import("@/app/products/components/AddToCartButton"), { ssr: false, loading: () => null });
 import { cn } from "@shared/lib/cn";
 
 export type ProductGridItem = {
@@ -32,12 +33,11 @@ type ProductGridProps = {
 
 export const PRODUCT_GRID_CONTAINER = "max-w-screen-xl mx-auto px-6 sm:px-8 lg:px-10";
 const CONTAINER_BASE = PRODUCT_GRID_CONTAINER;
-const GRID_DEFAULT = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8";
 
-const layoutClasses: Record<LayoutMode, string> = {
+export const PRODUCT_GRID_LAYOUTS: Record<LayoutMode, string> = {
   single: "grid grid-cols-1 gap-6 sm:gap-8 lg:gap-10",
-  grid: GRID_DEFAULT,
-  masonry: GRID_DEFAULT,
+  grid: "grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 xl:gap-8",
+  masonry: "grid grid-cols-1 min-[340px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 xl:gap-7",
 };
 
 export function ProductGrid({
@@ -48,9 +48,13 @@ export function ProductGrid({
   containerClassName,
   wrapWithContainer = true,
 }: ProductGridProps) {
-  const gridClasses = layoutClasses[layout] ?? GRID_DEFAULT;
+  const gridClasses = PRODUCT_GRID_LAYOUTS[layout] ?? PRODUCT_GRID_LAYOUTS.grid;
   const grid = (
-    <div className={gridClasses} role="list">
+    <div
+      className={gridClasses}
+      role="list"
+      style={{ contentVisibility: 'auto' as any, containIntrinsicSize: '1200px' }}
+    >
       {items.map((product, index) => (
         <div key={product.id} className="h-full" role="listitem">
           <ProductCard
@@ -92,7 +96,7 @@ function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProp
   return (
     <article
       aria-label={product.title}
-      className="flex h-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card text-fg shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/30"
+      className="flex h-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card text-fg shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/30"
     >
       <Link
         href={href}
@@ -106,9 +110,11 @@ function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProp
               src={product.image}
               alt={product.title ?? ""}
               fill
-              loading="lazy"
-              sizes="(max-width: 768px) 50vw, (max-width: 1280px) 25vw, 20vw"
-              quality={85}
+              priority={index === 0}
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" as any : undefined}
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 25vw, 20vw"
+              quality={55}
               className="h-full w-full object-cover object-center transition duration-700 ease-out group-hover:scale-[1.04]"
               placeholder={product.image.startsWith("data:") ? "blur" : "empty"}
               blurDataURL={product.image.startsWith("data:") ? product.image : undefined}

@@ -1,4 +1,4 @@
-import { json } from "../../orders/utils";
+import { json as jsonResponse } from "../../orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import {
@@ -13,8 +13,16 @@ import {
 } from "../utils";
 import type Stripe from "stripe";
 import { emitPaymentMetric, recordWebhookLog } from "../observability";
+import { resetOrdersCache } from "@shared/sdk/ordersClient";
 
 const MUTABLE_STATUSES = ["pending", "failed", "paid", "refunded"];
+
+function json(body: unknown, status = 200) {
+  if (status < 400) {
+    resetOrdersCache();
+  }
+  return jsonResponse(body, status);
+}
 
 async function updateWithRetry(
   supabase: ReturnType<typeof getAdminClient>,

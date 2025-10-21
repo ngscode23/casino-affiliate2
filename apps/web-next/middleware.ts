@@ -32,6 +32,7 @@ if (
 
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "./utils/supabase/middleware";
+import { sanitizeSearchParam, isSanitized } from "@shared/lib/sanitize";
 
 const RAW_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -91,6 +92,10 @@ function requiresAuth(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  const unsafeRedirect = sanitizeRequestUrl(request);
+  if (unsafeRedirect) {
+    return unsafeRedirect;
+  }
   // 1) ????????? ?????? ????? ??? supabase-helper
   const response = await updateSession(request);
 
@@ -130,4 +135,24 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+
+function sanitizeRequestUrl(request: NextRequest): NextResponse | null {
+  const url = request.nextUrl.clone();
+  if (!url.search) return null;
+  let mutated = false;
+  for (const [key, value] of url.searchParams.entries()) {
+    const sanitized = sanitizeSearchParam(value);
+    if (!isSanitized(value, sanitized)) continue;
+    mutated = true;
+    if (sanitized) {
+      url.searchParams.set(key, sanitized);
+    } else {
+      url.searchParams.delete(key);
+    }
+  }
+  if (!mutated) return null;
+  url.hash = "";
+  return NextResponse.redirect(url, 302);
+}
+
 

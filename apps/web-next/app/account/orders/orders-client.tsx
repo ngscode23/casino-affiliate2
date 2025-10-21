@@ -15,6 +15,7 @@ import {
   listOrders,
   type OrderListItem,
 } from "@shared/ecom/api/client";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "All" },
@@ -111,7 +112,7 @@ export function OrdersClient() {
   const searchParams = useSearchParams();
 
   const statusParam = searchParams.get("status") ?? "";
-  const queryParam = searchParams.get("q") ?? "";
+  const queryParam = sanitizeSearchParam(searchParams.get("q"));
   const pageParam = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const pageSizeParam = Number.parseInt(searchParams.get("page_size") ?? "10", 10);
 

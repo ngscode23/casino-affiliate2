@@ -1,4 +1,4 @@
-import { json } from "../../orders/utils";
+import { json as jsonResponse } from "../../orders/utils";
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import {
@@ -11,8 +11,16 @@ import {
   type OrderRow,
 } from "../utils";
 import type Stripe from "stripe";
+import { resetOrdersCache } from "@shared/sdk/ordersClient";
 
 const ORDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function json(body: unknown, status = 200) {
+  if (status < 400) {
+    resetOrdersCache();
+  }
+  return jsonResponse(body, status);
+}
 
 export async function POST(request: Request) {
   try {

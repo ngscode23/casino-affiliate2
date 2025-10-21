@@ -516,6 +516,9 @@ export type OrderListItem = {
   id: string;
   created_at: string;
   amount_total: number;
+  amount_subtotal?: number;
+  amount_discounts?: number;
+  amount_tax?: number;
   currency: string;
   status: string;
   payment_status?: string | null;

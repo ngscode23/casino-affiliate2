@@ -32,7 +32,7 @@ export function SiteFooter() {
     }
 
     return (
-      <Link href={href} prefetch className="text-sm text-muted transition hover:text-primary">
+      <Link href={href} prefetch={false} className="text-sm text-muted transition hover:text-primary">
         {label}
       </Link>
     );
