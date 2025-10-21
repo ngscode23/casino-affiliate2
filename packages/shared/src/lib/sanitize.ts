@@ -2,6 +2,7 @@
 
 const JS_PROTOCOL = /^\s*javascript\s*:/i;
 const SCRIPT_TAG = /<\s*\/?\s*script[^>]*>/gi;
+// eslint-disable-next-line no-control-regex -- Intentionally strip ASCII control chars U+0000..U+001F and U+007F
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
 /**
