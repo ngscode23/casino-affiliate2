@@ -156,7 +156,7 @@ function isCompleteOrderRow(row: OrderRow): row is CompleteOrderRow {
 
 function mapOrderRow(row: CompleteOrderRow, paymentsIndex: Map<string, PaymentRow[]>): OrderListItem {
   const currency = normalizeCurrency(row.currency);
-  const paymentRows = paymentsIndex.get(row.id) ?? [];
+  const paymentRows = paymentsIndex.get("row.id") ?? [];
   const lastPayment = paymentRows[0];
   const subtotal = toNumber(row.amount_subtotal ?? row.amount_total);
   const discount = toNumber(row.amount_discounts);
