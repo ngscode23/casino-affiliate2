@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -113,16 +113,17 @@ export function OrdersClient() {
 
   const statusParam = searchParams.get("status") ?? "";
   const queryParam = sanitizeSearchParam(searchParams.get("q"));
-  const pageParam = Number.parseInt(searchParams.get("page") ?? "1", 10);
-  const pageSizeParam = Number.parseInt(searchParams.get("page_size") ?? "10", 10);
+  const cursorParam = searchParams.get("cursor");
+  const limitParam = Number.parseInt(searchParams.get("page_size") ?? searchParams.get("limit") ?? "10", 10);
 
-  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-  const pageSize = Number.isFinite(pageSizeParam) && pageSizeParam > 0 ? Math.min(pageSizeParam, 100) : 10;
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 10;
 
   const [statusFilter, setStatusFilter] = useState(statusParam);
   const [searchValue, setSearchValue] = useState(queryParam);
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -139,7 +140,7 @@ export function OrdersClient() {
   }, [queryParam]);
 
   const updateParams = useCallback(
-    (updates: Record<string, string | number | null | undefined>, { resetPage = false } = {}) => {
+    (updates: Record<string, string | number | null | undefined>, { resetCursor = false } = {}) => {
       const next = new URLSearchParams(searchParams?.toString() ?? "");
       Object.entries(updates).forEach(([key, value]) => {
         if (value === undefined || value === null || value === "") {
@@ -148,8 +149,8 @@ export function OrdersClient() {
           next.set(key, String(value));
         }
       });
-      if (resetPage) {
-        next.delete("page");
+      if (resetCursor) {
+        next.delete("cursor");
       }
       const search = next.toString();
       router.replace(search ? `?${search}` : "?", { scroll: false });
@@ -165,34 +166,38 @@ export function OrdersClient() {
         status: statusParam || undefined,
         q: queryParam || undefined,
         sort: "created_at desc",
-        page,
-        page_size: pageSize,
+        cursor: cursorParam || undefined,
+        page_size: limit,
       });
-      setOrders(response.items);
+      setOrders((prev) => {
+        if (!cursorParam) {
+          return response.items;
+        }
+        return [...prev, ...response.items];
+      });
       setTotal(response.count ?? response.items.length);
-      setExpanded({});
-      setDetails({});
+      setHasMore(Boolean(response.hasMore));
+      setNextCursor(response.nextCursor ?? null);
+      if (!cursorParam) {
+        setExpanded({});
+        setDetails({});
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message || "Не удалось загрузить заказы");
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, queryParam, statusParam]);
+  }, [cursorParam, limit, queryParam, statusParam]);
 
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
 
-  const totalPages = useMemo(() => {
-    if (!total) return 1;
-    return Math.max(1, Math.ceil(total / pageSize));
-  }, [total, pageSize]);
-
   const onSearchSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      updateParams({ q: searchValue || null }, { resetPage: true });
+      updateParams({ q: searchValue || null }, { resetCursor: true });
     },
     [searchValue, updateParams],
   );
@@ -201,26 +206,28 @@ export function OrdersClient() {
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const nextStatus = event.target.value;
       setStatusFilter(nextStatus);
-      updateParams({ status: nextStatus || null }, { resetPage: true });
+      updateParams({ status: nextStatus || null }, { resetCursor: true });
     },
     [updateParams],
   );
 
-  const onPageChange = useCallback(
-    (nextPage: number) => {
-      const clamped = Math.min(Math.max(1, nextPage), totalPages);
-      updateParams({ page: clamped }, {});
-    },
-    [totalPages, updateParams],
-  );
-
-  const onPageSizeChange = useCallback(
+  const onLimitChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const nextSize = Number.parseInt(event.target.value, 10) || 10;
-      updateParams({ page_size: nextSize }, { resetPage: true });
+      updateParams({ page_size: nextSize }, { resetCursor: true });
     },
     [updateParams],
   );
+
+  const onLoadMore = useCallback(() => {
+    if (nextCursor) {
+      updateParams({ cursor: nextCursor });
+    }
+  }, [nextCursor, updateParams]);
+
+  const onResetCursor = useCallback(() => {
+    updateParams({ cursor: null }, { resetCursor: true });
+  }, [updateParams]);
 
   const toggleOrder = useCallback(
     async (orderId: string) => {
@@ -347,12 +354,12 @@ export function OrdersClient() {
         </form>
         <div className="flex items-center gap-2">
           <label className="text-xs uppercase text-white/60" htmlFor="orders-page-size">
-            На странице
+            Лимит
           </label>
           <select
             id="orders-page-size"
-            value={String(pageSize)}
-            onChange={onPageSizeChange}
+            value={String(limit)}
+            onChange={onLimitChange}
             className="h-10 rounded-lg border border-white/10 bg-black/40 px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
           >
             {[10, 20, 50].map((size) => (
@@ -526,27 +533,32 @@ export function OrdersClient() {
       )}
 
       {orders.length > 0 ? (
-        <div className="mt-6 flex items-center justify-between text-xs text-white/60">
+        <div className="mt-6 flex flex-col gap-2 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            Страница {page} из {totalPages} • Всего {total}
+            Показано {orders.length} из {total}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              Назад
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Вперёд
-            </button>
+            {cursorParam ? (
+              <button
+                type="button"
+                className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
+                onClick={onResetCursor}
+              >
+                Сбросить пагинацию
+              </button>
+            ) : null}
+            {hasMore ? (
+              <button
+                type="button"
+                className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
+                onClick={onLoadMore}
+                disabled={!nextCursor}
+              >
+                Загрузить ещё
+              </button>
+            ) : (
+              <span className="text-white/40">Все заказы загружены</span>
+            )}
           </div>
         </div>
       ) : null}

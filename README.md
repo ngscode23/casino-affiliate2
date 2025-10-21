@@ -162,6 +162,75 @@ Acceptance
 ## Cron tasks
 - Schedule `/api/admin/maintenance/cleanup-clicks` (POST with `x-admin-token`) or call the `cleanup_clicks_before` RPC directly to purge old click data
 
+## Orders archive
+- Edge function `archive-orders` moves orders older than 120 days into `public.orders_archive` and writes a JSON snapshot to Supabase Storage (`ORDERS_ARCHIVE_BUCKET`, defaults to `orders-archive`). Every export is recorded in `public.orders_archive_export` with the storage URL and run id.
+- Weekly cron job (`archive_orders_weekly`) triggers the edge function every Monday at 03:00 UTC with payload `{ olderThanDays: 120, batchSize: 200 }`. Before applying the migration set vault secrets:
+  - `archive_orders_function_url` → `https://<project-ref>.functions.supabase.co/archive-orders`
+  - `archive_orders_service_role` → service role key with permission to call the function
+    ```bash
+    supabase secrets set --env prod \
+      archive_orders_function_url="https://YOUR-REF.functions.supabase.co/archive-orders" \
+      archive_orders_service_role="YOUR_SERVICE_ROLE_KEY"
+    ```
+- Rollback instructions (by run id):
+  1. Query `select * from public.orders_archive_export order by created_at desc limit 5;` to identify the `run_id` and storage path.
+  2. Download the JSON snapshot (`storage://{bucket}/{run_id}/orders.json`) and verify the payload.
+  3. Restore orders: run a transaction that inserts the base row and nested collections. Example:
+
+     ```sql
+     begin;
+
+     with archived as (
+       select * from public.orders_archive where archive_run_id = '00000000-0000-0000-0000-000000000000'
+     )
+     insert into public.orders (
+       id, user_id, status, payment_status, subtotal, discount_total, shipping_total,
+       grand_total, currency, created_at, paid_at, cancelled_at, checkout_metadata,
+       contact_email, metadata_b, amount_cents, payment_intent_id
+     )
+     select
+       id, user_id, status, payment_status, subtotal, discount_total, shipping_total,
+       grand_total, currency, created_at, paid_at, cancelled_at, checkout_metadata,
+       contact_email, metadata_b, amount_cents, payment_intent_id
+     from archived
+     on conflict (id) do update set
+       status = excluded.status,
+       payment_status = excluded.payment_status,
+       grand_total = excluded.grand_total,
+       amount_cents = excluded.amount_cents;
+
+     with archived as (
+       select id, archived_payload from public.orders_archive where archive_run_id = '00000000-0000-0000-0000-000000000000'
+     ),
+     items as (
+       select
+         archived.id as order_id,
+         jsonb_to_recordset(archived.archived_payload -> 'items') as item(
+           id uuid,
+           product_id uuid,
+           variant_id uuid,
+           title text,
+           qty int,
+           unit_price numeric,
+           total numeric,
+           meta jsonb
+         )
+       from archived
+     )
+     insert into public.order_items (id, order_id, product_id, variant_id, title, qty, unit_price, total, meta)
+     select item.id, order_id, item.product_id, item.variant_id, coalesce(item.title, ''), coalesce(item.qty, 0),
+       coalesce(item.unit_price, 0), coalesce(item.total, 0), item.meta
+     from items as item
+     on conflict (id) do nothing;
+
+     -- Repeat jsonb_to_recordset pattern for payments and refunds if needed
+
+     commit;
+     ```
+
+  4. Call `resetOrdersCache()` from the SDK (or redeploy API) so cached lists reflect the restored orders.
+- Keep the archive function service key scoped to this task and rotate periodically.
+
 ## Scripts
 - `pnpm --filter web-next dev`: local dev
 - `pnpm --filter web-next build`: production build

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -7,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { ProductGrid, ProductSkeleton, PRODUCT_GRID_LAYOUTS } from "@/components/ProductGrid";
 import type { Product } from "./types";
+import type { CategorySummary } from "./data";
 import { formatPrice } from "./utils";
 const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
 const LayoutPicker = dynamic(() => import("./filters/LayoutPicker"), { ssr: false });
@@ -18,6 +20,7 @@ type FiltersState = {
   dataset: "all" | "shop" | "legacy";
   sort: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
   layout: LayoutMode;
+  category: string;
 };
 
 const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
@@ -63,19 +66,41 @@ const skeletonItemWrapperClass: Record<LayoutMode, string> = {
 
 export default function ProductsClient({
   products,
+  categories,
+  catalogName,
   initialLayout = "grid",
   initialQuery = "",
+  initialCategory = "all",
 }: {
   products: Product[];
+  categories: CategorySummary[];
+  catalogName: string;
   initialLayout?: LayoutMode;
   initialQuery?: string;
+  initialCategory?: string;
 }) {
   const normalizedInitialQuery = (initialQuery ?? "").trim();
+  const normalizedInitialCategory = useMemo(() => {
+    if (!initialCategory) return "all";
+    return categories.some((category) => category.slug === initialCategory) ? initialCategory : "all";
+  }, [categories, initialCategory]);
+
+  const availabilityLabelMap = useMemo(
+    () =>
+      new Map<Product["availability"], string>([
+        ["InStock", "In stock"],
+        ["OutOfStock", "Out of stock"],
+        ["PreOrder", "Pre-order"],
+      ]),
+    [],
+  );
+
   const [filters, setFilters] = useState<FiltersState>({
     query: normalizedInitialQuery,
     dataset: "all",
     sort: "recent",
     layout: initialLayout,
+    category: normalizedInitialCategory,
   });
   const [queryInput, setQueryInput] = useState(normalizedInitialQuery);
   const [visible, setVisible] = useState(CHUNK_SIZE);
@@ -102,6 +127,25 @@ export default function ProductsClient({
       })),
     [datasetValues],
   );
+
+  const categoryOptions = useMemo(() => {
+    const options = categories.map((category) => ({
+      value: category.slug,
+      label: `${category.label} (${category.count})`,
+      display: category.label,
+    }));
+    return [{ value: "all", label: "All categories", display: "All categories" }, ...options];
+  }, [categories]);
+
+  const categoryLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const option of categoryOptions) {
+      map.set(option.value, option.display);
+    }
+    return map;
+  }, [categoryOptions]);
+
+  const topCategoryLinks = useMemo(() => categories.slice(0, 3), [categories]);
 
   const layoutOptions = useMemo(
     () =>
@@ -136,8 +180,12 @@ export default function ProductsClient({
       result = result.filter((product) => product.dataset === filters.dataset);
     }
 
+    if (filters.category !== "all") {
+      result = result.filter((product) => product.categorySlug === filters.category);
+    }
+
     return [...result].sort(sortComparators[filters.sort]);
-  }, [filters.dataset, filters.query, filters.sort, products]);
+  }, [filters.category, filters.dataset, filters.query, filters.sort, products]);
 
   const totals = useMemo(() => {
     let clicks = 0;
@@ -156,6 +204,9 @@ export default function ProductsClient({
     const visibleCount = displayed.length;
     const totalProducts = products.length;
     const parts = [visibleCount + " of " + totalProducts + " products"];
+    if (filters.category !== "all") {
+      parts.push(categoryLabelMap.get(filters.category) ?? "Selected category");
+    }
     if (totals.clicks > 0) {
       parts.push(numberFormatter.format(totals.clicks) + " clicks");
     }
@@ -172,6 +223,13 @@ export default function ProductsClient({
       return { ...prev, query: normalizedInitialQuery };
     });
   }, [normalizedInitialQuery]);
+
+  useEffect(() => {
+    setFilters((prev) => {
+      if (prev.category === normalizedInitialCategory) return prev;
+      return { ...prev, category: normalizedInitialCategory };
+    });
+  }, [normalizedInitialCategory]);
 
   // no-op; hydrated starts as true to avoid SSR skeleton
 
@@ -225,11 +283,16 @@ export default function ProductsClient({
     } else {
       params.delete("q");
     }
+    if (filters.category !== "all") {
+      params.set("category", filters.category);
+    } else {
+      params.delete("category");
+    }
     const hash = window.location.hash;
     const search = params.toString();
     const nextUrl = `${window.location.pathname}${search ? "?" + search : ""}${hash}`;
     window.history.replaceState(null, "", nextUrl);
-  }, []);
+  }, [filters.category]);
 
   useEffect(() => {
     if (queryInput === filters.query) return;
@@ -251,8 +314,25 @@ export default function ProductsClient({
     (value: FiltersState["dataset"]) => {
       scrollToTop();
       updateFilters((prev) => ({ ...prev, dataset: value }));
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (value && value !== "all") {
+          params.set("dataset", value);
+        } else {
+          params.delete("dataset");
+        }
+        if (filters.category !== "all") {
+          params.set("category", filters.category);
+        }
+        if (filters.query) {
+          params.set("q", filters.query);
+        }
+        const hash = window.location.hash;
+        const nextUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${hash}`;
+        window.history.replaceState(null, "", nextUrl);
+      }
     },
-    [scrollToTop, updateFilters],
+    [filters.category, filters.query, scrollToTop, updateFilters],
   );
 
   const handleSortChange = useCallback(
@@ -271,10 +351,37 @@ export default function ProductsClient({
     [scrollToTop, updateFilters],
   );
 
+  const handleCategoryChange = useCallback(
+    (value: string) => {
+      scrollToTop();
+      updateFilters((prev) => ({ ...prev, category: value }));
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (filters.query) {
+          params.set("q", filters.query);
+        }
+        if (value && value !== "all") {
+          params.set("category", value);
+        } else {
+          params.delete("category");
+        }
+        if (filters.dataset !== "all") {
+          params.set("dataset", filters.dataset);
+        } else {
+          params.delete("dataset");
+        }
+        const hash = window.location.hash;
+        const nextUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${hash}`;
+        window.history.replaceState(null, "", nextUrl);
+      }
+    },
+    [filters.dataset, filters.query, scrollToTop, updateFilters],
+  );
+
   const resetFilters = useCallback(() => {
     scrollToTop();
     setQueryInput("");
-    updateFilters(() => ({ query: "", dataset: "all", sort: "recent", layout: initialLayout }));
+    updateFilters(() => ({ query: "", dataset: "all", sort: "recent", layout: initialLayout, category: "all" }));
   }, [initialLayout, scrollToTop, updateFilters]);
 
   const gridItems = useMemo(
@@ -283,10 +390,14 @@ export default function ProductsClient({
         const priceValue = Number(product.price ?? 0);
         const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
         const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12, product.currency) : null;
-        const meta =
+        const availabilityLabel = availabilityLabelMap.get(product.availability) ?? null;
+        const statsLabel =
           product.clicks || product.impressions
-            ? numberFormatter.format(product.clicks || 0) + " clicks | " + numberFormatter.format(product.impressions || 0) + " views"
+            ? numberFormatter.format(product.clicks || 0) + " clicks • " + numberFormatter.format(product.impressions || 0) + " views"
             : null;
+        const categoryLabel = product.categorySlug ? humanize(product.categorySlug) : null;
+        const metaParts = [availabilityLabel, categoryLabel, statsLabel].filter(Boolean);
+        const meta = metaParts.length ? metaParts.join(" • ") : null;
         return {
           id: product.id,
           slug: product.slug,
@@ -299,7 +410,7 @@ export default function ProductsClient({
           meta,
         };
       }),
-    [displayed, numberFormatter],
+    [availabilityLabelMap, displayed, numberFormatter],
   );
 
   const showSkeleton = isPending;
@@ -308,6 +419,7 @@ export default function ProductsClient({
   const datasetLabelText = filters.dataset === "all" ? "All products" : datasetLabel(filters.dataset);
   const visibleCount = displayed.length;
   const totalCount = products.length;
+  const activeCategoryLabel = categoryLabelMap.get(filters.category) ?? "All categories";
 
   return (
     <div
@@ -354,6 +466,28 @@ export default function ProductsClient({
               isPending={isPending}
             />
 
+            {categoryOptions.length > 1 ? (
+              <section className="flex flex-col gap-2">
+                <label htmlFor="products-category" className="text-sm font-semibold text-fg">Category</label>
+                <div className="relative">
+                  <select
+                    id="products-category"
+                    value={filters.category}
+                    onChange={(event) => handleCategoryChange(event.currentTarget.value)}
+                    disabled={isPending}
+                    className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+                  >
+                    {categoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                </div>
+              </section>
+            ) : null}
+
             <section className="flex flex-col gap-2">
               <label htmlFor="products-sort" className="text-sm font-semibold text-fg">Sort by</label>
               <div className="relative">
@@ -376,7 +510,7 @@ export default function ProductsClient({
 
             <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70">
-                <span>{datasetLabelText}</span>
+                <span>{activeCategoryLabel}</span>
                 <span>
                   {visibleCount} / {totalCount}
                 </span>
@@ -408,12 +542,30 @@ export default function ProductsClient({
           <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted">{datasetLabelText}</p>
-              <h2 className="text-3xl font-semibold text-fg sm:text-4xl">Products</h2>
+              <h2 className="text-3xl font-semibold text-fg sm:text-4xl">{catalogName}</h2>
             </div>
             <span className="inline-flex items-center rounded-full bg-surface/10 px-4 py-2 text-sm font-medium text-muted">
               {visibleCount} of {totalCount} products
             </span>
           </header>
+
+          {topCategoryLinks.length ? (
+            <nav aria-label="Popular categories">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span className="font-semibold text-fg/80">Popular categories:</span>
+                {topCategoryLinks.map((category) => (
+                  <Link
+                    key={category.slug}
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-medium text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    {category.label}
+                    <span className="text-xs text-muted">({category.count})</span>
+                  </Link>
+                ))}
+              </div>
+            </nav>
+          ) : null}
 
           <div className="space-y-6">
             {showSkeleton ? (
@@ -462,5 +614,13 @@ function EmptyState({ onReset }: { onReset: () => void }) {
       </button>
     </div>
   );
+}
+
+function humanize(input: string): string {
+  return input
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 

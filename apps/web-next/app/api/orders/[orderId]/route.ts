@@ -1,7 +1,7 @@
 import { json } from "../utils";
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
-import { getOrderDetails } from "@shared/sdk/ordersClient";
+import { getOrdersClient } from "@shared/sdk/ordersClient";
 
 export async function GET(request: Request, context: { params: Promise<{ orderId: string }> }) {
   const auth = await requireAuth(request);
@@ -15,27 +15,42 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
   }
 
   const supabase = getAdminClient();
+  const started = Date.now();
+  let cacheHit = false;
+  const ordersClient = getOrdersClient({
+    supabase,
+    metrics: {
+      log: (event, meta) => {
+        if (event === "orders.details.cache_hit") {
+          cacheHit = Boolean(meta?.hit);
+        }
+      },
+    },
+  });
+  const cacheInfo = ordersClient.getCacheMetadata();
 
   try {
-    const detail = await getOrderDetails(supabase, orderId, { userId: user.id });
+    const detail = await ordersClient.getOrderDetails(orderId, user.id);
     if (!detail) {
       return json({ ok: false, code: "not_found" }, 404);
     }
+    const order = detail.order;
+    const payment = detail.payments[0] ?? null;
 
-    const payment = detail.payments.length ? detail.payments[0] : null;
+    const tookMs = Date.now() - started;
 
     return json({
       ok: true,
       order: {
-        id: detail.summary.id,
-        created_at: detail.summary.createdAt,
-        amount_subtotal: detail.summary.subtotalAmount,
-        amount_discounts: detail.summary.discountAmount,
-        amount_tax: detail.summary.taxAmount,
-        amount_total: detail.summary.totalAmount,
-        currency: detail.summary.currency,
-        status: detail.summary.status,
-        payment_status: detail.summary.paymentStatus,
+        id: order.id,
+        created_at: order.createdAt,
+        amount_subtotal: order.subtotal,
+        amount_discounts: order.discount,
+        amount_tax: order.tax,
+        amount_total: order.total,
+        currency: order.currency,
+        status: order.status,
+        payment_status: order.paymentStatus,
       },
       items: detail.items.map((item) => ({
         id: item.id,
@@ -52,13 +67,21 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
             amount: payment.amount,
             currency: payment.currency,
             provider: payment.provider,
-            provider_ref: payment.providerReference,
+            provider_ref: payment.providerRef,
             created_at: payment.createdAt,
           }
         : null,
       payments: detail.payments,
       refunds: detail.refunds,
       history: detail.history,
+      meta: {
+        tookMs,
+        cache: {
+          hit: cacheHit,
+          adapter: cacheInfo.adapter,
+          ttlMs: cacheInfo.ttlMs,
+        },
+      },
     });
   } catch (error) {
     return json({ ok: false, code: "internal", message: String((error as Error)?.message ?? error) }, 500);

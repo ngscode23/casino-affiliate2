@@ -530,13 +530,15 @@ export async function listOrders(params: {
   to?: string;
   q?: string;
   sort?: string; // "created_at desc" | "amount_total asc" etc.
-  page?: number;
+  cursor?: string | null;
+  limit?: number;
   page_size?: number;
 } = {}) {
+  const limit = Math.max(1, Math.min(params.limit ?? params.page_size ?? 20, 100));
   if (!HAS_SUPABASE) {
     const orders = readLocalOrders();
     return {
-      items: orders.map((order) => ({
+      items: orders.slice(0, limit).map((order) => ({
         id: order.id,
         created_at: order.createdAt,
         amount_total: order.subtotal,
@@ -545,8 +547,10 @@ export async function listOrders(params: {
         payment_status: order.paymentStatus ?? null,
       })) as OrderListItem[],
       count: orders.length,
-      page: 1,
-      page_size: orders.length || params.page_size || 20,
+      hasMore: false,
+      nextCursor: null,
+      limit,
+      cursor: params.cursor ?? null,
     };
   }
 
@@ -565,8 +569,18 @@ export async function listOrders(params: {
   return {
     items: (Array.isArray(data?.items) ? data.items : []) as OrderListItem[],
     count: Number(data?.count ?? 0),
-    page: Number(data?.page ?? 1),
-    page_size: Number(data?.page_size ?? (params.page_size || 20)),
+    hasMore: Boolean(data?.meta?.hasMore ?? data?.hasMore ?? false),
+    nextCursor:
+      typeof data?.next_cursor === "string"
+        ? data.next_cursor
+        : typeof data?.meta?.nextCursor === "string"
+          ? data.meta.nextCursor
+          : null,
+    cursor:
+      typeof data?.meta?.cursor === "string"
+        ? data.meta.cursor
+        : params.cursor ?? null,
+    limit: Number(data?.meta?.limit ?? limit),
   };
 }
 

@@ -13,4 +13,6 @@ export type Product = {
   createdAt?: string | null;
   isNew?: boolean;
   isTop?: boolean;
+  availability: "InStock" | "OutOfStock" | "PreOrder";
+  categorySlug: string | null;
 };

@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductsClient from "./products-client";
-import { loadProductsData } from "./data";
+import { CATALOG_NAME, loadProductsData } from "./data";
 import { serializeJsonLd } from "@shared/lib/jsonld";
 
 export const metadata: Metadata = {
-  title: "Product catalog - Neon Shop",
-  description: "Browse the latest store products with real-time click and impression stats powered by Supabase.",
+  title: `${CATALOG_NAME}`,
+  description:
+    "Browse the Neon Shop catalog: discover featured gear, compare engagement stats, and zero in on the tools that fit your workflow.",
   alternates: { canonical: "/products" },
   openGraph: {
-    title: "Product catalog - Neon Shop",
-    description: "Browse the latest store products with real-time click and impression stats powered by Supabase.",
+    title: `${CATALOG_NAME}`,
+    description:
+      "Browse the Neon Shop catalog: discover featured gear, compare engagement stats, and zero in on the tools that fit your workflow.",
     url: "/products",
   },
 };
@@ -23,7 +25,7 @@ export default async function ProductsPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const { products, fetchError, structuredData } = await loadProductsData();
+  const { products, fetchError, structuredData, categories, catalogName } = await loadProductsData();
 
   if (!products.length) {
     return (
@@ -44,6 +46,13 @@ export default async function ProductsPage({
     return "";
   })();
 
+  const initialCategory = (() => {
+    const raw = resolvedSearchParams?.category;
+    if (typeof raw === "string") return raw;
+    if (Array.isArray(raw) && raw.length > 0) return raw[0] ?? "";
+    return "all";
+  })();
+
   return (
     <div className="bg-background">
       {structuredData ? (
@@ -57,13 +66,30 @@ export default async function ProductsPage({
         <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
           <header className="flex flex-col gap-3 text-center sm:text-left">
             <span className="text-sm font-medium text-muted">Product catalog</span>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Discover our latest selection</h1>
-            <p className="text-base text-muted sm:max-w-2xl">
-              Explore curated drops, track real-time performance, and find the right Neon gear for your next project.
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{catalogName}</h1>
+            <p className="text-base text-muted sm:max-w-3xl">
+              Explore curated drops across hardware, merch, and legacy releases. Filter by dataset, category, or popularity metrics to see which tools teams rely on most, then dive into real impressions and clickthrough data before you decide.
             </p>
+            <ul className="mt-2 flex flex-col gap-2 text-sm text-muted sm:max-w-3xl sm:text-base">
+              <li>
+                • Fast shipping on in-stock Neon Shop gear worldwide with tracked delivery.
+              </li>
+              <li>
+                • Category spotlights highlight best-selling collections like accessories, apparel, and launch bundles.
+              </li>
+              <li>
+                • Legacy archive stays available for reference—perfect for comparing specs or revisiting earlier drops.
+              </li>
+            </ul>
           </header>
         </div>
-        <ProductsClient products={products} initialQuery={initialQuery} />
+        <ProductsClient
+          products={products}
+          categories={categories}
+          catalogName={catalogName}
+          initialQuery={initialQuery}
+          initialCategory={initialCategory}
+        />
       </section>
     </div>
   );

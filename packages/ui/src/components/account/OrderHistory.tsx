@@ -54,9 +54,11 @@ export default function OrderHistory() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [q, setQ] = useState<string>("");
   const [sort, setSort] = useState<string>("created_at desc");
-  const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [count, setCount] = useState<number>(0);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [limit, setLimit] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [payingId, setPayingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -66,13 +68,13 @@ export default function OrderHistory() {
     const s = searchParams.get("status") || "";
     const q0 = sanitizeSearchParam(searchParams.get("q"));
     const sort0 = searchParams.get("sort") || "created_at desc";
-    const p0 = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-    const ps0 = Math.max(1, parseInt(searchParams.get("page_size") || "10", 10) || 10);
+    const cursor0 = searchParams.get("cursor");
+    const limit0 = Math.max(1, parseInt(searchParams.get("page_size") || searchParams.get("limit") || "10", 10) || 10);
     setStatusFilter(s);
     setQ(q0);
     setSort(sort0);
-    setPage(p0);
-    setPageSize(ps0);
+    setCursor(cursor0);
+    setLimit(limit0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,8 +102,8 @@ export default function OrderHistory() {
           status: statusFilter || undefined,
           q: q || undefined,
           sort,
-          page,
-          page_size: pageSize,
+          cursor: cursor || undefined,
+          page_size: limit,
         });
         const orders = resp.items.map((r) => ({
           id: r.id,
@@ -114,16 +116,26 @@ export default function OrderHistory() {
           currency: r.currency,
         })) as OrderRow[];
         if (mounted) {
-          setItems(orders);
-          setItemMap({});
-          setSlugMap({});
-          setCount(resp.count || 0);
+          setItems((prev) => {
+            if (!cursor) {
+              return orders;
+            }
+            return [...(prev ?? []), ...orders];
+          });
+          if (!cursor) {
+            setItemMap({});
+            setSlugMap({});
+            setExpanded({});
+          }
+          setTotal(resp.count || orders.length);
+          setHasMore(Boolean(resp.hasMore));
+          setNextCursor(resp.nextCursor ?? null);
           const sp: Record<string, string> = {};
           if (statusFilter) sp.status = statusFilter;
           if (q) sp.q = q;
           if (sort) sp.sort = sort;
-          sp.page = String(page);
-          sp.page_size = String(pageSize);
+          if (cursor) sp.cursor = cursor;
+          sp.page_size = String(limit);
           setSearchParams(sp, { replace: true });
         }
       } catch (e: any) {
@@ -131,7 +143,9 @@ export default function OrderHistory() {
         if (mounted) setItems([]);
         if (mounted) setItemMap({});
         if (mounted) setSlugMap({});
-        if (mounted) setCount(0);
+        if (mounted) setTotal(0);
+        if (mounted) setHasMore(false);
+        if (mounted) setNextCursor(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -139,7 +153,7 @@ export default function OrderHistory() {
     return () => {
       mounted = false;
     };
-  }, [user, statusFilter, q, sort, page, pageSize, setSearchParams]);
+  }, [user, statusFilter, q, sort, cursor, limit, setSearchParams]);
 
   const rows = useMemo(() => (items ?? []).map(normalize), [items]);
 
@@ -153,8 +167,6 @@ export default function OrderHistory() {
 
   const fmtC = (c?: string) => new Intl.NumberFormat(undefined, { style: "currency", currency: c || rows[0]?.currency || "EUR" });
   const dtFmt = (d: Date | null) => (d ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d) : "");
-
-  const totalPages = Math.max(1, Math.ceil(count / pageSize));
 
   // Привлекательные ярлыки и цвета для статусов
   const statusLabel = (s?: string | null) => {
@@ -187,7 +199,7 @@ export default function OrderHistory() {
           <select
             className="bg-transparent border border-white/10 rounded px-2 py-1"
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            onChange={(e) => { setStatusFilter(e.target.value); setCursor(null); }}
           >
             <option value="">Любой</option>
             <option value="pending">pending</option>
@@ -203,7 +215,7 @@ export default function OrderHistory() {
             className="bg-transparent border border-white/10 rounded px-2 py-1"
             placeholder="Введите ID заказа"
             value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); }}
+            onChange={(e) => { setQ(e.target.value); setCursor(null); }}
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -211,7 +223,7 @@ export default function OrderHistory() {
           <select
             className="bg-transparent border border-white/10 rounded px-2 py-1"
             value={sort}
-            onChange={(e) => { setSort(e.target.value); setPage(1); }}
+            onChange={(e) => { setSort(e.target.value); setCursor(null); }}
           >
             <option value="created_at desc">Дата ↓</option>
             <option value="created_at asc">Дата ↑</option>
@@ -220,33 +232,42 @@ export default function OrderHistory() {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[var(--text-dim)]">На странице</span>
+          <span className="text-[var(--text-dim)]">Лимит</span>
           <select
             className="bg-transparent border border-white/10 rounded px-2 py-1"
-            value={pageSize}
-            onChange={(e) => { setPageSize(parseInt(e.target.value, 10) || 10); setPage(1); }}
+            value={limit}
+            onChange={(e) => { setLimit(parseInt(e.target.value, 10) || 10); setCursor(null); }}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
           </select>
         </label>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            className="text-xs rounded-md border border-white/10 px-2 py-1 disabled:opacity-50"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ← Назад
-          </button>
-          <span className="text-[var(--text-dim)]">Стр. {page} / {totalPages}</span>
-          <button
-            className="text-xs rounded-md border border-white/10 px-2 py-1 disabled:opacity-50"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Вперёд →
-          </button>
+        <div className="ml-auto flex flex-col items-end gap-1 text-xs text-[var(--text-dim)]">
+          <div>Показано {rows.length} из {total}</div>
+          <div className="flex items-center gap-2">
+            {cursor ? (
+              <button
+                className="text-xs rounded-md border border-white/10 px-2 py-1 disabled:opacity-50"
+                onClick={() => setCursor(null)}
+              >
+                Сбросить пагинацию
+              </button>
+            ) : null}
+            {hasMore ? (
+              <button
+                className="text-xs rounded-md border border-white/10 px-2 py-1 disabled:opacity-50"
+                disabled={!nextCursor || loading}
+                onClick={() => {
+                  if (nextCursor) setCursor(nextCursor);
+                }}
+              >
+                Загрузить ещё →
+              </button>
+            ) : (
+              <span className="text-[var(--text-dim)]">Все заказы загружены</span>
+            )}
+          </div>
         </div>
       </div>
       <table className="min-w-full border-collapse">

@@ -1,9 +1,13 @@
 {
   "extends": "./tsconfig.base.json",
   "include": [
-    "page.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.tsx"
   ],
- 
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
