@@ -304,16 +304,70 @@ export class OrdersClient {
       let qBuilder = query.eq("user_id", userId);
       if (from) qBuilder = qBuilder.gte("created_at", from);
       if (to) qBuilder = qBuilder.lte("created_at", to);
+
       if (typeof status === "string" && status.length) {
-        const safeStatus = encodeURIComponent(status);
-        qBuilder = qBuilder.or(`status.eq.${safeStatus},payment_status.eq.${safeStatus}`);
+        const parts: string[] = buildSafeStatusOrClauses(status);
+        if (parts.length > 0) {
+          qBuilder = qBuilder.or(parts.join(","));
+        }
       }
+
       if (typeof q === "string" && q.length) {
         const like = encodeURIComponent(q);
         qBuilder = qBuilder.or(`id.ilike.%${like}%,payment_intent_id.ilike.%${like}%`);
       }
       return qBuilder;
     };
+
+    // Build an OR predicate for status filtering that avoids enum errors by
+    // targeting each value only to the column where it is valid.
+    function buildSafeStatusOrClauses(raw: string): string[] {
+      const ORDER_STATUS = new Set([
+        "pending",
+        "paid",
+        "cancelled",
+        "canceled",
+        "refunded",
+        "failed",
+      ]);
+      const PAYMENT_STATUS = new Set([
+        "pending",
+        "succeeded",
+        "failed",
+        "authorized",
+        "captured",
+        "paid",
+        "canceled",
+        "refunded",
+        "partial_refund",
+        "requires_action",
+      ]);
+
+      const s = raw.trim().toLowerCase();
+      const variants = new Set<string>([s]);
+      if (s === "canceled" || s === "cancelled") {
+        variants.add("canceled");
+        variants.add("cancelled");
+      }
+
+      const orderVals: string[] = [];
+      const payVals: string[] = [];
+      for (const v of variants) {
+        if (ORDER_STATUS.has(v)) orderVals.push(v);
+        if (PAYMENT_STATUS.has(v)) payVals.push(v);
+      }
+
+      const clauses: string[] = [];
+      if (orderVals.length > 0) {
+        const list = orderVals.map(encodeURIComponent).join(".");
+        clauses.push(`status.in.(${list})`);
+      }
+      if (payVals.length > 0) {
+        const list = payVals.map(encodeURIComponent).join(".");
+        clauses.push(`payment_status.in.(${list})`);
+      }
+      return clauses;
+    }
 
     let query = baseFilters(
       this.client
@@ -634,7 +688,6 @@ export async function resetOrdersCache(keys?: string[]) {
 }
 
 export { InMemoryCacheAdapter } from "./cacheAdapters";
-
 
 
 
