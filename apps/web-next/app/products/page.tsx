@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductsClient from "./products-client";
-import { CATALOG_NAME, PRODUCT_LIST_REVALIDATE_SECONDS, loadProductsData } from "./data";
+import { CATALOG_NAME, loadProductsData } from "./data";
 import { serializeJsonLd } from "@shared/lib/jsonld";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = PRODUCT_LIST_REVALIDATE_SECONDS;
+export const revalidate = 90;
 
 export default async function ProductsPage({
   searchParams,

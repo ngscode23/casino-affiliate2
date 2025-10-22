@@ -34,6 +34,8 @@ apps/*/{dist,.turbo}
 *.tsbuildinfo
 *.log
 logs/
+!apps/web-next/app/api/admin/webhooks/logs/
+!apps/web-next/app/api/admin/webhooks/logs/route.ts
 tmp/
 tmp*/
 _archive/

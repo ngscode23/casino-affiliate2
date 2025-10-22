@@ -599,7 +599,17 @@ export class OrdersClient {
       .eq("order_id", orderId)
       .order("created_at", { ascending: false });
 
-    if (response.error) throw new UpstreamError(`Failed to fetch refunds: ${response.error.message}`, response.error);
+    if (response.error) {
+      const message = response.error.message ?? "";
+      // Some environments may not have the legacy payment_refunds mirror yet.
+      if (
+        message.includes("payment_refunds") &&
+        (message.includes("not exist") || message.includes("Could not find the table"))
+      ) {
+        return [];
+      }
+      throw new UpstreamError(`Failed to fetch refunds: ${message}`, response.error);
+    }
     const rows = (response.data ?? []) as RefundRow[];
     return rows.map(mapRefund);
   }

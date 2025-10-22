@@ -1895,7 +1895,9 @@ export type Database = {
           id: string | null
           image_path: string | null
           images: Json | null
+          main_image_url: string | null
           price: number | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -1905,44 +1907,6 @@ export type Database = {
           status: string | null
           tags: string[] | null
           title: string | null
-        }
-        Insert: {
-          category_slug?: string | null
-          created_at?: string | null
-          currency?: string | null
-          description?: never
-          id?: string | null
-          image_path?: string | null
-          images?: Json | null
-          price?: number | null
-          rating?: number | null
-          seller_id?: string | null
-          short_desc?: string | null
-          sku?: string | null
-          slug?: string | null
-          specs?: Json | null
-          status?: string | null
-          tags?: string[] | null
-          title?: string | null
-        }
-        Update: {
-          category_slug?: string | null
-          created_at?: string | null
-          currency?: string | null
-          description?: never
-          id?: string | null
-          image_path?: string | null
-          images?: Json | null
-          price?: number | null
-          rating?: number | null
-          seller_id?: string | null
-          short_desc?: string | null
-          sku?: string | null
-          slug?: string | null
-          specs?: Json | null
-          status?: string | null
-          tags?: string[] | null
-          title?: string | null
         }
         Relationships: [
           {
@@ -2052,6 +2016,36 @@ export type Database = {
           url: string | null
           webhook_id: string | null
           webhook_mode: string | null
+        }
+        Relationships: []
+      }
+      payment_refunds: {
+        Row: {
+          amount_cents: number | null
+          created_at: string | null
+          currency: string | null
+          order_id: string | null
+          payment_intent_id: string | null
+          reason: string | null
+          refund_id: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string | null
+          currency?: string | null
+          order_id?: string | null
+          payment_intent_id?: string | null
+          reason?: string | null
+          refund_id?: string
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string | null
+          currency?: string | null
+          order_id?: string | null
+          payment_intent_id?: string | null
+          reason?: string | null
+          refund_id?: string
         }
         Relationships: []
       }

@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
-import { PRODUCT_PAGE_REVALIDATE_SECONDS, fetchProduct, fetchSimilarProducts } from "./data";
+import { fetchProduct, fetchSimilarProducts } from "./data";
 
-export const revalidate = PRODUCT_PAGE_REVALIDATE_SECONDS;
+export const revalidate = 90;
 
 function decodeJwtPayload(token: string): Record<string, any> | null {
   if (!token || typeof token !== "string") return null;

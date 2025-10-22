@@ -7,7 +7,6 @@ import Card from "@ui/components/common/card";
 import Input from "@ui/components/common/input";
 import Button from "@ui/components/common/button";
 import { adminFetch } from "@shared/lib/api";
-import type { Database } from "@shared/lib/database.types";
 
 const PAGE_SIZE = 50;
 
@@ -30,7 +29,21 @@ type StripeWebhookRow = {
   expected_currency: string | null;
 };
 
-type WebhookLogRowRaw = Database["public"]["Tables"]["webhook_logs_app"]["Row"];
+type WebhookLogRowRaw = {
+  id: string | null;
+  event_type: string | null;
+  event_id: string | null;
+  created_at: string | null;
+  inserted_at?: string | null;
+  log_status: string | number | null;
+  source: string | null;
+  message: string | null;
+  event?: string | null;
+  type?: string | null;
+  error: unknown;
+  payload?: unknown;
+  status: number | null;
+};
 
 type LogSeverity = "info" | "success" | "warning" | "error";
 
@@ -83,7 +96,7 @@ function coerceNumber(value: unknown): number | null {
 }
 
 function mapLogRow(row: WebhookLogRowRaw): WebhookLogRow {
-  const httpCode = coerceNumber(row.log_status ?? row.http_status ?? row.status ?? null);
+  const httpCode = coerceNumber(row.log_status ?? row.status ?? null);
   const statusCode = coerceNumber(row.status ?? null);
   return {
     id: String(row.id ?? ""),
