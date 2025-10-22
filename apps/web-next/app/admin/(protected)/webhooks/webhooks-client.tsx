@@ -7,6 +7,7 @@ import Card from "@ui/components/common/card";
 import Input from "@ui/components/common/input";
 import Button from "@ui/components/common/button";
 import { adminFetch } from "@shared/lib/api";
+import type { Database } from "@shared/lib/database.types";
 
 const PAGE_SIZE = 50;
 
@@ -29,24 +30,74 @@ type StripeWebhookRow = {
   expected_currency: string | null;
 };
 
+type WebhookLogRowRaw = Database["public"]["Tables"]["webhook_logs_app"]["Row"];
+
+type LogSeverity = "info" | "success" | "warning" | "error";
+
 type WebhookLogRow = {
   id: string;
-  event_type: string;
-  event_id: string | null;
-  created_at: string;
-  log_status: string;
-  http_status: number | null;
+  eventType: string;
+  eventId: string | null;
+  createdAt: string;
+  httpCode: number | null;
+  statusCode: number | null;
   source: string | null;
   message: string | null;
-  error: Record<string, unknown> | null;
+  error: unknown;
+  severity: LogSeverity;
 };
 
-const STATUS_COLORS: Record<string, string> = {
+const SEVERITY_COLORS: Record<LogSeverity, string> = {
   info: "bg-blue-500/10 text-blue-200 border border-blue-500/30",
+  success: "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30",
   warning: "bg-amber-500/10 text-amber-200 border border-amber-500/30",
   error: "bg-rose-500/10 text-rose-200 border border-rose-500/30",
-  pending_manual_review: "bg-purple-500/10 text-purple-200 border border-purple-500/30",
 };
+
+function parseErrorPayload(errorPayload: WebhookLogRowRaw["error"]): unknown {
+  if (!errorPayload) return null;
+  if (typeof errorPayload === "object") return errorPayload;
+  if (typeof errorPayload === "string") {
+    try {
+      return JSON.parse(errorPayload);
+    } catch {
+      return errorPayload;
+    }
+  }
+  return errorPayload ?? null;
+}
+
+function resolveSeverity(code: number | null | undefined): LogSeverity {
+  if (typeof code === "number" && Number.isFinite(code)) {
+    if (code >= 500) return "error";
+    if (code >= 400) return "warning";
+    if (code >= 200) return "success";
+  }
+  return "info";
+}
+
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function mapLogRow(row: WebhookLogRowRaw): WebhookLogRow {
+  const httpCode = coerceNumber(row.log_status ?? row.http_status ?? row.status ?? null);
+  const statusCode = coerceNumber(row.status ?? null);
+  return {
+    id: String(row.id ?? ""),
+    eventType: row.event_type ?? row.type ?? "",
+    eventId: row.event_id ?? null,
+    createdAt: row.created_at ?? row.inserted_at ?? "",
+    httpCode,
+    statusCode,
+    source: row.source ?? null,
+    message: row.message ?? (typeof row.event === "string" ? row.event : null),
+    error: parseErrorPayload(row.error ?? row.payload ?? null),
+    severity: resolveSeverity(httpCode ?? statusCode),
+  };
+}
 
 const PROCESSING_COLORS: Record<string, string> = {
   queued_manual_review: "text-amber-200",
@@ -107,11 +158,14 @@ export function WebhooksClient() {
   const [eventPage, setEventPage] = useState(0);
 
   const [logRows, setLogRows] = useState<WebhookLogRow[]>([]);
+  const [logTotal, setLogTotal] = useState<number | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logQuery, setLogQuery] = useState("");
-  const [logStatus, setLogStatus] = useState("");
+  const [logEventId, setLogEventId] = useState("");
+  const [logHttpStatus, setLogHttpStatus] = useState("");
   const [logSource, setLogSource] = useState("");
+  const [logSort, setLogSort] = useState<"created_at.desc" | "created_at.asc" | "event_type.asc" | "event_type.desc" | "event_id.asc" | "event_id.desc" | "log_status.asc" | "log_status.desc">("created_at.desc");
   const [logPage, setLogPage] = useState(0);
 
   useEffect(() => {
@@ -154,13 +208,22 @@ export function WebhooksClient() {
         const params = new URLSearchParams();
         params.set("page", String(logPage));
         params.set("pageSize", String(PAGE_SIZE));
-        if (logQuery.trim()) params.set("q", logQuery.trim());
-        if (logStatus.trim()) params.set("status", logStatus.trim());
+        if (logQuery.trim()) params.set("eventType", logQuery.trim());
+        if (logEventId.trim()) params.set("eventId", logEventId.trim());
+        if (logHttpStatus.trim()) params.set("logStatus", logHttpStatus.trim());
         if (logSource.trim()) params.set("source", logSource.trim());
+        if (logSort) params.set("sort", logSort);
         const res = await adminFetch(`/api/admin/webhooks/logs?${params.toString()}`);
         if (!res.ok) throw new Error(await res.text());
-        const payload = (await res.json()) as { ok: boolean; rows?: WebhookLogRow[] };
-        if (!cancelled) setLogRows(payload.rows ?? []);
+        const payload = (await res.json()) as {
+          ok: boolean;
+          rows?: WebhookLogRowRaw[];
+          meta?: { total: number | null };
+        };
+        if (!cancelled) {
+          setLogRows((payload.rows ?? []).map(mapLogRow));
+          setLogTotal(payload.meta?.total ?? null);
+        }
       } catch (error: any) {
         if (!cancelled) setLogsError(String(error?.message ?? error));
       } finally {
@@ -170,11 +233,11 @@ export function WebhooksClient() {
     return () => {
       cancelled = true;
     };
-  }, [logPage, logQuery, logStatus, logSource]);
+  }, [logPage, logQuery, logEventId, logHttpStatus, logSource, logSort]);
 
   useEffect(() => {
     setLogPage(0);
-  }, [logQuery, logStatus, logSource]);
+  }, [logQuery, logEventId, logHttpStatus, logSource, logSort]);
 
   const mismatchOptions = useMemo(() => {
     const list = new Set(eventRows.map((row) => row.mismatch_reason).filter(Boolean));
@@ -185,6 +248,11 @@ export function WebhooksClient() {
     const list = new Set(eventRows.map((row) => row.processing_state).filter(Boolean));
     return Array.from(list) as string[];
   }, [eventRows]);
+
+  const logTotalPages = useMemo(() => {
+    if (logTotal == null) return null;
+    return Math.max(1, Math.ceil(logTotal / PAGE_SIZE));
+  }, [logTotal]);
 
   async function purge() {
     try {
@@ -254,7 +322,7 @@ export function WebhooksClient() {
         </datalist>
 
         {eventsLoading ? (
-          <div>Loading events…</div>
+          <div>Loading eventsÔÇª</div>
         ) : eventsError ? (
           <div className="text-red-400">{eventsError}</div>
         ) : eventRows.length ? (
@@ -333,15 +401,21 @@ export function WebhooksClient() {
           <h2 className="text-lg font-semibold">Webhook Logs</h2>
           <Input
             className="h-9 w-[200px]"
-            placeholder="Filter by type"
+            placeholder="Event type (payment_intent.*)"
             value={logQuery}
             onChange={(event) => setLogQuery(event.target.value)}
           />
           <Input
-            className="h-9 w-[160px]"
-            placeholder="Status (info/warning/…)"
-            value={logStatus}
-            onChange={(event) => setLogStatus(event.target.value)}
+            className="h-9 w-[180px]"
+            placeholder="Event ID (evt_*)"
+            value={logEventId}
+            onChange={(event) => setLogEventId(event.target.value)}
+          />
+          <Input
+            className="h-9 w-[140px]"
+            placeholder="HTTP status"
+            value={logHttpStatus}
+            onChange={(event) => setLogHttpStatus(event.target.value)}
           />
           <Input
             className="h-9 w-[160px]"
@@ -349,6 +423,25 @@ export function WebhooksClient() {
             value={logSource}
             onChange={(event) => setLogSource(event.target.value)}
           />
+          <div className="relative h-9">
+            <select
+              className="h-full appearance-none rounded-md border border-white/15 bg-transparent px-3 pr-8 text-sm text-[var(--text-bright)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={logSort}
+              onChange={(event) => setLogSort(event.target.value as typeof logSort)}
+            >
+              <option value="created_at.desc">Newest first</option>
+              <option value="created_at.asc">Oldest first</option>
+              <option value="event_type.asc">Event type A-Z</option>
+              <option value="event_type.desc">Event type Z-A</option>
+              <option value="event_id.asc">Event ID A-Z</option>
+              <option value="event_id.desc">Event ID Z-A</option>
+              <option value="log_status.desc">HTTP status high-low</option>
+              <option value="log_status.asc">HTTP status low-high</option>
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-dim)]">
+              v
+            </span>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
               variant="soft"
@@ -358,7 +451,10 @@ export function WebhooksClient() {
             >
               Prev
             </Button>
-            <span className="text-sm">Page {logPage + 1}</span>
+            <span className="text-sm text-[var(--text-dim)]">
+              Page {logPage + 1}
+              {logTotalPages != null && logTotal != null ? ` | ${logTotalPages} total | ${logTotal} rows` : ""}
+            </span>
             <Button
               variant="soft"
               className="h-9 min-h-0 px-3 text-sm"
@@ -380,34 +476,33 @@ export function WebhooksClient() {
         </div>
 
         {logsLoading ? (
-          <div>Loading logs…</div>
+          <div>Loading logs.</div>
         ) : logsError ? (
           <div className="text-red-400">{logsError}</div>
         ) : logRows.length ? (
           <div className="space-y-3">
             {logRows.map((row) => {
-              const badgeClass =
-                STATUS_COLORS[row.log_status] ?? "bg-slate-500/10 text-slate-200 border border-slate-500/30";
+              const badgeClass = SEVERITY_COLORS[row.severity] ?? SEVERITY_COLORS.info;
+              const httpLabel = row.httpCode ?? row.statusCode;
               return (
                 <div key={row.id} className="rounded border border-white/10 p-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[var(--text-bright)]">{row.event_type}</span>
-                    {row.event_id ? (
-                      <span className="text-xs text-[var(--text-dim)]">{row.event_id}</span>
+                    <span className="font-mono text-[var(--text-bright)]">{row.eventType}</span>
+                    {row.eventId ? (
+                      <span className="text-xs text-[var(--text-dim)]">{row.eventId}</span>
                     ) : null}
-                    <Pill className={badgeClass}>{row.log_status}</Pill>
-                    {row.http_status != null ? (
-                      <Pill className="border border-transparent text-xs text-[var(--text-dim)]">
-                        HTTP {row.http_status}
-                      </Pill>
-                    ) : null}
+                    {httpLabel != null ? (
+                      <Pill className={badgeClass}>HTTP {httpLabel}</Pill>
+                    ) : (
+                      <Pill className={badgeClass}>pending</Pill>
+                    )}
                     {row.source ? (
                       <Pill className="border border-transparent text-xs text-[var(--text-dim)]">
                         {row.source}
                       </Pill>
                     ) : null}
                     <span className="ml-auto text-xs text-[var(--text-dim)]">
-                      {formatTimestamp(row.created_at)}
+                      {formatTimestamp(row.createdAt)}
                     </span>
                   </div>
                   {row.message ? <div className="mt-2 text-xs">{row.message}</div> : null}
@@ -415,7 +510,7 @@ export function WebhooksClient() {
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer text-[var(--text-dim)]">details</summary>
                       <pre className="whitespace-pre-wrap break-words text-xs">
-                        {JSON.stringify(row.error, null, 2)}
+                        {typeof row.error === "string" ? row.error : JSON.stringify(row.error, null, 2)}
                       </pre>
                     </details>
                   ) : null}

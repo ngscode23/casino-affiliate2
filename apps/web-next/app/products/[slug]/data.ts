@@ -432,25 +432,34 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   };
 }
 
-const fetchProductCached = unstable_cache(
-  async (slug: string) => {
-    const admin = getAdminClient();
-    const { data, error } = await admin.rpc("get_product_page", { _slug: slug }).maybeSingle();
-    if (error || !data) {
-      return null;
-    }
-    return mapRpcProduct(data as Record<string, unknown>);
-  },
-  ["product-page"],
-  {
-    revalidate: PRODUCT_PAGE_REVALIDATE_SECONDS,
-    tags: [PRODUCT_COLLECTION_TAG],
-  },
-);
+const productCache = new Map<string, () => Promise<ProductData | null>>();
+
+function getProductFetcher(slug: string) {
+  let cached = productCache.get(slug);
+  if (!cached) {
+    cached = unstable_cache(
+      async () => {
+        const admin = getAdminClient();
+        const { data, error } = await admin.rpc("get_product_page", { _slug: slug }).maybeSingle();
+        if (error || !data) {
+          return null;
+        }
+        return mapRpcProduct(data as Record<string, unknown>);
+      },
+      ["product-page", slug],
+      {
+        revalidate: PRODUCT_PAGE_REVALIDATE_SECONDS,
+        tags: [PRODUCT_COLLECTION_TAG, productTag(slug)],
+      },
+    );
+    productCache.set(slug, cached);
+  }
+  return cached;
+}
 
 export async function fetchProduct(slug: string): Promise<ProductData | null> {
   if (!slug) return null;
-  const product = await fetchProductCached(slug);
+  const product = await getProductFetcher(slug)();
   if (!product) return null;
   return product;
 }

@@ -1891,6 +1891,7 @@ export type Database = {
           category_slug: string | null
           created_at: string | null
           currency: string | null
+          description: string | null
           id: string | null
           image_path: string | null
           images: Json | null
@@ -1909,6 +1910,7 @@ export type Database = {
           category_slug?: string | null
           created_at?: string | null
           currency?: string | null
+          description?: never
           id?: string | null
           image_path?: string | null
           images?: Json | null
@@ -1927,6 +1929,7 @@ export type Database = {
           category_slug?: string | null
           created_at?: string | null
           currency?: string | null
+          description?: never
           id?: string | null
           image_path?: string | null
           images?: Json | null
