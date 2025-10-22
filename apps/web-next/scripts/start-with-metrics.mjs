@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 /* eslint-env node */
-/* eslint-disable no-console */
 /**
  * Обёртка над next.start() с честным логированием продолжительности HTTP-запросов.
  */
@@ -10,6 +9,7 @@ import process from "node:process";
 import { performance } from "node:perf_hooks";
 import next from "next";
 
+const console = globalThis.console;
 const DEFAULT_PORT = 3000;
 const DEFAULT_HOSTNAME = "0.0.0.0";
 
@@ -173,3 +173,8 @@ main().catch((error) => {
   console.error("Не удалось запустить Next.js сервер:", error);
   process.exit(1);
 });
+
+
+
+
+
