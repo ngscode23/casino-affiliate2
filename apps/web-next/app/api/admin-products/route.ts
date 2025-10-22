@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { normalizeSku, slugifyTitle } from "@shared/lib/normalize";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN?.trim();
+const PRODUCT_COLLECTION_TAG = "products:list";
+const PRODUCT_TAG_PREFIX = "product:";
+const CATEGORY_TAG_PREFIX = "category:";
+
+function productTag(slug: string) {
+  return `${PRODUCT_TAG_PREFIX}${slug}`;
+}
+
+function categoryTag(slug: string) {
+  return `${CATEGORY_TAG_PREFIX}${slug}`;
+}
 
 function json(body: unknown, init?: number) {
   return NextResponse.json(body, {
@@ -50,6 +62,50 @@ async function dropFromCatalog(supabase: ReturnType<typeof getAdminClient>, ids:
   }
 }
 
+async function revalidateProducts(
+  supabase: ReturnType<typeof getAdminClient>,
+  ids: string[],
+  knownSlugs: string[] = [],
+  knownCategories: string[] = [],
+) {
+  const slugSet = new Set(
+    knownSlugs
+      .map((slug) => (typeof slug === "string" ? slug.trim() : ""))
+      .filter(Boolean),
+  );
+  const categoryTags = new Set<string>();
+
+  for (const category of knownCategories) {
+    const normalized = typeof category === "string" ? category.trim() : "";
+    if (normalized) categoryTags.add(categoryTag(normalized));
+  }
+
+  if (ids.length) {
+    try {
+      const { data } = await supabase
+        .from("products")
+        .select("id, slug, category_slug")
+        .in("id", ids);
+      for (const row of data ?? []) {
+        const slug = typeof row?.slug === "string" ? row.slug.trim() : "";
+        if (slug) slugSet.add(slug);
+        const categorySlug = typeof row?.category_slug === "string" ? row.category_slug.trim() : "";
+        if (categorySlug) categoryTags.add(categoryTag(categorySlug));
+      }
+    } catch (error) {
+      console.warn("admin-products: tag resolution failed", error);
+    }
+  }
+
+  for (const slug of slugSet) {
+    revalidateTag(productTag(slug));
+  }
+  for (const tag of categoryTags) {
+    revalidateTag(tag);
+  }
+  revalidateTag(PRODUCT_COLLECTION_TAG);
+}
+
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
   if ("response" in auth) return auth.response;
@@ -87,6 +143,7 @@ export async function POST(request: Request) {
       if (error) return json({ ok: false, error: error.message || "db" }, 500);
       const updatedIds = (data || []).map((row) => row.id as string);
       await syncCatalog(supabase, updatedIds);
+      await revalidateProducts(supabase, updatedIds);
       return json({ ok: true, updated: updatedIds.length });
     }
 
@@ -112,12 +169,17 @@ export async function POST(request: Request) {
       if (error || !data) return json({ ok: false, error: error?.message || "db" }, 500);
 
       await syncCatalog(supabase, [String(data.id)]);
+      await revalidateProducts(supabase, [String(data.id)], [normalizedSlug]);
       return json({ ok: true, id: data.id });
     }
 
     if (op === "delete") {
       const ids = Array.isArray(payload.ids) ? (payload.ids as string[]) : [];
       if (!ids.length) return json({ ok: true, deleted: 0 });
+      const { data: existingProducts } = await supabase
+        .from("products")
+        .select("slug, category_slug")
+        .in("id", ids);
       await dropFromCatalog(supabase, ids);
       const { error, data: deletedData } = await supabase
         .from("ecom_products")
@@ -125,6 +187,13 @@ export async function POST(request: Request) {
         .in("id", ids)
         .select("id");
       if (error) return json({ ok: false, error: error.message || "db" }, 500);
+      const fallbackSlugs =
+        existingProducts?.map((row: any) => (typeof row?.slug === "string" ? row.slug.trim() : "")).filter(Boolean) ??
+        [];
+      const fallbackCategories =
+        existingProducts?.map((row: any) => (typeof row?.category_slug === "string" ? row.category_slug.trim() : "")).filter(Boolean) ??
+        [];
+      await revalidateProducts(supabase, [], fallbackSlugs, fallbackCategories);
       return json({ ok: true, deleted: deletedData?.length ?? 0 });
     }
 
@@ -151,7 +220,13 @@ export async function POST(request: Request) {
       if (!rows.length) return json({ ok: true, duplicated: 0 });
       const inserted = await supabase.from("ecom_products").insert(rows).select("id");
       if (inserted.error) return json({ ok: false, error: inserted.error.message || "db" }, 500);
-      await syncCatalog(supabase, (inserted.data || []).map((row) => String(row.id)));
+      const insertedIds = (inserted.data || []).map((row) => String(row.id));
+      await syncCatalog(supabase, insertedIds);
+      const newSlugs = rows.map((row) => (typeof row.slug === "string" ? row.slug : "")).filter(Boolean);
+      const newCategories = rows
+        .map((row) => (typeof row.category_slug === "string" ? row.category_slug : ""))
+        .filter(Boolean);
+      await revalidateProducts(supabase, insertedIds, newSlugs, newCategories);
       return json({ ok: true, duplicated: inserted.data?.length ?? 0 });
     }
 

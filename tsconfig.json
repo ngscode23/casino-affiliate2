@@ -14,14 +14,30 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["apps/web-next/*"],
-      "@shared/*": ["packages/shared/src/*"],
-      "@ui/*": ["packages/ui/src/*"],
-      "@types/*": ["packages/types/src/types/*"],
-      "@types": ["packages/types/src/index"],
-      "@casino-affiliate/types": ["packages/types/src/index"],
-      "@casino-affiliate/types/*": ["packages/types/src/types/*"],
-      "@web-next/*": ["apps/web-next/*"]
+      "@/*": [
+        "apps/web-next/*"
+      ],
+      "@shared/*": [
+        "packages/shared/src/*"
+      ],
+      "@ui/*": [
+        "packages/ui/src/*"
+      ],
+      "@types/*": [
+        "packages/types/src/types/*"
+      ],
+      "@types": [
+        "packages/types/src/index"
+      ],
+      "@casino-affiliate/types": [
+        "packages/types/src/index"
+      ],
+      "@casino-affiliate/types/*": [
+        "packages/types/src/types/*"
+      ],
+      "@web-next/*": [
+        "apps/web-next/*"
+      ]
     },
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
@@ -30,8 +46,8 @@
       "next",
       "react",
       "react-dom",
-      "node"
+      "node",
+      "vitest"
     ]
   }
-
 }

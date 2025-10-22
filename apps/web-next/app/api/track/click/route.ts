@@ -48,21 +48,26 @@ export async function POST(request: Request) {
   ];
 
   // Try to resolve slug by product_id for broader RPC compatibility (both legacy and current tables)
-  let resolvedSlug: string | null = null;
-  const tryResolve = async (table: string) => {
-    try {
-      const { data } = await supabase
-        .from(table)
-        .select("id, slug")
-        .eq("id", rawProductId)
-        .limit(1)
-        .maybeSingle();
-      const cand = (data as any)?.slug;
-      if (typeof cand === "string" && cand.trim()) return cand.trim();
-    } catch { /* ignore */ }
+  const resolveSlug = async (): Promise<string | null> => {
+    const tables = ["products", "legacy_products"];
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select("id, slug")
+          .eq("id", rawProductId)
+          .limit(1)
+          .maybeSingle();
+        if (error) continue;
+        const cand = (data as any)?.slug;
+        if (typeof cand === "string" && cand.trim()) return cand.trim();
+      } catch {
+        // ignore and try the next table
+      }
+    }
     return null;
   };
-  resolvedSlug = (await tryResolve("ecom_products")) ?? (await tryResolve("products"));
+  const resolvedSlug: string | null = await resolveSlug();
 
   // Optionally try slug if present in payload or resolved from DB
   const maybeSlug = (payload as any).slug ?? resolvedSlug;

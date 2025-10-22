@@ -163,77 +163,43 @@ Acceptance
 - Schedule `/api/admin/maintenance/cleanup-clicks` (POST with `x-admin-token`) or call the `cleanup_clicks_before` RPC directly to purge old click data
 
 ## Orders archive
-- Edge function `archive-orders` moves orders older than 120 days into `public.orders_archive` and writes a JSON snapshot to Supabase Storage (`ORDERS_ARCHIVE_BUCKET`, defaults to `orders-archive`). Every export is recorded in `public.orders_archive_export` with the storage URL and run id.
-- Weekly cron job (`archive_orders_weekly`) triggers the edge function every Monday at 03:00 UTC with payload `{ olderThanDays: 120, batchSize: 200 }`. Before applying the migration set vault secrets:
+- Edge function `archive-orders` runs daily at 03:00 UTC with payload `{ olderThanDays: 90, statuses: ["paid","refunded"], batchSize: 200, skipDelete: true }`. Keep `skipDelete` enabled for the first 1–2 days in production, monitor the audit log, then redeploy the schedule without it so old orders are physically removed.
+- Secrets (Supabase vault or CLI):
   - `archive_orders_function_url` → `https://<project-ref>.functions.supabase.co/archive-orders`
-  - `archive_orders_service_role` → service role key with permission to call the function
-    ```bash
-    supabase secrets set --env prod \
-      archive_orders_function_url="https://YOUR-REF.functions.supabase.co/archive-orders" \
-      archive_orders_service_role="YOUR_SERVICE_ROLE_KEY"
-    ```
-- Rollback instructions (by run id):
-  1. Query `select * from public.orders_archive_export order by created_at desc limit 5;` to identify the `run_id` and storage path.
-  2. Download the JSON snapshot (`storage://{bucket}/{run_id}/orders.json`) and verify the payload.
-  3. Restore orders: run a transaction that inserts the base row and nested collections. Example:
+  - `archive_orders_service_role` → service-role key scoped to archiving/restoring
+  - `purge_archive_exports_function_url` → `https://<project-ref>.functions.supabase.co/purge-archive-exports`
+  ```bash
+  supabase secrets set --env prod \
+    archive_orders_function_url="https://YOUR-REF.functions.supabase.co/archive-orders" \
+    archive_orders_service_role="YOUR_SERVICE_ROLE_KEY" \
+    purge_archive_exports_function_url="https://YOUR-REF.functions.supabase.co/purge-archive-exports"
+  ```
+- Observability: each run appends a record to `public.audit_log` with run id, counts, errors, export URL, and `size_bytes`. Storage exports live under `storage://{ORDERS_ARCHIVE_BUCKET}/{runId}/orders.json`.
+- Purge lifecycle: edge function `purge-archive-exports` (scheduled 04:00 UTC) deletes storage snapshots older than 30 days. Use `dryRun: true` to preview deletions before enabling.
+- Restore: edge function `restore-orders` re-hydrates `orders`, `order_items`, `payments`, and `payment_refunds` by `runId`. Example workflow:
+  ```bash
+  # Preview (no writes)
+  curl -s -X POST "$SUPABASE_FUNCTIONS_URL/restore-orders" \
+    -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"runId":"f6b6c7d8-...","dryRun":true}' | jq
 
-     ```sql
-     begin;
-
-     with archived as (
-       select * from public.orders_archive where archive_run_id = '00000000-0000-0000-0000-000000000000'
-     )
-     insert into public.orders (
-       id, user_id, status, payment_status, subtotal, discount_total, shipping_total,
-       grand_total, currency, created_at, paid_at, cancelled_at, checkout_metadata,
-       contact_email, metadata_b, amount_cents, payment_intent_id
-     )
-     select
-       id, user_id, status, payment_status, subtotal, discount_total, shipping_total,
-       grand_total, currency, created_at, paid_at, cancelled_at, checkout_metadata,
-       contact_email, metadata_b, amount_cents, payment_intent_id
-     from archived
-     on conflict (id) do update set
-       status = excluded.status,
-       payment_status = excluded.payment_status,
-       grand_total = excluded.grand_total,
-       amount_cents = excluded.amount_cents;
-
-     with archived as (
-       select id, archived_payload from public.orders_archive where archive_run_id = '00000000-0000-0000-0000-000000000000'
-     ),
-     items as (
-       select
-         archived.id as order_id,
-         jsonb_to_recordset(archived.archived_payload -> 'items') as item(
-           id uuid,
-           product_id uuid,
-           variant_id uuid,
-           title text,
-           qty int,
-           unit_price numeric,
-           total numeric,
-           meta jsonb
-         )
-       from archived
-     )
-     insert into public.order_items (id, order_id, product_id, variant_id, title, qty, unit_price, total, meta)
-     select item.id, order_id, item.product_id, item.variant_id, coalesce(item.title, ''), coalesce(item.qty, 0),
-       coalesce(item.unit_price, 0), coalesce(item.total, 0), item.meta
-     from items as item
-     on conflict (id) do nothing;
-
-     -- Repeat jsonb_to_recordset pattern for payments and refunds if needed
-
-     commit;
-     ```
-
-  4. Call `resetOrdersCache()` from the SDK (or redeploy API) so cached lists reflect the restored orders.
-- Keep the archive function service key scoped to this task and rotate periodically.
-
-## Scripts
+  # Restore selected orders
+  curl -s -X POST "$SUPABASE_FUNCTIONS_URL/restore-orders" \
+    -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"runId":"f6b6c7d8-...","orderIds":["ord_123","ord_456"],"limit":50}' | jq
+  ```
+  History snapshots remain in the archive payload for auditing but are not reinserted into views.
+- Runbook:
+  1. Check `public.audit_log` for the latest `orders.archive` entry and confirm `exportUrl` + counts.
+  2. Spot-check the JSON export (`supabase storage download ...`).
+  3. Once validated, deploy the migration that flips `skipDelete` to `false` so archiving starts deleting source rows.
+  4. Use `restore-orders` (dryRun first) to rehydrate any run id as part of incident response.\n## Scripts
 - `pnpm --filter web-next dev`: local dev
 - `pnpm --filter web-next build`: production build
 
 ## License
 MIT. Brand assets are placeholders - replace with your own.
+
+

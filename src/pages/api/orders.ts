@@ -96,17 +96,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const targetUserId = isSupport && queryUserId ? queryUserId : actorId;
     if (!targetUserId) throw new AuthError();
 
-    const params: ListOrdersParams = {
-      userId: targetUserId,
-      from: parseString(req.query.from),
-      to: parseString(req.query.to),
-      status: parseString(req.query.status),
+  const params: ListOrdersParams = {
+    userId: targetUserId,
+    from: parseString(req.query.from),
+    to: parseString(req.query.to),
+    status: parseString(req.query.status),
       q: parseString(req.query.q),
       sort: (parseString(req.query.sort) as ListOrdersParams["sort"]) ?? "created_at",
       dir: (parseString(req.query.dir) as ListOrdersParams["dir"]) ?? "desc",
       cursor: parseString(req.query.cursor),
-      limit: clampLimit(Number(parseString(req.query.limit))),
-    };
+    limit: clampLimit(Number(parseString(req.query.limit))),
+  };
+  if (typeof params.status === "string" && params.status.length) {
+    params.status = params.status.trim().toLowerCase();
+  }
 
     let cacheHit = false;
     const client = getClient({

@@ -25,22 +25,29 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const fetchProduct = async (): Promise<{ exists: boolean; slug: string | null }> => {
-    if (dataset === "legacy") {
-      const { data } = await supabase
-        .from("products")
-        .select("id, slug")
-        .eq("id", rawProductId)
-        .limit(1)
-        .maybeSingle();
-      return { exists: !!data, slug: (data as any)?.slug ?? null };
+    const tables = dataset === "legacy"
+      ? ["legacy_products", "products"]
+      : ["products"];
+
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select("id, slug")
+          .eq("id", rawProductId)
+          .limit(1)
+          .maybeSingle();
+
+        if (error) continue;
+        if (data) {
+          return { exists: true, slug: (data as any)?.slug ?? null };
+        }
+      } catch {
+        // ignore and try next table
+      }
     }
-    const { data } = await supabase
-      .from("ecom_products")
-      .select("id, slug")
-      .eq("id", rawProductId)
-      .limit(1)
-      .maybeSingle();
-    return { exists: !!data, slug: (data as any)?.slug ?? null };
+
+    return { exists: false, slug: null };
   };
 
   const { exists, slug } = await fetchProduct();

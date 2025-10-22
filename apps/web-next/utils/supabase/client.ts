@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseFetchLogger } from "./fetch-logger";
 
 function getAnonKey() {
   // Prefer new publishable key format (sb_publishable_*), fallback to anon
@@ -9,8 +10,14 @@ function getAnonKey() {
 }
 
 export function createClient() {
+  const browserFetch = createSupabaseFetchLogger("browser", console.debug);
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    getAnonKey()!
+    getAnonKey()!,
+    {
+      global: {
+        fetch: browserFetch,
+      },
+    }
   );
 }

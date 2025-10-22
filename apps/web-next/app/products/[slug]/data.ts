@@ -1,10 +1,23 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import { getFallbackImageByKey } from "../fallback-images";
 
 const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+
+export const PRODUCT_PAGE_REVALIDATE_SECONDS = 90;
+const PRODUCT_COLLECTION_TAG = "products:list";
+const PRODUCT_TAG_PREFIX = "product:";
+const CATEGORY_TAG_PREFIX = "category:";
+
+function productTag(slug: string) {
+  return `${PRODUCT_TAG_PREFIX}${slug}`;
+}
+
+function categoryTag(slug: string) {
+  return `${CATEGORY_TAG_PREFIX}${slug}`;
+}
 
 export type ProductVariantOption = {
   value: string;
@@ -37,18 +50,6 @@ export type ProductReviewSummary = {
   average: number;
   count: number;
 };
-
-function normalizeAverageRating(input: number | null | undefined, fallback = 0): number {
-  const raw = Number(input ?? fallback ?? 0);
-  if (!Number.isFinite(raw)) return Number(fallback) || 0;
-  let value = raw;
-  if (value > 5 && value <= 100) {
-    value = value / 20;
-  }
-  if (value < 0) value = 0;
-  if (value > 5) value = 5;
-  return Number(value.toFixed(2));
-}
 
 export type ProductReviewPreview = {
   rating: number;
@@ -83,6 +84,8 @@ export type ProductData = {
   recentReviews: ProductReviewPreview[];
   productUid: string | null;
   brand: string | null;
+  clicks: number;
+  impressions: number;
 };
 
 function toStoragePublicUrl(path: string | null | undefined): string | null {
@@ -120,9 +123,7 @@ function castString(value: unknown): string {
 function toStringArray(input: unknown): string[] {
   if (!input) return [];
   if (Array.isArray(input)) {
-    return input
-      .map((entry) => castString(entry).trim())
-      .filter((entry) => Boolean(entry));
+    return input.map((entry) => castString(entry).trim()).filter(Boolean);
   }
   if (typeof input === "string") {
     return input
@@ -145,309 +146,9 @@ function dedupe<T>(values: T[]): T[] {
   return result;
 }
 
-function extractImages(source: unknown): string[] {
-  const result: string[] = [];
-  if (!source) return result;
-
-  const push = (value: unknown) => {
-    const normalized = normalizeImageUrl(typeof value === "string" ? value : castString(value));
-    if (normalized) result.push(normalized);
-  };
-
-  if (typeof source === "string") {
-    push(source);
-    return dedupe(result);
-  }
-
-  if (Array.isArray(source)) {
-    for (const entry of source) {
-      if (typeof entry === "string") {
-        push(entry);
-        continue;
-      }
-      if (entry && typeof entry === "object") {
-        const candidate =
-          (entry as Record<string, unknown>).url ??
-          (entry as Record<string, unknown>).src ??
-          (entry as Record<string, unknown>).href ??
-          (entry as Record<string, unknown>).image;
-        push(candidate);
-      }
-    }
-    return dedupe(result);
-  }
-
-  if (source && typeof source === "object") {
-    const candidate =
-      (source as Record<string, unknown>).url ??
-      (source as Record<string, unknown>).src ??
-      (source as Record<string, unknown>).href ??
-      (source as Record<string, unknown>).image;
-    push(candidate);
-  }
-
-  return dedupe(result);
-}
-
-function mergeGallery(mainImage: string, extras: string[], fallback: string): string[] {
-  const list = [mainImage, ...extras, fallback];
-  return dedupe(list.filter(Boolean));
-}
-
-function isPairLike(value: unknown): value is { key?: string; name?: string; value?: unknown; label?: string } {
-  if (!value || typeof value !== "object") return false;
-  const entry = value as Record<string, unknown>;
-  return "key" in entry || "name" in entry || "label" in entry;
-}
-
-function normalizeAttributes(source: unknown): Array<{ key: string; value: string }> {
-  const attributes: Array<{ key: string; value: string }> = [];
-  if (!source) return attributes;
-
-  if (Array.isArray(source)) {
-    for (const entry of source) {
-      if (isPairLike(entry)) {
-        const key = castString(entry.key ?? entry.name ?? entry.label).trim();
-        const value = castString((entry as Record<string, unknown>).value ?? "").trim();
-        if (key && value) attributes.push({ key, value });
-        continue;
-      }
-      if (Array.isArray(entry) && entry.length >= 2) {
-        const key = castString(entry[0]).trim();
-        const value = castString(entry[1]).trim();
-        if (key && value) attributes.push({ key, value });
-        continue;
-      }
-      if (entry && typeof entry === "object") {
-        for (const [keyRaw, valueRaw] of Object.entries(entry)) {
-          const key = castString(keyRaw).trim();
-          const value = castString(valueRaw).trim();
-          if (key && value) attributes.push({ key, value });
-        }
-      }
-    }
-    return attributes;
-  }
-
-  if (typeof source === "object") {
-    for (const [keyRaw, valueRaw] of Object.entries(source as Record<string, unknown>)) {
-      const key = castString(keyRaw).trim();
-      const value = castString(valueRaw).trim();
-      if (key && value) attributes.push({ key, value });
-    }
-  }
-
-  return attributes;
-}
-
-function parseVariantOptions(input: unknown, labelFallback: string): ProductVariantOption[] {
-  const options: ProductVariantOption[] = [];
-  if (!input) return options;
-
-  const pushOption = (value: {
-    raw: unknown;
-    label?: unknown;
-    disabled?: unknown;
-    image?: unknown;
-    priceDelta?: unknown;
-  }) => {
-    const optionValue = castString(value.raw).trim();
-    const optionLabel = castString(value.label ?? value.raw).trim() || optionValue || labelFallback;
-    if (!optionValue && !optionLabel) return;
-    options.push({
-      value: optionValue || optionLabel,
-      label: optionLabel,
-      disabled: Boolean(value.disabled === true || (typeof value.disabled === "string" && value.disabled === "true")),
-      image: normalizeImageUrl(castString(value.image)),
-      priceDelta: value.priceDelta == null ? null : Number(value.priceDelta),
-    });
-  };
-
-  if (Array.isArray(input)) {
-    for (const entry of input) {
-      if (entry && typeof entry === "object") {
-        const obj = entry as Record<string, unknown>;
-        pushOption({
-          raw: obj.value ?? obj.slug ?? obj.id ?? obj.label ?? obj.name ?? obj.title,
-          label: obj.label ?? obj.name ?? obj.title,
-          disabled: obj.disabled ?? obj.isDisabled ?? obj.unavailable,
-          image: obj.image ?? obj.img ?? obj.photo ?? obj.url,
-          priceDelta: obj.price_delta ?? obj.priceDelta ?? obj.price,
-        });
-        continue;
-      }
-      pushOption({ raw: entry });
-    }
-    return options;
-  }
-
-  if (typeof input === "object") {
-    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-      if (Array.isArray(value) || (value && typeof value === "object")) {
-        pushOption({
-          raw: key,
-          label: value && typeof value === "object" ? (value as Record<string, unknown>).label ?? key : key,
-          image: (value as Record<string, unknown> | undefined)?.image,
-          priceDelta: (value as Record<string, unknown> | undefined)?.price,
-          disabled: (value as Record<string, unknown> | undefined)?.disabled,
-        });
-      } else {
-        pushOption({ raw: key, label: value });
-      }
-    }
-    return options;
-  }
-
-  pushOption({ raw: input });
-  return options;
-}
-
-function parseVariants(source: Record<string, unknown>): ProductVariantGroup[] {
-  const groups: ProductVariantGroup[] = [];
-
-  const pushGroup = (id: string, label: string, raw: unknown) => {
-    const options = parseVariantOptions(raw, label);
-    if (!options.length) return;
-    groups.push({ id, label, options });
-  };
-
-  const direct = source.variants ?? source.options;
-  if (Array.isArray(direct)) {
-    for (const entry of direct) {
-      if (!entry || typeof entry !== "object") continue;
-      const obj = entry as Record<string, unknown>;
-      const id = castString(obj.id ?? obj.name ?? obj.label ?? `option-${groups.length + 1}`).trim();
-      const label = castString(obj.label ?? obj.name ?? id).trim() || `Option ${groups.length + 1}`;
-      const options = parseVariantOptions(obj.options ?? obj.values, label);
-      if (options.length) {
-        groups.push({ id: id || `variant-${groups.length + 1}`, label, options });
-      }
-    }
-  }
-
-  const map: Array<[string, string]> = [
-    ["colors", "Цвет"],
-    ["colour", "Цвет"],
-    ["color", "Цвет"],
-    ["storage", "Память"],
-    ["memory", "Память"],
-    ["size", "Размер"],
-    ["sizes", "Размер"],
-  ];
-
-  for (const [key, label] of map) {
-    if (source[key] && !groups.some((group) => group.id === key)) {
-      pushGroup(key, label, source[key]);
-    }
-  }
-
-  return groups;
-}
-
-function pickBrand(source: Record<string, unknown>): string | null {
-  const brandKeys = ["brand", "manufacturer", "maker", "vendor"];
-  for (const key of brandKeys) {
-    const value = source[key];
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
-}
-
-function parseSpecsPayload(source: unknown): {
-  specs: ProductSpecsData;
-  variants: ProductVariantGroup[];
-  brand: string | null;
-  shippingEstimate: string | null;
-} {
-  const root = source && typeof source === "object" && !Array.isArray(source)
-    ? (source as Record<string, unknown>)
-    : {};
-
-  const highlights = toStringArray(
-    root.highlights ??
-      root.bullets ??
-      root.features ??
-      root.summary ??
-      root.key_features
-  );
-  const inTheBox = toStringArray(
-    root.whats_in_the_box ??
-      root.in_the_box ??
-      root.inBox ??
-      root.box ??
-      root.package_contents
-  );
-  const warranty = toStringArray(
-    root.warranty ??
-      root.guarantee ??
-      root.return_policy ??
-      root.support
-  );
-
-  const attributesRaw =
-    root.attributes ??
-    root.specs ??
-    root.details ??
-    root.tech ??
-    root.characteristics;
-  const attributes = normalizeAttributes(attributesRaw);
-
-  const cards: ProductSpecsCard[] = [];
-  const cardsSource = root.cards ?? root.extra_cards ?? root.sections;
-  if (Array.isArray(cardsSource)) {
-    for (const entry of cardsSource) {
-      if (!entry || typeof entry !== "object") continue;
-      const obj = entry as Record<string, unknown>;
-      const title = castString(obj.title ?? obj.name ?? "").trim();
-      const items = toStringArray(
-        obj.items ?? obj.points ?? obj.lines ?? obj.text ?? obj.list
-      );
-      if (title && items.length) {
-        cards.push({ title, items });
-      }
-    }
-  } else if (cardsSource && typeof cardsSource === "object") {
-    for (const [key, value] of Object.entries(
-      cardsSource as Record<string, unknown>
-    )) {
-      const title = castString(key).trim();
-      const items = toStringArray(value);
-      if (title && items.length) {
-        cards.push({ title, items });
-      }
-    }
-  }
-
-  if (!cards.length) {
-    if (inTheBox.length) cards.push({ title: "Что в коробке", items: inTheBox });
-    if (warranty.length) {
-      cards.push({ title: "Гарантия и возврат", items: warranty });
-    }
-  }
-
-  const variants = parseVariants(root);
-  const brand = pickBrand(root);
-  const shippingEstimateRaw = castString(
-    root.shipping_estimate ??
-      root.delivery_estimate ??
-      root.delivery ??
-      root.eta
-  ).trim();
-
-  return {
-    specs: {
-      highlights,
-      attributes,
-      cards,
-      inTheBox,
-      warranty,
-    },
-    variants,
-    brand,
-    shippingEstimate: shippingEstimateRaw || null,
-  };
+function mergeGallery(mainImage: string | null, extras: string[], fallback: string): string[] {
+  const list = [mainImage, ...extras, fallback].filter(Boolean) as string[];
+  return dedupe(list);
 }
 
 const FALLBACK_LOCALE = "ru-RU";
@@ -465,411 +166,328 @@ export function formatCurrency(value: number, currency = "EUR", locale = FALLBAC
   }
 }
 
-async function resolveCategory(
-  admin: SupabaseClient,
-  slug: string | null
-): Promise<{ slug: string | null; name: string | null }> {
-  if (!slug) return { slug: null, name: null };
-  try {
-    const { data, error } = await admin
-      .from("ecom_categories")
-      .select("name")
-      .eq("slug", slug)
-      .maybeSingle();
-    if (error) return { slug, name: null };
-    return { slug, name: data?.name ?? null };
-  } catch {
-    return { slug, name: null };
+function normalizeAverageRating(input: number | null | undefined, fallback = 0): number {
+  const raw = Number(input ?? fallback ?? 0);
+  if (!Number.isFinite(raw)) return Number(fallback) || 0;
+  let value = raw;
+  if (value > 5 && value <= 100) {
+    value = value / 20;
   }
+  if (value < 0) value = 0;
+  if (value > 5) value = 5;
+  return Number(value.toFixed(2));
 }
 
-async function resolveProductUid(
-  admin: SupabaseClient,
-  sourceSchema: string,
-  sourceTable: string,
-  sourcePk: string
-): Promise<string | null> {
-  if (!sourceSchema || !sourceTable || !sourcePk) return null;
-  try {
-    const { data, error } = await admin
-      .from("product_catalog")
-      .select("product_uid")
-      .eq("source_schema", sourceSchema)
-      .eq("source_table", sourceTable)
-      .eq("source_pk", sourcePk)
-      .maybeSingle();
-    if (error) return null;
-    return data?.product_uid ?? null;
-  } catch {
-    return null;
+function mapStatusToAvailability(status: string | null | undefined): "InStock" | "OutOfStock" | "PreOrder" {
+  if (!status) return "InStock";
+  const normalized = status.toLowerCase();
+  if (["sold_out", "out_of_stock", "inactive", "archived", "disabled"].includes(normalized)) {
+    return "OutOfStock";
   }
+  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(normalized)) {
+    return "PreOrder";
+  }
+  return "InStock";
 }
 
-function anonymizeReviewer(userId: string | null | undefined): string {
-  if (!userId) return "Customer";
-  const cleaned = userId.replace(/[^a-z0-9]/gi, "");
-  const suffix = cleaned.slice(-4) || cleaned.slice(0, 4);
-  if (!suffix) return "Customer";
-  return `Customer ${suffix.toUpperCase()}`;
+function ensureCurrency(currency: string | null | undefined, dataset: "shop" | "legacy"): string {
+  const fallback = dataset === "legacy" ? "USD" : "EUR";
+  const normalized = castString(currency).toUpperCase();
+  return normalized || fallback;
 }
 
-async function loadReviewSummary(
-  admin: SupabaseClient,
-  productUid: string | null,
-  fallbackRating: number | null
-): Promise<ProductReviewSummary> {
-  if (!productUid) {
-    return {
-      average: 0,
-      count: 0,
-    };
-  }
-  try {
-    const { data, error } = await admin
-      .from("product_rating_stats")
-      .select("avg_rating, ratings_count")
-      .eq("product_uid", productUid)
-      .maybeSingle();
-    if (error || !data) {
-      return {
-        average: 0,
-        count: 0,
-      };
-    }
-    const avg = normalizeAverageRating(data.avg_rating, fallbackRating ?? 0);
-    const count = Number(data.ratings_count ?? 0);
-    return {
-      average: Number.isFinite(count) && count > 0 ? avg : 0,
-      count: Number.isFinite(count) ? count : 0,
-    };
-  } catch {
-    return {
-      average: 0,
-      count: 0,
-    };
-  }
-}
-
-async function loadRecentReviews(
-  admin: SupabaseClient,
-  productUid: string | null,
-  limit = 2
-): Promise<ProductReviewPreview[]> {
-  if (!productUid) return [];
-  try {
-    const { data, error } = await admin
-      .from("product_reviews_raw")
-      .select("user_id, rating, title, body, created_at")
-      .eq("product_id", productUid)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error || !data) return [];
-    const result: ProductReviewPreview[] = [];
-    for (const row of data as any[]) {
-      const textBody = typeof row.body === "string" ? row.body.trim() : "";
-      if (!textBody) continue;
-      const rating = Number(row.rating ?? 0);
-      const created = typeof row.created_at === "string" ? row.created_at : new Date().toISOString();
-      const title = typeof row.title === "string" ? row.title : null;
-      const author = anonymizeReviewer(typeof row.user_id === "string" ? row.user_id : null);
-      result.push({
-        rating: Number.isFinite(rating) ? rating : 0,
-        title,
-        body: textBody.slice(0, 1200),
-        createdAt: created,
-        authorLabel: author,
-      });
-    }
-    return result.slice(0, limit);
-  } catch {
-    return [];
-  }
-}
-
-async function fetchGalleryImages(
-  admin: SupabaseClient,
-  productId: string
-): Promise<string[]> {
-  try {
-    const { data, error } = await admin
-      .from("ecom_product_image_versions")
-      .select("source_url, path")
-      .eq("product_id", productId)
-      .eq("is_current", true)
-      .order("uploaded_at", { ascending: true })
-      .limit(12);
-    if (error || !data) return [];
-    const images = data
-      .map((row) => normalizeImageUrl(row.source_url) ?? normalizeImageUrl(row.path))
-      .filter((url): url is string => Boolean(url));
-    return dedupe(images);
-  } catch {
-    return [];
-  }
-}
-
-function resolveAvailabilityLabel(
-  status: string | null,
-  fallbackEstimate: string | null
-): string {
+function resolveAvailabilityLabel(status: string | null | undefined, fallbackEstimate: string | null): string {
   const normalized = (status ?? "").toLowerCase();
-  if (normalized === "preorder" || normalized === "pre-order") {
+  if (normalized === "preorder" || normalized === "pre-order" || normalized === "pre_order" || normalized === "coming_soon") {
     return `Предзаказ • ${fallbackEstimate ?? "доставка уточняется"}`;
   }
-  if (normalized === "out_of_stock" || normalized === "unavailable") {
+  if (normalized === "out_of_stock" || normalized === "unavailable" || normalized === "sold_out" || normalized === "inactive") {
     return "Нет в наличии";
   }
   return `В наличии • ${fallbackEstimate ?? "2–4 дня"}`;
 }
 
-type PrimaryRow = {
-  id: string;
-  slug: string;
-  title: string;
-  short_desc: string | null;
-  description?: string | null;
-  price: number | null;
-  currency: string | null;
-  images: unknown;
-  image_path: string | null;
-  status: string | null;
-  category_slug: string | null;
-  tags: string[] | null;
-  specs: unknown;
-  rating: number | null;
-  sku?: string | null;
-};
-
-type LegacyRow = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  price_cents: number | null;
-  currency: string | null;
-  main_image_url: string | null;
-  status: string | null;
-};
-
-function toStringTags(input: unknown): string[] {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((entry) => castString(entry).trim())
-    .filter(Boolean);
-}
-
-function ensureStatus(status: string | null): string {
-  return (status ?? "").toLowerCase() || "active";
-}
-
-function ensureCurrency(currency: string | null, dataset: "shop" | "legacy"): string {
-  const fallback = dataset === "legacy" ? "USD" : "EUR";
-  const normalized = (currency ?? "").toUpperCase();
-  return normalized || fallback;
-}
-
-async function buildGallery(
-  admin: SupabaseClient,
-  dataset: "shop" | "legacy",
-  row: PrimaryRow | LegacyRow
-): Promise<{ mainImage: string; gallery: string[]; fallback: string }> {
-  const fallback = getFallbackImageByKey(row.id);
-  if (dataset === "shop") {
-    const primaryList = extractImages((row as PrimaryRow).images);
-    const pathImage = normalizeImageUrl((row as PrimaryRow).image_path);
-    const versions = await fetchGalleryImages(admin, row.id);
-    const main = primaryList[0] ?? pathImage ?? versions[0] ?? fallback;
-    const extras = dedupe([
-      ...primaryList.slice(1),
-      ...(pathImage ? [pathImage] : []),
-      ...versions,
-    ]);
-    const gallery = mergeGallery(main ?? fallback, extras, fallback);
-    return { mainImage: main ?? fallback, gallery, fallback };
-  }
-
-  const legacy = row as LegacyRow;
-  const primaryList = extractImages(legacy.main_image_url);
-  const main = primaryList[0] ?? normalizeImageUrl(legacy.main_image_url) ?? fallback;
-  const gallery = mergeGallery(main ?? fallback, primaryList.slice(1), fallback);
-  return { mainImage: main ?? fallback, gallery, fallback };
-}
-
-export async function fetchProduct(slug: string): Promise<ProductData | null> {
-  const admin = getAdminClient();
-  let dataset: "shop" | "legacy" = "shop";
-  let primary: PrimaryRow | null = null;
-
-  try {
-    const { data, error } = await admin
-      .from("ecom_products")
-      .select(
-        "id, slug, title, short_desc, price, currency, images, image_path, status, category_slug, tags, specs, rating, sku"
-      )
-      .eq("slug", slug)
-      .maybeSingle();
-    if (!error && data) {
-      const row = data as Record<string, unknown>;
-      primary = {
-        id: String(row.id ?? ""),
-        slug: String(row.slug ?? ""),
-        title: String(row.title ?? "Untitled product"),
-        short_desc: (row.short_desc as string) ?? null,
-        description: (row.description as string) ?? null,
-        price: Number(row.price ?? 0),
-        currency: typeof row.currency === "string" ? String(row.currency) : null,
-        images: row.images,
-        image_path: typeof row.image_path === "string" ? row.image_path : null,
-        status: (row.status as string) ?? null,
-        category_slug: typeof row.category_slug === "string" ? row.category_slug : null,
-        tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
-        specs: row.specs,
-        rating: typeof row.rating === "number" ? row.rating : Number(row.rating ?? 0),
-        sku: typeof row.sku === "string" ? row.sku : null,
-      };
-    }
-  } catch {
-    // fallback later
-  }
-
-  if (!primary) {
-    dataset = "legacy";
+function parseRecentReviews(input: unknown): ProductReviewPreview[] {
+  let source = input;
+  if (typeof source === "string") {
     try {
-      const { data, error } = await admin
-        .from("products")
-        .select("id, slug, title, description, price_cents, currency, main_image_url, status")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (!error && data) {
-        const legacy = data as Record<string, unknown>;
-        const row: LegacyRow = {
-          id: String(legacy.id ?? ""),
-          slug: String(legacy.slug ?? ""),
-          title: String(legacy.title ?? "Untitled product"),
-          description: (legacy.description as string) ?? null,
-          price_cents: typeof legacy.price_cents === "number"
-            ? legacy.price_cents
-            : Number((legacy.price_cents as number | string | null) ?? 0),
-          currency: typeof legacy.currency === "string" ? String(legacy.currency) : null,
-          main_image_url: typeof legacy.main_image_url === "string" ? legacy.main_image_url : null,
-          status: (legacy.status as string) ?? "active",
-        };
-
-        const galleryInfo = await buildGallery(admin, dataset, row);
-        const parsed = parseSpecsPayload(null);
-        const currency = ensureCurrency(row.currency, dataset);
-        const price = Number.isFinite(row.price_cents)
-          ? Number(row.price_cents ?? 0) / 100
-          : 0;
-        const productUid = await resolveProductUid(admin, "public", "products", row.id);
-        const reviewSummary = await loadReviewSummary(admin, productUid, null);
-
-        return {
-          id: row.id,
-          slug: row.slug,
-          title: row.title,
-          shortDescription: row.description,
-          description: row.description,
-          price,
-          currency,
-          formattedPrice: formatCurrency(price, currency),
-          gallery: galleryInfo.gallery,
-          mainImage: galleryInfo.mainImage,
-          fallbackImage: galleryInfo.fallback,
-          dataset,
-          status: ensureStatus(row.status),
-          sku: null,
-          category: { slug: null, name: null },
-          tags: [],
-          specs: parsed.specs,
-          variants: parsed.variants,
-          shippingEstimate: parsed.shippingEstimate,
-          availabilityLabel: resolveAvailabilityLabel(row.status, parsed.shippingEstimate),
-          reviewSummary,
-          recentReviews: [],
-          productUid,
-          brand: parsed.brand,
-        };
-      }
+      source = JSON.parse(source);
     } catch {
-      // ignore
+      source = [];
+    }
+  }
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const row = entry as Record<string, unknown>;
+      const body = castString(row.body ?? row.content ?? "").trim();
+      if (!body) return null;
+      const ratingValue = typeof row.rating === "number" ? row.rating : Number(row.rating ?? row.score ?? 0);
+      const createdAt = castString(row.created_at ?? row.createdAt ?? row.inserted_at ?? new Date().toISOString());
+      const title = castString(row.title ?? row.headline ?? null) || null;
+      const author = castString(row.author_label ?? row.author ?? row.reviewer ?? "");
+      return {
+        rating: normalizeAverageRating(ratingValue, 0),
+        title,
+        body,
+        createdAt,
+        authorLabel: author || "Customer",
+      } satisfies ProductReviewPreview;
+    })
+    .filter((value): value is ProductReviewPreview => Boolean(value));
+}
+
+function normalizeTags(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return input.map((item) => castString(item).trim()).filter(Boolean);
+  }
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input);
+      return normalizeTags(parsed);
+    } catch {
+      return toStringArray(input);
+    }
+  }
+  if (typeof input === "object" && input !== null) {
+    return Object.values(input as Record<string, unknown>)
+      .map((value) => castString(value).trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function parsePair(entry: unknown): { key: string; value: string } | null {
+  if (!entry || typeof entry !== "object") return null;
+  const record = entry as Record<string, unknown>;
+  const key = castString(record.key ?? record.name ?? record.label).trim();
+  const value = castString(record.value ?? record.val ?? record.data).trim();
+  if (!key || !value) return null;
+  return { key, value };
+}
+
+function parseSpecsPayload(source: unknown): { specs: ProductSpecsData; variants: ProductVariantGroup[]; brand: string | null; shippingEstimate: string | null } {
+  const root = typeof source === "string" ? (() => { try { return JSON.parse(source); } catch { return {}; } })() : (source ?? {});
+  const json = (root && typeof root === "object" ? (root as Record<string, unknown>) : {}) as Record<string, unknown>;
+
+  const highlights = toStringArray(json.highlights ?? json.bullets ?? []);
+  const attributes: Array<{ key: string; value: string }> = [];
+  const rawAttributes = Array.isArray(json.attributes) ? json.attributes : Array.isArray(json.specs) ? json.specs : [];
+  for (const entry of rawAttributes as unknown[]) {
+    const pair = parsePair(entry);
+    if (pair) attributes.push(pair);
+  }
+
+  const inTheBox = toStringArray(json.in_the_box ?? json.box ?? []);
+  const warranty = toStringArray(json.warranty ?? json.guarantee ?? []);
+
+  const cards: ProductSpecsCard[] = [];
+  const rawCards = Array.isArray(json.cards) ? json.cards : [];
+  for (const entry of rawCards as unknown[]) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const title = castString(record.title ?? record.name ?? "").trim();
+    const items = toStringArray(record.items ?? record.values ?? []);
+    if (title && items.length) {
+      cards.push({ title, items });
     }
   }
 
-  if (!primary) {
-    return null;
+  if (!cards.length) {
+    if (inTheBox.length) cards.push({ title: "Что в коробке", items: inTheBox });
+    if (warranty.length) cards.push({ title: "Гарантия и возврат", items: warranty });
   }
 
-  const galleryInfo = await buildGallery(admin, dataset, primary);
-  const parsed = parseSpecsPayload(primary.specs);
-  const currency = ensureCurrency(primary.currency, dataset);
-  const price = Number(primary.price ?? 0);
-  const category = await resolveCategory(admin, primary.category_slug);
-  const productUid = await resolveProductUid(admin, "public", "ecom_products", primary.id);
-  const reviewSummary = await loadReviewSummary(admin, productUid, primary.rating ?? null);
-  const recentReviews = await loadRecentReviews(admin, productUid, 2);
+  const variants: ProductVariantGroup[] = [];
+  const rawVariants = Array.isArray(json.variants) ? json.variants : [];
+  for (const entry of rawVariants as unknown[]) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const id = castString(record.id ?? record.key ?? record.name).trim();
+    const label = castString(record.label ?? record.name ?? id).trim() || id;
+    const optionsSource = Array.isArray(record.options) ? record.options : [];
+    const options: ProductVariantOption[] = [];
+    for (const opt of optionsSource) {
+      if (!opt || typeof opt !== "object") continue;
+      const optRecord = opt as Record<string, unknown>;
+      const value = castString(optRecord.value ?? optRecord.id ?? optRecord.slug).trim();
+      if (!value) continue;
+      const optionLabel = castString(optRecord.label ?? optRecord.name ?? value).trim() || value;
+      const disabled = Boolean(optRecord.disabled ?? optRecord.inactive);
+      const image = normalizeImageUrl(castString(optRecord.image ?? optRecord.image_url ?? "") || null);
+      const priceDeltaRaw = typeof optRecord.price_delta === "number" ? optRecord.price_delta : Number(optRecord.price_delta ?? 0);
+      options.push({
+        value,
+        label: optionLabel,
+        disabled,
+        image,
+        priceDelta: Number.isFinite(priceDeltaRaw) ? priceDeltaRaw : null,
+      });
+    }
+    if (!id || !options.length) continue;
+    variants.push({ id, label, options });
+  }
+
+  const brand = castString(json.brand ?? json.maker ?? json.producer).trim() || null;
+  const shippingEstimate = castString(json.shipping_estimate ?? json.delivery_estimate ?? json.eta).trim() || null;
 
   return {
-    id: primary.id,
-    slug: primary.slug,
-    title: primary.title,
-    shortDescription: primary.short_desc,
-    description: primary.description ?? primary.short_desc,
+    specs: {
+      highlights,
+      attributes,
+      cards,
+      inTheBox,
+      warranty,
+    },
+    variants,
+    brand,
+    shippingEstimate,
+  };
+}
+
+function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
+  const row = (payload.product ?? payload) as Record<string, unknown>;
+  const slug = castString(row.slug ?? row.product_slug ?? payload.slug ?? "").trim();
+  const id = castString(row.id ?? row.product_id ?? payload.id ?? "").trim();
+  if (!slug || !id) return null;
+
+  const dataset = (castString(row.dataset ?? row.source_dataset).toLowerCase() === "legacy" ? "legacy" : "shop") as "shop" | "legacy";
+  const status = castString(row.status ?? row.product_status ?? payload.status ?? "active").trim() || "active";
+
+  const priceCents = typeof row.price_cents === "number" ? row.price_cents : Number(row.price_cents ?? payload.price_cents ?? 0);
+  const priceRaw = typeof row.price === "number" ? row.price : Number(row.price ?? payload.price ?? 0);
+  const price = Number.isFinite(priceRaw) && priceRaw > 0 ? priceRaw : Number.isFinite(priceCents) ? priceCents / 100 : 0;
+  const currency = ensureCurrency(castString(row.currency ?? row.price_currency ?? payload.currency ?? null) || null, dataset);
+
+  const specsPayload = payload.specs_payload ?? row.specs_payload ?? row.specs ?? payload.specs ?? null;
+  const parsed = parseSpecsPayload(specsPayload);
+
+  const gallerySources: string[] = [];
+  gallerySources.push(...toStringArray(payload.gallery_urls ?? row.gallery_urls ?? row.gallery));
+  gallerySources.push(castString(row.main_image_url ?? row.image_url ?? payload.main_image_url ?? ""));
+  gallerySources.push(castString(row.image_path ?? payload.image_path ?? ""));
+  const normalizedGallery = dedupe(
+    gallerySources
+      .map((value) => normalizeImageUrl(value))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  const fallbackImage = normalizeImageUrl(castString(payload.fallback_image ?? row.fallback_image ?? "")) || getFallbackImageByKey(id);
+  const mainImage = normalizedGallery[0] ?? fallbackImage;
+  const gallery = mergeGallery(mainImage, normalizedGallery.slice(1), fallbackImage);
+
+  const metrics = ((payload.metrics ?? row.metrics) ?? {}) as Record<string, unknown>;
+  const reviewSummarySource = (payload.review_summary ?? row.review_summary ?? metrics.review_summary) as Record<string, unknown> | undefined;
+  const reviewSummary: ProductReviewSummary = {
+    average: normalizeAverageRating(
+      typeof reviewSummarySource?.average === "number"
+        ? reviewSummarySource.average
+        : Number(reviewSummarySource?.avg_rating ?? reviewSummarySource?.average ?? row.rating ?? 0),
+      0,
+    ),
+    count: Number(reviewSummarySource?.count ?? reviewSummarySource?.review_count ?? row.review_count ?? 0) || 0,
+  };
+
+  const recentReviews = parseRecentReviews(payload.recent_reviews ?? row.recent_reviews ?? []);
+
+  const tags = normalizeTags(row.tags ?? payload.tags ?? []);
+
+  const clicks = Number(metrics.clicks ?? metrics.total_clicks ?? row.total_clicks ?? payload.total_clicks ?? payload.clicks ?? 0) || 0;
+  const impressions = Number(metrics.impressions ?? metrics.total_impressions ?? row.total_impressions ?? payload.total_impressions ?? payload.impressions ?? 0) || 0;
+
+  const categorySlug = castString(row.category_slug ?? payload.category_slug ?? null) || null;
+  const categoryName = castString(payload.category_name ?? row.category_name ?? (payload.category as any)?.name ?? (row.category as any)?.name ?? "") || null;
+
+  const shippingEstimate = parsed.shippingEstimate || castString(payload.shipping_estimate ?? row.shipping_estimate ?? null) || null;
+  const brand = parsed.brand ?? (castString(payload.brand ?? row.brand ?? null) || null);
+
+  return {
+    id,
+    slug,
+    title: castString(row.title ?? row.name ?? payload.title ?? "Untitled product") || "Untitled product",
+    shortDescription: castString(row.short_desc ?? row.short_description ?? payload.short_desc ?? null) || null,
+    description: castString(row.description ?? row.long_description ?? payload.description ?? null) || null,
     price,
     currency,
     formattedPrice: formatCurrency(price, currency),
-    gallery: galleryInfo.gallery,
-    mainImage: galleryInfo.mainImage,
-    fallbackImage: galleryInfo.fallback,
+    gallery,
+    mainImage,
+    fallbackImage,
     dataset,
-    status: ensureStatus(primary.status),
-    sku: primary.sku ?? null,
-    category,
-    tags: toStringTags(primary.tags),
+    status,
+    sku: castString(row.sku ?? payload.sku ?? null) || null,
+    category: { slug: categorySlug, name: categoryName },
+    tags,
     specs: parsed.specs,
     variants: parsed.variants,
-    shippingEstimate: parsed.shippingEstimate,
-    availabilityLabel: resolveAvailabilityLabel(primary.status, parsed.shippingEstimate),
+    shippingEstimate,
+    availabilityLabel: resolveAvailabilityLabel(status, shippingEstimate),
     reviewSummary,
     recentReviews,
-    productUid,
-    brand: parsed.brand,
+    productUid: castString(payload.product_uid ?? row.product_uid ?? payload.uid ?? null) || null,
+    brand,
+    clicks,
+    impressions,
   };
+}
+
+const fetchProductCached = unstable_cache(
+  async (slug: string) => {
+    const admin = getAdminClient();
+    const { data, error } = await admin.rpc("get_product_page", { _slug: slug }).maybeSingle();
+    if (error || !data) {
+      return null;
+    }
+    return mapRpcProduct(data as Record<string, unknown>);
+  },
+  ["product-page"],
+  {
+    revalidate: PRODUCT_PAGE_REVALIDATE_SECONDS,
+    tags: [PRODUCT_COLLECTION_TAG],
+  },
+);
+
+export async function fetchProduct(slug: string): Promise<ProductData | null> {
+  if (!slug) return null;
+  const product = await fetchProductCached(slug);
+  if (!product) return null;
+  return product;
+}
+
+function formatViewPrice(priceCents: number | null | undefined, currency: string | null | undefined): string {
+  const price = Number(priceCents ?? 0) / 100;
+  const cur = castString(currency).toUpperCase() || "EUR";
+  return formatCurrency(price, cur);
 }
 
 export async function fetchSimilarProducts(
   categorySlug: string | null,
   excludeId: string,
-  limit = 8
+  limit = 8,
 ): Promise<ProductGridItem[]> {
-  if (!categorySlug) return [];
+  const slug = categorySlug?.trim();
+  if (!slug) return [];
   const admin = getAdminClient();
   try {
     const { data, error } = await admin
-      .from("ecom_products")
-      .select("id, slug, title, short_desc, price, currency, images, image_path, status, rating")
-      .eq("category_slug", categorySlug)
+      .from("products")
+      .select("id, slug, title, description, price_cents, currency, main_image_url, status, rating")
+      .eq("category_slug", slug)
       .neq("id", excludeId)
       .in("status", ["active", "published"])
       .order("rating", { ascending: false, nullsFirst: false })
       .limit(limit);
     if (error || !data) return [];
-    return data.map((row: any) => {
-      const price = Number(row.price ?? 0);
-      const currency = ensureCurrency(row.currency ?? null, "shop");
-      const gallery = extractImages(row.images);
-      const image = gallery[0] ?? normalizeImageUrl(row.image_path) ?? getFallbackImageByKey(row.id);
-      const meta =
-        typeof row.rating === "number" && Number.isFinite(row.rating)
-          ? `★ ${row.rating.toFixed(1)}`
-          : null;
+    return data.map((row) => {
+      const image = normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       return {
         id: String(row.id ?? ""),
         slug: String(row.slug ?? ""),
         title: String(row.title ?? ""),
-        subtitle: row.short_desc ? String(row.short_desc) : undefined,
-        price: formatCurrency(price, currency),
+        subtitle: row.description ? String(row.description) : undefined,
+        price: formatViewPrice(row.price_cents, row.currency),
         meta,
         image,
       } satisfies ProductGridItem;
@@ -879,38 +497,29 @@ export async function fetchSimilarProducts(
   }
 }
 
-export async function fetchProductsBySlugs(
-  slugs: string[],
-  limit = 12
-): Promise<ProductGridItem[]> {
-  const unique = Array.from(new Set(slugs.filter(Boolean))).slice(0, limit);
+export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise<ProductGridItem[]> {
+  const unique = Array.from(new Set((slugs || []).filter(Boolean))).slice(0, limit);
   if (!unique.length) return [];
   const admin = getAdminClient();
   try {
     const { data, error } = await admin
-      .from("ecom_products")
-      .select("id, slug, title, short_desc, price, currency, images, image_path, status, rating")
+      .from("products")
+      .select("id, slug, title, description, price_cents, currency, main_image_url, status, rating")
       .in("slug", unique)
       .in("status", ["active", "published"]);
     if (error || !data) return [];
     const bySlug = new Map<string, ProductGridItem>();
-    for (const row of data as any[]) {
+    for (const row of data) {
       const slug = String(row.slug ?? "");
       if (!slug) continue;
-      const price = Number(row.price ?? 0);
-      const currency = ensureCurrency(row.currency ?? null, "shop");
-      const gallery = extractImages(row.images);
-      const image = gallery[0] ?? normalizeImageUrl(row.image_path) ?? getFallbackImageByKey(row.id);
-      const meta =
-        typeof row.rating === "number" && Number.isFinite(row.rating)
-          ? `★ ${row.rating.toFixed(1)}`
-          : null;
+      const image = normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       bySlug.set(slug, {
         id: String(row.id ?? ""),
         slug,
         title: String(row.title ?? ""),
-        subtitle: row.short_desc ? String(row.short_desc) : undefined,
-        price: formatCurrency(price, currency),
+        subtitle: row.description ? String(row.description) : undefined,
+        price: formatViewPrice(row.price_cents, row.currency),
         meta,
         image,
       });

@@ -7,6 +7,22 @@ import { Star } from "lucide-react";
 
 import { cn } from "@shared/lib/cn";
 
+function formatTimestamp(value: string): string {
+  if (!value) return "";
+  try {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return value;
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "medium",
+      hourCycle: "h23",
+      timeZone: "UTC",
+    }).format(dt);
+  } catch {
+    return value;
+  }
+}
+
 export type AccountReview = {
   review_id: string;
   product_id: string;
@@ -174,9 +190,7 @@ export default function ReviewsClient({ initialReviews }: { initialReviews: Acco
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span>
                       Updated:{" "}
-                      {review.updated_at
-                        ? new Date(review.updated_at).toLocaleString()
-                        : new Date(review.created_at).toLocaleString()}
+                      {formatTimestamp(review.updated_at || review.created_at)}
                     </span>
                     <div className="flex items-center gap-3">
                       <Link

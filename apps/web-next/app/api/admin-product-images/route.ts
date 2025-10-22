@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 
+const PRODUCT_COLLECTION_TAG = "products:list";
+const PRODUCT_TAG_PREFIX = "product:";
+const CATEGORY_TAG_PREFIX = "category:";
+
 const DEFAULT_BUCKET = "product-images";
+
+function productTag(slug: string) {
+  return `${PRODUCT_TAG_PREFIX}${slug}`;
+}
+
+function categoryTag(slug: string) {
+  return `${CATEGORY_TAG_PREFIX}${slug}`;
+}
 
 function encodePath(path: string): string {
   return path
@@ -24,6 +37,29 @@ function json(body: unknown, status = 200) {
     status,
     headers: { "cache-control": "no-store" },
   });
+}
+
+async function revalidateProductAssets(
+  supabase: ReturnType<typeof getAdminClient>,
+  productId: string,
+) {
+  if (!productId) return;
+  try {
+    const { data } = await supabase
+      .from("products")
+      .select("slug, category_slug")
+      .eq("id", productId)
+      .maybeSingle();
+    if (data?.slug) {
+      revalidateTag(productTag(data.slug));
+    }
+    if (data?.category_slug) {
+      revalidateTag(categoryTag(data.category_slug));
+    }
+  } catch (error) {
+    console.warn("admin-product-images: failed to resolve tags", error);
+  }
+  revalidateTag(PRODUCT_COLLECTION_TAG);
 }
 
 export async function GET(request: Request) {
@@ -135,6 +171,7 @@ export async function POST(request: Request) {
       }
 
       await syncPrimaryImage(supabase, productId, path, supabaseUrl, bucket);
+      await revalidateProductAssets(supabase, productId);
 
       return json({
         ok: true,
@@ -170,6 +207,7 @@ export async function POST(request: Request) {
       }
 
       await syncPrimaryImage(supabase, productId, data.path, supabaseUrl, bucket);
+      await revalidateProductAssets(supabase, productId);
 
       return json({
         ok: true,

@@ -68,6 +68,20 @@ describe("API /api/orders", () => {
     expect(res.body.meta.cache).toMatchObject({ ttlMs: expect.any(Number) });
   });
 
+
+
+  it("нормализует статус перед фильтрацией", async () => {
+    listOrdersByDateMock.mockResolvedValue({ items: [], nextCursor: undefined, total: 0, hasMore: false });
+    const handler = (await import("../src/pages/api/orders")).default;
+
+    const req: any = { method: "GET", headers: { "x-user-id": "user-1" }, query: { status: "SuCcEeDeD" } };
+    const res = createResponse();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(listOrdersByDateMock).toHaveBeenCalledWith(expect.objectContaining({ status: "succeeded" }));
+  });
   it("отдаёт 401 без userId", async () => {
     listOrdersByDateMock.mockResolvedValue({ items: [], nextCursor: undefined, total: 0, hasMore: false });
     const handler = (await import("../src/pages/api/orders")).default;

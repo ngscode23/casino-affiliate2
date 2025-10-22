@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
+import { resolveStatusFilters } from "@shared/lib/status-map";
 
 const DAY_MS = 86_400_000;
 
@@ -106,7 +107,21 @@ export async function GET(request: Request) {
       .range(rangeStart, rangeEnd);
 
     if (statusFilter && statusFilter !== "all") {
-      builder = builder.eq("status", statusFilter);
+      const { order, payment } = resolveStatusFilters(statusFilter);
+      const clauses: string[] = [];
+      if (order.length > 0) {
+        const encoded = order.map(encodeURIComponent).join(".");
+        clauses.push(`status.in.(${encoded})`);
+      }
+      if (payment.length > 0) {
+        const encoded = payment.map(encodeURIComponent).join(".");
+        clauses.push(`payment_status.in.(${encoded})`);
+      }
+      if (clauses.length > 0) {
+        builder = builder.or(clauses.join(","));
+      } else {
+        builder = builder.eq("status", statusFilter);
+      }
     }
     if (query) {
       builder = builder.ilike("id", `%${query}%`);

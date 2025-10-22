@@ -90,11 +90,11 @@ describe("track API routes", () => {
     };
 
     const from = vi.fn((table: string) => {
-      if (table === "ecom_products") {
-        return buildSelectChain({ id: "prod-1" });
-      }
       if (table === "products") {
-        return buildSelectChain({ id: "legacy-1" });
+        return buildSelectChain({ id: "prod-1", slug: "prod-slug" });
+      }
+      if (table === "legacy_products") {
+        return buildSelectChain({ id: "legacy-1", slug: "legacy-slug" });
       }
       return {} as any;
     });

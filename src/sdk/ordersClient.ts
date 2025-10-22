@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { performance } from "perf_hooks";
 import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import type { Database, Tables } from "@shared/lib/database.types";
+import { resolveStatusFilters } from "@shared/lib/status-map";
 import type {
   OrderDetails,
   OrderHistoryEntryDTO,
@@ -156,7 +157,7 @@ function isCompleteOrderRow(row: OrderRow): row is CompleteOrderRow {
 
 function mapOrderRow(row: CompleteOrderRow, paymentsIndex: Map<string, PaymentRow[]>): OrderListItem {
   const currency = normalizeCurrency(row.currency);
-  const paymentRows = paymentsIndex.get("row.id") ?? [];
+  const paymentRows = paymentsIndex.get(row.id) ?? [];
   const lastPayment = paymentRows[0];
   const subtotal = toNumber(row.amount_subtotal ?? row.amount_total);
   const discount = toNumber(row.amount_discounts);
@@ -322,52 +323,18 @@ export class OrdersClient {
     // Build an OR predicate for status filtering that avoids enum errors by
     // targeting each value only to the column where it is valid.
     function buildSafeStatusOrClauses(raw: string): string[] {
-      const ORDER_STATUS = new Set([
-        "pending",
-        "paid",
-        "cancelled",
-        "canceled",
-        "refunded",
-        "failed",
-      ]);
-      const PAYMENT_STATUS = new Set([
-        "pending",
-        "succeeded",
-        "failed",
-        "authorized",
-        "captured",
-        "paid",
-        "canceled",
-        "refunded",
-        "partial_refund",
-        "requires_action",
-      ]);
-
-      const s = raw.trim().toLowerCase();
-      const variants = new Set<string>([s]);
-      if (s === "canceled" || s === "cancelled") {
-        variants.add("canceled");
-        variants.add("cancelled");
+        const { order, payment } = resolveStatusFilters(raw);
+        const clauses: string[] = [];
+        if (order.length > 0) {
+          const list = order.map(encodeURIComponent).join(".");
+          clauses.push(`status.in.(${list})`);
+        }
+        if (payment.length > 0) {
+          const list = payment.map(encodeURIComponent).join(".");
+          clauses.push(`payment_status.in.(${list})`);
+        }
+        return clauses;
       }
-
-      const orderVals: string[] = [];
-      const payVals: string[] = [];
-      for (const v of variants) {
-        if (ORDER_STATUS.has(v)) orderVals.push(v);
-        if (PAYMENT_STATUS.has(v)) payVals.push(v);
-      }
-
-      const clauses: string[] = [];
-      if (orderVals.length > 0) {
-        const list = orderVals.map(encodeURIComponent).join(".");
-        clauses.push(`status.in.(${list})`);
-      }
-      if (payVals.length > 0) {
-        const list = payVals.map(encodeURIComponent).join(".");
-        clauses.push(`payment_status.in.(${list})`);
-      }
-      return clauses;
-    }
 
     let query = baseFilters(
       this.client
@@ -638,15 +605,47 @@ export class OrdersClient {
   }
 
   private async fetchOrderHistory(orderId: string, _userId: string): Promise<OrderHistoryEntryDTO[]> {
+    // Prefer the audit table if present: richer, stable schema
+    const audit = await this.client
+      .from("order_status_audit")
+      .select("order_id, old_status, new_status, changed_by, changed_at, reason, source")
+      .eq("order_id", orderId)
+      .order("changed_at", { ascending: false });
+
+    if (!audit.error && Array.isArray(audit.data) && audit.data.length > 0) {
+      return (audit.data as any[]).map((row) => ({
+        occurredAt: String(row.changed_at ?? new Date().toISOString()),
+        actor: row.changed_by ? String(row.changed_by) : null,
+        type: String(row.new_status ?? "status_changed"),
+        payload: {
+          old_status: row.old_status ?? null,
+          new_status: row.new_status ?? null,
+          reason: row.reason ?? null,
+          source: row.source ?? null,
+        } as Record<string, unknown>,
+      }));
+    }
+
+    // Fallback to view if audit table not available. Map minimal fields.
     const response = await this.client
       .from("order_history_v")
-      .select("occurred_at, actor, event_type, payload")
+      .select("order_id, created_at, status, amount, currency")
       .eq("order_id", orderId)
-      .order("occurred_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
-    if (response.error) throw new UpstreamError(`Failed to fetch order history: ${response.error.message}`, response.error);
-    const rows = ((response.data ?? []) as unknown) as OrderHistoryRow[];
-    return rows.map(mapHistory);
+    if (response.error) {
+      throw new UpstreamError(`Failed to fetch order history: ${response.error.message}`, response.error);
+    }
+    const rows = (response.data ?? []) as any[];
+    return rows.map((row) => ({
+      occurredAt: String(row.created_at ?? new Date().toISOString()),
+      actor: null,
+      type: String(row.status ?? "event"),
+      payload: {
+        amount: row.amount ?? null,
+        currency: row.currency ?? null,
+      } as Record<string, unknown>,
+    }));
   }
 }
 
@@ -684,10 +683,13 @@ export async function getOrderItems(orderId: string, userId: string) {
 }
 
 export async function resetOrdersCache(keys?: string[]) {
-  await getOrdersClient().resetOrdersCache(keys);
+  try {
+    const hasEnv = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+    if (!hasEnv) return;
+    await getOrdersClient().resetOrdersCache(keys);
+  } catch {
+    // In test or env without Supabase credentials, silently skip cache reset
+  }
 }
 
 export { InMemoryCacheAdapter } from "./cacheAdapters";
-
-
-

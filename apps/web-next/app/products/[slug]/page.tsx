@@ -4,26 +4,9 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
-import { fetchProduct, fetchSimilarProducts } from "./data";
+import { PRODUCT_PAGE_REVALIDATE_SECONDS, fetchProduct, fetchSimilarProducts } from "./data";
 
-export const dynamic = "force-dynamic";
-
-async function fetchStatCount(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  table: string,
-  productId: string,
-) {
-  try {
-    const { count, error } = await supabase
-      .from(table)
-      .select("product_id", { count: "exact", head: true })
-      .eq("product_id", productId);
-    if (error) return 0;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
-}
+export const revalidate = PRODUCT_PAGE_REVALIDATE_SECONDS;
 
 function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
   // ProductMetadata ждёт Breadcrumb[] с полем url
@@ -88,26 +71,13 @@ export default async function ProductPage(
     || "user";
   const isAdmin = role === "admin";
 
-  const clickTables =
-    product.dataset === "legacy"
-      ? (["product_clicks", "shop_clicks"] as const)
-      : (["shop_clicks", "product_clicks"] as const);
-
-  const impressionTables =
-    product.dataset === "legacy"
-      ? (["product_impressions", "shop_impressions"] as const)
-      : (["shop_impressions", "product_impressions"] as const);
-
-  const [clicks, impressions] = await Promise.all([
-    fetchStatCount(supabase, clickTables[0], product.id)
-      .then(v => (v > 0 ? v : fetchStatCount(supabase, clickTables[1], product.id))),
-    fetchStatCount(supabase, impressionTables[0], product.id)
-      .then(v => (v > 0 ? v : fetchStatCount(supabase, impressionTables[1], product.id))),
-  ]);
-
   const similar = await fetchSimilarProducts(product.category?.slug ?? "", product.id, 8);
   const breadcrumbs = buildBreadcrumbs(product);
   const canonicalPath = `/products/${product.slug}`;
+  const adminMetrics = {
+    clicks: product.clicks ?? 0,
+    impressions: product.impressions ?? 0,
+  };
 
   return (
     <div className="bg-background">
@@ -121,7 +91,7 @@ export default async function ProductPage(
           product={product}
           // если ProductView ждёт href — адаптируем локально:
           breadcrumbs={breadcrumbs.map(b => ({ name: b.name, href: b.url }))}
-          admin={{ isAdmin, clicks, impressions }}
+          admin={{ isAdmin, clicks: adminMetrics.clicks, impressions: adminMetrics.impressions }}
           similar={similar}
         />
       </main>

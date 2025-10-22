@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseFetchLogger } from "./fetch-logger";
 
 let adminClient: SupabaseClient | null = null;
+const adminFetch = createSupabaseFetchLogger("admin");
 
 function resolveConfig() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,6 +28,9 @@ export function getAdminClient(): SupabaseClient {
     adminClient = createClient(url, key, {
       auth: {
         persistSession: false,
+      },
+      global: {
+        fetch: adminFetch,
       },
     });
   }

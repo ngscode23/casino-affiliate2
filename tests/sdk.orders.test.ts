@@ -5,6 +5,13 @@ import { OrdersClient } from "../src/sdk/ordersClient";
 
 // Простая заглушка Supabase, которая возвращает заранее подготовленные ответы.
 function createStubSupabase(responses: Record<string, any>) {
+  const orCalls: string[] = [];
+  Object.defineProperty(responses, "__orCalls", {
+    value: orCalls,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
   return {
     from(table: string) {
       const self = this;
@@ -26,7 +33,10 @@ function createStubSupabase(responses: Record<string, any>) {
         lte() {
           return builder;
         },
-        or() {
+        or(value?: string) {
+          if (typeof value === "string") {
+            orCalls.push(value);
+          }
           return builder;
         },
         in() {
@@ -144,7 +154,7 @@ describe("OrdersClient", () => {
     expect(result.nextCursor).toBeDefined();
 
     await client.listOrdersByDate({ userId: "user-1", limit: 1 });
-    const hitCall = metrics.log.mock.calls.find(([event]) => event === "orders.list.cache_hit");
+const hitCall = (metrics.log.mock.calls as Array<[string, Record<string, unknown>?]>).find(([event]) => event === "orders.list.cache_hit");
     expect(hitCall?.[1]?.hit).toBe(true);
   });
 
@@ -218,11 +228,31 @@ describe("OrdersClient", () => {
       cache: new InMemoryCacheAdapter(),
     });
 
-    const details = await client.getOrderDetails("ord-2", "user-1");
-    expect(details.order.total).toBe(160);
-    expect(details.order.lastPaymentStatus).toBe("succeeded");
-    expect(details.items).toHaveLength(1);
-    expect(details.payments[0].currency).toBe("EUR");
-    expect(details.history).toHaveLength(1);
+  const details = await client.getOrderDetails("ord-2", "user-1");
+  expect(details.order.total).toBe(160);
+  expect(details.order.lastPaymentStatus).toBe("succeeded");
+  expect(details.items).toHaveLength(1);
+  expect(details.payments[0].currency).toBe("EUR");
+  expect(details.history).toHaveLength(1);
+  });
+
+  it("applies payment status filters via OR clauses", async () => {
+    const responses: Record<string, any> = {
+      order_v2: { data: [], count: 0 },
+      payments: { data: [] },
+      payment_refunds: { data: [] },
+      order_history_v: { data: [] },
+    };
+
+    const client = new OrdersClient({
+      supabase: createStubSupabase(responses) as any,
+      cache: new InMemoryCacheAdapter(),
+    });
+
+    await client.listOrdersByDate({ userId: "user-1", status: "succeeded" });
+
+    const orClauses: string[] = (responses as any).__orCalls ?? [];
+    expect(orClauses.some((clause) => clause.includes("status.in.(paid)"))).toBe(true);
+    expect(orClauses.some((clause) => clause.includes("payment_status.in.(succeeded)"))).toBe(true);
   });
 });

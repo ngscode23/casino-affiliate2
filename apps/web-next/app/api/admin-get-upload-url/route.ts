@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { normalizeSku } from "@shared/lib/normalize";
 
 const DEFAULT_BUCKET = "product-images";
+const PRODUCT_COLLECTION_TAG = "products:list";
+const PRODUCT_TAG_PREFIX = "product:";
+const CATEGORY_TAG_PREFIX = "category:";
 const allowedExt = new Set(["webp", "png", "jpg", "jpeg", "avif"]);
+function productTag(slug: string) {
+  return `${PRODUCT_TAG_PREFIX}${slug}`;
+}
+
+function categoryTag(slug: string) {
+  return `${CATEGORY_TAG_PREFIX}${slug}`;
+}
+
 
 function resolveExt(input?: string | null): string {
   if (typeof input !== "string" || !input.trim()) return "webp";
@@ -51,6 +63,42 @@ function jsonError(status: number, code: string, message: string) {
     { error: code, message },
     { status, headers: { "cache-control": "no-store" } }
   );
+}
+
+async function revalidateProductsByIds(
+  supabase: ReturnType<typeof getAdminClient>,
+  ids: string[],
+) {
+  if (!ids.length) {
+    revalidateTag(PRODUCT_COLLECTION_TAG);
+    return;
+  }
+
+  const productTags = new Set<string>();
+  const categoryTags = new Set<string>();
+
+  try {
+    const { data } = await supabase
+      .from("products")
+      .select("slug, category_slug")
+      .in("id", ids);
+    for (const row of data ?? []) {
+      const slug = typeof row?.slug === "string" ? row.slug.trim() : "";
+      if (slug) productTags.add(productTag(slug));
+      const category = typeof row?.category_slug === "string" ? row.category_slug.trim() : "";
+      if (category) categoryTags.add(categoryTag(category));
+    }
+  } catch (error) {
+    console.warn("admin-get-upload-url: tag resolution failed", error);
+  }
+
+  for (const tag of productTags) {
+    revalidateTag(tag);
+  }
+  for (const tag of categoryTags) {
+    revalidateTag(tag);
+  }
+  revalidateTag(PRODUCT_COLLECTION_TAG);
 }
 
 export async function POST(request: Request) {
@@ -103,6 +151,7 @@ export async function POST(request: Request) {
 
     try {
       let updated = 0;
+      const touchedIds = new Set<string>();
       if (skuRaw) {
         const { data: skuRows, error: updateErr } = await supabase
           .from("ecom_products")
@@ -111,6 +160,9 @@ export async function POST(request: Request) {
           .select("id");
         if (updateErr) throw updateErr;
         updated = skuRows?.length ?? 0;
+        for (const row of skuRows ?? []) {
+          if (row?.id) touchedIds.add(String(row.id));
+        }
       }
       if (!updated && slugRaw) {
         const { data: slugRows, error: updateErr } = await supabase
@@ -120,15 +172,22 @@ export async function POST(request: Request) {
           .select("id");
         if (updateErr) throw updateErr;
         updated = slugRows?.length ?? 0;
+        for (const row of slugRows ?? []) {
+          if (row?.id) touchedIds.add(String(row.id));
+        }
       }
       if (!updated && productId) {
-        const { data: _rows, error: updateErr } = await supabase
+        const { data: idRows, error: updateErr } = await supabase
           .from("ecom_products")
           .update({ image_path: objectPath })
           .eq("id", productId)
           .select("id");
         if (updateErr) throw updateErr;
+        for (const row of idRows ?? []) {
+          if (row?.id) touchedIds.add(String(row.id));
+        }
       }
+      await revalidateProductsByIds(supabase, Array.from(touchedIds));
     } catch (updateErr) {
       console.warn("admin-get-upload-url: failed to update ecom_products", updateErr);
     }

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createSupabaseFetchLogger } from "./fetch-logger";
 
 function getAnonKey() {
   return (
@@ -10,6 +11,7 @@ function getAnonKey() {
 
 export async function createClient() {
   const cookieStore = await cookies();
+  const serverFetch = createSupabaseFetchLogger("server");
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +30,9 @@ export async function createClient() {
             // Called from a Server Component; middleware can refresh sessions.
           }
         },
+      },
+      global: {
+        fetch: serverFetch,
       },
     }
   );
