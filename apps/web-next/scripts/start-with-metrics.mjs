@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-env node */
 /* eslint-disable no-console */
 /**
  * Обёртка над next.start() с честным логированием продолжительности HTTP-запросов.
