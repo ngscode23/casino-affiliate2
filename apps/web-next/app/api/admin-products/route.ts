@@ -419,7 +419,6 @@ export async function POST(request: Request) {
               : "";
         if (!originalId) continue;
         const base = String(row.slug || row.title || originalId || "product");
-        // eslint-disable-next-line no-await-in-loop
         const uniqueSlug = await generateUniqueSlug(supabase, base, takenSlugs);
         const sourceSku = String(row.sku || row.slug || originalId || uniqueSlug);
         const sku = normalizeSku(`${sourceSku}-copy`, sourceSku);
