@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { Trash2 } from "lucide-react";
 
 import Button from "@ui/components/common/button";
 import { toast } from "@ui/components/common/toast";
@@ -97,6 +98,33 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
     }
   };
 
+  const deleteVersion = async (versionId: string) => {
+    const accessToken = await getValidAccessToken().catch(() => null);
+    try {
+      const response = await fetch("/api/admin-product-images", {
+        method: "POST",
+        headers: Object.fromEntries(
+          Object.entries({
+            "content-type": "application/json",
+            Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
+          }).filter(([, v]) => v != null)
+        ) as HeadersInit,
+        body: JSON.stringify({
+          op: "delete",
+          productId,
+          versionId,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setVersions((prev) => prev.filter((item) => item.id !== versionId));
+      toast("Image version deleted", { variant: "success" });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), { variant: "error" });
+    }
+  };
+
   if (!productId) return null;
 
   return (
@@ -126,14 +154,30 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
               </div>
               <div className="mt-2 flex flex-col gap-1">
                 <span className="text-[10px] text-muted-foreground">{new Date(version.uploadedAt).toLocaleString()}</span>
-                <Button
-                  type="button"
-                  variant={version.isCurrent ? "soft" : "secondary"}
-                  disabled={version.isCurrent}
-                  onClick={() => makeCurrent(version.id)}
-                >
-                  {version.isCurrent ? "Current" : "Use as primary"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={version.isCurrent ? "soft" : "secondary"}
+                    disabled={version.isCurrent}
+                    onClick={() => makeCurrent(version.id)}
+                  >
+                    {version.isCurrent ? "Current" : "Use as primary"}
+                  </Button>
+                  {!version.isCurrent ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="px-2 text-rose-500 hover:text-rose-600"
+                      onClick={() => {
+                        if (window.confirm("Delete this image version?")) {
+                          deleteVersion(version.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
           ))}

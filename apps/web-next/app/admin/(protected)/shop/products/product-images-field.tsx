@@ -117,8 +117,9 @@ export function ProductImagesField({
       const uploadUrl = uploadJson?.uploadUrl as string | undefined;
       const publicUrl = uploadJson?.publicUrl as string | undefined;
       const storagePath = uploadJson?.path as string | undefined;
+      const uploadToken = uploadJson?.token as string | undefined;
 
-      if (!uploadUrl || !publicUrl || !storagePath) {
+      if (!uploadUrl || !publicUrl || !storagePath || !uploadToken) {
         throw new Error("Upload URL response missing fields");
       }
 
@@ -126,6 +127,9 @@ export function ProductImagesField({
         method: "PUT",
         headers: {
           "content-type": file.type || "application/octet-stream",
+          Authorization: `Bearer ${uploadToken}`,
+          "x-upsert": "true",
+          "cache-control": "no-cache",
         },
         body: file,
       });

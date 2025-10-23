@@ -224,6 +224,49 @@ export async function POST(request: Request) {
     }
   }
 
+  if (op === "delete") {
+    try {
+      const { productId } = await ensureProductId();
+      const versionId = typeof payload.versionId === "string" ? payload.versionId.trim() : "";
+      if (!versionId) return json({ ok: false, error: "bad_request", message: "versionId required" }, 400);
+
+      const { data, error } = await supabase
+        .from("ecom_product_image_versions")
+        .select("id, path, is_current")
+        .eq("id", versionId)
+        .eq("product_id", productId)
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error(error?.message || "Version not found");
+      }
+      if (data.is_current) {
+        throw new Error("Cannot delete the current image. Promote another image first.");
+      }
+
+      if (data.path) {
+        try {
+          const storage = supabase.storage.from(bucket);
+          const { error: removeError } = await storage.remove([data.path]);
+          if (removeError) {
+            console.warn("admin-product-images: storage remove failed", removeError);
+          }
+        } catch (storageErr) {
+          console.warn("admin-product-images: storage remove threw", storageErr);
+        }
+      }
+
+      await supabase.from("ecom_product_image_versions").delete().eq("id", versionId).eq("product_id", productId);
+      if (data.path) {
+        await removeImageFromProduct(supabase, productId, data.path, supabaseUrl, bucket);
+      }
+      await revalidateProductAssets(supabase, productId);
+
+      return json({ ok: true, deleted: versionId });
+    } catch (error: unknown) {
+      return json({ ok: false, error: "delete_failed", message: String((error as Error)?.message ?? error) }, 400);
+    }
+  }
+
   return json({ ok: false, error: "bad_op" }, 400);
 }
 
@@ -254,5 +297,32 @@ async function syncPrimaryImage(
       .eq("id", productId);
   } catch (error) {
     console.warn("syncPrimaryImage failed", error);
+  }
+}
+
+async function removeImageFromProduct(
+  supabase: ReturnType<typeof getAdminClient>,
+  productId: string,
+  path: string,
+  supabaseUrl: string,
+  bucket: string,
+) {
+  try {
+    const { data, error } = await supabase
+      .from("ecom_products")
+      .select("images")
+      .eq("id", productId)
+      .single();
+    if (error) throw error;
+    const currentImages = Array.isArray(data?.images)
+      ? (data.images as unknown[]).map((value) => String(value)).filter(Boolean)
+      : [];
+    if (!currentImages.length) return;
+    const imagePublicUrl = publicUrl(supabaseUrl, bucket, path);
+    const nextImages = currentImages.filter((url) => url !== imagePublicUrl);
+    if (nextImages.length === currentImages.length) return;
+    await supabase.from("ecom_products").update({ images: nextImages }).eq("id", productId);
+  } catch (error) {
+    console.warn("removeImageFromProduct failed", error);
   }
 }

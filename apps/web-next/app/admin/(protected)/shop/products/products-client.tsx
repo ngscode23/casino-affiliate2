@@ -90,6 +90,27 @@ async function fetchCategories() {
   }
 }
 
+type AdminProductsResponse = {
+  ok?: boolean;
+  error?: string;
+  deleted?: number;
+  archived?: number;
+  duplicated?: number;
+};
+
+function parseAdminResponse(raw: string): AdminProductsResponse | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as AdminProductsResponse;
+    }
+  } catch {
+    // ignore malformed payloads; caller will fallback to raw response text
+  }
+  return null;
+}
+
 const CATEGORY_PALETTES = [
   "bg-[#60a5fa]",
   "bg-[#f97316]",
@@ -127,6 +148,7 @@ export function ProductsClient() {
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const normalizedCategories = useMemo(
     () => categories.map((item) => ({ ...item, color: item.color ?? undefined })),
     [categories],
@@ -230,37 +252,70 @@ export function ProductsClient() {
         body: JSON.stringify({ op: "delete", ids: [product.id] }),
       });
       const responseText = await res.text();
-      let payload: { ok?: boolean; error?: string; deleted?: number } | null = null;
-      try {
-        payload = responseText ? (JSON.parse(responseText) as typeof payload) : null;
-      } catch {
-        // Ignore JSON parse errors and fall back to raw text.
-      }
+      const payload = parseAdminResponse(responseText);
       if (!res.ok) {
         const errorMessage =
           (payload && typeof payload.error === "string" && payload.error) ||
           responseText ||
-          "Failed to delete product";
+          "Failed to archive product";
         throw new Error(errorMessage);
       }
       if (payload && payload.ok === false) {
         const errorMessage =
-          (typeof payload.error === "string" && payload.error) || "Failed to delete product";
+          (typeof payload.error === "string" && payload.error) || "Failed to archive product";
         throw new Error(errorMessage);
       }
 
-      const deletedCount =
-        payload && typeof payload.deleted === "number" ? payload.deleted : 1;
+      const archivedCount =
+        payload && typeof payload.archived === "number"
+          ? payload.archived
+          : payload && typeof payload.deleted === "number"
+            ? payload.deleted
+            : 1;
       setItems((prev) => prev.filter((item) => item.id !== product.id));
-      setTotal((prev) => Math.max(0, prev - deletedCount));
-      toast("Product deleted", { variant: "success" });
+      setTotal((prev) => Math.max(0, prev - archivedCount));
+      toast("Product archived", { variant: "success" });
       setRefreshToken((value) => value + 1);
     } catch (err) {
       console.error("products-client: delete failed", err);
-      const message = err instanceof Error ? err.message : "Failed to delete product";
+      const message = err instanceof Error ? err.message : "Failed to archive product";
       toast(message, { variant: "error" });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDuplicate = async (product: ProductRow) => {
+    setDuplicatingId(product.id);
+    try {
+      const res = await authorizedFetch("/api/admin-products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "duplicate", ids: [product.id] }),
+      });
+      const responseText = await res.text();
+      const payload = parseAdminResponse(responseText);
+      if (!res.ok) {
+        const errorMessage =
+          (payload && typeof payload.error === "string" && payload.error) ||
+          responseText ||
+          "Failed to duplicate product";
+        throw new Error(errorMessage);
+      }
+      if (payload && payload.ok === false) {
+        const errorMessage =
+          (typeof payload.error === "string" && payload.error) || "Failed to duplicate product";
+        throw new Error(errorMessage);
+      }
+
+      toast("Product duplicated", { variant: "success" });
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      console.error("products-client: duplicate failed", err);
+      const message = err instanceof Error ? err.message : "Failed to duplicate product";
+      toast(message, { variant: "error" });
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -380,6 +435,14 @@ export function ProductsClient() {
                         }}
                       >
                         Quick edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-8 min-h-0 px-3 text-xs"
+                        disabled={duplicatingId === product.id}
+                        onClick={() => handleDuplicate(product)}
+                      >
+                        {duplicatingId === product.id ? "Duplicating..." : "Duplicate"}
                       </Button>
                       <Button
                         variant="ghost"

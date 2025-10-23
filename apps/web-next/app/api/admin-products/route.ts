@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 
@@ -9,6 +10,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN?.trim();
 const PRODUCT_COLLECTION_TAG = "products:list";
 const PRODUCT_TAG_PREFIX = "product:";
 const CATEGORY_TAG_PREFIX = "category:";
+const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 
 function productTag(slug: string) {
   return `${PRODUCT_TAG_PREFIX}${slug}`;
@@ -23,6 +25,37 @@ function json(body: unknown, init?: number) {
     status: init ?? 200,
     headers: { "cache-control": "no-store" },
   });
+}
+
+function pickSupabaseUrl(): string {
+  const candidates = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return "";
+}
+
+function normalizePath(raw: string, bucket: string): string {
+  const trimmed = raw.replace(/^\/+/, "");
+  const bucketPrefix = `${bucket}/`;
+  if (trimmed.startsWith(bucketPrefix)) {
+    return trimmed.slice(bucketPrefix.length);
+  }
+  return trimmed;
+}
+
+function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | null {
+  if (typeof path !== "string" || !path.trim()) return null;
+  if (/^https?:/i.test(path)) return path;
+  if (!baseUrl) return null;
+  const objectPath = normalizePath(path.trim(), bucket)
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  return `${baseUrl.replace(/\/$/, "")}/storage/v1/object/public/${encodeURIComponent(bucket)}/${objectPath}`;
 }
 
 async function syncCatalog(supabase: ReturnType<typeof getAdminClient>, ids: string[]) {
@@ -104,6 +137,58 @@ async function revalidateProducts(
     revalidateTag(tag);
   }
   revalidateTag(PRODUCT_COLLECTION_TAG);
+}
+
+async function slugExists(
+  supabase: ReturnType<typeof getAdminClient>,
+  slug: string,
+): Promise<boolean> {
+  const tables = ["ecom_products", "products"] as const;
+  for (const table of tables) {
+    try {
+      const { count, error } = await supabase
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq("slug", slug);
+      if (error) {
+        console.warn(`admin-products: slug lookup failed for ${table}`, error);
+        continue;
+      }
+      if (typeof count === "number" && count > 0) {
+        return true;
+      }
+    } catch (lookupError) {
+      console.warn(`admin-products: slug lookup threw for ${table}`, lookupError);
+    }
+  }
+  return false;
+}
+
+async function generateUniqueSlug(
+  supabase: ReturnType<typeof getAdminClient>,
+  base: string,
+  taken: Set<string>,
+): Promise<string> {
+  const normalizedBase = base.trim() ? base.trim() : "product";
+  const seeds: string[] = [
+    `${normalizedBase}-copy`,
+    `${normalizedBase}-copy-${Date.now().toString(36)}`,
+    `${normalizedBase}-copy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+  ];
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const seed =
+      attempt < seeds.length
+        ? seeds[attempt]
+        : `${normalizedBase}-copy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}-${attempt}`;
+    const candidate = slugifyTitle(seed);
+    if (taken.has(candidate)) continue;
+    if (await slugExists(supabase, candidate)) continue;
+    taken.add(candidate);
+    return candidate;
+  }
+
+  throw new Error("failed_to_generate_unique_slug");
 }
 
 export async function POST(request: Request) {
@@ -224,25 +309,246 @@ export async function POST(request: Request) {
       if (!ids.length) return json({ ok: true, duplicated: 0 });
       const { data, error } = await supabase
         .from("ecom_products")
-        .select("id, slug, sku, title, price, rating, images, short_desc, category_slug, tags, specs, status")
+        .select(
+          "id, slug, sku, title, price, rating, images, short_desc, category_slug, tags, specs, status, currency, seller_id, image_path"
+        )
         .in("id", ids);
       if (error) return json({ ok: false, error: error.message || "db" }, 500);
 
-      const rows = (data || []).map((row) => {
-        const baseSlug = slugifyTitle(`${row.slug || row.id}-copy-${Math.random().toString(36).slice(2, 6)}`, row.slug || row.id);
-        return {
-          ...row,
-          id: undefined,
-          created_at: undefined,
-          slug: baseSlug,
-          sku: normalizeSku(`${row.sku || row.slug || row.id}-copy`, row.slug || row.id),
-        };
-      });
+      const sourceRows = Array.isArray(data) ? data : [];
+      const originalIds = sourceRows
+        .map((row) => {
+          const value = row?.id;
+          return typeof value === "string" ? value : value != null ? String(value) : "";
+        })
+        .filter(Boolean);
 
-      if (!rows.length) return json({ ok: true, duplicated: 0 });
+      let legacyById = new Map<string, Record<string, any>>();
+      if (originalIds.length) {
+        try {
+          const { data: legacyRows, error: legacyError } = await supabase
+            .from("products")
+            .select(
+              "id,slug,sku,title,short_desc,description,price,price_cents,currency,status,category_slug,tags,images,image_path,main_image_url,seller_id,rating,created_at"
+            )
+            .in("id", originalIds);
+          if (!legacyError && Array.isArray(legacyRows)) {
+            legacyById = new Map(
+              legacyRows.map((row: Record<string, any>) => [String(row?.id ?? ""), row]),
+            );
+          } else if (legacyError) {
+            console.warn("admin-products: failed to fetch legacy products", legacyError);
+          }
+        } catch (legacyErr) {
+          console.warn("admin-products: legacy products query threw", legacyErr);
+        }
+      }
+
+      const imageVersionsByProduct = new Map<
+        string,
+        Array<{ path: string; source_url: string | null; metadata: unknown; is_current: boolean }>
+      >();
+      if (originalIds.length) {
+        try {
+          const { data: versionRows, error: versionError } = await supabase
+            .from("ecom_product_image_versions")
+            .select("product_id,path,source_url,metadata,is_current")
+            .in("product_id", originalIds);
+          if (!versionError && Array.isArray(versionRows)) {
+            for (const version of versionRows) {
+              const productIdRaw = version?.product_id;
+              const productId =
+                typeof productIdRaw === "string"
+                  ? productIdRaw
+                  : productIdRaw != null
+                    ? String(productIdRaw)
+                    : "";
+              if (!productId) continue;
+              const bucket = imageVersionsByProduct.get(productId) ?? [];
+              bucket.push({
+                path: String(version?.path ?? ""),
+                source_url:
+                  typeof version?.source_url === "string" && version.source_url.trim()
+                    ? version.source_url
+                    : null,
+                metadata: version?.metadata ?? null,
+                is_current: Boolean(version?.is_current),
+              });
+              imageVersionsByProduct.set(productId, bucket);
+            }
+          } else if (versionError) {
+            console.warn("admin-products: failed to fetch image versions", versionError);
+          }
+        } catch (versionsErr) {
+          console.warn("admin-products: image versions query threw", versionsErr);
+        }
+      }
+
+      const takenSlugs = new Set<string>();
+      const supabaseUrl = pickSupabaseUrl();
+      const nowIso = new Date().toISOString();
+      const clones: Array<{
+        originalId: string;
+        row: {
+          id: string;
+          title: string;
+          price: number;
+          rating: number | null;
+          images: unknown;
+          short_desc: string | null;
+          category_slug: string | null;
+          tags: unknown;
+          specs: unknown;
+          status: string;
+          slug: string;
+          sku: string;
+          currency: string | null;
+          seller_id: string | null;
+          image_path: string | null;
+          deleted_at: null;
+        };
+      }> = [];
+
+      for (const row of sourceRows) {
+        const originalIdRaw = row?.id;
+        const originalId =
+          typeof originalIdRaw === "string"
+            ? originalIdRaw
+            : originalIdRaw != null
+              ? String(originalIdRaw)
+              : "";
+        if (!originalId) continue;
+        const base = String(row.slug || row.title || originalId || "product");
+        // eslint-disable-next-line no-await-in-loop
+        const uniqueSlug = await generateUniqueSlug(supabase, base, takenSlugs);
+        const sourceSku = String(row.sku || row.slug || originalId || uniqueSlug);
+        const sku = normalizeSku(`${sourceSku}-copy`, sourceSku);
+        clones.push({
+          originalId,
+          row: {
+            id: randomUUID(),
+            title: row.title ?? "Untitled",
+            price: row.price ?? 0,
+            rating: row.rating ?? null,
+            images: row.images ?? null,
+            short_desc: row.short_desc ?? null,
+            category_slug: row.category_slug ?? null,
+            tags: row.tags ?? null,
+            specs: row.specs ?? null,
+            status: "published",
+            slug: uniqueSlug,
+            sku,
+            currency: row.currency ?? null,
+            seller_id: row.seller_id ?? null,
+            image_path: row.image_path ?? null,
+            deleted_at: null,
+          },
+        });
+      }
+
+      if (!clones.length) return json({ ok: true, duplicated: 0 });
+
+      const rows = clones.map((entry) => entry.row);
+
       const inserted = await supabase.from("ecom_products").insert(rows).select("id");
       if (inserted.error) return json({ ok: false, error: inserted.error.message || "db" }, 500);
       const insertedIds = (inserted.data || []).map((row) => String(row.id));
+
+      const legacyInserts: Array<Record<string, unknown>> = [];
+      for (const entry of clones) {
+        const legacy = legacyById.get(entry.originalId) ?? null;
+        const imagesArray = Array.isArray(entry.row.images)
+          ? (entry.row.images as unknown[]).map((value) => String(value)).filter(Boolean)
+          : Array.isArray(legacy?.images)
+            ? (legacy?.images as unknown[]).map((value) => String(value)).filter(Boolean)
+            : [];
+        const mainImageUrl =
+          (legacy?.main_image_url && String(legacy.main_image_url)) ||
+          toPublicUrl(supabaseUrl, DEFAULT_BUCKET, entry.row.image_path) ||
+          (imagesArray[0] ?? null);
+        const priceCandidate =
+          Number.isFinite(entry.row.price) && typeof entry.row.price === "number"
+            ? entry.row.price
+            : Number.isFinite(Number(legacy?.price))
+              ? Number(legacy?.price)
+              : 0;
+        const price = priceCandidate >= 0 ? priceCandidate : 0;
+        const priceCents =
+          typeof legacy?.price_cents === "number" && Number.isFinite(legacy.price_cents)
+            ? legacy.price_cents
+            : Math.round(price * 100);
+
+        legacyInserts.push({
+          id: entry.row.id,
+          slug: entry.row.slug,
+          sku: entry.row.sku,
+          title: entry.row.title ?? legacy?.title ?? null,
+          short_desc: entry.row.short_desc ?? legacy?.short_desc ?? null,
+          description: legacy?.description ?? null,
+          price,
+          price_cents: priceCents,
+          currency: entry.row.currency ?? legacy?.currency ?? null,
+          status: entry.row.status ?? legacy?.status ?? null,
+          category_slug: entry.row.category_slug ?? legacy?.category_slug ?? null,
+          tags: legacy?.tags ?? entry.row.tags ?? null,
+          images: legacy?.images ?? entry.row.images ?? null,
+          image_path: entry.row.image_path ?? legacy?.image_path ?? null,
+          main_image_url: mainImageUrl,
+          seller_id: entry.row.seller_id ?? legacy?.seller_id ?? null,
+          rating: legacy?.rating ?? entry.row.rating ?? null,
+          created_at: nowIso,
+        });
+      }
+
+      if (legacyInserts.length) {
+        try {
+          const { error: legacyInsertError } = await supabase.from("products").insert(legacyInserts);
+          if (legacyInsertError) {
+            console.warn("admin-products: failed to insert legacy products", legacyInsertError);
+          }
+        } catch (legacyInsertErr) {
+          console.warn("admin-products: legacy products insert threw", legacyInsertErr);
+        }
+      }
+
+      const imageVersionInserts: Array<{
+        id: string;
+        product_id: string;
+        sku: string;
+        path: string;
+        source_url: string | null;
+        metadata: unknown;
+        is_current: boolean;
+      }> = [];
+      for (const entry of clones) {
+        const versions = imageVersionsByProduct.get(entry.originalId);
+        if (!versions || !versions.length) continue;
+        for (const version of versions) {
+          if (!version.path) continue;
+          imageVersionInserts.push({
+            id: randomUUID(),
+            product_id: entry.row.id,
+            sku: entry.row.sku,
+            path: version.path,
+            source_url: version.source_url,
+            metadata: version.metadata ?? null,
+            is_current: version.is_current ?? false,
+          });
+        }
+      }
+      if (imageVersionInserts.length) {
+        try {
+          const { error: copyError } = await supabase
+            .from("ecom_product_image_versions")
+            .insert(imageVersionInserts);
+          if (copyError) {
+            console.warn("admin-products: failed to copy image versions", copyError);
+          }
+        } catch (copyErr) {
+          console.warn("admin-products: image versions copy threw", copyErr);
+        }
+      }
+
       await syncCatalog(supabase, insertedIds);
       const newSlugs = rows.map((row) => (typeof row.slug === "string" ? row.slug : "")).filter(Boolean);
       const newCategories = rows
