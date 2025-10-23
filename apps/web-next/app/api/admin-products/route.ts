@@ -181,6 +181,28 @@ export async function POST(request: Request) {
         .select("slug, category_slug")
         .in("id", ids);
       await dropFromCatalog(supabase, ids);
+      try {
+        const { error: mapError } = await supabase
+          .from("product_id_map")
+          .delete()
+          .in("current_product_id", ids);
+        if (mapError) {
+          console.warn("admin-products: failed to clean product_id_map", mapError);
+        }
+      } catch (mapError) {
+        console.warn("admin-products: product_id_map cleanup threw", mapError);
+      }
+      try {
+        const { error: orderItemsError } = await supabase
+          .from("order_items")
+          .update({ product_id: null })
+          .in("product_id", ids);
+        if (orderItemsError) {
+          console.warn("admin-products: failed to null order_items.product_id", orderItemsError);
+        }
+      } catch (orderItemsError) {
+        console.warn("admin-products: order_items cleanup threw", orderItemsError);
+      }
       const { error, data: deletedData } = await supabase
         .from("ecom_products")
         .delete()

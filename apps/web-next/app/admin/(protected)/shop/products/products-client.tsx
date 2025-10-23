@@ -126,6 +126,7 @@ export function ProductsClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const normalizedCategories = useMemo(
     () => categories.map((item) => ({ ...item, color: item.color ?? undefined })),
     [categories],
@@ -211,6 +212,57 @@ export function ProductsClient() {
       cancelled = true;
     };
   }, [query, status, category, refreshToken]);
+
+  const handleDelete = async (product: ProductRow) => {
+    const productTitle = (product.title ?? "").trim();
+    const confirmed = window.confirm(
+      productTitle
+        ? `Delete "${productTitle}"? This action cannot be undone.`
+        : "Delete this product? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setDeletingId(product.id);
+    try {
+      const res = await authorizedFetch("/api/admin-products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "delete", ids: [product.id] }),
+      });
+      const responseText = await res.text();
+      let payload: { ok?: boolean; error?: string; deleted?: number } | null = null;
+      try {
+        payload = responseText ? (JSON.parse(responseText) as typeof payload) : null;
+      } catch {
+        // Ignore JSON parse errors and fall back to raw text.
+      }
+      if (!res.ok) {
+        const errorMessage =
+          (payload && typeof payload.error === "string" && payload.error) ||
+          responseText ||
+          "Failed to delete product";
+        throw new Error(errorMessage);
+      }
+      if (payload && payload.ok === false) {
+        const errorMessage =
+          (typeof payload.error === "string" && payload.error) || "Failed to delete product";
+        throw new Error(errorMessage);
+      }
+
+      const deletedCount =
+        payload && typeof payload.deleted === "number" ? payload.deleted : 1;
+      setItems((prev) => prev.filter((item) => item.id !== product.id));
+      setTotal((prev) => Math.max(0, prev - deletedCount));
+      toast("Product deleted", { variant: "success" });
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      console.error("products-client: delete failed", err);
+      const message = err instanceof Error ? err.message : "Failed to delete product";
+      toast(message, { variant: "error" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const categoryLabel = (slug: string | null) => {
     if (!slug) return "-";
@@ -328,6 +380,14 @@ export function ProductsClient() {
                         }}
                       >
                         Quick edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-8 min-h-0 px-3 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-500/10 disabled:opacity-50 disabled:pointer-events-none"
+                        disabled={deletingId === product.id}
+                        onClick={() => handleDelete(product)}
+                      >
+                        {deletingId === product.id ? "Deleting..." : "Delete"}
                       </Button>
                     </div>
                   </td>
