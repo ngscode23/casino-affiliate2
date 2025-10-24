@@ -1,4 +1,4 @@
-// mcp-server.mjs  — v0.5.1 (fix: safe newline in writeResult)
+// mcp-server.mjs  — v0.6.0 (bulk edits, batch replace, mkdir/move, patch apply)
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -21,11 +21,20 @@ import os from "node:os";
 const ROOT = process.cwd();
 const REQUIRED_TOKEN = process.env.MCP_SECRET || ""; // пусто → auth off
 const NAME = "local-tools";
-const VERSION = "0.5.1";
+const VERSION = "0.6.0";
 const ALLOWLIST_PATH = path.resolve(ROOT, "scripts/agent-allowlist.json");
 const DEFAULT_ALLOW = new Set(["pnpm", "node", "git", "rg", "powershell", "pwsh", "cmd"]);
 const QUEUE_DIR = path.resolve(ROOT, "shell-queue");
 const OUT_DIR = path.resolve(ROOT, "shell-out");
+
+// For batch file discovery via ripgrep
+const DEFAULT_EXCLUDES = [
+  "!**/node_modules/**",
+  "!**/.git/**",
+  "!**/.next/**",
+  "!**/.turbo/**",
+  "!**/.pnpm-store/**",
+];
 
 // ---------- utils ----------
 function log(...args) {
@@ -98,98 +107,38 @@ async function ensureDirs() {
   await fs.mkdir(OUT_DIR, { recursive: true });
 }
 
+async function listFilesByGlobs(globs = ["**/*"], { cwd = ROOT } = {}) {
+  const args = ["--files", "--hidden", "--follow"];
+  for (const g of [...globs, ...DEFAULT_EXCLUDES]) args.push("-g", g);
+  const { code, stdout } = await runProc("rg", args, { cwd });
+  if (code !== 0 && !stdout) return [];
+  return stdout.split(/\r?\n/).filter(Boolean);
+}
+
 // ---------- tools ----------
 const TOOL_DEFS = {
-  ping: {
-    description: "Проверка живости",
-    inputSchema: { type: "object", properties: { msg: { type: "string" } } },
-  },
-  health: {
-    description: "Состояние сервера",
-    inputSchema: { type: "object", properties: {} },
-  },
-  list_files: {
-    description: "Список файлов/папок относительно корня проекта",
-    inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } },
-  },
-  read_file: {
-    description: "Прочитать файл (UTF-8)",
-    inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
-  },
-  write_file: {
-    description: "Записать файл (перезапись, UTF-8)",
-    inputSchema: {
-      type: "object",
-      properties: { path: { type: "string" }, content: { type: "string" } },
-      required: ["path", "content"],
-    },
-  },
-  delete_file: {
-    description: "Удалить файл",
-    inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
-  },
-  open_vscode: {
-    description: "Открыть VS Code на указанном пути",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string" },
-        reuseWindow: { type: "boolean", default: true },
-        wait: { type: "boolean", default: false },
-      },
-      required: ["path"],
-    },
-  },
-  open_repo_in_vscode: {
-    description: "Открыть корень текущего проекта в VS Code",
-    inputSchema: { type: "object", properties: {} },
-  },
-  search_code: {
-    description: "Поиск по проекту (ripgrep)",
-    inputSchema: {
-      type: "object",
-      properties: {
-        q: { type: "string" },
-        globs: { type: "array", items: { type: "string" }, default: ["**/*"] },
-        limit: { type: "number", default: 200 },
-      },
-      required: ["q"],
-    },
-  },
-  replace_in_file: {
-    description: "Точечная замена текста в файле",
-    inputSchema: {
-      type: "object",
-      properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } },
-      required: ["path", "find", "replace"],
-    },
-  },
-  shell_run: {
-    description: "Выполнить разрешённую команду в пределах проекта (allowlist + timeout)",
-    inputSchema: {
-      type: "object",
-      properties: {
-        cmd: { type: "string" },
-        args: { type: "array", items: { type: "string" }, default: [] },
-        cwd: { type: "string" },
-        timeoutMs: { type: "number", default: 120000 }
-      },
-      required: ["cmd"],
-    },
-  },
+  ping: { description: "Проверка живости", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
+  health: { description: "Состояние сервера", inputSchema: { type: "object", properties: {} } },
+  list_files: { description: "Список файлов/папок относительно корня проекта", inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } } },
+  read_file: { description: "Прочитать файл (UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  write_file: { description: "Записать файл (перезапись, UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
+  delete_file: { description: "Удалить файл", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  mkdirp: { description: "Создать папку (recursive)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  move_file: { description: "Переместить/переименовать файл", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, overwrite: { type: "boolean", default: false }, createDirs: { type: "boolean", default: true } }, required: ["from", "to"] } },
+  open_vscode: { description: "Открыть VS Code на указанном пути", inputSchema: { type: "object", properties: { path: { type: "string" }, reuseWindow: { type: "boolean", default: true }, wait: { type: "boolean", default: false } }, required: ["path"] } },
+  open_repo_in_vscode: { description: "Открыть корень текущего проекта в VS Code", inputSchema: { type: "object", properties: {} } },
+  search_code: { description: "Поиск по проекту (ripgrep)", inputSchema: { type: "object", properties: { q: { type: "string" }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limit: { type: "number", default: 200 } }, required: ["q"] } },
+  replace_in_file: { description: "Точечная замена текста в файле", inputSchema: { type: "object", properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } }, required: ["path", "find", "replace"] } },
+  write_files: { description: "Записать несколько файлов за раз (atomic + dryRun)", inputSchema: { type: "object", properties: { files: { type: "array", items: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, mode: { type: "string", enum: ["overwrite", "append", "prepend"], default: "overwrite" } }, required: ["path", "content"] } }, atomic: { type: "boolean", default: true }, dryRun: { type: "boolean", default: false } }, required: ["files"] } },
+  batch_replace: { description: "Массовая замена по globs (regex/строка, preview)", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
+  apply_patch: { description: "Применить unified diff через git apply", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
+  shell_run: { description: "Выполнить разрешённую команду в пределах проекта (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
 };
 
-const SERVER_CAPABILITIES = {
-  resources: {},
-  prompts: {},
-  tools: TOOL_DEFS,
-};
+const SERVER_CAPABILITIES = { resources: {}, prompts: {}, tools: TOOL_DEFS };
 
 // ---------- server ----------
-const server = new Server(
-  { name: NAME, version: VERSION },
-  { capabilities: SERVER_CAPABILITIES }
-);
+const server = new Server({ name: NAME, version: VERSION }, { capabilities: SERVER_CAPABILITIES });
 
 // ---------- queue runner ----------
 async function processTask(task) {
@@ -252,6 +201,81 @@ async function sweepQueueOnce() {
 setInterval(sweepQueueOnce, 1000);
 sweepQueueOnce();
 
+// ---------- helpers for new tools ----------
+async function doWriteFiles(files = [], { atomic = true, dryRun = false } = {}) {
+  const results = [];
+  const backups = [];
+  try {
+    for (const f of files) {
+      const abs = safeJoin(f.path);
+      const exists = await fs.stat(abs).then(() => true).catch(() => false);
+      const before = exists ? await fs.readFile(abs, "utf8") : "";
+      let after = before;
+      const mode = f.mode || "overwrite";
+      if (mode === "overwrite") after = f.content;
+      if (mode === "append")   after = before + f.content;
+      if (mode === "prepend")  after = f.content + before;
+      results.push({ path: path.relative(ROOT, abs) || ".", bytesBefore: Buffer.byteLength(before, "utf8"), bytesAfter: Buffer.byteLength(after, "utf8") });
+      backups.push({ abs, before });
+      if (!dryRun) {
+        await fs.mkdir(path.dirname(abs), { recursive: true });
+        await fs.writeFile(abs, after, "utf8");
+      }
+    }
+    return { ok: true, results, dryRun };
+  } catch (e) {
+    if (atomic && !dryRun) {
+      for (const b of backups) { try { await fs.writeFile(b.abs, b.before, "utf8"); } catch {} }
+    }
+    return { ok: false, error: e?.message || String(e), results, dryRun };
+  }
+}
+
+async function doBatchReplace({ find, replace, regex = false, globs = ["**/*"], limitPerFile = 1000000, dryRun = true }) {
+  const files = await listFilesByGlobs(globs);
+  const changed = [];
+  let totalOccurrences = 0;
+  let pattern = null;
+  if (regex) {
+    try { pattern = new RegExp(find, "g"); } catch (e) { return { ok: false, error: "Invalid regex: " + (e?.message || String(e)) }; }
+  }
+  for (const rel of files) {
+    const abs = safeJoin(rel);
+    let content = await fs.readFile(abs, "utf8");
+    let next = content;
+    let count = 0;
+    if (regex) {
+      next = content.replace(pattern, (m) => { count++; if (count > limitPerFile) return m; return replace; });
+    } else {
+      const idx = content.indexOf(find);
+      if (idx !== -1) {
+        next = content.split(find).join(replace);
+        count = (content.length - content.split(find).join("").length) / find.length;
+      }
+    }
+    if (count > 0) {
+      totalOccurrences += count;
+      changed.push({ path: rel, occurrences: count, bytesBefore: Buffer.byteLength(content, "utf8"), bytesAfter: Buffer.byteLength(next, "utf8") });
+      if (!dryRun) { await fs.writeFile(abs, next, "utf8"); }
+    }
+  }
+  return { ok: true, filesChanged: changed.length, totalOccurrences, changed, dryRun };
+}
+
+async function doApplyPatch(diffText, { reverse = false, index = false } = {}) {
+  const allow = await loadAllow();
+  if (!allow.has("git")) return { ok: false, error: "git not allowed" };
+  const tmp = path.join(QUEUE_DIR, "patch-" + Date.now() + ".diff");
+  await fs.writeFile(tmp, diffText, "utf8");
+  const args = ["apply", "--reject", "--whitespace=fix"];
+  if (reverse) args.push("--reverse");
+  if (index)   args.push("--index");
+  args.push(tmp);
+  const { code, stdout, stderr } = await runProc("git", args, { cwd: ROOT });
+  try { await fs.rm(tmp, { force: true }); } catch {}
+  return { ok: code === 0, code, stdout, stderr };
+}
+
 // ---------- MCP handlers ----------
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const started = Date.now();
@@ -266,14 +290,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (name === "ping") return asText({ ok: true, echo: a.msg ?? null });
 
     if (name === "health") {
-      return asText({
-        ok: true,
-        root: ROOT,
-        node: process.version,
-        platform: `${process.platform} ${os.release()}`,
-        tools: Object.keys(TOOL_DEFS),
-        auth: REQUIRED_TOKEN ? "required" : "none",
-      });
+      return asText({ ok: true, root: ROOT, node: process.version, platform: `${process.platform} ${os.release()}`, tools: Object.keys(TOOL_DEFS), auth: REQUIRED_TOKEN ? "required" : "none" });
     }
 
     if (name === "list_files") {
@@ -298,9 +315,37 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       return asText({ ok: true, path: path.relative(ROOT, abs), bytes: Buffer.byteLength(a.content, "utf8") });
     }
 
+    if (name === "write_files") {
+      const r = await doWriteFiles(a.files || [], { atomic: a.atomic ?? true, dryRun: a.dryRun ?? false });
+      return asText(r);
+    }
+
+    if (name === "mkdirp") {
+      const abs = safeJoin(a.path);
+      await fs.mkdir(abs, { recursive: true });
+      return asText({ ok: true, path: path.relative(ROOT, abs) || "." });
+    }
+
+    if (name === "move_file") {
+      const from = safeJoin(a.from);
+      const to   = safeJoin(a.to);
+      if (a.createDirs ?? true) await fs.mkdir(path.dirname(to), { recursive: true });
+      if (!(a.overwrite ?? false)) {
+        const exists = await fs.stat(to).then(() => true).catch(() => false);
+        if (exists) return asText({ ok: false, error: "target exists", to: path.relative(ROOT, to) });
+      }
+      await fs.rename(from, to).catch(async () => {
+        // fallback to copy+delete across devices
+        const data = await fs.readFile(from);
+        await fs.writeFile(to, data);
+        await fs.rm(from, { force: true });
+      });
+      return asText({ ok: true, from: path.relative(ROOT, from), to: path.relative(ROOT, to) });
+    }
+
     if (name === "delete_file") {
       const abs = safeJoin(a.path);
-      await fs.rm(abs, { force: true });
+      await fs.rm(abs, { force: true, recursive: true });
       return asText({ ok: true, path: path.relative(ROOT, abs) });
     }
 
@@ -323,7 +368,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     if (name === "search_code") {
       const { q, globs = ["**/*"], limit = 200 } = a;
-      const rgArgs = ["--line-number", "--color", "never", "--hidden", "--follow", "-m", String(limit), q, ...globs];
+      const rgArgs = ["--line-number", "--color", "never", "--hidden", "--follow", "-m", String(limit), q];
+      for (const g of [...globs, ...DEFAULT_EXCLUDES]) rgArgs.push("-g", g);
       const { code, stdout, stderr } = await runProc("rg", rgArgs);
       if (code !== 0 && !stdout) return asText({ error: "rg failed", stderr });
       return asText(stdout || "(no matches)");
@@ -336,6 +382,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       if (next === orig) return asText({ changed: false, reason: "no occurrences" });
       await fs.writeFile(abs, next, "utf8");
       return asText({ changed: true, path: path.relative(ROOT, abs) });
+    }
+
+    if (name === "batch_replace") {
+      const r = await doBatchReplace({ find: a.find, replace: a.replace, regex: a.regex ?? false, globs: a.globs ?? ["**/*"], limitPerFile: a.limitPerFile ?? 1000000, dryRun: a.dryRun ?? true });
+      return asText(r);
+    }
+
+    if (name === "apply_patch") {
+      const r = await doApplyPatch(a.diff, { reverse: a.reverse ?? false, index: a.index ?? false });
+      return asText(r);
     }
 
     if (name === "shell_run") {
@@ -372,42 +428,22 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 server.setNotificationHandler(InitializedNotificationSchema, async () => {});
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = Object.entries(TOOL_DEFS).map(([name, def]) => ({
-    name,
-    description: def.description || "",
-    inputSchema: def.inputSchema || { type: "object", properties: {} },
-  }));
+  const tools = Object.entries(TOOL_DEFS).map(([name, def]) => ({ name, description: def.description || "", inputSchema: def.inputSchema || { type: "object", properties: {} } }));
   return { tools };
 });
 
 server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
-server.setRequestHandler(ReadResourceRequestSchema, async () => {
-  const err = new Error("Resource not found");
-  err.status = 404;
-  throw err;
-});
+server.setRequestHandler(ReadResourceRequestSchema, async () => { const err = new Error("Resource not found"); err.status = 404; throw err; });
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
-server.setRequestHandler(GetPromptRequestSchema, async () => {
-  const err = new Error("Prompt not found");
-  err.status = 404;
-  throw err;
-});
+server.setRequestHandler(GetPromptRequestSchema, async () => { const err = new Error("Prompt not found"); err.status = 404; throw err; });
 
 // ---------- bootstrap ----------
 const transport = new StdioServerTransport();
 await ensureDirs();
 await server.connect(transport);
 
-log("MCP up:", {
-  name: NAME,
-  version: VERSION,
-  root: ROOT,
-  node: process.version,
-  auth: REQUIRED_TOKEN ? maskToken(REQUIRED_TOKEN) : "off",
-  queueDir: path.relative(ROOT, QUEUE_DIR),
-  outDir: path.relative(ROOT, OUT_DIR),
-});
+log("MCP up:", { name: NAME, version: VERSION, root: ROOT, node: process.version, auth: REQUIRED_TOKEN ? maskToken(REQUIRED_TOKEN) : "off", queueDir: path.relative(ROOT, QUEUE_DIR), outDir: path.relative(ROOT, OUT_DIR) });
 
 process.on("SIGINT", () => { log("SIGINT"); process.exit(0); });
 process.on("SIGTERM", () => { log("SIGTERM"); process.exit(0); });

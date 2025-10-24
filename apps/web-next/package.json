@@ -21,6 +21,7 @@
     "@stripe/stripe-js": "^4.1.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.57.4",
+    "@supabase/postgrest-js": "^1.21.4",
     "clsx": "^2.1.1",
     "ddl": "^2.0.2",
     "framer-motion": "^12.23.16",
@@ -34,7 +35,6 @@
     "stripe": "^12.18.0"
   },
   "devDependencies": {
-    "@supabase/postgrest-js": "^1.21.4",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
