@@ -25,3 +25,16 @@
 +  });
 *** End Patch
 
+$env:MCP_SECRET = "мой_секретный_токен_для_mcp"   # чтобы ChatGPT не лазил кто попало
+
+$env:MCP_SECRET = "мой_секретный_токен_для_mcp"
+
+& "$env:APPDATA\npm\mcp-proxy.cmd" `
+  --shell `
+  --host 0.0.0.0 `
+  --port 8787 `
+  --server sse `
+  --allow-origin "https://chatgpt.com" `
+  --allow-origin "https://chat.openai.com" `
+  "C:\nvm4w\nodejs\node.exe" `
+  "C:\Project\casino-affiliate2\mcp-server.mjs"

@@ -13,11 +13,12 @@
     "clean": "turbo run clean",
     "prepare": "husky",
     "gen:db:types": "node scripts/gen-db-types.mjs",
-    "audit:lighthouse": "node ./scripts/run-lighthouse.mjs"
+    "audit:lighthouse": "node ./scripts/run-lighthouse.mjs",
+    "mcp:shell": "node ./mcp-server.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
-    "@modelcontextprotocol/sdk": "^1.20.0",
+    "@modelcontextprotocol/sdk": "^1.20.2",
     "@next/eslint-plugin-next": "15.4.5",
     "@playwright/test": "^1.56.1",
     "@supabase/mcp-server-supabase": "^0.5.5",
@@ -56,7 +57,8 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.46.0",
     "vercel": "^48.2.9",
-    "vitest": "^1.6.1"
+    "vitest": "^1.6.1",
+    "zod": "^3.25.76"
   },
   "pnpm": {
     "overrides": {

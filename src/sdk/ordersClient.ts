@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { performance } from "perf_hooks";
+// Prefer types from supabase-js dependency tree to avoid optional peer resolution issues
 import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import type { Database, Tables } from "@shared/lib/database.types";
 import { resolveStatusFilters } from "@shared/lib/status-map";
@@ -18,7 +19,18 @@ type PublicClient = SupabaseClient<Database>;
 type OrderRow = Tables<"order_v2">;
 type OrderTableRow = Tables<"orders">;
 type PaymentRow = Tables<"payments">;
-type RefundRow = Tables<"payment_refunds">;
+// Some environments may not have this legacy mirror; avoid hard typing to Database.Tables
+// to prevent TS errors when the table is absent.
+// Use a structural type with only the fields we read.
+type RefundRow = {
+  refund_id: string;
+  order_id?: string | null;
+  payment_intent_id?: string | null;
+  amount_cents?: number | null;
+  currency?: string | null;
+  reason?: string | null;
+  created_at?: string | null;
+};
 type OrderItemRow = Tables<"order_items">;
 type OrderHistoryRow = Tables<"order_history_v">;
 

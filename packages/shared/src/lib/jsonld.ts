@@ -3,7 +3,8 @@
 export type JsonLd = Record<string, unknown>;
 
 /**
- * Convert JSON-LD payload into a string safe for embedding inside <script> tags.
+ * Convert JSON-LD payload into a string safe for embe
+ * dding inside <script> tags.
  * Escapes characters that could prematurely close the tag or introduce HTML.
  */
 export function serializeJsonLd(data: unknown): string {

@@ -1,0 +1,11 @@
+{
+  "allowed": [
+    "pnpm",
+    "node",
+    "git",
+    "rg",
+    "powershell",
+    "pwsh",
+    "cmd"
+  ]
+}
