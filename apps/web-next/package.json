@@ -26,14 +26,15 @@
     "framer-motion": "^12.23.16",
     "lucide-react": "^0.540.0",
     "next": "15.4.5",
-    "react-hook-form": "^7.53.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "react-hook-form": "^7.53.0",
     "recharts": "^3.2.1",
     "some-lib": "^0.0.1",
     "stripe": "^12.18.0"
   },
   "devDependencies": {
+    "@supabase/postgrest-js": "^2.76.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
