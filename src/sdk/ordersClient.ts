@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { performance } from "perf_hooks";
 // Prefer types from supabase-js dependency tree to avoid optional peer resolution issues
-import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
+import type { PostgrestFilterBuilder } from "./ordersClient.types";
 import type { Database, Tables } from "@shared/lib/database.types";
 import { resolveStatusFilters } from "@shared/lib/status-map";
 import type {
@@ -34,12 +34,7 @@ type RefundRow = {
 type OrderItemRow = Tables<"order_items">;
 type OrderHistoryRow = Tables<"order_history_v">;
 
-type OrderViewFilterBuilder = PostgrestFilterBuilder<
-  Database["__InternalSupabase"],
-  Database["public"],
-  OrderRow,
-  OrderRow[]
->;
+type OrderViewFilterBuilder = PostgrestFilterBuilder<OrderRow>;
 
 type SortColumn = "created_at" | "amount_total";
 type SortDirection = "asc" | "desc";

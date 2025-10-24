@@ -31,7 +31,7 @@ if (
 }
 
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "./utils/supabase/middleware";
+import { middleware as supabaseMiddleware } from "./utils/supabase/middleware";
 import { sanitizeSearchParam, isSanitized } from "@shared/lib/sanitize";
 
 const RAW_SUPABASE_URL =
@@ -97,7 +97,7 @@ export async function middleware(request: NextRequest) {
     return unsafeRedirect;
   }
   // 1) ????????? ?????? ????? ??? supabase-helper
-  const response = await updateSession(request);
+  const response = supabaseMiddleware(request);
 
   const { pathname, search } = request.nextUrl;
 
