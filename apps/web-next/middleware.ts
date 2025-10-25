@@ -7,9 +7,8 @@ const globalForPatch = globalThis as typeof globalThis & {
 
 if (typeof EdgeRuntime === 'string' && !globalForPatch.__importUnsupportedPatched) {
   const originalDefineProperty = Object.defineProperty;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Object.defineProperty = function definePropertyPatched(
-    target: any,
+    target: object,
     property: PropertyKey,
     attributes: PropertyDescriptor
   ) {
