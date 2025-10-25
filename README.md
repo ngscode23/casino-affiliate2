@@ -15,17 +15,26 @@ Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The
 - Supabase project (URL + Publishable + Service role keys)
 - Optional: background job runner (Supabase cron / external scheduler) for nightly maintenance RPCs
 
-## Install & Workspace Scripts
-```bash
-pnpm install          # install once at repo root
-pnpm dev:web-next     # run Next.js app on http://localhost:3000
+## Install & Workspace Scripts / Скрипты рабочего пространства
 
-pnpm build            # turbo orchestrated build (web-next)
-pnpm test             # run vitest in apps that define tests
-pnpm lint             # eslint across workspace
-pnpm typecheck        # tsc project-wide
-```
-Scripts are defined at the workspace root and proxied through Turborepo. Use `pnpm --filter <pkg> <cmd>` to run package-specific scripts (e.g. `pnpm --filter web-next lint`).
+| Command | Description (EN) | Описание (RU) |
+| --- | --- | --- |
+| `pnpm install` | Install all workspace dependencies once at the repo root. | Установить все зависимости рабочего пространства из корня репозитория. |
+| `pnpm dev:web-next` | Start the Next.js app (public + admin) on `http://localhost:3000` via Turborepo. | Запустить приложение Next.js (публичная часть и админка) на `http://localhost:3000` через Turborepo. |
+| `pnpm build` | Run the orchestrated production build for every package using Turborepo. | Выполнить продакшн-сборку всех пакетов с помощью Turborepo. |
+| `pnpm lint` | Execute ESLint across the workspace. | Запустить ESLint для всего рабочего пространства. |
+| `pnpm test` | Run Vitest test suites for apps and packages that define tests. | Запустить тесты Vitest для приложений и пакетов, где они настроены. |
+| `pnpm typecheck` | Perform a project-wide TypeScript type check. | Выполнить проверку типов TypeScript для всего проекта. |
+| `pnpm clean` | Trigger Turborepo clean tasks (clears caches/dist folders). | Запустить задачу очистки Turborepo (очистка кешей и директорий сборки). |
+| `pnpm gen:db:types` | Generate Supabase database TypeScript types (`scripts/gen-db-types.mjs`). | Сгенерировать типы базы данных Supabase (`scripts/gen-db-types.mjs`). |
+| `pnpm audit:lighthouse` | Run the Lighthouse audit script in `scripts/run-lighthouse.mjs`. | Запустить Lighthouse-аудит (`scripts/run-lighthouse.mjs`). |
+| `pnpm changeset` | Create a changeset entry for versioned packages. | Создать changeset для версионируемых пакетов. |
+| `pnpm mcp` | Start the MCP server (`mcp-server.mjs`). | Запустить MCP‑сервер (`mcp-server.mjs`). |
+| `pnpm mcp:dev` | Run the MCP server in watch mode with Nodemon. | Запустить MCP‑сервер в режиме разработки (Nodemon). |
+| `pnpm mcp:shell` | Start MCP server mirroring stdout (useful for debugging). | Запустить MCP‑сервер с выводом в stdout (для отладки). |
+
+Scripts are defined at the workspace root and proxied through Turborepo. Use `pnpm --filter <pkg> <cmd>` to run package-specific scripts (e.g. `pnpm --filter web-next lint`).  
+Скрипты определены в корне и выполняются через Turborepo. Для запуска скрипта конкретного пакета используйте `pnpm --filter <pkg> <cmd>` (например, `pnpm --filter web-next lint`).
 
 ## Supabase
 - All migrations live under `infra/supabase/migrations`

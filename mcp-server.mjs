@@ -80,6 +80,9 @@ function asText(data) {
   const text = typeof data === "string" ? data : "json\n" + JSON.stringify(data, null, 2) + "\n";
   return { content: [{ type: "text", text }] };
 }
+function asJSON(data) {
+  return { content: [{ type: "json", json: data }] };
+}
 function asError(message, data) {
   return {
     content: [
@@ -89,6 +92,65 @@ function asError(message, data) {
 }
 function replaceAll(str, find, repl) {
   return (str ?? "").split(find).join(repl);
+}
+async function assertAllowedCommand(cmd) {
+  const allow = await loadAllow();
+  if (!allow.has(cmd)) {
+    const err = new Error(`Command not allowed: ${cmd}`);
+    err.status = 403;
+    err.allow = [...allow];
+    throw err;
+  }
+}
+function formatProcResult(cmd, args, result, extra = {}) {
+  return {
+    cmd,
+    args,
+    code: result.code,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    ...extra,
+  };
+}
+async function readJsonFile(p) {
+  const abs = safeJoin(p);
+  const raw = await fs.readFile(abs, "utf8");
+  return { abs, data: JSON.parse(raw) };
+}
+async function writeJsonFile(p, data, { spaces = 2, newline = true } = {}) {
+  const abs = safeJoin(p);
+  const json = JSON.stringify(data, null, spaces);
+  const text = newline && !json.endsWith("\n") ? json + "\n" : json;
+  await fs.writeFile(abs, text, "utf8");
+  return abs;
+}
+async function readPackageScripts(cwd = ROOT) {
+  const abs = safeJoin(cwd);
+  const pkgPath = path.join(abs, "package.json");
+  try {
+    const raw = await fs.readFile(pkgPath, "utf8");
+    const pkg = JSON.parse(raw);
+    return { path: pkgPath, scripts: pkg.scripts || {}, workspaces: pkg.workspaces || null };
+  } catch (error) {
+    return { path: pkgPath, scripts: {}, error: error?.message || String(error) };
+  }
+}
+const SAFE_ENV_PREFIXES = (process.env.MCP_SAFE_ENV_PREFIXES || "NEXT_PUBLIC_,PUBLIC_,REACT_APP_")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const SAFE_ENV_KEYS = (process.env.MCP_SAFE_ENV_KEYS || "NODE_ENV,APP_ENV,NEXT_PUBLIC_APP_ENV")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+function collectSafeEnv({ keys = SAFE_ENV_KEYS, prefixes = SAFE_ENV_PREFIXES, includeValues = false } = {}) {
+  const out = {};
+  for (const key of Object.keys(process.env)) {
+    if (keys.includes(key) || prefixes.some((p) => key.startsWith(p))) {
+      out[key] = includeValues ? maskToken(process.env[key]) : true;
+    }
+  }
+  return out;
 }
 
 // allowlist cache with TTL
@@ -509,29 +571,40 @@ async function doApplyPatch(diffText, { reverse = false, index = false } = {}) {
 
 // ---------- tools ----------
 const TOOL_DEFS = {
-  ping: { description: "Проверка живости", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
-  health: { description: "Состояние сервера", inputSchema: { type: "object", properties: {} } },
+  ping: { description: "Echo helper to verify connectivity", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
+  health: { description: "Runtime health information", inputSchema: { type: "object", properties: {} } },
 
-  list_files: { description: "Список файлов/папок относительно корня проекта", inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } } },
-  read_file: { description: "Прочитать файл (UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  write_file: { description: "Записать файл (перезапись, UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
-  delete_file: { description: "Удалить файл/папку", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  mkdirp: { description: "Создать папку (recursive)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  move_file: { description: "Переместить/переименовать файл", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, overwrite: { type: "boolean", default: false }, createDirs: { type: "boolean", default: true } }, required: ["from", "to"] } },
+  list_files: { description: "List files/dirs via ripgrep --files", inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } } },
+  read_file: { description: "Read a UTF-8 file", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  write_file: { description: "Write/overwrite a UTF-8 file", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
+  delete_file: { description: "Delete file or directory", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  mkdirp: { description: "Create directory recursively", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  move_file: { description: "Move or rename file", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, overwrite: { type: "boolean", default: false }, createDirs: { type: "boolean", default: true } }, required: ["from", "to"] } },
 
-  open_vscode: { description: "Открыть VS Code на указанном пути", inputSchema: { type: "object", properties: { path: { type: "string" }, reuseWindow: { type: "boolean", default: true }, wait: { type: "boolean", default: false } }, required: ["path"] } },
-  open_repo_in_vscode: { description: "Открыть корень текущего проекта в VS Code", inputSchema: { type: "object", properties: {} } },
+  open_vscode: { description: "Open path in VS Code", inputSchema: { type: "object", properties: { path: { type: "string" }, reuseWindow: { type: "boolean", default: true }, wait: { type: "boolean", default: false } }, required: ["path"] } },
+  open_repo_in_vscode: { description: "Open repository root in VS Code", inputSchema: { type: "object", properties: {} } },
 
-  search_code: { description: "Поиск по проекту (ripgrep)", inputSchema: { type: "object", properties: { q: { type: "string" }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limit: { type: "number", default: 200 } }, required: ["q"] } },
-  replace_in_file: { description: "Точечная замена текста в файле", inputSchema: { type: "object", properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } }, required: ["path", "find", "replace"] } },
-  write_files: { description: "Записать несколько файлов", inputSchema: { type: "object", properties: { files: { type: "array", items: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, mode: { type: "string", enum: ["overwrite", "append", "prepend"], default: "overwrite" } }, required: ["path", "content"] } }, atomic: { type: "boolean", default: true }, dryRun: { type: "boolean", default: false } }, required: ["files"] } },
-  batch_replace: { description: "Массовая замена по globs", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
-  apply_patch: { description: "Применить unified diff через git apply", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
+  search_code: { description: "Code search via ripgrep", inputSchema: { type: "object", properties: { q: { type: "string" }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limit: { type: "number", default: 200 } }, required: ["q"] } },
+  replace_in_file: { description: "Replace first occurrences in file", inputSchema: { type: "object", properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } }, required: ["path", "find", "replace"] } },
+  write_files: { description: "Write multiple files in one call", inputSchema: { type: "object", properties: { files: { type: "array", items: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, mode: { type: "string", enum: ["overwrite", "append", "prepend"], default: "overwrite" } }, required: ["path", "content"] } }, atomic: { type: "boolean", default: true }, dryRun: { type: "boolean", default: false } }, required: ["files"] } },
+  batch_replace: { description: "Replace text across many files", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
+  apply_patch: { description: "Apply unified diff through git", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
 
-  shell_run: { description: "Синхронно выполнить команду (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
+  read_json: { description: "Read JSON file and parse", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  write_json: { description: "Write JSON file (pretty)", inputSchema: { type: "object", properties: { path: { type: "string" }, data: {}, spaces: { type: "number", default: 2 }, newline: { type: "boolean", default: true } }, required: ["path", "data"] } },
+  list_scripts: { description: "List package.json scripts", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." } } } },
+  run_script: { description: "Run pnpm script", inputSchema: { type: "object", properties: { script: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string", default: "." } }, required: ["script"] } },
 
-  // асинхронные инструменты
-  enqueue_shell: { description: "Поставить команду в очередь (асинхронно)", inputSchema: { type: "object", properties: {
+  git_status: { description: "git status (porcelain)", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, porcelain: { type: "boolean", default: true }, branch: { type: "boolean", default: true }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
+  git_diff: { description: "git diff (worktree/index)", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, staged: { type: "boolean", default: false }, path: { type: "string" }, stat: { type: "boolean", default: false }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
+  git_log: { description: "git log summary", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, limit: { type: "number", default: 20 }, format: { type: "string", default: "%h %ci %an %s" }, path: { type: "string" }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
+
+  inspect_env: { description: "Show safe environment variables", inputSchema: { type: "object", properties: { includeValues: { type: "boolean", default: false }, keys: { type: "array", items: { type: "string" } }, prefixes: { type: "array", items: { type: "string" } } } } },
+  search_logs: { description: "Search worker log files", inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number", default: 20 }, caseSensitive: { type: "boolean", default: false } }, required: ["query"] } },
+
+  shell_run: { description: "Execute command immediately (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
+
+  enqueue_shell: { description: "Enqueue command for async execution", inputSchema: { type: "object", properties: {
     cmd: { type: "string" },
     args: { type: "array", items: { type: "string" }, default: [] },
     cwd: { type: "string", default: "." },
@@ -540,17 +613,15 @@ const TOOL_DEFS = {
     priority: { type: "number", default: 100 },
     maxRetries: { type: "number", default: 0 },
     backoffMs: { type: "number", default: 2000 },
-    meta: { type: "object", default: {} },
-    env: { type: "object", default: {} }
+    env: { type: "object" },
+    meta: { type: "object" },
+    id: { type: "string" }
   }, required: ["cmd"] } },
-
-  task_status: { description: "Статус/хвост лога по taskId", inputSchema: { type: "object", properties: { id: { type: "string" }, tailBytes: { type: "number", default: 4000 } }, required: ["id"] } },
-  cancel_task: { description: "Пометить таск как отменённый", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
-
-  // инспекторы
-  queue_info: { description: "Статистика очереди", inputSchema: { type: "object", properties: {} } },
-  list_logs:  { description: "Список логов (shell-out)", inputSchema: { type: "object", properties: { limit: { type: "number", default: 20 } } } },
-  tail_log:   { description: "Хвост лога по id", inputSchema: { type: "object", properties: { id: { type: "string" }, bytes: { type: "number", default: 8000 } }, required: ["id"] } },
+  task_status: { description: "Inspect async task result", inputSchema: { type: "object", properties: { id: { type: "string" }, tailBytes: { type: "number", default: 4000 } }, required: ["id"] } },
+  cancel_task: { description: "Request async task cancellation", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+  queue_info: { description: "Queue metrics (pending/locked)", inputSchema: { type: "object", properties: {} } },
+  list_logs: { description: "List worker log files", inputSchema: { type: "object", properties: { limit: { type: "number", default: 20 } } } },
+  tail_log: { description: "Tail worker log by id", inputSchema: { type: "object", properties: { id: { type: "string" }, bytes: { type: "number", default: 8000 } }, required: ["id"] } },
 };
 
 const SERVER_CAPABILITIES = { resources: {}, prompts: {}, tools: TOOL_DEFS };
@@ -685,6 +756,76 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       return asText(r);
     }
 
+    if (name === "read_json") {
+      const { abs, data } = await readJsonFile(a.path);
+      return asText({ path: path.relative(ROOT, abs), data });
+    }
+
+    if (name === "write_json") {
+      const abs = await writeJsonFile(a.path, a.data, { spaces: a.spaces ?? 2, newline: a.newline ?? true });
+      return asText({ ok: true, path: path.relative(ROOT, abs) });
+    }
+
+    if (name === "list_scripts") {
+      const info = await readPackageScripts(a.cwd || ROOT);
+      return asText(info);
+    }
+
+    if (name === "run_script") {
+      await assertAllowedCommand("pnpm");
+      const { script, args = [], cwd = "." } = a;
+      const res = await withCmdLimit("pnpm", () => runProc("pnpm", ["run", script, ...args], { cwd: safeJoin(cwd) }));
+      return asText({ ok: res.code === 0, code: res.code, stdout: res.stdout, stderr: res.stderr });
+    }
+
+    if (name === "git_status") {
+      await assertAllowedCommand("git");
+      const { cwd = ".", porcelain = true, branch = true, extraArgs = [] } = a;
+      const args = [];
+      if (porcelain) args.push("status", "--porcelain=v1");
+      if (branch)    args.push("--branch");
+      args.push(...extraArgs);
+      const res = await runProc("git", args, { cwd: safeJoin(cwd) });
+      return asText({ code: res.code, stdout: res.stdout, stderr: res.stderr });
+    }
+
+    if (name === "git_diff") {
+      await assertAllowedCommand("git");
+      const { cwd = ".", staged = false, path: p, stat = false, extraArgs = [] } = a;
+      const args = ["diff"];
+      if (staged) args.push("--staged");
+      if (stat)   args.push("--stat");
+      args.push(...extraArgs);
+      if (p) args.push(p);
+      const res = await runProc("git", args, { cwd: safeJoin(cwd) });
+      return asText({ code: res.code, stdout: res.stdout, stderr: res.stderr });
+    }
+
+    if (name === "git_log") {
+      await assertAllowedCommand("git");
+      const { cwd = ".", limit = 20, format = "%h %ci %an %s", path: p, extraArgs = [] } = a;
+      const args = ["log", "-n", String(limit), `--pretty=format:${format}`, ...extraArgs];
+      if (p) args.push(p);
+      const res = await runProc("git", args, { cwd: safeJoin(cwd) });
+      return asText({ code: res.code, stdout: res.stdout, stderr: res.stderr });
+    }
+
+    if (name === "inspect_env") {
+      const out = collectSafeEnv({ includeValues: a.includeValues ?? false, keys: a.keys ?? SAFE_ENV_KEYS, prefixes: a.prefixes ?? SAFE_ENV_PREFIXES });
+      return asText(out);
+    }
+
+    if (name === "search_logs") {
+      const { query, limit = 20, caseSensitive = false } = a;
+      await ensureDirs();
+      const args = ["--line-number", "--color", "never", "-m", String(limit)];
+      if (!caseSensitive) args.push("-i");
+      args.push(query, path.join(OUT_DIR, "*.log"));
+      const res = await runProc("rg", args, { cwd: ROOT });
+      if (res.code !== 0 && !res.stdout) return asText({ matches: 0, stderr: res.stderr });
+      return asText({ matches: res.stdout.split(/\r?\n/).filter(Boolean).length, output: res.stdout });
+    }
+
     if (name === "shell_run") {
       const { cmd, args = [], cwd = ".", timeoutMs = 120000 } = a;
       const allow = await loadAllow();
@@ -706,7 +847,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
 
     if (name === "enqueue_shell") {
-      const id = (a.meta?.id && String(a.meta.id)) || randomId();
+      const id = String(a.id ?? a.meta?.id ?? randomId());
       const task = {
         id,
         cmd: a.cmd,
