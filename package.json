@@ -14,7 +14,11 @@
     "prepare": "husky",
     "gen:db:types": "node scripts/gen-db-types.mjs",
     "audit:lighthouse": "node ./scripts/run-lighthouse.mjs",
-    "mcp:shell": "node ./mcp-server.mjs"
+    "mcp:shell": "node ./mcp-server.mjs",
+    "mcp": "node ./mcp-server.mjs",
+    "mcp:dev": "nodemon --watch mcp-server.mjs --exec \"node ./mcp-server.mjs\""
+
+
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
@@ -133,4 +137,9 @@
     "url": "https://github.com/ngscode23/casino-affiliate2/issues"
   },
   "homepage": "https://github.com/ngscode23/casino-affiliate2#readme"
+
+
+  
+ 
+
 }

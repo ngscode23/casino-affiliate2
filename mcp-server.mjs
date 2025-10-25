@@ -1,5 +1,4 @@
-// mcp-server.mjs  — v0.6.0 (bulk edits, batch replace, mkdir/move, patch apply)
-
+// mcp-server.mjs — v0.8.0 (worker pool, async queue, streaming logs, idle-aware timeouts, VSCode logs, limits)
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -13,28 +12,40 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import fs from "node:fs/promises";
+import fssync from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import os from "node:os";
+import crypto from "node:crypto";
 
 // ---------- constants ----------
 const ROOT = process.cwd();
-const REQUIRED_TOKEN = process.env.MCP_SECRET || ""; // пусто → auth off
+const REQUIRED_TOKEN = process.env.MCP_SECRET || "";           // "" → auth off (warn)
 const NAME = "local-tools";
-const VERSION = "0.6.0";
+const VERSION = "0.8.0";
+
 const ALLOWLIST_PATH = path.resolve(ROOT, "scripts/agent-allowlist.json");
 const DEFAULT_ALLOW = new Set(["pnpm", "node", "git", "rg", "powershell", "pwsh", "cmd"]);
-const QUEUE_DIR = path.resolve(ROOT, "shell-queue");
-const OUT_DIR = path.resolve(ROOT, "shell-out");
 
-// For batch file discovery via ripgrep
-const DEFAULT_EXCLUDES = [
-  "!**/node_modules/**",
-  "!**/.git/**",
-  "!**/.next/**",
-  "!**/.turbo/**",
-  "!**/.pnpm-store/**",
-];
+const QUEUE_DIR = path.resolve(ROOT, "shell-queue");
+const OUT_DIR   = path.resolve(ROOT, "shell-out");
+const CANCEL_DIR= path.resolve(ROOT, path.join("shell-queue", "cancel"));
+
+const DEFAULT_EXCLUDES = ["!/node_modules/","!/.git/","!/.next/","!/.turbo/","!/.pnpm-store/"];
+
+// pool & timeouts
+const WORKERS          = Math.max(1, parseInt(process.env.WORKERS || "4", 10));
+const QUEUE_POLL_MS    = Math.max(200, parseInt(process.env.QUEUE_POLL_MS || "750", 10));
+const TASK_TIMEOUT_MS  = Math.max(10_000, parseInt(process.env.TASK_TIMEOUT_MS || "600000", 10));     // 10 минут
+const IDLE_TIMEOUT_MS  = Math.max(5_000, parseInt(process.env.IDLE_TIMEOUT_MS || "120000", 10));      // 2 минуты простоя
+// зеркало stdout задач в терминале VS Code
+const MIRROR_STDOUT    = (process.env.MCP_STDOUT_MIRROR || "0") === "1";
+// усечение логов по хвосту
+const MAX_LOG_BYTES    = Math.max(262144, parseInt(process.env.MCP_MAX_LOG_BYTES || "5242880", 10)); // 5 MiB
+// лимиты параллельности по именам команд
+const PER_CMD_LIMIT = {
+  pnpm: parseInt(process.env.MCP_LIMIT_PNPM || "1", 10),
+};
 
 // ---------- utils ----------
 function log(...args) {
@@ -43,7 +54,7 @@ function log(...args) {
 }
 function maskToken(s = "") {
   if (!s) return "";
-  return s.length <= 8 ? "***" : s.slice(0, 2) + "***" + s.slice(-2);
+  return s.length <= 8 ? "" : s.slice(0,2) + "…" + s.slice(-2);
 }
 function assertAuth(headers) {
   if (!REQUIRED_TOKEN) return;
@@ -57,8 +68,7 @@ function assertAuth(headers) {
 function safeJoin(p) {
   const abs = path.resolve(ROOT, p || ".");
   const rootNorm = path.resolve(ROOT) + path.sep;
-  const absDir = path.dirname(abs) + path.sep;
-  if (!absDir.startsWith(rootNorm) && abs !== path.resolve(ROOT)) {
+  if (!abs.startsWith(rootNorm) && abs !== path.resolve(ROOT)) {
     throw new Error("Path outside project");
   }
   return abs;
@@ -67,44 +77,42 @@ function findCodeCmd() {
   return process.platform === "win32" ? "code.cmd" : "code";
 }
 function asText(data) {
-  const text = typeof data === "string" ? data : "```json\n" + JSON.stringify(data, null, 2) + "\n```";
+  const text = typeof data === "string" ? data : "json\n" + JSON.stringify(data, null, 2) + "\n";
   return { content: [{ type: "text", text }] };
 }
 function asError(message, data) {
   return {
     content: [
-      {
-        type: "text",
-        text: `Error: ${message}\n` + (data ? "```json\n" + JSON.stringify(data, null, 2) + "\n```" : ""),
-      },
+      { type: "text", text: `Error: ${message}\n` + (data ? "```json\n" + JSON.stringify(data, null, 2) + "\n```" : "") }
     ],
   };
-}
-function runProc(cmd, args, { cwd = ROOT } = {}) {
-  return new Promise((resolve) => {
-    const p = spawn(cmd, args, { cwd, shell: true });
-    let out = "", err = "";
-    p.stdout.on("data", (b) => (out += b.toString()));
-    p.stderr.on("data", (b) => (err += b.toString()));
-    p.on("close", (code) => resolve({ code, stdout: out, stderr: err }));
-  });
 }
 function replaceAll(str, find, repl) {
   return (str ?? "").split(find).join(repl);
 }
+
+// allowlist cache with TTL
+let _allowCache = { set: new Set(DEFAULT_ALLOW), ts: 0 };
+const ALLOW_TTL_MS = 10_000;
+
 async function loadAllow() {
+  const now = Date.now();
+  if (now - _allowCache.ts < ALLOW_TTL_MS) return _allowCache.set;
   try {
     const raw = await fs.readFile(ALLOWLIST_PATH, "utf8");
     const j = JSON.parse(raw);
     const arr = Array.isArray(j?.allowed) ? j.allowed : [];
-    return new Set(arr);
+    _allowCache = { set: new Set(arr), ts: now };
   } catch {
-    return new Set(DEFAULT_ALLOW);
+    _allowCache = { set: new Set(DEFAULT_ALLOW), ts: now };
   }
+  return _allowCache.set;
 }
+
 async function ensureDirs() {
   await fs.mkdir(QUEUE_DIR, { recursive: true });
   await fs.mkdir(OUT_DIR, { recursive: true });
+  await fs.mkdir(CANCEL_DIR, { recursive: true });
 }
 
 async function listFilesByGlobs(globs = ["**/*"], { cwd = ROOT } = {}) {
@@ -115,93 +123,316 @@ async function listFilesByGlobs(globs = ["**/*"], { cwd = ROOT } = {}) {
   return stdout.split(/\r?\n/).filter(Boolean);
 }
 
-// ---------- tools ----------
-const TOOL_DEFS = {
-  ping: { description: "Проверка живости", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
-  health: { description: "Состояние сервера", inputSchema: { type: "object", properties: {} } },
-  list_files: { description: "Список файлов/папок относительно корня проекта", inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } } },
-  read_file: { description: "Прочитать файл (UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  write_file: { description: "Записать файл (перезапись, UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
-  delete_file: { description: "Удалить файл", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  mkdirp: { description: "Создать папку (recursive)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  move_file: { description: "Переместить/переименовать файл", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, overwrite: { type: "boolean", default: false }, createDirs: { type: "boolean", default: true } }, required: ["from", "to"] } },
-  open_vscode: { description: "Открыть VS Code на указанном пути", inputSchema: { type: "object", properties: { path: { type: "string" }, reuseWindow: { type: "boolean", default: true }, wait: { type: "boolean", default: false } }, required: ["path"] } },
-  open_repo_in_vscode: { description: "Открыть корень текущего проекта в VS Code", inputSchema: { type: "object", properties: {} } },
-  search_code: { description: "Поиск по проекту (ripgrep)", inputSchema: { type: "object", properties: { q: { type: "string" }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limit: { type: "number", default: 200 } }, required: ["q"] } },
-  replace_in_file: { description: "Точечная замена текста в файле", inputSchema: { type: "object", properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } }, required: ["path", "find", "replace"] } },
-  write_files: { description: "Записать несколько файлов за раз (atomic + dryRun)", inputSchema: { type: "object", properties: { files: { type: "array", items: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, mode: { type: "string", enum: ["overwrite", "append", "prepend"], default: "overwrite" } }, required: ["path", "content"] } }, atomic: { type: "boolean", default: true }, dryRun: { type: "boolean", default: false } }, required: ["files"] } },
-  batch_replace: { description: "Массовая замена по globs (regex/строка, preview)", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
-  apply_patch: { description: "Применить unified diff через git apply", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
-  shell_run: { description: "Выполнить разрешённую команду в пределах проекта (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
-};
+function runProc(cmd, args, { cwd = ROOT } = {}) {
+  return new Promise((resolve) => {
+    const p = spawn(cmd, args, { cwd, shell: true });
+    let out = "", err = "";
+    p.stdout.on("data", (b) => (out += b.toString()));
+    p.stderr.on("data", (b) => (err += b.toString()));
+    p.on("close", (code) => resolve({ code, stdout: out, stderr: err }));
+  });
+}
 
-const SERVER_CAPABILITIES = { resources: {}, prompts: {}, tools: TOOL_DEFS };
+function randomId() {
+  return crypto.randomBytes(8).toString("hex");
+}
 
-// ---------- server ----------
-const server = new Server({ name: NAME, version: VERSION }, { capabilities: SERVER_CAPABILITIES });
+function nowIso() {
+  return new Date().toISOString();
+}
 
-// ---------- queue runner ----------
-async function processTask(task) {
-  const { id, cmd, args = [], cwd = ".", timeoutMs = 120000 } = task || {};
+// параллельность по командам
+const runningByCmd = new Map(); // cmd -> count
+async function withCmdLimit(cmd, fn) {
+  const lim = Number.isFinite(PER_CMD_LIMIT[cmd]) ? PER_CMD_LIMIT[cmd] : Infinity;
+  while ((runningByCmd.get(cmd) || 0) >= lim) {
+    await new Promise(r => setTimeout(r, 250));
+  }
+  runningByCmd.set(cmd, (runningByCmd.get(cmd) || 0) + 1);
+  try { return await fn(); }
+  finally { runningByCmd.set(cmd, (runningByCmd.get(cmd) || 0) - 1); }
+}
+
+// ---------- task queue helpers ----------
+/**
+ * Task file format (json):
+ * {
+ *   id, cmd, args[], cwd, timeoutMs, idleTimeoutMs,
+ *   priority (int, default 100),
+ *   attempt (int), maxRetries (int), backoffMs (int),
+ *   createdAt, meta: {}, env?:{}
+ * }
+ */
+
+async function writeResultFiles(id, partial) {
+  const jsonPath = path.join(OUT_DIR, `${id}.json`);
+  const text = JSON.stringify(partial, null, 2);
+  await fs.writeFile(jsonPath, text, "utf8");
+}
+
+function openStreamLog(id) {
+  const logPath = path.join(OUT_DIR, `${id}.log`);
+  const stream = fssync.createWriteStream(logPath, { flags: "a", encoding: "utf8" });
+  return { logPath, stream };
+}
+
+async function listTasksSorted() {
+  const entries = await fs.readdir(QUEUE_DIR, { withFileTypes: true });
+  const items = [];
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith(".json")) continue;
+    if (e.name.includes(".lock.")) continue;
+    const full = path.join(QUEUE_DIR, e.name);
+    try {
+      const raw = await fs.readFile(full, "utf8");
+      const t = JSON.parse(raw);
+      const pr = Number.isFinite(t?.priority) ? t.priority : 100;
+      const created = t?.createdAt || "9999";
+      items.push({ path: full, priority: pr, createdAt: created });
+    } catch {}
+  }
+  items.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+  return items;
+}
+
+async function claimNextTask(workerTag) {
+  const items = await listTasksSorted();
+  for (const it of items) {
+    const src = it.path;
+    const lock = src + `.lock.${process.pid}.${workerTag}`;
+    try {
+      await fs.rename(src, lock); // атомарно захватили
+      return lock;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function checkCanceled(id) {
+  try {
+    await fs.access(path.join(CANCEL_DIR, id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function killTree(child) {
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", shell: true });
+    } else {
+      process.kill(-child.pid, "SIGKILL");
+    }
+  } catch {}
+  try { child.kill(); } catch {}
+}
+
+// core exec streaming with adaptive timeouts and cancel
+async function execStreamingTask(task) {
+  const {
+    id,
+    cmd,
+    args = [],
+    cwd = ".",
+    timeoutMs = TASK_TIMEOUT_MS,
+    idleTimeoutMs = IDLE_TIMEOUT_MS,
+  } = task;
+
   const allow = await loadAllow();
   if (!allow.has(cmd)) {
-    await writeResult(id || "unknown", { denied: true, reason: "command not allowed", cmd, allow: [...allow] });
+    const res = { id, denied: true, reason: "command not allowed", cmd, allow: [...allow], finishedAt: nowIso() };
+    await writeResultFiles(id, res);
+    return res;
+  }
+
+  const absCwd = safeJoin(cwd || ".");
+  const env = {
+    ...process.env,
+    ...(task.env || {}),
+    MCP_TASK_ID: String(id),
+    MCP_ATTEMPT: String(task.attempt || 0),
+  };
+  const child = spawn(cmd, args, {
+    cwd: absCwd,
+    shell: process.platform === "win32",
+    detached: process.platform !== "win32",
+    env,
+  });
+
+  const { stream } = openStreamLog(id);
+
+  let stdoutSize = 0;
+  let stderrSize = 0;
+  let lastActivity = Date.now();
+  let timedOut = false;
+  let idleTimedOut = false;
+  let canceled = false;
+
+  const MAX_JSON_SNIPPET = 5000;
+
+  function onDataWrite(buf) {
+    const s = buf.toString();
+    stream.write(s);
+    if (MIRROR_STDOUT) { try { process.stdout.write(`[${id}] ${s}`); } catch {} }
+    lastActivity = Date.now();
+  }
+
+  child.stdout.on("data", (b) => { stdoutSize += b.length; onDataWrite(b); });
+  child.stderr.on("data", (b) => { stderrSize += b.length; onDataWrite(b); });
+
+  const hardTimer = setTimeout(() => {
+    timedOut = true;
+    try { killTree(child); } catch {}
+  }, timeoutMs);
+
+  const idleTicker = setInterval(() => {
+    if (Date.now() - lastActivity > idleTimeoutMs) {
+      idleTimedOut = true;
+      try { killTree(child); } catch {}
+    }
+  }, Math.min(1000, Math.max(250, Math.floor(idleTimeoutMs / 4))));
+
+  const cancelTicker = setInterval(async () => {
+    if (await checkCanceled(id)) {
+      canceled = true;
+      try { killTree(child); } catch {}
+    }
+  }, 1000);
+
+  const code = await new Promise((res) => child.on("close", res));
+
+  clearTimeout(hardTimer);
+  clearInterval(idleTicker);
+  clearInterval(cancelTicker);
+  try { stream.end(); } catch {}
+
+  // усечение больших логов
+  try {
+    const logPath2 = path.join(OUT_DIR, `${id}.log`);
+    const st2 = await fs.stat(logPath2);
+    if (st2.size > MAX_LOG_BYTES) {
+      const keep = Math.min(st2.size, MAX_LOG_BYTES);
+      const fd2 = await fs.open(logPath2, 'r');
+      const buf2 = Buffer.alloc(keep);
+      await fd2.read(buf2, 0, keep, st2.size - keep);
+      await fd2.close();
+      await fs.writeFile(logPath2, Buffer.concat([Buffer.from(`[truncated to last ${keep} bytes]\n`), buf2]));
+    }
+  } catch {}
+
+  // tiny tail for convenience
+  let tail = "";
+  try {
+    const logPath = path.join(OUT_DIR, `${id}.log`);
+    const stat = await fs.stat(logPath);
+    const fd = await fs.open(logPath, "r");
+    const size = Math.min(MAX_JSON_SNIPPET, stat.size);
+    const buf = Buffer.alloc(size);
+    await fd.read(buf, 0, size, stat.size - size);
+    await fd.close();
+    tail = buf.toString();
+  } catch {}
+
+  const result = {
+    id,
+    cmd,
+    args,
+    cwd: path.relative(ROOT, absCwd) || ".",
+    code,
+    canceled,
+    timedOut,
+    idleTimedOut,
+    stdoutBytes: stdoutSize,
+    stderrBytes: stderrSize,
+    tail,
+    finishedAt: nowIso(),
+  };
+  await writeResultFiles(id, result);
+  return result;
+}
+
+async function requeueOnFail(lockPath, task, execRes) {
+  const { code, timedOut, idleTimedOut, canceled } = execRes;
+  if (canceled) return;
+  const failed = code !== 0 || timedOut || idleTimedOut;
+  if (!failed) return;
+
+  const attempt = (task.attempt ?? 0) + 1;
+  const maxRetries = Number.isFinite(task.maxRetries) ? task.maxRetries : 0;
+  if (attempt > maxRetries) return;
+
+  const backoff = Math.max(0, Number(task.backoffMs ?? 2000)) * attempt;
+  const nextId = task.id;
+  const dst = path.join(QUEUE_DIR, `${nextId}.json`);
+  const nextTask = {
+    ...task,
+    attempt,
+    scheduledAt: Date.now() + backoff,
+  };
+  await fs.writeFile(dst, JSON.stringify(nextTask, null, 2), "utf8");
+  log("queue.requeue", { id: nextId, attempt, backoff });
+}
+
+async function processLockFile(lockPath) {
+  let task;
+  try {
+    const raw = await fs.readFile(lockPath, "utf8");
+    task = JSON.parse(raw);
+  } catch (e) {
+    log("queue.read.error", e?.message || String(e));
+    try { await fs.rm(lockPath, { force: true }); } catch {}
     return;
   }
-  const absCwd = safeJoin(cwd || ".");
-  let out = "", err = "";
-  let timedOut = false;
-  const child = spawn(cmd, args, { cwd: absCwd, shell: process.platform === "win32" });
-  const timer = setTimeout(() => { timedOut = true; try { child.kill(); } catch {} }, timeoutMs);
-  child.stdout.on("data", (b) => (out += b.toString()));
-  child.stderr.on("data", (b) => (err += b.toString()));
-  const code = await new Promise((res) => child.on("close", res));
-  clearTimeout(timer);
-  const MAX = 200_000;
-  const trunc = (s) => (s && s.length > MAX ? s.slice(0, MAX) + "\n[...truncated...]" : s);
-  await writeResult(id || "unknown", { cmd, args, cwd: path.relative(ROOT, absCwd) || ".", code, timedOut, stdout: trunc(out), stderr: trunc(err) });
-}
 
-async function writeResult(id, data) {
-  const jsonPath = path.join(OUT_DIR, `${id}.json`);
-  const logPath = path.join(OUT_DIR, `${id}.log`);
-  const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-  await fs.writeFile(jsonPath, text, "utf8");
-  const sep = os.EOL;
-  const stdoutPart = (data && typeof data === 'object' && 'stdout' in data && data.stdout) ? data.stdout : "";
-  const stderrPart = (data && typeof data === 'object' && 'stderr' in data && data.stderr) ? data.stderr : "";
-  const combined = stdoutPart + (stderrPart ? sep + stderrPart : "");
-  await fs.writeFile(logPath, combined, "utf8");
-}
+  if (!task.id) task.id = path.basename(lockPath, ".json").split(".lock.")[0];
 
-async function sweepQueueOnce() {
+  if (task.scheduledAt && Date.now() < task.scheduledAt) {
+    const back = path.join(QUEUE_DIR, `${task.id}.json`);
+    try {
+      await fs.writeFile(back, JSON.stringify(task, null, 2), "utf8");
+      await fs.rm(lockPath, { force: true });
+    } catch {}
+    return;
+  }
+
   try {
-    await ensureDirs();
-    const entries = await fs.readdir(QUEUE_DIR, { withFileTypes: true });
-    for (const e of entries) {
-      if (!e.isFile() || !e.name.endsWith(".json")) continue;
-      const src = path.join(QUEUE_DIR, e.name);
-      const lock = src + ".lock";
-      try { await fs.rename(src, lock); } catch { continue; }
-      try {
-        const raw = await fs.readFile(lock, "utf8");
-        const task = JSON.parse(raw);
-        if (!task.id) task.id = path.basename(e.name, ".json");
-        await processTask(task);
-      } catch (err) {
-        log("queue.error", err?.message || String(err));
-      } finally {
-        try { await fs.rm(lock, { force: true }); } catch {}
-      }
-    }
-  } catch (e) {
-    // молча — очередь необязательна
+    const res = await withCmdLimit(task.cmd, () => execStreamingTask(task));
+    await requeueOnFail(lockPath, task, res);
+  } catch (err) {
+    log("queue.exec.error", err?.message || String(err));
+  } finally {
+    try { await fs.rm(lockPath, { force: true }); } catch {}
   }
 }
-setInterval(sweepQueueOnce, 1000);
-sweepQueueOnce();
 
-// ---------- helpers for new tools ----------
+async function workerLoop(workerTag) {
+  while (true) {
+    try {
+      await ensureDirs();
+      const lock = await claimNextTask(workerTag);
+      if (lock) {
+        await processLockFile(lock);
+        continue;
+      }
+    } catch (e) {
+      log(`worker[${workerTag}]`, e?.message || String(e));
+    }
+    await new Promise((r) => setTimeout(r, QUEUE_POLL_MS));
+  }
+}
+
+// bootstrap workers
+for (let i = 0; i < WORKERS; i++) {
+  workerLoop(String(i));
+}
+
+// ---------- helpers for existing tools ----------
 async function doWriteFiles(files = [], { atomic = true, dryRun = false } = {}) {
   const results = [];
   const backups = [];
@@ -276,21 +507,82 @@ async function doApplyPatch(diffText, { reverse = false, index = false } = {}) {
   return { ok: code === 0, code, stdout, stderr };
 }
 
+// ---------- tools ----------
+const TOOL_DEFS = {
+  ping: { description: "Проверка живости", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
+  health: { description: "Состояние сервера", inputSchema: { type: "object", properties: {} } },
+
+  list_files: { description: "Список файлов/папок относительно корня проекта", inputSchema: { type: "object", properties: { dir: { type: "string", default: "." } } } },
+  read_file: { description: "Прочитать файл (UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  write_file: { description: "Записать файл (перезапись, UTF-8)", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
+  delete_file: { description: "Удалить файл/папку", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  mkdirp: { description: "Создать папку (recursive)", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  move_file: { description: "Переместить/переименовать файл", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, overwrite: { type: "boolean", default: false }, createDirs: { type: "boolean", default: true } }, required: ["from", "to"] } },
+
+  open_vscode: { description: "Открыть VS Code на указанном пути", inputSchema: { type: "object", properties: { path: { type: "string" }, reuseWindow: { type: "boolean", default: true }, wait: { type: "boolean", default: false } }, required: ["path"] } },
+  open_repo_in_vscode: { description: "Открыть корень текущего проекта в VS Code", inputSchema: { type: "object", properties: {} } },
+
+  search_code: { description: "Поиск по проекту (ripgrep)", inputSchema: { type: "object", properties: { q: { type: "string" }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limit: { type: "number", default: 200 } }, required: ["q"] } },
+  replace_in_file: { description: "Точечная замена текста в файле", inputSchema: { type: "object", properties: { path: { type: "string" }, find: { type: "string" }, replace: { type: "string" } }, required: ["path", "find", "replace"] } },
+  write_files: { description: "Записать несколько файлов", inputSchema: { type: "object", properties: { files: { type: "array", items: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, mode: { type: "string", enum: ["overwrite", "append", "prepend"], default: "overwrite" } }, required: ["path", "content"] } }, atomic: { type: "boolean", default: true }, dryRun: { type: "boolean", default: false } }, required: ["files"] } },
+  batch_replace: { description: "Массовая замена по globs", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
+  apply_patch: { description: "Применить unified diff через git apply", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
+
+  shell_run: { description: "Синхронно выполнить команду (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
+
+  // асинхронные инструменты
+  enqueue_shell: { description: "Поставить команду в очередь (асинхронно)", inputSchema: { type: "object", properties: {
+    cmd: { type: "string" },
+    args: { type: "array", items: { type: "string" }, default: [] },
+    cwd: { type: "string", default: "." },
+    timeoutMs: { type: "number", default: TASK_TIMEOUT_MS },
+    idleTimeoutMs: { type: "number", default: IDLE_TIMEOUT_MS },
+    priority: { type: "number", default: 100 },
+    maxRetries: { type: "number", default: 0 },
+    backoffMs: { type: "number", default: 2000 },
+    meta: { type: "object", default: {} },
+    env: { type: "object", default: {} }
+  }, required: ["cmd"] } },
+
+  task_status: { description: "Статус/хвост лога по taskId", inputSchema: { type: "object", properties: { id: { type: "string" }, tailBytes: { type: "number", default: 4000 } }, required: ["id"] } },
+  cancel_task: { description: "Пометить таск как отменённый", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+
+  // инспекторы
+  queue_info: { description: "Статистика очереди", inputSchema: { type: "object", properties: {} } },
+  list_logs:  { description: "Список логов (shell-out)", inputSchema: { type: "object", properties: { limit: { type: "number", default: 20 } } } },
+  tail_log:   { description: "Хвост лога по id", inputSchema: { type: "object", properties: { id: { type: "string" }, bytes: { type: "number", default: 8000 } }, required: ["id"] } },
+};
+
+const SERVER_CAPABILITIES = { resources: {}, prompts: {}, tools: TOOL_DEFS };
+
+// ---------- server ----------
+const server = new Server({ name: NAME, version: VERSION }, { capabilities: SERVER_CAPABILITIES });
+
 // ---------- MCP handlers ----------
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const started = Date.now();
   try {
     assertAuth(req?.headers || {});
     const { name, arguments: a = {} } = req.params ?? {};
-    log(
-      `tool.call -> ${name}`,
-      JSON.stringify({ a: name === "write_file" ? { ...a, content: a.content?.length } : a })
-    );
+    log(`tool.call -> ${name}`, JSON.stringify({ a: name === "write_file" ? { ...a, content: a.content?.length } : a }));
 
     if (name === "ping") return asText({ ok: true, echo: a.msg ?? null });
 
     if (name === "health") {
-      return asText({ ok: true, root: ROOT, node: process.version, platform: `${process.platform} ${os.release()}`, tools: Object.keys(TOOL_DEFS), auth: REQUIRED_TOKEN ? "required" : "none" });
+      return asText({
+        ok: true,
+        root: ROOT,
+        node: process.version,
+        platform: `${process.platform} ${os.release()}`,
+        tools: Object.keys(TOOL_DEFS),
+        auth: REQUIRED_TOKEN ? "required" : "none",
+        workers: WORKERS,
+        queuePollMs: QUEUE_POLL_MS,
+        timeouts: { task: TASK_TIMEOUT_MS, idle: IDLE_TIMEOUT_MS },
+        mirrorStdout: MIRROR_STDOUT,
+        perCmdLimit: PER_CMD_LIMIT,
+        maxLogBytes: MAX_LOG_BYTES
+      });
     }
 
     if (name === "list_files") {
@@ -335,7 +627,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         if (exists) return asText({ ok: false, error: "target exists", to: path.relative(ROOT, to) });
       }
       await fs.rename(from, to).catch(async () => {
-        // fallback to copy+delete across devices
         const data = await fs.readFile(from);
         await fs.writeFile(to, data);
         await fs.rm(from, { force: true });
@@ -414,6 +705,99 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       return asText({ cmd, args, cwd: path.relative(ROOT, absCwd) || ".", code, timedOut, stdout: trunc(out), stderr: trunc(err) });
     }
 
+    if (name === "enqueue_shell") {
+      const id = (a.meta?.id && String(a.meta.id)) || randomId();
+      const task = {
+        id,
+        cmd: a.cmd,
+        args: a.args ?? [],
+        cwd: a.cwd ?? ".",
+        timeoutMs: a.timeoutMs ?? TASK_TIMEOUT_MS,
+        idleTimeoutMs: a.idleTimeoutMs ?? IDLE_TIMEOUT_MS,
+        priority: Number.isFinite(a.priority) ? a.priority : 100,
+        maxRetries: Number.isFinite(a.maxRetries) ? a.maxRetries : 0,
+        backoffMs: Number.isFinite(a.backoffMs) ? a.backoffMs : 2000,
+        attempt: 0,
+        createdAt: nowIso(),
+        meta: a.meta ?? {},
+        env: a.env ?? {}
+      };
+      const dst = path.join(QUEUE_DIR, `${id}.json`);
+      await ensureDirs();
+      await fs.writeFile(dst, JSON.stringify(task, null, 2), "utf8");
+      return asText({ enqueued: true, id, queue: path.relative(ROOT, QUEUE_DIR) || "." });
+    }
+
+    if (name === "task_status") {
+      const id = String(a.id);
+      const jsonPath = path.join(OUT_DIR, `${id}.json`);
+      const logPath  = path.join(OUT_DIR, `${id}.log`);
+      const out = { id, exists: false };
+      try {
+        const raw = await fs.readFile(jsonPath, "utf8");
+        out.exists = true;
+        out.result = JSON.parse(raw);
+      } catch {}
+      try {
+        const stat = await fs.stat(logPath);
+        const tailBytes = Math.max(512, Math.min(1_000_000, a.tailBytes ?? 4000));
+        const size = Math.min(tailBytes, stat.size);
+        const fd = await fs.open(logPath, "r");
+        const buf = Buffer.alloc(size);
+        await fd.read(buf, 0, size, stat.size - size);
+        await fd.close();
+        out.tail = buf.toString();
+      } catch {
+        out.tail = "";
+      }
+      return asText(out);
+    }
+
+    if (name === "cancel_task") {
+      const id = String(a.id);
+      await ensureDirs();
+      await fs.writeFile(path.join(CANCEL_DIR, id), nowIso(), "utf8");
+      return asText({ id, cancel: "requested" });
+    }
+
+    if (name === "queue_info") {
+      await ensureDirs();
+      const all = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith('.json') && !f.includes('.lock.'));
+      const locks = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith('.json') && f.includes('.lock.'));
+      return asText({ queued: all.length, locked: locks.length, workers: WORKERS });
+    }
+
+    if (name === "list_logs") {
+      await ensureDirs();
+      const files = (await fs.readdir(OUT_DIR))
+        .filter(f => f.endsWith('.log'))
+        .map(f => path.join(OUT_DIR, f));
+      const stats = await Promise.all(files.map(async p => ({ p, s: await fs.stat(p).catch(() => null) })));
+      const items = stats
+        .filter(x => x.s)
+        .sort((a,b) => b.s.mtimeMs - a.s.mtimeMs)
+        .slice(0, Math.max(1, Math.min(200, a.limit ?? 20)))
+        .map(x => ({ id: path.basename(x.p, '.log'), log: path.relative(ROOT, x.p), bytes: x.s.size, mtime: x.s.mtime }));
+      return asText({ count: items.length, items });
+    }
+
+    if (name === "tail_log") {
+      const id = String(a.id);
+      const p = path.join(OUT_DIR, `${id}.log`);
+      const tailBytes = Math.max(512, Math.min(1_000_000, a.bytes ?? 8000));
+      try {
+        const stat = await fs.stat(p);
+        const size = Math.min(tailBytes, stat.size);
+        const fd = await fs.open(p, 'r');
+        const buf = Buffer.alloc(size);
+        await fd.read(buf, 0, size, stat.size - size);
+        await fd.close();
+        return asText({ id, bytes: size, tail: buf.toString(), path: path.relative(ROOT, p) });
+      } catch (e) {
+        return asText({ id, error: e?.message || String(e) });
+      }
+    }
+
     throw new Error(`Unknown tool: ${name}`);
   } catch (e) {
     const msg = e?.message || String(e);
@@ -426,15 +810,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 });
 
 server.setNotificationHandler(InitializedNotificationSchema, async () => {});
-
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = Object.entries(TOOL_DEFS).map(([name, def]) => ({ name, description: def.description || "", inputSchema: def.inputSchema || { type: "object", properties: {} } }));
+  const tools = Object.entries(TOOL_DEFS).map(([name, def]) => ({
+    name,
+    description: def.description || "",
+    inputSchema: def.inputSchema || { type: "object", properties: {} }
+  }));
   return { tools };
 });
-
 server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
 server.setRequestHandler(ReadResourceRequestSchema, async () => { const err = new Error("Resource not found"); err.status = 404; throw err; });
-
 server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
 server.setRequestHandler(GetPromptRequestSchema, async () => { const err = new Error("Prompt not found"); err.status = 404; throw err; });
 
@@ -442,8 +827,22 @@ server.setRequestHandler(GetPromptRequestSchema, async () => { const err = new E
 const transport = new StdioServerTransport();
 await ensureDirs();
 await server.connect(transport);
-
-log("MCP up:", { name: NAME, version: VERSION, root: ROOT, node: process.version, auth: REQUIRED_TOKEN ? maskToken(REQUIRED_TOKEN) : "off", queueDir: path.relative(ROOT, QUEUE_DIR), outDir: path.relative(ROOT, OUT_DIR) });
+if (!REQUIRED_TOKEN) log("WARN: MCP_SECRET not set; tools are open to whoever can reach the transport");
+log("MCP up:", {
+  name: NAME,
+  version: VERSION,
+  root: ROOT,
+  node: process.version,
+  auth: REQUIRED_TOKEN ? maskToken(REQUIRED_TOKEN) : "off",
+  queueDir: path.relative(ROOT, QUEUE_DIR),
+  outDir: path.relative(ROOT, OUT_DIR),
+  workers: WORKERS,
+  queuePollMs: QUEUE_POLL_MS,
+  timeouts: { task: TASK_TIMEOUT_MS, idle: IDLE_TIMEOUT_MS },
+  mirrorStdout: MIRROR_STDOUT,
+  perCmdLimit: PER_CMD_LIMIT,
+  maxLogBytes: MAX_LOG_BYTES
+});
 
 process.on("SIGINT", () => { log("SIGINT"); process.exit(0); });
 process.on("SIGTERM", () => { log("SIGTERM"); process.exit(0); });

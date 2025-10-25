@@ -1,0 +1,16 @@
+{
+  "id": "7f2eb49c5d453df1",
+  "cmd": "pnpm",
+  "args": [
+    "-v"
+  ],
+  "cwd": ".",
+  "code": 0,
+  "canceled": false,
+  "timedOut": false,
+  "idleTimedOut": false,
+  "stdoutBytes": 7,
+  "stderrBytes": 0,
+  "tail": "9.11.0\n",
+  "finishedAt": "2025-10-25T11:15:32.933Z"
+}

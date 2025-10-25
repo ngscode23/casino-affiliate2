@@ -1,0 +1,18 @@
+{
+  "id": "001aed5f9519062f",
+  "cmd": "pwsh",
+  "args": [
+    "-NoProfile",
+    "-Command",
+    "if($env:TRY -eq '1'){Write-Error 'boom'; exit 1} else {Write-Output 'ok'}"
+  ],
+  "cwd": ".",
+  "code": 0,
+  "canceled": false,
+  "timedOut": false,
+  "idleTimedOut": false,
+  "stdoutBytes": 4,
+  "stderrBytes": 0,
+  "tail": "ok\r\n",
+  "finishedAt": "2025-10-25T11:18:02.100Z"
+}

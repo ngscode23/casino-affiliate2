@@ -4,8 +4,9 @@
     "node",
     "git",
     "rg",
+    "cmd",
     "powershell",
     "pwsh",
-    "cmd"
+    "bash"
   ]
 }

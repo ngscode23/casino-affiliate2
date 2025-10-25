@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // Fix for EdgeRuntime double-define under Turbopack/HMR
 declare const EdgeRuntime: string | undefined;
 
@@ -8,6 +7,7 @@ const globalForPatch = globalThis as typeof globalThis & {
 
 if (typeof EdgeRuntime === 'string' && !globalForPatch.__importUnsupportedPatched) {
   const originalDefineProperty = Object.defineProperty;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Object.defineProperty = function definePropertyPatched(
     target: any,
     property: PropertyKey,
@@ -29,7 +29,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { middleware as supabaseMiddleware } from './utils/supabase/middleware';
 import { sanitizeSearchParam, isSanitized } from '@shared/lib/sanitize';
 
-/** ---------- Auth cookie detection (Supabase) ---------- */
+/** ---------- Supabase auth cookie detection ---------- */
 
 const RAW_SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -76,15 +76,17 @@ function hasAuthCookie(req: NextRequest, res?: NextResponse) {
 
 /** ---------- Access policy ---------- */
 
+const AUTH_REQUIRED_PREFIXES = ['/account', '/admin', '/dashboard'];
+
 function requiresAuth(pathname: string) {
-  // Добавляй сюда приватные зоны
-  return pathname.startsWith('/account');
+  // ???????? ???? ????????? ????
+  return AUTH_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 /** ---------- URL sanitizer ---------- */
 
 function sanitizeRequestUrl(request: NextRequest): NextResponse | null {
-  if (request.method !== 'GET') return null; // не редиректим небезопасные методы
+  if (request.method !== 'GET') return null; // ?? ?????????? ???????????? ??????
   const url = request.nextUrl.clone();
   if (!url.search) return null;
 
@@ -107,7 +109,7 @@ function sanitizeRequestUrl(request: NextRequest): NextResponse | null {
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  // Пропускаем служебные и статические пути, чтобы не ловить петли
+  // ?????????? ????????? ? ??????????? ????
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/_vercel') ||
@@ -120,35 +122,43 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Публичные маршруты, которые никогда не редиректим
-  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/api/public')) {
+  // ????????? ???????? ?? ??????????
+  if (pathname === '/' || pathname.startsWith('/api/public')) {
     const unsafe = sanitizeRequestUrl(request);
-    return unsafe ?? supabaseMiddleware(request);
+    return unsafe ?? NextResponse.next();
   }
 
-  // Санитайзер GET-параметров (только для GET)
+  if (pathname.startsWith('/login')) {
+    const unsafe = sanitizeRequestUrl(request);
+    return unsafe ?? NextResponse.next();
+  }
+
+  // ?????????? GET-??????????
   const unsafe = sanitizeRequestUrl(request);
   if (unsafe) return unsafe;
 
-  // Подцепляем куки/сессию через Supabase middleware
+  const needsAuth = requiresAuth(pathname);
+  if (!needsAuth) {
+    return NextResponse.next();
+  }
+
+  // ?????????? ????/?????? ????? Supabase middleware
   const response = supabaseMiddleware(request);
 
-  // Защита приватных страниц
-  if (requiresAuth(pathname)) {
-    const authed = hasAuthCookie(request, response);
-    if (!authed) {
-      const url = new URL('/login', request.url);
-      url.searchParams.set('redirect', pathname + (search || ''));
-      return NextResponse.redirect(url);
-    }
+  // ?????? ????????? ???????
+  const authed = hasAuthCookie(request, response);
+  if (!authed) {
+    const url = new URL('/login', request.url);
+    url.searchParams.set('redirect', pathname + (search || ''));
+    return NextResponse.redirect(url);
   }
 
   return response;
 }
 
 /**
- * Matcher: не трогаем _next, _vercel, статику, favicons и robots/sitemap/manifest, остальное пропускаем через мидлварь.
- * API целиком можно исключить, если не требуется проверка доступа на edge (тогда добавь `|api/` в негативный lookahead).
+ * Matcher: ?? ??????? _next, _vercel, ???????, favicons ? robots/sitemap/manifest.
+ * API ????? ???? ?????????, ???? ?? ????? edge-??? (?????? `|api/` ? ?????????? lookahead).
  */
 export const config = {
   matcher: [
