@@ -1,4 +1,4 @@
-// mcp-server.mjs — v0.8.0 (worker pool, async queue, streaming logs, idle-aware timeouts, VSCode logs, limits)
+// mcp-server.mjs — v0.9.1 stable
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -22,7 +22,7 @@ import crypto from "node:crypto";
 const ROOT = process.cwd();
 const REQUIRED_TOKEN = process.env.MCP_SECRET || "";           // "" → auth off (warn)
 const NAME = "local-tools";
-const VERSION = "0.8.0";
+const VERSION = "0.9.1";
 
 const ALLOWLIST_PATH = path.resolve(ROOT, "scripts/agent-allowlist.json");
 const DEFAULT_ALLOW = new Set(["pnpm", "node", "git", "rg", "powershell", "pwsh", "cmd"]);
@@ -84,11 +84,9 @@ function asJSON(data) {
   return { content: [{ type: "json", json: data }] };
 }
 function asError(message, data) {
-  return {
-    content: [
-      { type: "text", text: `Error: ${message}\n` + (data ? "```json\n" + JSON.stringify(data, null, 2) + "\n```" : "") }
-    ],
-  };
+  const text = `Error: ${message}
+${data ? "```json\n" + JSON.stringify(data, null, 2) + "\n```" : ""}`;
+  return { content: [{ type: "text", text }] };
 }
 function replaceAll(str, find, repl) {
   return (str ?? "").split(find).join(repl);
@@ -103,14 +101,7 @@ async function assertAllowedCommand(cmd) {
   }
 }
 function formatProcResult(cmd, args, result, extra = {}) {
-  return {
-    cmd,
-    args,
-    code: result.code,
-    stdout: result.stdout,
-    stderr: result.stderr,
-    ...extra,
-  };
+  return { cmd, args, code: result.code, stdout: result.stdout, stderr: result.stderr, ...extra };
 }
 async function readJsonFile(p) {
   const abs = safeJoin(p);
@@ -136,13 +127,9 @@ async function readPackageScripts(cwd = ROOT) {
   }
 }
 const SAFE_ENV_PREFIXES = (process.env.MCP_SAFE_ENV_PREFIXES || "NEXT_PUBLIC_,PUBLIC_,REACT_APP_")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .split(",").map((s) => s.trim()).filter(Boolean);
 const SAFE_ENV_KEYS = (process.env.MCP_SAFE_ENV_KEYS || "NODE_ENV,APP_ENV,NEXT_PUBLIC_APP_ENV")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .split(",").map((s) => s.trim()).filter(Boolean);
 function collectSafeEnv({ keys = SAFE_ENV_KEYS, prefixes = SAFE_ENV_PREFIXES, includeValues = false } = {}) {
   const out = {};
   for (const key of Object.keys(process.env)) {
@@ -195,21 +182,14 @@ function runProc(cmd, args, { cwd = ROOT } = {}) {
   });
 }
 
-function randomId() {
-  return crypto.randomBytes(8).toString("hex");
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
+function randomId() { return crypto.randomBytes(8).toString("hex"); }
+function nowIso() { return new Date().toISOString(); }
 
 // параллельность по командам
 const runningByCmd = new Map(); // cmd -> count
 async function withCmdLimit(cmd, fn) {
   const lim = Number.isFinite(PER_CMD_LIMIT[cmd]) ? PER_CMD_LIMIT[cmd] : Infinity;
-  while ((runningByCmd.get(cmd) || 0) >= lim) {
-    await new Promise(r => setTimeout(r, 250));
-  }
+  while ((runningByCmd.get(cmd) || 0) >= lim) { await new Promise(r => setTimeout(r, 250)); }
   runningByCmd.set(cmd, (runningByCmd.get(cmd) || 0) + 1);
   try { return await fn(); }
   finally { runningByCmd.set(cmd, (runningByCmd.get(cmd) || 0) - 1); }
@@ -218,26 +198,20 @@ async function withCmdLimit(cmd, fn) {
 // ---------- task queue helpers ----------
 /**
  * Task file format (json):
- * {
- *   id, cmd, args[], cwd, timeoutMs, idleTimeoutMs,
- *   priority (int, default 100),
- *   attempt (int), maxRetries (int), backoffMs (int),
- *   createdAt, meta: {}, env?:{}
- * }
+ * { id, cmd, args[], cwd, timeoutMs, idleTimeoutMs,
+ *   priority, attempt, maxRetries, backoffMs,
+ *   createdAt, meta: {}, env?:{} }
  */
-
 async function writeResultFiles(id, partial) {
   const jsonPath = path.join(OUT_DIR, `${id}.json`);
   const text = JSON.stringify(partial, null, 2);
   await fs.writeFile(jsonPath, text, "utf8");
 }
-
 function openStreamLog(id) {
   const logPath = path.join(OUT_DIR, `${id}.log`);
   const stream = fssync.createWriteStream(logPath, { flags: "a", encoding: "utf8" });
   return { logPath, stream };
 }
-
 async function listTasksSorted() {
   const entries = await fs.readdir(QUEUE_DIR, { withFileTypes: true });
   const items = [];
@@ -259,31 +233,18 @@ async function listTasksSorted() {
   });
   return items;
 }
-
 async function claimNextTask(workerTag) {
   const items = await listTasksSorted();
   for (const it of items) {
     const src = it.path;
     const lock = src + `.lock.${process.pid}.${workerTag}`;
-    try {
-      await fs.rename(src, lock); // атомарно захватили
-      return lock;
-    } catch {
-      continue;
-    }
+    try { await fs.rename(src, lock); return lock; } catch { continue; }
   }
   return null;
 }
-
 async function checkCanceled(id) {
-  try {
-    await fs.access(path.join(CANCEL_DIR, id));
-    return true;
-  } catch {
-    return false;
-  }
+  try { await fs.access(path.join(CANCEL_DIR, id)); return true; } catch { return false; }
 }
-
 function killTree(child) {
   try {
     if (process.platform === "win32") {
@@ -297,14 +258,7 @@ function killTree(child) {
 
 // core exec streaming with adaptive timeouts and cancel
 async function execStreamingTask(task) {
-  const {
-    id,
-    cmd,
-    args = [],
-    cwd = ".",
-    timeoutMs = TASK_TIMEOUT_MS,
-    idleTimeoutMs = IDLE_TIMEOUT_MS,
-  } = task;
+  const { id, cmd, args = [], cwd = ".", timeoutMs = TASK_TIMEOUT_MS, idleTimeoutMs = IDLE_TIMEOUT_MS } = task;
 
   const allow = await loadAllow();
   if (!allow.has(cmd)) {
@@ -314,12 +268,7 @@ async function execStreamingTask(task) {
   }
 
   const absCwd = safeJoin(cwd || ".");
-  const env = {
-    ...process.env,
-    ...(task.env || {}),
-    MCP_TASK_ID: String(id),
-    MCP_ATTEMPT: String(task.attempt || 0),
-  };
+  const env = { ...process.env, ...(task.env || {}), MCP_TASK_ID: String(id), MCP_ATTEMPT: String(task.attempt || 0) };
   const child = spawn(cmd, args, {
     cwd: absCwd,
     shell: process.platform === "win32",
@@ -329,12 +278,9 @@ async function execStreamingTask(task) {
 
   const { stream } = openStreamLog(id);
 
-  let stdoutSize = 0;
-  let stderrSize = 0;
+  let stdoutSize = 0, stderrSize = 0;
   let lastActivity = Date.now();
-  let timedOut = false;
-  let idleTimedOut = false;
-  let canceled = false;
+  let timedOut = false, idleTimedOut = false, canceled = false;
 
   const MAX_JSON_SNIPPET = 5000;
 
@@ -348,39 +294,26 @@ async function execStreamingTask(task) {
   child.stdout.on("data", (b) => { stdoutSize += b.length; onDataWrite(b); });
   child.stderr.on("data", (b) => { stderrSize += b.length; onDataWrite(b); });
 
-  const hardTimer = setTimeout(() => {
-    timedOut = true;
-    try { killTree(child); } catch {}
-  }, timeoutMs);
-
+  const hardTimer = setTimeout(() => { timedOut = true; try { killTree(child); } catch {} }, timeoutMs);
   const idleTicker = setInterval(() => {
-    if (Date.now() - lastActivity > idleTimeoutMs) {
-      idleTimedOut = true;
-      try { killTree(child); } catch {}
-    }
+    if (Date.now() - lastActivity > idleTimeoutMs) { idleTimedOut = true; try { killTree(child); } catch {} }
   }, Math.min(1000, Math.max(250, Math.floor(idleTimeoutMs / 4))));
-
   const cancelTicker = setInterval(async () => {
-    if (await checkCanceled(id)) {
-      canceled = true;
-      try { killTree(child); } catch {}
-    }
+    if (await checkCanceled(id)) { canceled = true; try { killTree(child); } catch {} }
   }, 1000);
 
   const code = await new Promise((res) => child.on("close", res));
 
-  clearTimeout(hardTimer);
-  clearInterval(idleTicker);
-  clearInterval(cancelTicker);
+  clearTimeout(hardTimer); clearInterval(idleTicker); clearInterval(cancelTicker);
   try { stream.end(); } catch {}
 
-  // усечение больших логов
+  // truncate big logs to tail
   try {
     const logPath2 = path.join(OUT_DIR, `${id}.log`);
     const st2 = await fs.stat(logPath2);
     if (st2.size > MAX_LOG_BYTES) {
       const keep = Math.min(st2.size, MAX_LOG_BYTES);
-      const fd2 = await fs.open(logPath2, 'r');
+      const fd2 = await fs.open(logPath2, "r");
       const buf2 = Buffer.alloc(keep);
       await fd2.read(buf2, 0, keep, st2.size - keep);
       await fd2.close();
@@ -388,7 +321,7 @@ async function execStreamingTask(task) {
     }
   } catch {}
 
-  // tiny tail for convenience
+  // tiny tail snapshot for json
   let tail = "";
   try {
     const logPath = path.join(OUT_DIR, `${id}.log`);
@@ -402,18 +335,10 @@ async function execStreamingTask(task) {
   } catch {}
 
   const result = {
-    id,
-    cmd,
-    args,
-    cwd: path.relative(ROOT, absCwd) || ".",
-    code,
-    canceled,
-    timedOut,
-    idleTimedOut,
-    stdoutBytes: stdoutSize,
-    stderrBytes: stderrSize,
-    tail,
-    finishedAt: nowIso(),
+    id, cmd, args, cwd: path.relative(ROOT, absCwd) || ".",
+    code, canceled, timedOut, idleTimedOut,
+    stdoutBytes: stdoutSize, stderrBytes: stderrSize,
+    tail, finishedAt: nowIso(),
   };
   await writeResultFiles(id, result);
   return result;
@@ -432,11 +357,7 @@ async function requeueOnFail(lockPath, task, execRes) {
   const backoff = Math.max(0, Number(task.backoffMs ?? 2000)) * attempt;
   const nextId = task.id;
   const dst = path.join(QUEUE_DIR, `${nextId}.json`);
-  const nextTask = {
-    ...task,
-    attempt,
-    scheduledAt: Date.now() + backoff,
-  };
+  const nextTask = { ...task, attempt, scheduledAt: Date.now() + backoff };
   await fs.writeFile(dst, JSON.stringify(nextTask, null, 2), "utf8");
   log("queue.requeue", { id: nextId, attempt, backoff });
 }
@@ -478,10 +399,7 @@ async function workerLoop(workerTag) {
     try {
       await ensureDirs();
       const lock = await claimNextTask(workerTag);
-      if (lock) {
-        await processLockFile(lock);
-        continue;
-      }
+      if (lock) { await processLockFile(lock); continue; }
     } catch (e) {
       log(`worker[${workerTag}]`, e?.message || String(e));
     }
@@ -490,9 +408,7 @@ async function workerLoop(workerTag) {
 }
 
 // bootstrap workers
-for (let i = 0; i < WORKERS; i++) {
-  workerLoop(String(i));
-}
+for (let i = 0; i < WORKERS; i++) { workerLoop(String(i)); }
 
 // ---------- helpers for existing tools ----------
 async function doWriteFiles(files = [], { atomic = true, dryRun = false } = {}) {
@@ -509,7 +425,7 @@ async function doWriteFiles(files = [], { atomic = true, dryRun = false } = {}) 
       if (mode === "append")   after = before + f.content;
       if (mode === "prepend")  after = f.content + before;
       results.push({ path: path.relative(ROOT, abs) || ".", bytesBefore: Buffer.byteLength(before, "utf8"), bytesAfter: Buffer.byteLength(after, "utf8") });
-      backups.push({ abs, before });
+      backups.push({ abs, before, existed: exists, kind: "write_file" });
       if (!dryRun) {
         await fs.mkdir(path.dirname(abs), { recursive: true });
         await fs.writeFile(abs, after, "utf8");
@@ -518,7 +434,7 @@ async function doWriteFiles(files = [], { atomic = true, dryRun = false } = {}) 
     return { ok: true, results, dryRun };
   } catch (e) {
     if (atomic && !dryRun) {
-      for (const b of backups) { try { await fs.writeFile(b.abs, b.before, "utf8"); } catch {} }
+      for (const b of backups) { try { if (b.existed) await fs.writeFile(b.abs, b.before, "utf8"); else await fs.rm(b.abs, { force: true }); } catch {} }
     }
     return { ok: false, error: e?.message || String(e), results, dryRun };
   }
@@ -568,7 +484,6 @@ async function doApplyPatch(diffText, { reverse = false, index = false } = {}) {
   try { await fs.rm(tmp, { force: true }); } catch {}
   return { ok: code === 0, code, stdout, stderr };
 }
-
 // ---------- tools ----------
 const TOOL_DEFS = {
   ping: { description: "Echo helper to verify connectivity", inputSchema: { type: "object", properties: { msg: { type: "string" } } } },
@@ -590,38 +505,13 @@ const TOOL_DEFS = {
   batch_replace: { description: "Replace text across many files", inputSchema: { type: "object", properties: { find: { type: "string" }, replace: { type: "string" }, regex: { type: "boolean", default: false }, globs: { type: "array", items: { type: "string" }, default: ["**/*"] }, limitPerFile: { type: "number", default: 1000000 }, dryRun: { type: "boolean", default: true } }, required: ["find", "replace"] } },
   apply_patch: { description: "Apply unified diff through git", inputSchema: { type: "object", properties: { diff: { type: "string" }, reverse: { type: "boolean", default: false }, index: { type: "boolean", default: false } }, required: ["diff"] } },
 
-  read_json: { description: "Read JSON file and parse", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  write_json: { description: "Write JSON file (pretty)", inputSchema: { type: "object", properties: { path: { type: "string" }, data: {}, spaces: { type: "number", default: 2 }, newline: { type: "boolean", default: true } }, required: ["path", "data"] } },
-  list_scripts: { description: "List package.json scripts", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." } } } },
-  run_script: { description: "Run pnpm script", inputSchema: { type: "object", properties: { script: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string", default: "." } }, required: ["script"] } },
-
-  git_status: { description: "git status (porcelain)", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, porcelain: { type: "boolean", default: true }, branch: { type: "boolean", default: true }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
-  git_diff: { description: "git diff (worktree/index)", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, staged: { type: "boolean", default: false }, path: { type: "string" }, stat: { type: "boolean", default: false }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
-  git_log: { description: "git log summary", inputSchema: { type: "object", properties: { cwd: { type: "string", default: "." }, limit: { type: "number", default: 20 }, format: { type: "string", default: "%h %ci %an %s" }, path: { type: "string" }, extraArgs: { type: "array", items: { type: "string" }, default: [] } } } },
-
-  inspect_env: { description: "Show safe environment variables", inputSchema: { type: "object", properties: { includeValues: { type: "boolean", default: false }, keys: { type: "array", items: { type: "string" } }, prefixes: { type: "array", items: { type: "string" } } } } },
-  search_logs: { description: "Search worker log files", inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number", default: 20 }, caseSensitive: { type: "boolean", default: false } }, required: ["query"] } },
-
-  shell_run: { description: "Execute command immediately (allowlist + timeout)", inputSchema: { type: "object", properties: { cmd: { type: "string" }, args: { type: "array", items: { type: "string" }, default: [] }, cwd: { type: "string" }, timeoutMs: { type: "number", default: 120000 } }, required: ["cmd"] } },
-
-  enqueue_shell: { description: "Enqueue command for async execution", inputSchema: { type: "object", properties: {
-    cmd: { type: "string" },
-    args: { type: "array", items: { type: "string" }, default: [] },
-    cwd: { type: "string", default: "." },
-    timeoutMs: { type: "number", default: TASK_TIMEOUT_MS },
-    idleTimeoutMs: { type: "number", default: IDLE_TIMEOUT_MS },
-    priority: { type: "number", default: 100 },
-    maxRetries: { type: "number", default: 0 },
-    backoffMs: { type: "number", default: 2000 },
-    env: { type: "object" },
-    meta: { type: "object" },
-    id: { type: "string" }
-  }, required: ["cmd"] } },
-  task_status: { description: "Inspect async task result", inputSchema: { type: "object", properties: { id: { type: "string" }, tailBytes: { type: "number", default: 4000 } }, required: ["id"] } },
-  cancel_task: { description: "Request async task cancellation", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
-  queue_info: { description: "Queue metrics (pending/locked)", inputSchema: { type: "object", properties: {} } },
-  list_logs: { description: "List worker log files", inputSchema: { type: "object", properties: { limit: { type: "number", default: 20 } } } },
-  tail_log: { description: "Tail worker log by id", inputSchema: { type: "object", properties: { id: { type: "string" }, bytes: { type: "number", default: 8000 } }, required: ["id"] } },
+  // NEW
+  read_files: { description: "Read many files at once (truncated)", inputSchema: { type: "object", properties: { paths: { type: "array", items: { type: "string" } }, maxBytes: { type: "number", default: 200000 } }, required: ["paths"] } },
+  batch_ops: { description: "Run a batch of fs ops atomically in one call", inputSchema: { type: "object", properties: {
+    operations: { type: "array", items: { type: "object", properties: { op: { type: "string" }, args: { type: "object" } }, required: ["op"] } },
+    atomic: { type: "boolean", default: true },
+    dryRun: { type: "boolean", default: false }
+  }, required: ["operations"] } },
 };
 
 const SERVER_CAPABILITIES = { resources: {}, prompts: {}, tools: TOOL_DEFS };
@@ -766,6 +656,160 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       return asText({ ok: true, path: path.relative(ROOT, abs) });
     }
 
+    // NEW: read many files at once
+    if (name === "read_files") {
+      const paths = Array.isArray(a.paths) ? a.paths : [];
+      const max = Math.max(1024, Math.min(2_000_000, a.maxBytes ?? 200_000));
+      const out = [];
+      for (const pth of paths) {
+        try {
+          const abs = safeJoin(pth);
+          const content = await fs.readFile(abs, "utf8");
+          const truncated = content.length > max;
+          out.push({ path: path.relative(ROOT, abs) || ".", bytes: Buffer.byteLength(content, "utf8"), truncated, content: truncated ? content.slice(0, max) + "\n[...truncated...]" : content });
+        } catch (e) {
+          out.push({ path: pth, error: e?.message || String(e) });
+        }
+      }
+      return asText({ count: out.length, files: out });
+    }
+
+    // NEW: batch of mixed operations with optional rollback
+    if (name === "batch_ops") {
+      const ops = Array.isArray(a.operations) ? a.operations : [];
+      const atomic = a.atomic ?? true;
+      const dryRun = a.dryRun ?? false;
+      const results = [];
+      const backups = [];
+      const toRevertMoves = [];
+      const appliedPatches = [];
+      try {
+        for (const [idx, op] of ops.entries()) {
+          const tag = op?.op;
+          const args = op?.args || {};
+          if (!tag) { results.push({ index: idx, ok: false, error: "missing op" }); if (atomic) throw new Error("missing op"); else continue; }
+          switch (tag) {
+            case "write_file": {
+              const abs = safeJoin(args.path);
+              const exists = await fs.stat(abs).then(() => true).catch(() => false);
+              const before = exists ? await fs.readFile(abs, "utf8") : "";
+              backups.push({ kind: "write_file", abs, before, existed: exists });
+              if (!dryRun) {
+                await fs.mkdir(path.dirname(abs), { recursive: true });
+                await fs.writeFile(abs, String(args.content ?? ""), "utf8");
+              }
+              results.push({ index: idx, ok: true, path: path.relative(ROOT, abs) });
+              break;
+            }
+            case "replace_in_file": {
+              const abs = safeJoin(args.path);
+              const orig = await fs.readFile(abs, "utf8");
+              backups.push({ kind: "write_file", abs, before: orig, existed: true });
+              const next = replaceAll(orig, String(args.find ?? ""), String(args.replace ?? ""));
+              if (orig !== next && !dryRun) await fs.writeFile(abs, next, "utf8");
+              results.push({ index: idx, ok: true, changed: orig !== next, path: path.relative(ROOT, abs) });
+              break;
+            }
+            case "write_files": {
+              const r = await doWriteFiles(args.files || [], { atomic: args.atomic ?? true, dryRun: dryRun || (args.dryRun ?? false) });
+              if (!r.ok && atomic) throw new Error(r.error || "write_files failed");
+              results.push({ index: idx, ok: r.ok, summary: r });
+              break;
+            }
+            case "batch_replace": {
+              const r = await doBatchReplace({ find: args.find, replace: args.replace, regex: args.regex ?? false, globs: args.globs ?? ["**/*"], limitPerFile: args.limitPerFile ?? 1000000, dryRun: dryRun || (args.dryRun ?? true) });
+              if (!r.ok && atomic) throw new Error(r.error || "batch_replace failed");
+              results.push({ index: idx, ok: r.ok, summary: r });
+              break;
+            }
+            case "move_file": {
+              const from = safeJoin(args.from);
+              const to = safeJoin(args.to);
+              if (!dryRun) {
+                await fs.mkdir(path.dirname(to), { recursive: true });
+                const exists = await fs.stat(to).then(() => true).catch(() => false);
+                if (exists && !(args.overwrite ?? false)) throw new Error("target exists");
+                await fs.rename(from, to).catch(async () => {
+                  const data = await fs.readFile(from);
+                  await fs.writeFile(to, data);
+                  await fs.rm(from, { force: true });
+                });
+              }
+              toRevertMoves.push({ from, to });
+              results.push({ index: idx, ok: true, from: path.relative(ROOT, from), to: path.relative(ROOT, to) });
+              break;
+            }
+            case "delete_file": {
+              const abs = safeJoin(args.path);
+              const stat = await fs.stat(abs).catch(() => null);
+              if (stat?.isDirectory()) {
+                if (atomic && !dryRun) throw new Error("delete_file dir not supported atomically");
+                if (!dryRun) await fs.rm(abs, { force: true, recursive: true });
+              } else {
+                const before = stat ? await fs.readFile(abs) : null;
+                backups.push({ kind: "delete_file", abs, before });
+                if (!dryRun) await fs.rm(abs, { force: true });
+              }
+              results.push({ index: idx, ok: true, path: path.relative(ROOT, abs) });
+              break;
+            }
+            case "apply_patch": {
+              const r = await doApplyPatch(String(args.diff ?? ""), { reverse: args.reverse ?? false, index: args.index ?? false });
+              if (!r.ok) { if (atomic) throw new Error(r.stderr || "git apply failed"); else { results.push({ index: idx, ok: false, error: r.stderr || r.stdout || "git apply failed" }); break; } }
+              appliedPatches.push({ diff: String(args.diff ?? "") });
+              results.push({ index: idx, ok: true });
+              break;
+            }
+            case "mkdirp": {
+              const abs = safeJoin(args.path);
+              if (!dryRun) await fs.mkdir(abs, { recursive: true });
+              results.push({ index: idx, ok: true, path: path.relative(ROOT, abs) });
+              break;
+            }
+            case "read_file": {
+              const abs = safeJoin(args.path);
+              const content = await fs.readFile(abs, "utf8");
+              results.push({ index: idx, ok: true, path: path.relative(ROOT, abs), bytes: Buffer.byteLength(content, "utf8"), preview: content.slice(0, 5000) });
+              break;
+            }
+            default: {
+              results.push({ index: idx, ok: false, error: "unsupported op in batch: " + tag });
+              if (atomic) throw new Error("unsupported op: " + tag);
+            }
+          }
+        }
+        return asText({ ok: true, atomic, dryRun, results });
+      } catch (e) {
+        if (atomic && !dryRun) {
+          for (let i = appliedPatches.length - 1; i >= 0; i--) {
+            try { await doApplyPatch(appliedPatches[i].diff, { reverse: true }); } catch {}
+          }
+          for (let i = toRevertMoves.length - 1; i >= 0; i--) {
+            const m = toRevertMoves[i];
+            try {
+              await fs.rename(m.to, m.from).catch(async () => {
+                const data = await fs.readFile(m.to);
+                await fs.writeFile(m.from, data);
+                await fs.rm(m.to, { force: true });
+              });
+            } catch {}
+          }
+          for (let i = backups.length - 1; i >= 0; i--) {
+            const b = backups[i];
+            try {
+              if (b.kind === "write_file") {
+                if (b.existed) await fs.writeFile(b.abs, b.before, "utf8");
+                else await fs.rm(b.abs, { force: true });
+              } else if (b.kind === "delete_file") {
+                if (b.before) await fs.writeFile(b.abs, b.before);
+              }
+            } catch {}
+          }
+        }
+        return asText({ ok: false, atomic, dryRun, error: e?.message || String(e), results });
+      }
+    }
+
     if (name === "list_scripts") {
       const info = await readPackageScripts(a.cwd || ROOT);
       return asText(info);
@@ -903,22 +947,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     if (name === "queue_info") {
       await ensureDirs();
-      const all = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith('.json') && !f.includes('.lock.'));
-      const locks = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith('.json') && f.includes('.lock.'));
+      const all = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith(".json") && !f.includes(".lock."));
+      const locks = (await fs.readdir(QUEUE_DIR)).filter(f => f.endsWith(".json") && f.includes(".lock."));
       return asText({ queued: all.length, locked: locks.length, workers: WORKERS });
     }
 
     if (name === "list_logs") {
       await ensureDirs();
-      const files = (await fs.readdir(OUT_DIR))
-        .filter(f => f.endsWith('.log'))
-        .map(f => path.join(OUT_DIR, f));
+      const files = (await fs.readdir(OUT_DIR)).filter(f => f.endsWith(".log")).map(f => path.join(OUT_DIR, f));
       const stats = await Promise.all(files.map(async p => ({ p, s: await fs.stat(p).catch(() => null) })));
-      const items = stats
-        .filter(x => x.s)
+      const items = stats.filter(x => x.s)
         .sort((a,b) => b.s.mtimeMs - a.s.mtimeMs)
         .slice(0, Math.max(1, Math.min(200, a.limit ?? 20)))
-        .map(x => ({ id: path.basename(x.p, '.log'), log: path.relative(ROOT, x.p), bytes: x.s.size, mtime: x.s.mtime }));
+        .map(x => ({ id: path.basename(x.p, ".log"), log: path.relative(ROOT, x.p), bytes: x.s.size, mtime: x.s.mtime }));
       return asText({ count: items.length, items });
     }
 
@@ -929,7 +970,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       try {
         const stat = await fs.stat(p);
         const size = Math.min(tailBytes, stat.size);
-        const fd = await fs.open(p, 'r');
+        const fd = await fs.open(p, "r");
         const buf = Buffer.alloc(size);
         await fd.read(buf, 0, size, stat.size - size);
         await fd.close();
