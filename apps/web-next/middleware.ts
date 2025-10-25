@@ -7,11 +7,11 @@ const globalForPatch = globalThis as typeof globalThis & {
 
 if (typeof EdgeRuntime === 'string' && !globalForPatch.__importUnsupportedPatched) {
   const originalDefineProperty = Object.defineProperty;
-  Object.defineProperty = function definePropertyPatched(
-    target: object,
+  Object.defineProperty = function definePropertyPatched<T>(
+    target: T,
     property: PropertyKey,
-    attributes: PropertyDescriptor
-  ) {
+    attributes: PropertyDescriptor & ThisType<any>
+  ): T {
     if (
       target === globalThis &&
       property === '__import_unsupported' &&
