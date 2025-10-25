@@ -21,6 +21,22 @@ type WebhookLogRowRaw = {
 
 const SORTABLE_COLUMNS: ReadonlySet<SortColumn> = new Set(["created_at", "event_type", "event_id", "log_status"]);
 
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function serializeError(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin(request);
   if ("response" in auth) return auth.response;
@@ -62,10 +78,21 @@ export async function GET(request: Request) {
 
     const { data, error, count } = await query;
     if (error) return json({ ok: false, code: "db", message: error.message }, 500);
+    const rows = ((data as WebhookLogRowRaw[]) ?? []).map((row) => ({
+      id: row.id ? String(row.id) : "",
+      event_type: row.event_type ?? null,
+      event_id: row.event_id ?? null,
+      created_at: row.created_at ?? null,
+      log_status: toNullableNumber(row.log_status),
+      source: row.source ?? null,
+      message: row.message ?? null,
+      status: toNullableNumber(row.status),
+      error: serializeError(row.error),
+    }));
 
     return json({
       ok: true,
-      rows: (data as WebhookLogRowRaw[]) ?? [],
+      rows,
       meta: {
         total: count ?? null,
         sort: { column: sortColumn, direction: ascending ? "asc" : "desc" },
