@@ -138,7 +138,7 @@ export default function CheckoutClient() {
           return;
         }
       }
-      const currencySource = HAS_SUPABASE ? "ecom_products" : "local_fallback";
+      const currencySource = HAS_SUPABASE ? "products" : "local_fallback";
 
       const invalidCartIds: string[] = [];
       const resolvedItems: Array<{ cartId: string; productId: string; qty: number }> = [];

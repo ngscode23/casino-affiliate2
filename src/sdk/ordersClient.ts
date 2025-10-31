@@ -22,15 +22,30 @@ type PaymentRow = Tables<"payments">;
 // Some environments may not have this legacy mirror; avoid hard typing to Database.Tables
 // to prevent TS errors when the table is absent.
 // Use a structural type with only the fields we read.
-type RefundRow = {
-  refund_id: string;
-  order_id?: string | null;
-  payment_intent_id?: string | null;
-  amount_cents?: number | null;
-  currency?: string | null;
-  reason?: string | null;
-  created_at?: string | null;
+// Prefer generated types when available. Until `payment_refunds` ships in the
+// generated Database, extend the schema locally to avoid `any/unknown` casts.
+type DatabaseWithRefunds = Database & {
+  public: Database["public"] & {
+    Tables: Database["public"]["Tables"] & {
+      payment_refunds: {
+        Row: {
+          refund_id: string;
+          order_id: string | null;
+          payment_intent_id: string | null;
+          amount_cents: number | null;
+          currency: string | null;
+          reason: string | null;
+          created_at: string | null;
+        };
+        Insert: unknown;
+        Update: unknown;
+        Relationships: [];
+      };
+    };
+    Views: Database["public"]["Views"]; // keep existing views
+  };
 };
+type RefundRow = DatabaseWithRefunds["public"]["Tables"]["payment_refunds"]["Row"];
 type OrderItemRow = Tables<"order_items">;
 type OrderHistoryRow = Tables<"order_history_v">;
 
@@ -600,7 +615,9 @@ export class OrdersClient {
   }
 
   private async fetchRefunds(orderId: string, _userId: string): Promise<OrderRefund[]> {
-    const response = await this.client
+    // Use a narrow, typed extension for `payment_refunds` to avoid broad `any` casts
+    const client = this.client as SupabaseClient<DatabaseWithRefunds>;
+    const response = await client
       .from("payment_refunds")
       .select("refund_id, order_id, payment_intent_id, amount_cents, currency, reason, created_at")
       .eq("order_id", orderId)

@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
       .from("product_catalog")
       .select("product_uid")
       .eq("source_schema", "public")
-      .eq("source_table", "ecom_products")
+      .in("source_table", ["products", "ecom_products"])
       .eq("source_pk", productId)
       .maybeSingle();
     if (catalogErr) {
@@ -97,6 +99,8 @@ export async function POST(request: Request) {
 
     let reviewRecord: Record<string, unknown> | null = null;
 
+    const targetStatus = "pending" as const;
+
     if (existingRow) {
       const { data, error } = await supabase
         .from("product_reviews_raw")
@@ -104,7 +108,7 @@ export async function POST(request: Request) {
           rating,
           title,
           body,
-          status: "approved",
+          status: targetStatus,
           updated_at: now,
         })
         .eq("product_id", productUid)
@@ -116,15 +120,17 @@ export async function POST(request: Request) {
       }
       reviewRecord = data;
     } else {
+      const generatedId = randomUUID();
       const { data, error } = await supabase
         .from("product_reviews_raw")
         .insert({
+          id: generatedId,
           product_id: productUid,
           user_id: auth.user.id,
           rating,
           title,
           body,
-          status: "approved",
+          status: targetStatus,
           created_at: now,
           updated_at: now,
         })
@@ -154,7 +160,7 @@ export async function POST(request: Request) {
 
     // Инвалидация кэша отзывов по тегу продукта
     try {
-      if (productUid) revalidateTag(`reviews:${productUid}`);
+      if (productUid) revalidateTag(`reviews:${productUid}`, {});
     } catch {
       // revalidateTag недоступен локально/в некоторых средах — игнорируем
     }

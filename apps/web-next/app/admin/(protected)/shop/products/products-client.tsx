@@ -330,7 +330,13 @@ export function ProductsClient() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">Products</h1>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button onClick={() => router.push("/admin/shop/products/new")}>Add product</Button>
+          <Button
+            variant="secondary"
+            className="text-slate-900 dark:text-white"
+            onClick={() => router.push("/admin/shop/products/new")}
+          >
+            Add product
+          </Button>
         </div>
       </div>
 

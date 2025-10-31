@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { siteConfig } from "../lib/site-config";
 import { useCart } from "@shared/ecom/lib/cart";
 import { useI18n } from "@shared/lib/i18n";
@@ -16,6 +16,7 @@ type NavItem = {
   label?: string;
   labelKey?: string;
 };
+type ResolvedNavItem = NavItem & { resolvedLabel: string };
 
 function withLang(href: string, lang: string) {
   if (!lang || lang === "en") return href;
@@ -36,18 +37,41 @@ export function SiteHeaderClient() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const searchQuery = sanitizeSearchParam(searchParams?.get("q"));
-  const items = useMemo<NavItem[]>(() => siteConfig.nav, []);
+  const navConfig = useMemo<NavItem[]>(() => siteConfig.nav, []);
 
-  const translate = (key: string, fallback: string) => {
-    const value = t(key);
-    return value && value !== key ? value : fallback;
-  };
+  const translate = useCallback(
+    (key: string, fallback: string) => {
+      if (!key) return fallback;
+      const value = t(key);
+      return value && value !== key ? value : fallback;
+    },
+    [t],
+  );
 
-  const searchPlaceholder = translate("header.searchPlaceholder", "Search products");
-  const searchLabel = translate("header.searchLabel", "Search");
-  const searchButtonLabel = translate("header.searchButton", "Search");
-  const cartLabel = translate("nav.cart", "Cart");
-  const tagline = translate(siteConfig.taglineKey ?? "", siteConfig.tagline ?? "");
+  const headerCopy = useMemo(() => {
+    const taglineKey = siteConfig.taglineKey ?? "";
+    const resolvedTagline =
+      taglineKey && taglineKey.trim().length > 0
+        ? translate(taglineKey, siteConfig.tagline ?? "")
+        : siteConfig.tagline ?? "";
+    return {
+      searchPlaceholder: translate("header.searchPlaceholder", "Search products"),
+      searchLabel: translate("header.searchLabel", "Search"),
+      searchButton: translate("header.searchButton", "Search"),
+      cartLabel: translate("nav.cart", "Cart"),
+      tagline: resolvedTagline,
+    };
+  }, [translate]);
+
+  const navItems = useMemo<ResolvedNavItem[]>(
+    () =>
+      navConfig.map((item) => {
+        const base = item.label ?? item.href;
+        const resolvedLabel = item.labelKey ? translate(item.labelKey, base) : base;
+        return { ...item, resolvedLabel };
+      }),
+    [navConfig, translate],
+  );
 
   const isActive = (href: string) => {
     if (!pathname) return false;
@@ -75,8 +99,8 @@ export function SiteHeaderClient() {
     router.push(qs ? `${pathPart}?${qs}` : pathPart);
   };
 
-  const renderNavLink = (item: NavItem, variant: "desktop" | "mobile") => {
-    const label = item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href;
+  const renderNavLink = (item: ResolvedNavItem, variant: "desktop" | "mobile") => {
+    const label = item.resolvedLabel;
     const active = isActive(item.href);
 
     const baseClasses =
@@ -111,7 +135,7 @@ export function SiteHeaderClient() {
   const renderSearchForm = (variant: "desktop" | "mobile") => (
     <form onSubmit={onSearchSubmit} className={variant === "desktop" ? "hidden flex-1 md:flex" : "flex flex-col gap-3"} role="search">
       <label className={variant === "desktop" ? "sr-only" : "text-xs font-semibold uppercase tracking-[0.32em] text-muted"} htmlFor={`header-search-${variant}`}>
-        {searchLabel}
+        {headerCopy.searchLabel}
       </label>
       <div className={variant === "desktop" ? "flex w-full items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" : "flex flex-col gap-2"}>
         <input
@@ -119,7 +143,7 @@ export function SiteHeaderClient() {
           name="q"
           type="search"
           defaultValue={searchQuery}
-          placeholder={searchPlaceholder}
+          placeholder={headerCopy.searchPlaceholder}
           className={
             variant === "desktop"
               ? "w-full border-none bg-transparent text-sm text-fg placeholder:text-muted focus:outline-none"
@@ -134,7 +158,7 @@ export function SiteHeaderClient() {
               : "inline-flex h-11 items-center justify-center rounded-full border border-primary/50 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_20px_48px_-32px_rgba(252,50,114,0.38)] transition hover:-translate-y-[1px]"
           }
         >
-          {searchButtonLabel}
+          {headerCopy.searchButton}
         </button>
       </div>
     </form>
@@ -153,7 +177,7 @@ export function SiteHeaderClient() {
           </span>
           <span className="flex flex-col leading-tight">
             <span>{siteConfig.name}</span>
-            {tagline ? <span className="text-xs font-medium text-muted">{tagline}</span> : null}
+            {headerCopy.tagline ? <span className="text-xs font-medium text-muted">{headerCopy.tagline}</span> : null}
           </span>
         </Link>
 
@@ -165,7 +189,7 @@ export function SiteHeaderClient() {
             prefetch={false}
             className="hidden items-center gap-2 rounded-full border border-border/40 bg-card/70 px-3 py-2 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg lg:inline-flex"
           >
-            <span>{cartLabel}</span>
+            <span>{headerCopy.cartLabel}</span>
             <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
               {totalQty}
             </span>
@@ -195,14 +219,14 @@ export function SiteHeaderClient() {
 
       <div className="mx-auto hidden w-full max-w-6xl items-center gap-2 px-4 pb-3 sm:px-6 md:flex lg:px-8">
         <nav className="flex flex-1 flex-wrap gap-2" aria-label="Main navigation">
-          {items.map((item) => renderNavLink(item, "desktop"))}
+          {navItems.map((item) => renderNavLink(item, "desktop"))}
         </nav>
         <Link
           href={withLang("/cart", lang)}
           prefetch={false}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primaryfg shadow-[0_20px_48px_-30px_rgba(252,50,114,0.52)] transition hover:-translate-y-[1px]"
         >
-          <span>{cartLabel}</span>
+          <span>{headerCopy.cartLabel}</span>
           <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-primaryfg/15 px-2 text-xs text-primaryfg">
             {totalQty}
           </span>
@@ -214,7 +238,7 @@ export function SiteHeaderClient() {
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 border-t border-border/40 bg-bg/98 px-4 py-6 shadow-[0_28px_64px_-40px_rgba(102,78,55,0.28)] sm:px-6">
             {renderSearchForm("mobile")}
             <nav className="flex flex-col gap-2" aria-label="Mobile navigation">
-              {items.map((item) => renderNavLink(item, "mobile"))}
+              {navItems.map((item) => renderNavLink(item, "mobile"))}
             </nav>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -223,7 +247,7 @@ export function SiteHeaderClient() {
                 onClick={() => setMenuOpen(false)}
                 className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-primary/50 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-32px_rgba(252,50,114,0.38)] transition hover:-translate-y-[1px]"
               >
-                {cartLabel} ({totalQty})
+                {headerCopy.cartLabel} ({totalQty})
               </Link>
               <LanguageSwitcher />
               <ThemeToggle />

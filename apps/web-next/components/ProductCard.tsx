@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { memo, useCallback, useMemo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 
 import type { Product } from "@/app/products/types";
 import { formatPrice } from "@/app/products/utils";
 import { getFallbackImageByKey } from "@/app/products/fallback-images";
 import { cn } from "@shared/lib/cn";
-import { Heart, Shuffle } from "lucide-react";
+import { useT } from "@shared/lib/useT";
+import { Shuffle } from "lucide-react";
+import WishlistHeart from "./WishlistHeart";
+
+type ProductWithDiscount = Product & {
+  discountPercent?: number | null;
+};
 
 type ProductCardProps = {
-  product: Product;
+  product: ProductWithDiscount;
 };
 
 const badgeStyles: Record<string, string> = {
@@ -28,53 +34,57 @@ function resolveImage(src: Product["mainImage"], key: string) {
   return getFallbackImageByKey(key);
 }
 
-function useBadge(product: Product) {
-  const discount = (product as unknown as { discountPercent?: number | null })?.discountPercent;
-  if (typeof discount === "number" && discount > 0) {
-    return `-${Math.round(discount)}%`;
-  }
-  const meta = product as unknown as { isNew?: boolean; isTop?: boolean };
-  if (meta?.isNew) return "New";
-  if (meta?.isTop) return "Top";
-  return null;
-}
+type BadgeType = "sale" | "new" | "bestseller" | null;
 
 function BaseProductCard({ product }: ProductCardProps) {
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isCompared, setIsCompared] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const t = useT();
+  const translate = useCallback(
+    (key: string, fallback: string) => {
+      const value = t(key);
+      return value && value !== key ? value : fallback;
+    },
+    [t],
+  );
 
   const priceLabel = useMemo(() => formatPrice(product.price), [product.price]);
+  const slugOrId = product.slug || product.id;
+  const safeSlug = slugOrId ? encodeURIComponent(slugOrId) : "";
   const imageSrc = useMemo(
-    () => resolveImage(product.mainImage, product.slug || product.id),
-    [product.mainImage, product.slug, product.id],
+    () => resolveImage(product.mainImage, slugOrId),
+    [product.mainImage, slugOrId],
   );
   const [imageUrl, setImageUrl] = useState(imageSrc);
   const title = product.title || "Product";
-  const badge = useBadge(product);
-  const badgeVariant = useMemo(() => {
-    if (!badge) return "default";
-    const discount = (product as unknown as { discountPercent?: number | null })?.discountPercent;
-    if (typeof discount === "number" && discount > 0) return "sale";
-    return badge.toLowerCase().includes("new") ? "new" : "default";
-  }, [badge, product]);
+  const discountPercent =
+    typeof product.discountPercent === "number" && product.discountPercent > 0 ? Math.round(product.discountPercent) : null;
+  const badgeType: BadgeType = discountPercent
+    ? "sale"
+    : product.isNew
+      ? "new"
+      : product.isTop
+        ? "bestseller"
+        : null;
+  const badgeLabel =
+    badgeType === "sale"
+      ? `-${discountPercent}%`
+      : badgeType === "new"
+        ? translate("products.badges.new", "New")
+        : badgeType === "bestseller"
+          ? translate("products.badges.bestseller", "Top")
+          : null;
+  const badgeVariant = badgeType ?? "default";
   const originalPriceLabel = useMemo(() => {
-    const discount = (product as unknown as { discountPercent?: number | null })?.discountPercent;
-    if (typeof discount === "number" && discount > 0 && discount < 90) {
-      const base = product.price / (1 - discount / 100);
+    if (discountPercent && discountPercent < 90) {
+      const base = product.price / (1 - discountPercent / 100);
       if (Number.isFinite(base)) return formatPrice(base);
     }
     return null;
-  }, [product]);
-  const href = useMemo(() => `/products/${encodeURIComponent(product.slug)}`, [product.slug]);
+  }, [discountPercent, product.price]);
+  const href = safeSlug ? `/products/${safeSlug}` : "/products";
 
-  const toggleFavorite = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsFavorite((prev) => !prev);
-  }, []);
-
-  const toggleCompare = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+  const toggleCompare = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     setIsCompared((prev) => !prev);
@@ -93,11 +103,19 @@ function BaseProductCard({ product }: ProductCardProps) {
   }, [imageUrl]);
 
   const handleImageError = useCallback(() => {
-    const fallback = getFallbackImageByKey(product.slug || product.id);
+    const fallback = getFallbackImageByKey(slugOrId);
     if (fallback && fallback !== imageUrl) {
       setImageUrl(fallback);
     }
-  }, [imageUrl, product.slug, product.id]);
+  }, [imageUrl, slugOrId]);
+
+  const datasetLabel = (() => {
+    if (!product.dataset) return null;
+    const key = `products.dataset.${product.dataset}`;
+    const value = t(key);
+    return value && value !== key ? value : product.dataset;
+  })();
+  const viewDetailsLabel = translate("products.viewDetails", "View details");
 
   return (
     <Link
@@ -107,33 +125,24 @@ function BaseProductCard({ product }: ProductCardProps) {
     >
       <article className="surface relative flex h-full flex-col rounded-[calc(var(--radius)+0.75rem)] shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
         <header className="flex items-start justify-between px-7 pt-7">
-          {badge ? (
+          {badgeLabel ? (
             <span
               className={cn(
                 "inline-flex items-center rounded-full px-3.5 py-1 text-xs font-medium",
                 badgeStyles[badgeVariant] ?? badgeStyles.default,
               )}
             >
-              {badge}
+              {badgeLabel}
             </span>
           ) : (
             <span className="h-7" aria-hidden="true" />
           )}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleFavorite}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-secondary/60 text-secondary-foreground/70 transition-colors hover:bg-secondary hover:text-secondary-foreground"
-              aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-              aria-pressed={isFavorite}
-            >
-              <Heart className={cn("h-4 w-4", isFavorite ? "fill-current" : "")}
-              />
-            </button>
+            <WishlistHeart productId={product.id} className="border border-transparent bg-secondary/60 text-secondary-foreground/70 hover:bg-secondary hover:text-secondary-foreground" />
             <button
               type="button"
               onClick={toggleCompare}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-secondary/60 text-secondary-foreground/70 transition-colors hover:bg-secondary hover:text-secondary-foreground"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-secondary/60 text-secondary-foreground/70 transition-colors hover:bg-secondary hover:text-secondary-foreground cursor-pointer"
               aria-label={isCompared ? "Remove from compare" : "Add to compare"}
               aria-pressed={isCompared}
             >
@@ -177,11 +186,13 @@ function BaseProductCard({ product }: ProductCardProps) {
                 <span className="text-sm text-muted-foreground line-through">{originalPriceLabel}</span>
               ) : null}
             </div>
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{product.dataset}</span>
+            {datasetLabel ? (
+              <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{datasetLabel}</span>
+            ) : null}
           </div>
           <div className="mt-6">
             <span className="inline-flex w-full items-center justify-center rounded-full bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-colors group-hover:bg-secondary/80">
-              View details
+              {viewDetailsLabel}
             </span>
           </div>
         </div>

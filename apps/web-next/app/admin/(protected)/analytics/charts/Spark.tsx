@@ -9,7 +9,7 @@ export function Spark({ data, width = 240, height = 40, padding = 4 }: {
   padding?: number;
 }) {
   if (!data?.length) {
-    return <div className="h-10 w-full rounded bg-white/5" aria-hidden />;
+    return <div className="h-10 w-full rounded bg-slate-200 dark:bg-white/5" aria-hidden />;
   }
   const max = Math.max(1, ...data.map((p) => p.count));
   const step = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
@@ -27,4 +27,3 @@ export function Spark({ data, width = 240, height = 40, padding = 4 }: {
     </svg>
   );
 }
-

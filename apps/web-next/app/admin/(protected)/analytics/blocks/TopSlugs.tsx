@@ -24,13 +24,13 @@ function formatRevenue(map?: Record<string, number>): string {
 
 export default function TopSlugs({
   data,
-  onExportCSV,
-  onExportJSON,
+  onExportCSVAction,
+  onExportJSONAction,
   useVirtualization = false,
 }: {
   data: TopSlug[];
-  onExportCSV?: () => void;
-  onExportJSON?: () => void;
+  onExportCSVAction?: () => void;
+  onExportJSONAction?: () => void;
   useVirtualization?: boolean;
 }) {
   const showVirtual = useVirtualization && data.length > 50;
@@ -40,20 +40,20 @@ export default function TopSlugs({
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Top slugs</h2>
         <div className="flex gap-2">
-          {onExportCSV ? (
+          {onExportCSVAction ? (
             <button
               type="button"
-              className="rounded-md border border-white/15 px-2 py-1 text-xs text-white transition hover:bg-white/10"
-              onClick={onExportCSV}
+              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm transition hover:-translate-y-px hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent)/30 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+              onClick={onExportCSVAction}
             >
               Export CSV
             </button>
           ) : null}
-          {onExportJSON ? (
+          {onExportJSONAction ? (
             <button
               type="button"
-              className="rounded-md border border-white/15 px-2 py-1 text-xs text-white transition hover:bg-white/10"
-              onClick={onExportJSON}
+              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm transition hover:-translate-y-px hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent)/30 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+              onClick={onExportJSONAction}
             >
               Export JSON
             </button>
@@ -68,28 +68,28 @@ export default function TopSlugs({
           itemHeight={36}
           keyExtractor={(item) => item.slug}
           renderItem={(entry) => (
-            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 text-xs sm:text-sm">
-              <span className="truncate font-medium text-white">{entry.slug}</span>
+            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 text-xs text-slate-600 sm:text-sm dark:text-white/80">
+              <span className="truncate font-medium text-slate-900 dark:text-white">{entry.slug}</span>
               <span className="text-right">{entry.clicks}</span>
               <span className="text-right">{entry.impressions}</span>
-              <span className="text-right text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right text-slate-500 dark:text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
               <span className="text-right">{entry.paid ?? 0}</span>
-              <span className="text-right text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
-              <span className="col-span-full truncate text-right text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
+              <span className="text-right text-slate-500 dark:text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-slate-500 dark:text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
             </div>
           )}
         />
       ) : (
-        <div className="space-y-2 text-sm text-white/80">
+        <div className="space-y-2 text-sm text-slate-600 dark:text-white/80">
           {data.slice(0, 10).map((entry) => (
-            <div key={entry.slug} className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] gap-3 text-xs sm:text-sm">
-              <span className="truncate font-medium text-white">{entry.slug}</span>
+            <div key={entry.slug} className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] gap-3 text-xs text-slate-600 sm:text-sm dark:text-white/80">
+              <span className="truncate font-medium text-slate-900 dark:text-white">{entry.slug}</span>
               <span className="text-right">{entry.clicks}</span>
               <span className="text-right">{entry.impressions}</span>
-              <span className="text-right text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right text-slate-500 dark:text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
               <span className="text-right">{entry.paid ?? 0}</span>
-              <span className="text-right text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
-              <span className="col-span-full truncate text-right text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
+              <span className="text-right text-slate-500 dark:text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-slate-500 dark:text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { ProductGrid } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
 
@@ -8,7 +9,11 @@ type RecentProductsProps = {
   currentSlug: string;
 };
 
-type RecentProductsState = { loading: boolean; items: ProductGridItem[] };
+type RecentProductsState = {
+  loading: boolean;
+  recent: ProductGridItem[];
+  recommended: ProductGridItem[];
+};
 
 const RECENT_KEY = "recent:products:v1";
 
@@ -24,42 +29,106 @@ function getRecentSlugs(): string[] {
   }
 }
 
+async function loadFallbackFromLocal(slugs: string[], signal: AbortSignal): Promise<ProductGridItem[]> {
+  if (!slugs.length) return [];
+  const url = new URL("/api/products/lookup", window.location.origin);
+  url.searchParams.set("slugs", slugs.join(","));
+  url.searchParams.set("limit", "8");
+  const res = await fetch(url.toString(), {
+    signal,
+    headers: { accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to load products");
+  const json = (await res.json()) as { ok?: boolean; items?: ProductGridItem[] };
+  return Array.isArray(json.items) ? json.items : [];
+}
+
+async function fetchRecommendations(currentSlug: string, signal: AbortSignal) {
+  const url = new URL("/api/recommendations/recent", window.location.origin);
+  url.searchParams.set("limit", "8");
+  url.searchParams.set("similarLimit", "8");
+  if (currentSlug) url.searchParams.set("excludeSlug", currentSlug);
+  const res = await fetch(url.toString(), {
+    signal,
+    headers: { accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to load recommendations");
+  return (await res.json()) as {
+    ok?: boolean;
+    recent?: ProductGridItem[];
+    recommended?: ProductGridItem[];
+  };
+}
+
 export default function RecentProducts({ currentSlug }: RecentProductsProps) {
-  const [{ loading, items }, setState] = useState<RecentProductsState>(() => ({ loading: true, items: [] }));
+  const [{ loading, recent, recommended }, setState] = useState<RecentProductsState>({
+    loading: true,
+    recent: [],
+    recommended: [],
+  });
 
   useEffect(() => {
-    const list = getRecentSlugs().filter((slug) => slug !== currentSlug);
-    if (!list.length) {
-      setState({ loading: false, items: [] });
-      return;
-    }
     const controller = new AbortController();
+
     (async () => {
       try {
-        const url = new URL("/api/products/lookup", window.location.origin);
-        url.searchParams.set("slugs", list.join(","));
-        url.searchParams.set("limit", "8");
-        const res = await fetch(url.toString(), {
-          signal: controller.signal,
-          headers: { accept: "application/json" },
-        });
-        if (!res.ok) throw new Error("Failed to load recently viewed");
-        const json = (await res.json()) as { ok: boolean; items: ProductGridItem[] };
+        const response = await fetchRecommendations(currentSlug, controller.signal);
         if (controller.signal.aborted) return;
-        setState({ loading: false, items: Array.isArray(json.items) ? json.items : [] });
+
+        let recentItems = Array.isArray(response.recent) ? response.recent : [];
+        const recommendedItems = Array.isArray(response.recommended) ? response.recommended : [];
+
+        if (!recentItems.length) {
+          const fallbackSlugs = getRecentSlugs().filter((slug) => slug !== currentSlug).slice(0, 8);
+          if (fallbackSlugs.length) {
+            try {
+              recentItems = await loadFallbackFromLocal(fallbackSlugs, controller.signal);
+            } catch {
+              // ignore fallback failures
+            }
+          }
+        }
+
+        setState({ loading: false, recent: recentItems, recommended: recommendedItems });
       } catch {
-        if (!controller.signal.aborted) setState({ loading: false, items: [] });
+        if (controller.signal.aborted) return;
+        const fallbackSlugs = getRecentSlugs().filter((slug) => slug !== currentSlug).slice(0, 8);
+        if (!fallbackSlugs.length) {
+          setState({ loading: false, recent: [], recommended: [] });
+          return;
+        }
+        try {
+          const fallbackItems = await loadFallbackFromLocal(fallbackSlugs, controller.signal);
+          if (!controller.signal.aborted) {
+            setState({ loading: false, recent: fallbackItems, recommended: [] });
+          }
+        } catch {
+          if (!controller.signal.aborted) {
+            setState({ loading: false, recent: [], recommended: [] });
+          }
+        }
       }
     })();
+
     return () => controller.abort();
   }, [currentSlug]);
 
-  if (loading || items.length === 0) return null;
+  if (loading || (recent.length === 0 && recommended.length === 0)) return null;
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-xl font-semibold text-fg">Вы недавно смотрели</h2>
-      <ProductGrid items={items} wrapWithContainer={false} />
+    <section className="space-y-6">
+      {recent.length > 0 ? (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-fg">Recently viewed</h2>
+          <ProductGrid items={recent} wrapWithContainer={false} />
+        </div>
+      ) : null}
+      {recommended.length > 0 ? (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-fg">Inspired by your browsing</h2>
+          <ProductGrid items={recommended} wrapWithContainer={false} />
+        </div>
+      ) : null}
     </section>
   );
 }

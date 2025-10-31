@@ -111,7 +111,7 @@ The rest of this document retains the original feature documentation for quick r
 E2E test
 - Open `/admin/partners` → Create Checkout (choose plan, duration, slugs)
 - Complete Stripe test payment → webhook upserts `partners` and `partner_offers` (pinned=true), sets `expires_at`
-- Pinned offers appear on top of `/offers`
+- Pinned items appear on top of `/products`
 - After expiration, pins are removed by `expire-partners`
 
 ### Subscriptions + Customer Portal

@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await (supabase as any)
-      .from("ecom_products")
+      .from("ecom_products_view")
       .select("id,slug,title,price,rating,images,short_desc,category_slug,tags,specs,created_at")
       .eq("slug", slug)
       .single();

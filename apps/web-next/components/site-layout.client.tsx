@@ -15,6 +15,7 @@ import { ensureUtmContext } from "@shared/lib/utm";
 import { Sheet, SheetContent, SheetTrigger } from "@ui/components/common/sheet";
 import { ensureSession } from "@shared/lib/auth";
 import { CompareProvider } from "@shared/ctx/CompareContext";
+import { SiteFooter } from "./site-footer";
 
 export function SiteLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -65,7 +66,8 @@ export function SiteLayoutClient({ children }: { children: ReactNode }) {
               </Sheet>
               <div className="flex-1">
                 <div className="mx-auto w-full max-w-screen-xl px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
-                  <main className="pb-16 lg:pb-20">{children}</main>
+                  <main className="pb-16 lg:pb-20 animate-page-fade">{children}</main>
+                  <SiteFooter />
                 </div>
               </div>
             </div>

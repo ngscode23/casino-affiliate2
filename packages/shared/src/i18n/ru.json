@@ -224,9 +224,9 @@
     "tagline": "Инструменты для партнёрского и e-commerce роста"
   },
   "header": {
-    "searchPlaceholder": "Поиск по каталогу",
-    "searchButton": "Искать",
-    "searchMobile": "Искать по сайту"
+    "searchPlaceholder": "Поиск товаров...",
+    "searchLabel": "Поиск",
+    "searchButton": "Искать"
   },
   "affiliate": {
     "hero": {
@@ -303,12 +303,25 @@
       }
     }
   },
-  "header": {
-    "searchPlaceholder": "Поиск товаров...",
-    "searchLabel": "Поиск",
-    "searchButton": "Искать"
-  },
   "footer": {
-    "allRightsReserved": "Все права защищены."
+    "allRightsReserved": "Все права защищены.",
+    "contact": "Контакты",
+    "explore": "Изучить",
+    "connect": "Соцсети",
+    "legal": "Юридический раздел"
+  },
+  "products": {
+    "addToCart": "Добавить в корзину",
+    "noImage": "Нет изображения",
+    "viewDetails": "Подробнее",
+    "badges": {
+      "new": "Новинка",
+      "bestseller": "Хит продаж",
+      "sale": "Скидка"
+    },
+    "dataset": {
+      "shop": "Каталог",
+      "legacy": "Архив"
+    }
   }
 }

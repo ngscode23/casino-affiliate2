@@ -5,6 +5,7 @@ import { getFallbackImageByKey } from "../fallback-images";
 
 const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
 
 export const PRODUCT_PAGE_REVALIDATE_SECONDS = 90;
 const PRODUCT_COLLECTION_TAG = "products:list";
@@ -101,7 +102,17 @@ function toStoragePublicUrl(path: string | null | undefined): string | null {
 
 export function normalizeImageUrl(input: string | null | undefined): string | null {
   if (!input) return null;
-  if (/^https?:/i.test(input)) return input;
+  if (/^https?:/i.test(input)) {
+    try {
+      const parsed = new URL(input);
+      if (BLOCKED_REMOTE_IMAGE_HOSTS.has(parsed.hostname) || parsed.hostname.endsWith(".example.com")) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return input;
+  }
   return toStoragePublicUrl(input);
 }
 

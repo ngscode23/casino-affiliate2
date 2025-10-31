@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { fetchOfferBySlug } from "@/app/offers/data";
 import { createClient } from "@/utils/supabase/server";
+import { getAdminClient } from "@/utils/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -114,4 +114,28 @@ export default async function GoRedirect({
   redirect(finalUrl);
 }
 
+async function fetchOfferBySlug(slug: string) {
+  try {
+    const supabase = getAdminClient();
+    const { data } = await supabase
+      .from("offers")
+      .select("id, slug, link, enabled")
+      .eq("slug", slug)
+      .limit(1)
+      .maybeSingle();
 
+    const enabled = Boolean(data?.enabled);
+    if (!data || !data.link || !enabled) {
+      return null;
+    }
+
+    return {
+      id: data.id ?? null,
+      slug: data.slug as string,
+      link: data.link as string,
+      enabled,
+    };
+  } catch {
+    return null;
+  }
+}

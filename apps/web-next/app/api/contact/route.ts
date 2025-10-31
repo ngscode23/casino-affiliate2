@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { sendContactEmail } from "./send-mail";
 
 function normalize(value: FormDataEntryValue | null): string {
   if (typeof value !== "string") return "";
@@ -38,6 +39,20 @@ export async function POST(request: Request) {
     if (error) {
       redirectUrl.searchParams.set("error", "storage-failed");
       return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+
+    try {
+      await sendContactEmail({
+        fullName: fullName || null,
+        email,
+        message,
+        metadata: {
+          userAgent: request.headers.get("user-agent") ?? undefined,
+          referer: request.headers.get("referer") ?? undefined,
+        },
+      });
+    } catch (error) {
+      console.warn("[contact] email delivery failed", error);
     }
 
     redirectUrl.searchParams.set("success", "1");

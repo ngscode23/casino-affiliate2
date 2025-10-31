@@ -199,6 +199,20 @@
       }
     }
   },
+  "products": {
+    "addToCart": "Add to cart",
+    "noImage": "No image",
+    "viewDetails": "View details",
+    "badges": {
+      "new": "New",
+      "bestseller": "Bestseller",
+      "sale": "Sale"
+    },
+    "dataset": {
+      "shop": "Shop",
+      "legacy": "Legacy"
+    }
+  },
   "legal": {
     "privacy": {
       "title": "Privacy Policy"
@@ -211,6 +225,10 @@
     }
   },
   "footer": {
+    "contact": "Contact",
+    "explore": "Explore",
+    "connect": "Connect",
+    "legal": "Legal",
     "allRightsReserved": "All rights reserved."
   }
 }

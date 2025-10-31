@@ -154,7 +154,7 @@ export default function AccountForm({ user }: { user: User | null }) {
 
                 <form action="/auth/signout" method="post" className="w-full sm:w-auto">
                     <button
-                        className="inline-flex w-full items-center justify-center rounded-full border border-border/50 bg-transparent px-6 py-3 text-sm font-medium text-muted transition hover:border-border/70 hover:bg-card/40 hover:text-fg"
+                        className="inline-flex w-full items-center justify-center rounded-full border border-border/60 bg-card/60 px-6 py-3 text-sm font-semibold text-fg transition hover:bg-card focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                         type="submit"
                     >
                         Sign out

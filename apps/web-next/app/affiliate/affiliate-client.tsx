@@ -48,7 +48,7 @@ function OffersTable({ offers, labels }: { offers: Array<Partial<NormalizedOffer
           <col className="w-[15%]" />
           <col />
         </colgroup>
-        <thead className="bg-white/[0.03] text-left text-white/80">
+        <thead className="bg-slate-100 text-left text-slate-600 dark:bg-white/5 dark:text-white/80">
           <tr>
             <th className="px-4 py-3 font-medium">{labels.brand}</th>
             <th className="px-4 py-3 font-medium">{labels.rating}</th>

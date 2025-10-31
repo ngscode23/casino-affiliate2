@@ -17,6 +17,10 @@ function mapAvailability(status: string): string {
     case "preorder":
     case "pre-order":
       return "PreOrder";
+    case "draft":
+    case "inactive":
+    case "discontinued":
+      return "Discontinued";
     case "out_of_stock":
     case "unavailable":
       return "OutOfStock";
@@ -25,14 +29,73 @@ function mapAvailability(status: string): string {
   }
 }
 
+function sanitizeText(input: string | null | undefined): string {
+  if (!input) return "";
+  return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function truncateText(input: string, length: number): string {
+  if (!input || input.length <= length) return input;
+  const sliced = input.slice(0, Math.max(0, length - 3)).trimEnd();
+  return sliced ? `${sliced}...` : input.slice(0, length);
+}
+
+function toAbsoluteUrl(value: string | null | undefined, origin: string): string | null {
+  if (!value) return null;
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      return new URL(value).toString();
+    }
+    if (!origin) return value;
+    return new URL(value, origin.endsWith("/") ? origin : `${origin}/`).toString();
+  } catch {
+    if (!origin) return value;
+    const base = origin.endsWith("/") ? origin.slice(0, -1) : origin;
+    if (value.startsWith("/")) return `${base}${value}`;
+    return `${base}/${value}`;
+  }
+}
+
 export default function ProductMetadata({ product, breadcrumbs, canonicalPath }: ProductMetadataProps) {
   const origin = (SITE_URL || "").replace(/\/$/, "");
-  const canonical = origin ? `${origin}${canonicalPath}` : canonicalPath;
+  const canonical = toAbsoluteUrl(canonicalPath, origin) ?? canonicalPath;
+
+  const productDescription = sanitizeText(product.description ?? product.shortDescription ?? "");
+  const metaDescription = truncateText(productDescription, 160);
+  const priceValue = Number(product.price ?? 0);
+  const price = Number.isFinite(priceValue) ? priceValue : 0;
+  const priceCurrency = (product.currency || "").toUpperCase() || "USD";
+  const availability = mapAvailability(product.status);
+  const availabilityUrl = `https://schema.org/${availability}`;
+  const brandText = sanitizeText(product.brand) || SITE_NAME;
+  const formattedPrice = product.formattedPrice?.trim() || formatCurrency(price, priceCurrency);
+
   const breadcrumbTrail: Breadcrumb[] = [
-    { name: "Главная", url: "/" },
+    { name: SITE_NAME, url: "/" },
     ...breadcrumbs,
     { name: product.title, url: canonicalPath },
-  ];
+  ]
+    .map((crumb) => {
+      const name = sanitizeText(crumb.name) || SITE_NAME;
+      const url = crumb.url?.trim() || "/";
+      if (!url.startsWith("/") && !/^https?:/i.test(url)) {
+        return { name, url: `/${url}` };
+      }
+      return { name, url };
+    })
+    .filter((crumb, index, list) => crumb.url && list.findIndex((item) => item.url === crumb.url) === index);
+
+  const imageCandidates = [...product.gallery, product.mainImage, product.fallbackImage].filter(
+    (item): item is string => Boolean(item),
+  );
+  const productImages = Array.from(
+    new Set(
+      imageCandidates
+        .map((image) => toAbsoluteUrl(image, origin))
+        .filter((image): image is string => Boolean(image)),
+    ),
+  );
+  const primaryImage = productImages[0] ?? null;
 
   const reviewJsonLd = product.recentReviews
     .slice(0, 2)
@@ -65,22 +128,28 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
-    description: product.description ?? product.shortDescription ?? "",
-    image: product.gallery,
+    description: productDescription,
+    image: productImages.length ? productImages : undefined,
     sku: product.sku ?? undefined,
-    brand: product.brand
-      ? {
-          "@type": "Brand",
-          name: product.brand,
-        }
-      : undefined,
+    productID: product.productUid ?? product.id,
+    url: canonical,
+    category: breadcrumbTrail.slice(1, -1).map((crumb) => crumb.name).join(" > ") || undefined,
+    brand: {
+      "@type": "Brand",
+      name: brandText,
+    },
     offers: {
       "@type": "Offer",
-      priceCurrency: product.currency,
-      price: Number(product.price ?? 0).toFixed(2),
-      availability: `https://schema.org/${mapAvailability(product.status)}`,
+      priceCurrency,
+      price: price.toFixed(2),
+      availability: availabilityUrl,
       url: canonical,
       itemCondition: "https://schema.org/NewCondition",
+      seller: {
+        "@type": "Organization",
+        name: SITE_NAME,
+        ...(origin ? { url: origin } : {}),
+      },
     },
     review: reviewJsonLd.length ? reviewJsonLd : undefined,
     aggregateRating:
@@ -95,54 +164,50 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbsJsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbsJsonLd) }} />
       <div itemScope itemType="https://schema.org/Product" className="hidden">
         <meta itemProp="name" content={product.title} />
-        <meta itemProp="description" content={product.description ?? product.shortDescription ?? ""} />
+        <meta itemProp="description" content={productDescription} />
         <meta itemProp="sku" content={product.sku ?? product.id} />
         <link itemProp="url" href={canonical} />
-        {product.brand ? (
-          <meta itemProp="brand" content={product.brand} />
-        ) : (
-          <meta itemProp="brand" content={SITE_NAME} />
-        )}
-        {product.gallery.map((image) => (
+        <meta itemProp="brand" content={brandText} />
+        {productImages.map((image) => (
           <link key={image} itemProp="image" href={image} />
         ))}
         <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
-          <meta itemProp="priceCurrency" content={product.currency} />
-          <meta itemProp="price" content={Number(product.price ?? 0).toFixed(2)} />
-          <link
-            itemProp="availability"
-            href={`https://schema.org/${mapAvailability(product.status)}`}
-          />
+          <meta itemProp="priceCurrency" content={priceCurrency} />
+          <meta itemProp="price" content={price.toFixed(2)} />
+          <link itemProp="availability" href={availabilityUrl} />
           <link itemProp="url" href={canonical} />
         </div>
       </div>
       <meta property="og:type" content="product" />
       <meta property="og:title" content={product.title} />
-      <meta property="og:description" content={product.description ?? product.shortDescription ?? ""} />
+      <meta property="og:description" content={metaDescription} />
       <meta property="og:url" content={canonical} />
-      {product.gallery[0] ? <meta property="og:image" content={product.gallery[0]} /> : null}
+      <meta property="og:site_name" content={SITE_NAME} />
+      {primaryImage ? (
+        <>
+          <meta property="og:image" content={primaryImage} />
+          <meta property="og:image:secure_url" content={primaryImage} />
+        </>
+      ) : null}
+      <meta property="og:price:amount" content={price.toFixed(2)} />
+      <meta property="og:price:currency" content={priceCurrency} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={product.title} />
-      <meta name="twitter:description" content={product.description ?? product.shortDescription ?? ""} />
-      {product.gallery[0] ? <meta name="twitter:image" content={product.gallery[0]} /> : null}
-      <meta name="product:price:amount" content={Number(product.price ?? 0).toFixed(2)} />
-      <meta name="product:price:currency" content={product.currency} />
-      <meta name="product:availability" content={mapAvailability(product.status)} />
-      <meta name="product:brand" content={product.brand ?? SITE_NAME} />
+      <meta name="twitter:description" content={metaDescription} />
+      {primaryImage ? <meta name="twitter:image" content={primaryImage} /> : null}
+      <meta name="product:price:amount" content={price.toFixed(2)} />
+      <meta name="product:price:currency" content={priceCurrency} />
+      <meta name="product:availability" content={availability} />
+      <meta property="product:availability" content={availabilityUrl} />
+      <meta name="product:brand" content={brandText} />
       <meta name="product:condition" content="new" />
       <meta name="product:retailer_item_id" content={product.id} />
       <meta name="product:category" content={breadcrumbTrail.map((crumb) => crumb.name).join(" > ")} />
-      <meta name="product:price_formatted" content={formatCurrency(product.price, product.currency)} />
+      <meta name="product:price_formatted" content={formattedPrice} />
     </>
   );
 }

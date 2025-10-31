@@ -73,9 +73,9 @@ export async function GET(request: Request) {
     const to = from + limit - 1;
 
     let query = client
-      .from("ecom_products")
+      .from("ecom_products_view")
       .select(
-        "id,sku,slug,title,price,rating,images,short_desc,category_slug,tags,specs,created_at,status,image_path",
+        "id,sku,slug,title,price,rating,images,short_desc,category_slug,specs,created_at,status,image_path",
         { count: "exact" }
       );
 
@@ -166,7 +166,7 @@ export async function GET(request: Request) {
     if (slugs.length) {
       try {
         const { data: slugRows, error: slugErr } = await client
-          .from("ecom_products")
+          .from("ecom_products_view")
           .select("slug,image_path")
           .in("slug", slugs);
         if (!slugErr && Array.isArray(slugRows)) {

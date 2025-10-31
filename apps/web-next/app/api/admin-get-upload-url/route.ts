@@ -70,7 +70,7 @@ async function revalidateProductsByIds(
   ids: string[],
 ) {
   if (!ids.length) {
-    revalidateTag(PRODUCT_COLLECTION_TAG);
+    revalidateTag(PRODUCT_COLLECTION_TAG, {});
     return;
   }
 
@@ -93,12 +93,12 @@ async function revalidateProductsByIds(
   }
 
   for (const tag of productTags) {
-    revalidateTag(tag);
+    revalidateTag(tag, {});
   }
   for (const tag of categoryTags) {
-    revalidateTag(tag);
+    revalidateTag(tag, {});
   }
-  revalidateTag(PRODUCT_COLLECTION_TAG);
+  revalidateTag(PRODUCT_COLLECTION_TAG, {});
 }
 
 export async function POST(request: Request) {
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       const touchedIds = new Set<string>();
       if (skuRaw) {
         const { data: skuRows, error: updateErr } = await supabase
-          .from("ecom_products")
+          .from("products")
           .update({ image_path: objectPath })
           .eq("sku", skuRaw)
           .select("id");
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       }
       if (!updated && slugRaw) {
         const { data: slugRows, error: updateErr } = await supabase
-          .from("ecom_products")
+          .from("products")
           .update({ image_path: objectPath })
           .eq("slug", slugRaw)
           .select("id");
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
       }
       if (!updated && productId) {
         const { data: idRows, error: updateErr } = await supabase
-          .from("ecom_products")
+          .from("products")
           .update({ image_path: objectPath })
           .eq("id", productId)
           .select("id");
@@ -189,7 +189,7 @@ export async function POST(request: Request) {
       }
       await revalidateProductsByIds(supabase, Array.from(touchedIds));
     } catch (updateErr) {
-      console.warn("admin-get-upload-url: failed to update ecom_products", updateErr);
+      console.warn("admin-get-upload-url: failed to update products", updateErr);
     }
 
     const uploadUrl = toAbsoluteUrl(supabaseUrl, data.signedUrl ?? "");

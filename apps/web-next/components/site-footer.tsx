@@ -14,6 +14,15 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
   const tagline = t("layout.tagline") || siteConfig.tagline;
   const rights = t("footer.allRightsReserved");
+  const translate = (key: string, fallback: string) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
+
+  const contactLabel = translate("footer.contact", "Contact");
+  const exploreLabel = translate("footer.explore", "Explore");
+  const connectLabel = translate("footer.connect", "Connect");
+  const legalLabel = translate("footer.legal", "Legal");
 
   const legalLinks = [
     { href: "/legal/privacy", label: t("legal.privacy.title") },
@@ -49,19 +58,19 @@ export function SiteFooter() {
   };
 
   return (
-    <footer className="mt-16">
-      <div className="rounded-[32px] border border-border/35 bg-card/92 px-6 py-10 shadow-soft sm:px-10 sm:py-14">
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr_1fr]">
+    <footer className="mt-14">
+      <div className="rounded-[28px] border border-border/35 bg-card/92 px-6 py-8 shadow-soft sm:px-9 sm:py-10">
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr_1fr]">
           <div className="space-y-5">
             <div>
               <h2 className="text-base font-semibold text-fg">{siteConfig.name}</h2>
-              <p className="mt-2 max-w-sm text-sm text-muted">{tagline}</p>
+              <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-muted">{tagline || siteConfig.tagline}</p>
             </div>
             <LanguageSwitcher />
           </div>
 
-          <div className="space-y-2 text-sm text-muted">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Contact</h3>
+          <div className="space-y-1.5 text-sm text-muted">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{contactLabel}</h3>
             {siteConfig.footer.address ? <div className="text-sm text-muted">{siteConfig.footer.address}</div> : null}
             {siteConfig.footer.phone ? <div className="text-sm text-muted">{siteConfig.footer.phone}</div> : null}
             {siteConfig.footer.email ? (
@@ -71,21 +80,22 @@ export function SiteFooter() {
             ) : null}
           </div>
 
-          <div className="grid gap-6 text-sm text-muted sm:grid-cols-2 lg:grid-cols-1">
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Explore</h3>
+          <div className="grid gap-5 text-sm text-muted sm:grid-cols-2 lg:grid-cols-1">
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{exploreLabel}</h3>
               {primaryNav.map((item) => (
                 <div key={item.href}>{renderLink(item.href, resolveNavLabel(item))}</div>
               ))}
             </div>
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Connect</h3>
-              {siteConfig.socials.map((social: { href: string; label: string }) => (
-                <div key={social.href}>{renderLink(social.href, social.label)}</div>
-              ))}
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{connectLabel}</h3>
+              {siteConfig.socials.map((social: { href: string; label: string }, idx: number) => {
+                const key = social.href?.trim() || social.label || String(idx);
+                return <div key={key}>{renderLink(social.href, social.label)}</div>;
+              })}
             </div>
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">Legal</h3>
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{legalLabel}</h3>
               {legalLinks.map((item) => (
                 <div key={item.href}>{renderLink(item.href, item.label)}</div>
               ))}

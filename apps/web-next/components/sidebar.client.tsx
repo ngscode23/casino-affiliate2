@@ -55,7 +55,7 @@ function formatCurrency(value: number, currency = "USD", locale = "en-US") {
   }
 }
 
-const libraryRoutes = new Set(["/favorites", "/contact", "/partner", "/account", "/account/reviews", "/cart", "/checkout"]);
+const libraryRoutes = new Set(["/wishlist", "/contact", "/partner", "/account", "/account/reviews", "/cart", "/checkout"]);
 
 export function SidebarClient({
   navItems,

@@ -55,7 +55,7 @@ function statusClass(value: string | null | undefined) {
     case "requires_action":
       return "bg-purple-500/10 text-purple-200 border border-purple-500/30";
     default:
-      return "bg-white/10 text-white border border-white/20";
+      return "bg-neutral-100 text-slate-700 border border-neutral-200 dark:bg-white/10 dark:text-white dark:border-white/20";
   }
 }
 

@@ -85,7 +85,7 @@ export default function AddToCartButton({
     solid:
       "h-10 rounded-xl bg-slate-900 text-white hover:-translate-y-[1px] hover:bg-slate-800 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-card dark:bg-primary dark:hover:bg-primary/90",
     overlay:
-      "h-9 rounded-full border border-white/10 bg-white/5 text-white uppercase tracking-[0.32em] hover:-translate-y-[1px] hover:border-white/20 hover:bg-white/10 hover:shadow-[0_12px_30px_rgba(15,23,42,0.25)] focus-visible:ring-2 focus-visible:ring-white/30 dark:border-white/15 dark:hover:border-white/30 dark:hover:bg-white/20",
+      "h-9 rounded-full border border-neutral-300 bg-white text-slate-900 uppercase tracking-[0.32em] hover:-translate-y-[1px] hover:border-neutral-400 hover:bg-slate-50 hover:shadow-[0_12px_30px_rgba(15,23,42,0.15)] focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-white/30 dark:hover:bg-white/20 dark:focus-visible:ring-white/30 dark:focus-visible:ring-offset-0",
     soft:
       "h-11 rounded-full border border-border/30 bg-card/90 text-fg hover:-translate-y-[1px] hover:bg-card focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
   };

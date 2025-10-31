@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import Section from "@ui/components/common/section";
-import Skeleton from "@ui/components/common/skeleton";
 import { toast } from "@ui/components/common/toast";
 import {
   cancelOrder,
@@ -80,7 +79,7 @@ function statusClass(value: string | null | undefined) {
     case "requires_action":
       return "bg-purple-500/10 text-purple-200 border border-purple-500/30";
     default:
-      return "bg-white/10 text-white border border-white/20";
+      return "bg-neutral-100 text-slate-700 border border-neutral-200 dark:bg-white/10 dark:text-white dark:border-white/20";
   }
 }
 
@@ -184,7 +183,7 @@ export function OrdersClient() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setError(message || "Не удалось загрузить заказы");
+      setError(message || "We couldn't load your orders.");
     } finally {
       setLoading(false);
     }
@@ -202,21 +201,21 @@ export function OrdersClient() {
     [searchValue, updateParams],
   );
 
-  const onStatusChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const nextStatus = event.target.value;
+  const handleStatusSelect = useCallback(
+    (nextStatus: string) => {
+      if (nextStatus === statusFilter) return;
       setStatusFilter(nextStatus);
       updateParams({ status: nextStatus || null }, { resetCursor: true });
     },
-    [updateParams],
+    [statusFilter, updateParams],
   );
 
-  const onLimitChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const nextSize = Number.parseInt(event.target.value, 10) || 10;
+  const handlePageSizeSelect = useCallback(
+    (nextSize: number) => {
+      if (nextSize === limit) return;
       updateParams({ page_size: nextSize }, { resetCursor: true });
     },
-    [updateParams],
+    [limit, updateParams],
   );
 
   const onLoadMore = useCallback(() => {
@@ -263,7 +262,7 @@ export function OrdersClient() {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        toast(message || "Не удалось загрузить заказ", { variant: "error" });
+        toast(message || "We couldn't load the order.", { variant: "error" });
       }
     },
     [details, slugMap],
@@ -274,11 +273,11 @@ export function OrdersClient() {
       try {
         setPendingMap((prev) => ({ ...prev, [orderId]: "cancel" }));
         await cancelOrder(orderId);
-        toast("Заказ отменён", { variant: "success" });
+        toast("Order cancelled.", { variant: "success" });
         await fetchOrders();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        toast(message || "Не удалось отменить заказ", { variant: "error" });
+        toast(message || "We couldn't cancel the order.", { variant: "error" });
       } finally {
         setPendingMap((prev) => ({ ...prev, [orderId]: null }));
       }
@@ -292,15 +291,15 @@ export function OrdersClient() {
         setPendingMap((prev) => ({ ...prev, [orderId]: "pay" }));
         const response = await confirmPayment(orderId);
         if (response?.next_action?.url) {
-          toast("Требуется подтверждение 3DS", { variant: "info" });
+          toast("Additional 3DS verification required.", { variant: "info" });
           window.open(response.next_action.url, "_blank", "noopener,noreferrer");
         } else {
-          toast("Оплата выполнена", { variant: "success" });
+          toast("Payment completed.", { variant: "success" });
         }
         await fetchOrders();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        toast(message || "Не удалось подтвердить оплату", { variant: "error" });
+        toast(message || "We couldn't confirm the payment.", { variant: "error" });
       } finally {
         setPendingMap((prev) => ({ ...prev, [orderId]: null }));
       }
@@ -311,261 +310,308 @@ export function OrdersClient() {
   const isLoading = loading && orders.length === 0;
 
   return (
-    <Section className="py-10">
-      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm shadow-md backdrop-blur sm:flex-row sm:items-end sm:justify-between">
-        <form onSubmit={onSearchSubmit} className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="flex flex-col gap-1 sm:w-56">
-            <label htmlFor="status" className="text-xs uppercase text-white/60">
-              Статус
-            </label>
-            <select
-              id="status"
-              value={statusFilter}
-              onChange={onStatusChange}
-              className="h-10 rounded-lg border border-white/10 bg-black/40 px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+    <Section className="py-12">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+        <header className="space-y-3">
+          <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">Account</span>
+          <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Order history</h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Track your purchases, manage payments, and revisit receipts in one place.
+          </p>
+        </header>
+
+        <div className="space-y-6 rounded-3xl border border-border/35 bg-card/80 p-6 shadow-soft backdrop-blur">
+          <form onSubmit={onSearchSubmit} className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex-1 space-y-3">
+              <span id="orders-status-label" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+                Status
+              </span>
+              <div className="rounded-2xl border border-border/30 bg-card/70 p-1.5">
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="orders-status-label">
+                  {STATUS_OPTIONS.map((option) => {
+                    const active = statusFilter === option.value;
+                    const baseClasses =
+                      "group inline-flex min-w-[120px] items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold tracking-normal transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+                    const activeClasses =
+                      "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
+                    const inactiveClasses =
+                      "border-border/30 bg-transparent text-muted-foreground hover:border-primary/30 hover:text-primary";
+                    return (
+                      <button
+                        key={option.value || "all"}
+                        type="button"
+                        aria-pressed={active}
+                        className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+                        onClick={() => handleStatusSelect(option.value)}
+                      >
+                        <span>{option.label}</span>
+                        <span
+                          className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-border/40 group-hover:bg-primary/70"}`}
+                          aria-hidden
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <label htmlFor="order-search" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+                  Search orders
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="order-search"
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    placeholder="Example: order-001"
+                    className="h-11 flex-1 rounded-xl border border-border/30 bg-card/70 px-4 text-sm text-fg shadow-inner transition focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                  />
+                  <button
+                    type="submit"
+                    className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/60 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-30px_rgba(252,50,114,0.62)] transition hover:-translate-y-[1px]"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:w-44">
+                <span id="orders-page-size-label" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+                  Page size
+                </span>
+                <div className="rounded-2xl border border-border/30 bg-card/70 p-1.5">
+                  <div className="flex gap-2" role="group" aria-labelledby="orders-page-size-label">
+                    {[10, 20, 50].map((size) => {
+                      const active = limit === size;
+                      const baseClasses =
+                        "group inline-flex flex-1 items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+                      const activeClasses =
+                        "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
+                      const inactiveClasses =
+                        "border-border/30 bg-transparent text-muted-foreground hover:border-primary/30 hover:text-primary";
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          aria-pressed={active}
+                          className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+                          onClick={() => handlePageSizeSelect(size)}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          {isLoading ? (
+            <div className="space-y-3" aria-live="polite">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="h-16 rounded-2xl border border-border/20 bg-card/60" />
               ))}
-            </select>
-          </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="order-search" className="text-xs uppercase text-white/60">
-              Поиск по номеру заказа
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="order-search"
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                placeholder="Например, acme-order-001"
-                className="h-10 flex-1 rounded-lg border border-white/10 bg-black/40 px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
-              />
-              <button
-                type="submit"
-                className="h-10 rounded-lg bg-[var(--accent)] px-4 text-sm font-medium text-[var(--accent-foreground)] transition hover:opacity-90"
-              >
-                Найти
-              </button>
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-100">
+              {error}
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="rounded-2xl border border-border/35 bg-card/70 p-6 text-sm text-muted-foreground">
+              No orders found. Try adjusting the filters or search query.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-border/35 bg-card/85 shadow-soft">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border/30 text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold text-muted-foreground">Order</th>
+                    <th className="px-5 py-3 font-semibold text-muted-foreground">Placed on</th>
+                    <th className="px-5 py-3 font-semibold text-muted-foreground">Status</th>
+                    <th className="px-5 py-3 font-semibold text-muted-foreground">Total</th>
+                    <th className="px-5 py-3 text-right font-semibold text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => {
+                    const orderId = order.id;
+                    const isOpen = !!expanded[orderId];
+                    const detail = details[orderId];
+                    const paymentState = pendingMap[orderId];
+                    const canPay = order.status === "pending" || order.status === "processing";
+                    const canCancel = order.status === "pending";
+                    const toggleLabel = isOpen
+                      ? "Hide details"
+                      : detail
+                      ? `View items (${detail.items.length})`
+                      : "Load details";
+
+                    return (
+                      <Fragment key={orderId}>
+                        <tr className="border-b border-border/20 transition hover:bg-card/70">
+                          <td className="px-5 py-3 font-medium text-fg">{orderId}</td>
+                          <td className="px-5 py-3 text-muted-foreground">{formatDate(order.created_at)}</td>
+                          <td className="px-5 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.status)}`}>
+                                {statusLabel(order.status)}
+                              </span>
+                              {order.payment_status ? (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.payment_status)}`}
+                                >
+                                  {statusLabel(order.payment_status)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 font-medium text-fg">
+                            {formatCurrency(order.amount_total ?? 0, order.currency || "EUR")}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void toggleOrder(orderId)}
+                                className="rounded-full border border-border/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                              >
+                                {toggleLabel}
+                              </button>
+                              {canPay ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void performPayment(orderId)}
+                                  disabled={paymentState === "pay"}
+                                  className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {paymentState === "pay" ? "Paying..." : "Pay now"}
+                                </button>
+                              ) : null}
+                              {canCancel ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void performCancel(orderId)}
+                                  disabled={paymentState === "cancel"}
+                                  className="rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {paymentState === "cancel" ? "Cancelling..." : "Cancel order"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                        {isOpen ? (
+                          <tr className="border-b border-border/20 bg-card/75">
+                            <td colSpan={5} className="px-5 py-5">
+                              {!detail ? (
+                                <div className="text-xs text-muted-foreground">Loading order details...</div>
+                              ) : detail.items.length === 0 ? (
+                                <div className="text-xs text-muted-foreground">No items were recorded for this order.</div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                                    Items · {detail.items.length}
+                                  </div>
+                                  <ul className="space-y-3">
+                                    {detail.items.map((item) => {
+                                      const productId = item.product_id ? String(item.product_id) : "";
+                                      const slug = productId ? slugMap[productId] : undefined;
+                                      const quantity = item.qty ?? 1;
+                                      const unit = formatCurrency(item.unit_price ?? 0, detail.order.currency);
+                                      const totalAmount = formatCurrency(item.total ?? item.unit_price ?? 0, detail.order.currency);
+                                      return (
+                                        <li
+                                          key={`${orderId}-${productId}-${item.id}`}
+                                          className="flex flex-col gap-2 rounded-2xl border border-border/30 bg-card/70 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                          <div>
+                                            {slug ? (
+                                              <Link
+                                                href={`/products/${slug}`}
+                                                className="font-semibold text-fg transition hover:text-primary"
+                                              >
+                                                {item.title || productId}
+                                              </Link>
+                                            ) : (
+                                              <span className="font-semibold text-fg">{item.title || productId || "Item"}</span>
+                                            )}
+                                            <div className="text-xs text-muted-foreground">
+                                              Quantity: {quantity} × {unit}
+                                            </div>
+                                          </div>
+                                          <div className="text-sm font-semibold text-fg">{totalAmount}</div>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                  <div className="flex flex-col items-end gap-1 text-sm text-muted-foreground">
+                                    <div>Subtotal: {formatCurrency(detail.order.amount_subtotal ?? 0, detail.order.currency)}</div>
+                                    <div>Discounts: {formatCurrency(detail.order.amount_discounts ?? 0, detail.order.currency)}</div>
+                                    <div>Tax &amp; duties: {formatCurrency(detail.order.amount_tax ?? 0, detail.order.currency)}</div>
+                                    <div className="text-base font-semibold text-fg">
+                                      Total: {formatCurrency(detail.order.amount_total ?? 0, detail.order.currency)}
+                                    </div>
+                                    {detail.payment ? (
+                                      <div className="text-xs text-muted-foreground/80">
+                                        Payment: {statusLabel(detail.payment.status)}
+                                        {detail.payment.amount
+                                          ? ` • ${formatCurrency(
+                                              detail.payment.amount,
+                                              detail.payment.currency || detail.order.currency,
+                                            )}`
+                                          : ""}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {orders.length > 0 && !isLoading ? (
+          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing {orders.length} of {total} orders
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {cursorParam ? (
+                <button
+                  type="button"
+                  className="rounded-full border border-border/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+                  onClick={onResetCursor}
+                >
+                  Back to first page
+                </button>
+              ) : null}
+              {hasMore ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-full border border-border/40 px-4 py-1.5 text-xs font-semibold text-fg transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={onLoadMore}
+                  disabled={!nextCursor}
+                >
+                  Load more
+                </button>
+              ) : (
+                <span className="text-muted-foreground/70">You're all caught up.</span>
+              )}
             </div>
           </div>
-        </form>
-        <div className="flex items-center gap-2">
-          <label className="text-xs uppercase text-white/60" htmlFor="orders-page-size">
-            Лимит
-          </label>
-          <select
-            id="orders-page-size"
-            value={String(limit)}
-            onChange={onLimitChange}
-            className="h-10 rounded-lg border border-white/10 bg-black/40 px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
-          >
-            {[10, 20, 50].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
+        ) : null}
       </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full" />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-          {error}
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="rounded-lg border border-white/10 bg-black/40 p-6 text-sm text-white/70">
-          Заказы не найдены.
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
-          <table className="w-full text-sm">
-            <thead className="border-b border-white/10 text-left text-white/70">
-              <tr>
-                <th className="px-4 py-3 font-medium">Заказ</th>
-                <th className="px-4 py-3 font-medium">Создан</th>
-                <th className="px-4 py-3 font-medium">Статус</th>
-                <th className="px-4 py-3 font-medium">Сумма</th>
-                <th className="px-4 py-3 font-medium text-right">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => {
-                const orderId = order.id;
-                const isOpen = !!expanded[orderId];
-                const detail = details[orderId];
-                const paymentState = pendingMap[orderId];
-                const canPay = order.status === "pending" || order.status === "processing";
-                const canCancel = order.status === "pending";
-
-                return (
-                  <Fragment key={orderId}>
-                    <tr className="border-b border-white/5">
-                      <td className="px-4 py-3 font-medium text-white">{orderId}</td>
-                      <td className="px-4 py-3 text-white/70">{formatDate(order.created_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.status)}`}>
-                            {statusLabel(order.status)}
-                          </span>
-                          {order.payment_status ? (
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.payment_status)}`}
-                            >
-                              {statusLabel(order.payment_status)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-white/80">
-                        {formatCurrency(order.amount_total ?? 0, order.currency || "EUR")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void toggleOrder(orderId)}
-                            className="rounded-lg border border-white/15 px-3 py-1 text-xs text-white transition hover:bg-white/10"
-                          >
-                            {isOpen ? "Скрыть" : detail ? `Позиции (${detail.items.length})` : "Показать"}
-                          </button>
-                          {canPay ? (
-                            <button
-                              type="button"
-                              onClick={() => void performPayment(orderId)}
-                              disabled={paymentState === "pay"}
-                              className="rounded-lg border border-emerald-500/40 px-3 py-1 text-xs text-emerald-200 transition hover:bg-emerald-500/10 disabled:opacity-50"
-                            >
-                              {paymentState === "pay" ? "Оплата..." : "Оплатить"}
-                            </button>
-                          ) : null}
-                          {canCancel ? (
-                            <button
-                              type="button"
-                              onClick={() => void performCancel(orderId)}
-                              disabled={paymentState === "cancel"}
-                              className="rounded-lg border border-rose-500/40 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/10 disabled:opacity-50"
-                            >
-                              {paymentState === "cancel" ? "Отмена..." : "Отменить"}
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                    {isOpen ? (
-                      <tr className="border-b border-white/10 bg-black/30">
-                        <td colSpan={5} className="px-4 py-4">
-                          {!detail ? (
-                            <div className="text-xs text-white/60">Загрузка деталей заказа...</div>
-                          ) : detail.items.length === 0 ? (
-                            <div className="text-xs text-white/60">Позиции заказа отсутствуют.</div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="text-xs text-white/60">Позиций: {detail.items.length}</div>
-                              <ul className="space-y-2">
-                                {detail.items.map((item) => {
-                                  const productId = item.product_id ? String(item.product_id) : "";
-                                  const slug = productId ? slugMap[productId] : undefined;
-                                  const quantity = item.qty ?? 1;
-                                  const unit = formatCurrency(item.unit_price ?? 0, detail.order.currency);
-                                  const totalAmount = formatCurrency(item.total ?? item.unit_price ?? 0, detail.order.currency);
-                                  return (
-                                    <li key={`${orderId}-${productId}-${item.id}`} className="flex flex-col gap-1 rounded-lg border border-white/15 bg-black/40 p-3 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between">
-                                      <div>
-                                        {slug ? (
-                                          <Link href={`/products/${slug}`} className="font-medium text-white hover:underline">
-                                            {item.title || productId}
-                                          </Link>
-                                        ) : (
-                                          <span className="font-medium text-white">{item.title || productId || "Товар"}</span>
-                                        )}
-                                        <div className="text-xs text-white/50">Количество: {quantity} × {unit}</div>
-                                      </div>
-                                      <div className="text-sm font-medium text-white">{totalAmount}</div>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                              <div className="flex flex-col items-end gap-1 text-sm text-white/80">
-                                <div>
-                                  Подытог: {formatCurrency(detail.order.amount_subtotal ?? 0, detail.order.currency)}
-                                </div>
-                                <div>
-                                  Скидки: {formatCurrency(detail.order.amount_discounts ?? 0, detail.order.currency)}
-                                </div>
-                                <div>
-                                  Налоги / доставка: {formatCurrency(detail.order.amount_tax ?? 0, detail.order.currency)}
-                                </div>
-                                <div className="text-base font-semibold text-white">
-                                  Итого: {formatCurrency(detail.order.amount_total ?? 0, detail.order.currency)}
-                                </div>
-                                {detail.payment ? (
-                                  <div className="text-xs text-white/60">
-                                    Оплата: {statusLabel(detail.payment.status)}
-                                    {detail.payment.amount
-                                      ? ` • ${formatCurrency(
-                                          detail.payment.amount,
-                                          detail.payment.currency || detail.order.currency,
-                                        )}`
-                                      : ""}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {orders.length > 0 ? (
-        <div className="mt-6 flex flex-col gap-2 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            Показано {orders.length} из {total}
-          </div>
-          <div className="flex items-center gap-2">
-            {cursorParam ? (
-              <button
-                type="button"
-                className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
-                onClick={onResetCursor}
-              >
-                Сбросить пагинацию
-              </button>
-            ) : null}
-            {hasMore ? (
-              <button
-                type="button"
-                className="rounded-lg border border-white/15 px-3 py-1 text-white transition hover:bg-white/10 disabled:opacity-40"
-                onClick={onLoadMore}
-                disabled={!nextCursor}
-              >
-                Загрузить ещё
-              </button>
-            ) : (
-              <span className="text-white/40">Все заказы загружены</span>
-            )}
-          </div>
-        </div>
-      ) : null}
     </Section>
   );
 }
-
-
-
-

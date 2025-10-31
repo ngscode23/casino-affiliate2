@@ -8,6 +8,7 @@
   --sidebar-gap: clamp(1.5rem, 2vw, 1.75rem);
   --mobile-tab-bar-height: 3.5rem;
   --radius: 1.5rem;
+  scroll-behavior: smooth;
 
   --bg-rgb: 250 246 235;
   --card-rgb: 255 251 244;
@@ -28,6 +29,11 @@
   --shadow-card-hover: 0 44px 118px -54px rgba(229, 94, 121, 0.26);
 
   color-scheme: light;
+
+  /* Bridges for legacy custom props used in components */
+  --text-dim: rgb(var(--mutedfg-rgb));
+  --accent: rgb(var(--accent-rgb));
+  --ui-accent-20: rgb(var(--accent-rgb) / 0.2);
 }
 
 .dark {
@@ -48,6 +54,11 @@
   --shadow-card: 0 28px 80px -34px rgba(0, 0, 0, 0.65);
   --shadow-card-hover: 0 52px 130px -44px rgba(252, 50, 114, 0.5);
   color-scheme: dark;
+
+  /* Keep custom props consistent in dark mode */
+  --text-dim: rgb(var(--mutedfg-rgb));
+  --accent: rgb(var(--accent-rgb));
+  --ui-accent-20: rgb(var(--accent-rgb) / 0.2);
 }
 
 .theme-noir {
@@ -78,6 +89,7 @@
     font-family: var(--font-sans, 'OpenAI Sans', system-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   :focus-visible {
@@ -186,4 +198,28 @@
     border-radius: 999px;
   }
   .glass-scroll::-webkit-scrollbar-track { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+  .animate-page-fade {
+    animation: none !important;
+  }
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-fade {
+  animation: page-fade-in 420ms ease-out both;
 }

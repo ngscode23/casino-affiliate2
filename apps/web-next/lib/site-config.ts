@@ -7,6 +7,7 @@ export const siteConfig = {
   nav: [
     { href: "/", label: "Home", labelKey: "nav.home" },
     { href: "/products", label: "Catalog", labelKey: "nav.catalog" },
+    { href: "/wishlist", label: "Wishlist", labelKey: "nav.wishlist" },
     { href: "/cart", label: "Cart", labelKey: "nav.cart" },
     { href: "/checkout", label: "Checkout", labelKey: "nav.checkout" },
     { href: "/contact", label: "Contact", labelKey: "nav.contact" },

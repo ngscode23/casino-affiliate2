@@ -12,6 +12,28 @@ const PRODUCT_TAG_PREFIX = "product:";
 const CATEGORY_TAG_PREFIX = "category:";
 const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 
+const PRODUCT_COLUMNS: ReadonlySet<string> = new Set([
+  "id",
+  "slug",
+  "sku",
+  "title",
+  "short_desc",
+  "description",
+  "price",
+  "price_cents",
+  "currency",
+  "status",
+  "category_slug",
+  "tags",
+  "images",
+  "image_path",
+  "main_image_url",
+  "seller_id",
+  "rating",
+  "created_at",
+  "specs",
+]);
+
 function productTag(slug: string) {
   return `${PRODUCT_TAG_PREFIX}${slug}`;
 }
@@ -61,24 +83,46 @@ function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | n
 async function syncCatalog(supabase: ReturnType<typeof getAdminClient>, ids: string[]) {
   if (!ids.length) return;
   const { data, error } = await supabase
-    .from("ecom_products")
+    .from("products")
     .select("id, title, slug")
     .in("id", ids);
   if (error || !data || !data.length) return;
+  try {
+    await supabase
+      .from("product_catalog")
+      .delete()
+      .eq("source_schema", "public")
+      .in("source_table", ["ecom_products", "products"])
+      .in("source_pk", ids.map(String));
+  } catch {
+    // ignore mismatched legacy catalog rows
+  }
   const rows = data.map((row) => ({
     source_schema: "public",
-    source_table: "ecom_products",
+    source_table: "products",
     source_pk: String(row.id),
     title: row.title ?? null,
     slug: row.slug ?? null,
   }));
   try {
-    await supabase
-      .from("product_catalog")
-      .upsert(rows, { onConflict: "source_schema,source_table,source_pk" });
-  } catch {
-    // catalog table is optional
+    if (!rows.length) return;
+    const { error: insertError } = await supabase.from("product_catalog").insert(rows);
+    if (insertError) {
+      console.warn("admin-products: catalog insert failed", insertError);
+    }
+  } catch (err) {
+    console.warn("admin-products: catalog sync threw", err);
   }
+}
+
+function filterProductPayload(input: Record<string, unknown>): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (PRODUCT_COLUMNS.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
 }
 
 async function dropFromCatalog(supabase: ReturnType<typeof getAdminClient>, ids: string[]) {
@@ -88,7 +132,7 @@ async function dropFromCatalog(supabase: ReturnType<typeof getAdminClient>, ids:
       .from("product_catalog")
       .delete()
       .eq("source_schema", "public")
-      .eq("source_table", "ecom_products")
+      .in("source_table", ["products", "ecom_products"])
       .in("source_pk", ids.map(String));
   } catch {
     // ignore when catalog is absent
@@ -131,12 +175,12 @@ async function revalidateProducts(
   }
 
   for (const slug of slugSet) {
-    revalidateTag(productTag(slug));
+    revalidateTag(productTag(slug), {});
   }
   for (const tag of categoryTags) {
-    revalidateTag(tag);
+    revalidateTag(tag, {});
   }
-  revalidateTag(PRODUCT_COLLECTION_TAG);
+  revalidateTag(PRODUCT_COLLECTION_TAG, {});
 }
 
 async function slugExists(
@@ -221,7 +265,7 @@ export async function POST(request: Request) {
       const status = typeof payload.status === "string" ? payload.status.trim() : "";
       if (!ids.length || !status) return json({ ok: true, updated: 0 });
       const { error, data } = await supabase
-        .from("ecom_products")
+        .from("products")
         .update({ status })
         .in("id", ids)
         .select("id");
@@ -239,23 +283,51 @@ export async function POST(request: Request) {
       const normalizedSku = normalizeSku(product.sku as string | undefined, title);
       const normalizedSlug = slugifyTitle((product.slug as string | undefined) ?? title, normalizedSku);
 
-      const upsertPayload = {
-        ...product,
-        title,
-        sku: normalizedSku,
-        slug: normalizedSlug,
-      };
+    const upsertPayload = {
+      ...product,
+      title,
+      sku: normalizedSku,
+      slug: normalizedSlug,
+    };
 
-      const { data, error } = await supabase
-        .from("ecom_products")
-        .upsert(upsertPayload)
-        .select("id")
-        .single();
-      if (error || !data) return json({ ok: false, error: error?.message || "db" }, 500);
+      const sanitizedPayload = filterProductPayload(upsertPayload);
 
-      await syncCatalog(supabase, [String(data.id)]);
-      await revalidateProducts(supabase, [String(data.id)], [normalizedSlug]);
-      return json({ ok: true, id: data.id });
+      const { data, error } = await supabase.rpc("admin_upsert_product", {
+        p: sanitizedPayload,
+      });
+
+      if (error) {
+        return json({ ok: false, error: error.message || "db" }, 500);
+      }
+
+      const inserted = Array.isArray(data) ? data[0] : data;
+
+      let productId: string | null = null;
+      if (typeof inserted === "string") {
+        productId = inserted;
+      } else if (inserted && typeof inserted === "object") {
+        const directId = (inserted as Record<string, unknown>).id;
+        if (typeof directId === "string") {
+          productId = directId;
+        } else if (directId != null) {
+          productId = String(directId);
+        } else {
+          const nestedId = (inserted as Record<string, unknown>).product_id ?? (inserted as Record<string, unknown>).admin_upsert_product;
+          if (typeof nestedId === "string") {
+            productId = nestedId;
+          } else if (nestedId != null) {
+            productId = String(nestedId);
+          }
+        }
+      }
+
+      if (!productId) {
+        return json({ ok: false, error: "missing_product_id" }, 500);
+      }
+
+      await syncCatalog(supabase, [productId]);
+      await revalidateProducts(supabase, [productId], [normalizedSlug]);
+      return json({ ok: true, id: productId });
     }
 
     if (op === "delete") {
@@ -289,7 +361,7 @@ export async function POST(request: Request) {
         console.warn("admin-products: order_items cleanup threw", orderItemsError);
       }
       const { error, data: deletedData } = await supabase
-        .from("ecom_products")
+        .from("products")
         .delete()
         .in("id", ids)
         .select("id");
@@ -308,7 +380,7 @@ export async function POST(request: Request) {
       const ids = Array.isArray(payload.ids) ? (payload.ids as string[]) : [];
       if (!ids.length) return json({ ok: true, duplicated: 0 });
       const { data, error } = await supabase
-        .from("ecom_products")
+        .from("products")
         .select(
           "id, slug, sku, title, price, rating, images, short_desc, category_slug, tags, specs, status, currency, seller_id, image_path"
         )
@@ -405,7 +477,7 @@ export async function POST(request: Request) {
           currency: string | null;
           seller_id: string | null;
           image_path: string | null;
-          deleted_at: null;
+          [key: string]: unknown;
         };
       }> = [];
 
@@ -440,7 +512,6 @@ export async function POST(request: Request) {
             currency: row.currency ?? null,
             seller_id: row.seller_id ?? null,
             image_path: row.image_path ?? null,
-            deleted_at: null,
           },
         });
       }
@@ -448,10 +519,6 @@ export async function POST(request: Request) {
       if (!clones.length) return json({ ok: true, duplicated: 0 });
 
       const rows = clones.map((entry) => entry.row);
-
-      const inserted = await supabase.from("ecom_products").insert(rows).select("id");
-      if (inserted.error) return json({ ok: false, error: inserted.error.message || "db" }, 500);
-      const insertedIds = (inserted.data || []).map((row) => String(row.id));
 
       const legacyInserts: Array<Record<string, unknown>> = [];
       for (const entry of clones) {
@@ -477,7 +544,7 @@ export async function POST(request: Request) {
             ? legacy.price_cents
             : Math.round(price * 100);
 
-        legacyInserts.push({
+        legacyInserts.push(filterProductPayload({
           id: entry.row.id,
           slug: entry.row.slug,
           sku: entry.row.sku,
@@ -496,19 +563,15 @@ export async function POST(request: Request) {
           seller_id: entry.row.seller_id ?? legacy?.seller_id ?? null,
           rating: legacy?.rating ?? entry.row.rating ?? null,
           created_at: nowIso,
-        });
+        }));
       }
 
-      if (legacyInserts.length) {
-        try {
-          const { error: legacyInsertError } = await supabase.from("products").insert(legacyInserts);
-          if (legacyInsertError) {
-            console.warn("admin-products: failed to insert legacy products", legacyInsertError);
-          }
-        } catch (legacyInsertErr) {
-          console.warn("admin-products: legacy products insert threw", legacyInsertErr);
-        }
-      }
+      const { data: insertedData, error: insertError } = await supabase
+        .from("products")
+        .insert(legacyInserts.length ? legacyInserts : rows)
+        .select("id");
+      if (insertError) return json({ ok: false, error: insertError.message || "db" }, 500);
+      const insertedIds = (insertedData || []).map((row) => String(row.id));
 
       const imageVersionInserts: Array<{
         id: string;
@@ -554,7 +617,7 @@ export async function POST(request: Request) {
         .map((row) => (typeof row.category_slug === "string" ? row.category_slug : ""))
         .filter(Boolean);
       await revalidateProducts(supabase, insertedIds, newSlugs, newCategories);
-      return json({ ok: true, duplicated: inserted.data?.length ?? 0 });
+      return json({ ok: true, duplicated: insertedIds.length });
     }
 
     return json({ ok: false, error: "bad_op" }, 400);

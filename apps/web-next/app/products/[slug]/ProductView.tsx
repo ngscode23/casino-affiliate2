@@ -54,6 +54,7 @@ const ProductActionPanel = dynamic(() => import("./ProductActionPanel.client"), 
 });
 
 const RECENT_KEY = "recent:products:v1";
+const RECENT_SYNC_ENDPOINT = "/api/recent-views";
 const PAYMENT_METHODS = ["Visa", "Mastercard", "Apple Pay", "Stripe"];
 
 function ReviewsSkeleton() {
@@ -156,6 +157,26 @@ function pushRecent(slug: string) {
   persistRecent(list);
 }
 
+function recordRecentView(productId: string) {
+  if (typeof window === "undefined" || !productId) return;
+  try {
+    const payload = JSON.stringify({ productId });
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon(RECENT_SYNC_ENDPOINT, blob);
+      return;
+    }
+    void fetch(RECENT_SYNC_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: payload,
+      keepalive: true,
+    });
+  } catch {
+    // ignore network errors
+  }
+}
+
 function formatVariantLabel(variants: ProductVariantGroup[], selection: SelectionState): string | null {
   if (!variants.length) return null;
   const parts = variants
@@ -236,6 +257,7 @@ function ProductClientEffects({ product }: { product: ProductData }) {
         /* noop */
       }
       pushRecent(product.slug);
+      recordRecentView(product.id);
     });
     return () => {
       cleanup?.();

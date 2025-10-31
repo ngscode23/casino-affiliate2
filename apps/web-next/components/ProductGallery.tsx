@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Maximize2 } from "lucide-react";
 import { cn } from "@shared/lib/cn";
 
+
 type ProductGalleryLightboxComponent = typeof import("./ProductGalleryLightbox").default;
 
 type ProductGalleryProps = {

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         return json({ ok: false, code: "db", message: refreshErr.message }, 500);
       }
       try {
-        revalidateTag(`reviews:${targetProductUid}`);
+        revalidateTag(`reviews:${targetProductUid}`, {});
       } catch {
         // ignore revalidation failures
       }

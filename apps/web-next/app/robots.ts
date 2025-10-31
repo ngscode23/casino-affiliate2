@@ -8,6 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: ["/"],
       disallow: [],
     },
+     host: origin || undefined,
     sitemap: origin ? [`${origin}/sitemap.xml`] : undefined,
   };
 }

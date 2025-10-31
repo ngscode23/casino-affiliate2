@@ -142,7 +142,7 @@
 //     }
 
 //     try {
-//       revalidateTag(`reviews:${resolvedProductId}`);
+//       revalidateTag(`reviews:${resolvedProductId}`, {});
 //     } catch {
 //       // revalidation best effort
 //     }
@@ -245,7 +245,7 @@ export async function POST(request: Request) {
       .from("product_catalog")
       .select("product_uid")
       .eq("source_schema", "public")
-      .eq("source_table", "ecom_products")
+      .in("source_table", ["products", "ecom_products"])
       .eq("source_pk", productId)
       .maybeSingle();
 
@@ -321,7 +321,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      revalidateTag(`reviews:${resolvedProductId}`);
+      revalidateTag(`reviews:${resolvedProductId}`, {});
     } catch {
       /* best-effort */
     }

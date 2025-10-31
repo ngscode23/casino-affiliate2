@@ -3,10 +3,11 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart } from "lucide-react";
 import dynamic from "next/dynamic";
 const AddToCartButton = dynamic(() => import("@/app/products/components/AddToCartButton"), { ssr: false, loading: () => null });
 import { cn } from "@shared/lib/cn";
+import { useT } from "@shared/lib/useT";
+import WishlistHeart from "./WishlistHeart";
 
 export type ProductGridItem = {
   id: string;
@@ -44,10 +45,18 @@ export function ProductGrid({
   items,
   layout = "grid",
   showAddToCart = true,
-  addLabel = "Add to cart",
+  addLabel,
   containerClassName,
   wrapWithContainer = true,
 }: ProductGridProps) {
+  const t = useT();
+  const translate = (key: string, fallback: string) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
+  const resolvedAddLabel = addLabel ?? translate("products.addToCart", "Add to cart");
+  const noImageLabel = translate("products.noImage", "No image");
+
   const gridClasses = PRODUCT_GRID_LAYOUTS[layout] ?? PRODUCT_GRID_LAYOUTS.grid;
   const grid = (
     <div
@@ -62,7 +71,9 @@ export function ProductGrid({
             index={index}
             href={`/products/${product.slug}`}
             showAddToCart={showAddToCart}
-            addLabel={addLabel}
+            addLabel={resolvedAddLabel}
+            noImageLabel={noImageLabel}
+            translate={translate}
           />
         </div>
       ))}
@@ -86,10 +97,13 @@ type CardProps = {
   href: string;
   showAddToCart: boolean;
   addLabel: string;
+  noImageLabel: string;
+  translate: (key: string, fallback: string) => string;
 };
 
-function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProps) {
-  const badgeLabel = getBadgeLabel(product);
+function ProductCard({ product, index, href, showAddToCart, addLabel, noImageLabel, translate }: CardProps) {
+  // Heart handled by dedicated component
+  const badgeLabel = getBadgeLabel(product, translate);
   const badgeClass = getBadgeClass(badgeLabel);
   const originalPrice = product.originalPrice && product.originalPrice !== product.price ? product.originalPrice : null;
 
@@ -121,7 +135,7 @@ function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProp
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs font-medium uppercase tracking-[0.2em] text-muted">
-              No image
+              {noImageLabel}
             </div>
           )}
           {badgeLabel ? (
@@ -134,17 +148,7 @@ function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProp
               {badgeLabel}
             </span>
           ) : null}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/70 text-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-            aria-label="Add to wishlist"
-          >
-            <Heart className="h-4 w-4" aria-hidden />
-          </button>
+          <WishlistHeart productId={product.id} className="absolute right-4 top-4" />
         </div>
 
         <div className="flex flex-1 flex-col gap-2 px-4 py-3 text-left">
@@ -175,8 +179,23 @@ function ProductCard({ product, index, href, showAddToCart, addLabel }: CardProp
   );
 }
 
-function getBadgeLabel(product: ProductGridItem): string | null {
-  return product.badge?.trim() || null;
+function getBadgeLabel(
+  product: ProductGridItem,
+  translate: (key: string, fallback: string) => string,
+): string | null {
+  const raw = product.badge?.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower.includes("sale")) {
+    return translate("products.badges.sale", raw);
+  }
+  if (lower.includes("new")) {
+    return translate("products.badges.new", raw);
+  }
+  if (lower.includes("best")) {
+    return translate("products.badges.bestseller", raw);
+  }
+  return raw;
 }
 
 function getBadgeClass(label: string | null): string {

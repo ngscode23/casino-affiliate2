@@ -1,15 +1,29 @@
+import type { Metadata } from "next";
+import { siteConfig } from "@/lib/site-config";
+
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProductGrid, type ProductGridItem } from "@/components/ProductGrid";
 import { HeroSliderClient } from "@/components/hero-slider-client";
 import type { HeroSlide } from "@/components/hero-slider";
-import { serializeJsonLd } from "@shared/lib/jsonld";
+import { BannerSlider } from "@/components/banner-slider";
+import { serializeJsonLd, makeOrganizationLD } from "@shared/lib/jsonld";
 import { createClient } from "@/utils/supabase/server";
 import { loadProductsData } from "./products/data";
 import type { Product } from "./products/types";
 import { formatPrice } from "./products/utils";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
+
+export const metadata: Metadata = {
+  title: `${siteConfig.name} — ${siteConfig.tagline || siteConfig.description}`,
+  description: siteConfig.description,
+  alternates: { canonical: "/" },
+  openGraph: { title: siteConfig.name, description: siteConfig.description, url: "/" },
+  twitter: { card: "summary_large_image", title: siteConfig.name, description: siteConfig.description },
+};
+
+export const revalidate = 300;
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -24,9 +38,13 @@ export default async function HomePage() {
   const { products, structuredData } = await loadProductsData();
   const heroSlides = buildHeroSlides(products.length);
   const featuredProducts = products.slice(0, 4);
+  const origin = (process.env.NEXT_SITE_URL || "").replace(/\/$/, "");
+
+  const orgLd = makeOrganizationLD({ name: siteConfig.name, url: origin || "https://example.com" });
 
   return (
     <div className="relative z-10 flex flex-col gap-16 lg:gap-20">
+      {/* Structured data: product catalogue */}
       {structuredData ? (
         <script
           type="application/ld+json"
@@ -35,11 +53,22 @@ export default async function HomePage() {
         />
       ) : null}
 
+      {/* Structured data: organization */}
+      {orgLd ? (
+        <script
+          type="application/ld+json"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(orgLd) }}
+        />
+      ) : null}
+
       <section aria-labelledby="storefront-hero" className="scroll-mt-28">
         <div className="rounded-[48px] shadow-[0_40px_120px_-60px_rgba(16,23,40,0.7)]">
           <HeroSliderClient slides={heroSlides} className="rounded-[48px]" />
         </div>
       </section>
+
+      <BannerSlider />
 
       <FeaturedProducts products={featuredProducts} totalProducts={products.length} />
 
@@ -92,7 +121,7 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
   const curated = pickFeaturedProducts(products, 4);
   const items: ProductGridItem[] = curated.map((product) => {
     const priceValue = Number(product.price ?? 0);
-    const badge = product.isNew ? "New" : product.isTop ? "Bestseller" : null;
+    const badge = product.isNew ? "new" : product.isTop ? "bestseller" : null;
     const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12) : null;
 
     return {

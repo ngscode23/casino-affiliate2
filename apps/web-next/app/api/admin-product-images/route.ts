@@ -51,15 +51,15 @@ async function revalidateProductAssets(
       .eq("id", productId)
       .maybeSingle();
     if (data?.slug) {
-      revalidateTag(productTag(data.slug));
+      revalidateTag(productTag(data.slug), {});
     }
     if (data?.category_slug) {
-      revalidateTag(categoryTag(data.category_slug));
+      revalidateTag(categoryTag(data.category_slug), {});
     }
   } catch (error) {
     console.warn("admin-product-images: failed to resolve tags", error);
   }
-  revalidateTag(PRODUCT_COLLECTION_TAG);
+  revalidateTag(PRODUCT_COLLECTION_TAG, {});
 }
 
 export async function GET(request: Request) {
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       throw new Error("productId or sku/slug required");
     }
     const { data, error } = await supabase
-      .from("ecom_products")
+      .from("products")
       .select("id, sku")
       .or(`sku.eq.${matchValue},slug.eq.${matchValue}`)
       .limit(1)
@@ -279,7 +279,7 @@ async function syncPrimaryImage(
 ) {
   try {
     const { data, error } = await supabase
-      .from("ecom_products")
+      .from("products")
       .select("images")
       .eq("id", productId)
       .single();
@@ -292,7 +292,7 @@ async function syncPrimaryImage(
     const nextImages = [mainUrl, ...currentImages.filter((url) => url !== mainUrl)];
 
     await supabase
-      .from("ecom_products")
+      .from("products")
       .update({ images: nextImages })
       .eq("id", productId);
   } catch (error) {
@@ -309,7 +309,7 @@ async function removeImageFromProduct(
 ) {
   try {
     const { data, error } = await supabase
-      .from("ecom_products")
+      .from("products")
       .select("images")
       .eq("id", productId)
       .single();
@@ -321,7 +321,7 @@ async function removeImageFromProduct(
     const imagePublicUrl = publicUrl(supabaseUrl, bucket, path);
     const nextImages = currentImages.filter((url) => url !== imagePublicUrl);
     if (nextImages.length === currentImages.length) return;
-    await supabase.from("ecom_products").update({ images: nextImages }).eq("id", productId);
+    await supabase.from("products").update({ images: nextImages }).eq("id", productId);
   } catch (error) {
     console.warn("removeImageFromProduct failed", error);
   }

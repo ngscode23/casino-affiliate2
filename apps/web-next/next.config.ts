@@ -28,6 +28,7 @@ if (storageHostname) {
 remotePatterns.push({ protocol: "https", hostname: "via.placeholder.com" });
 remotePatterns.push({ protocol: "https", hostname: "images.pexels.com" });
 remotePatterns.push({ protocol: "https", hostname: "images.unsplash.com" });
+remotePatterns.push({ protocol: "https", hostname: "cdn.example.com" });
 
 // ────────────── SECURITY HEADERS (CSP SAFE DEFAULTS) ──────────────
 // Примечание: предыдущая строгая CSP могла блокировать runtime Next.js и давала белую страницу.
@@ -45,7 +46,7 @@ const csp = [
   // картинки и медиа
   `img-src 'self' data: blob: https: ${imgHosts.join(' ')}`,
   // скрипты: оставляем inline/eval, чтобы не ломать Next/3rd-party на текущей стадии
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://js.stripe.com",
   // стили: временно разрешаем inline
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
@@ -53,6 +54,7 @@ const csp = [
   "connect-src 'self' https:",
   // веб-воркеры и модули
   "worker-src 'self' blob:",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   // запрет встраивания
   "frame-ancestors 'none'",
   "base-uri 'self'",

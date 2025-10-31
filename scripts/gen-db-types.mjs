@@ -6,9 +6,29 @@ import { dirname, resolve } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const projectRef = process.env.SUPABASE_PROJECT_REF || process.env.SUPABASE_PROJECT_ID || '';
+function extractProjectRef(raw) {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  if (/^[a-z0-9]{20}$/.test(trimmed)) return trimmed;
+  const urlMatch = trimmed.match(/https?:\/\/([a-z0-9]{20})\.supabase\.[a-z.]+\/?/i);
+  if (urlMatch) return urlMatch[1];
+  const refMatch = trimmed.match(/([a-z0-9]{20})$/i);
+  if (refMatch) {
+    const candidate = refMatch[1];
+    if (/^[a-z0-9]{20}$/.test(candidate)) return candidate;
+  }
+  return null;
+}
+
+const projectRef =
+  extractProjectRef(process.env.SUPABASE_PROJECT_REF) ||
+  extractProjectRef(process.env.SUPABASE_PROJECT_ID) ||
+  extractProjectRef(process.env.SUPABASE_URL) ||
+  '';
+
 if (!projectRef) {
-  console.error('[gen-db-types] SUPABASE_PROJECT_REF is not set.');
+  console.error('[gen-db-types] Could not determine Supabase project ref. Set SUPABASE_PROJECT_REF or SUPABASE_URL.');
   process.exitCode = 1;
   process.exit();
 }
@@ -35,4 +55,3 @@ try {
   console.error('[gen-db-types] Failed to write types:', err?.message || err);
   process.exitCode = 1;
 }
-

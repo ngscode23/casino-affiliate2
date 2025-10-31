@@ -488,23 +488,40 @@ export default function ProductsClient({
               </section>
             ) : null}
 
-            <section className="flex flex-col gap-2">
-              <label htmlFor="products-sort" className="text-sm font-semibold text-fg">Sort by</label>
-              <div className="relative">
-                <select
-                  id="products-sort"
-                  value={filters.sort}
-                  onChange={(event) => handleSortChange(event.currentTarget.value as FiltersState["sort"])}
-                  disabled={isPending}
-                  className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <section className="flex flex-col gap-3">
+              <span id="products-sort-label" className="text-sm font-semibold text-fg">
+                Sort by
+              </span>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-2 shadow-sm">
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="products-sort-label">
+                  {sortOptions.map((option) => {
+                    const active = filters.sort === option.value;
+                    const baseClasses =
+                      "group inline-flex min-w-[140px] flex-1 items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-60";
+                    const activeClasses =
+                      "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
+                    const inactiveClasses =
+                      "border-white/10 bg-transparent text-muted hover:border-primary/30 hover:text-primary";
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={isPending}
+                        onClick={() => {
+                          if (!active) handleSortChange(option.value);
+                        }}
+                        className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+                      >
+                        <span>{option.label}</span>
+                        <span
+                          className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-white/30 group-hover:bg-primary/70"}`}
+                          aria-hidden
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </section>
 

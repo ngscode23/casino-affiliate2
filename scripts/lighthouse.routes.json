@@ -3,10 +3,7 @@
   "include": [
     "/",
     "/products",
-    "/offers",
-    "/favorites",
     "/contact",
-    "/how-we-rank",
     "/affiliate"
   ],
   "exclude": [
@@ -20,9 +17,6 @@
   "dynamic": {
     "/products/[slug]": [
       "/products/iphone17"
-    ],
-    "/offers/[slug]": [
-      "/offers/demo-offer"
     ]
   }
 }

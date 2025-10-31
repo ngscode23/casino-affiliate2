@@ -6,6 +6,7 @@ import { addReview } from "@shared/ecom/api/client";
 import { useAuthState } from "@shared/lib/authStore";
 import { track } from "@shared/lib/analytics";
 import { cn } from "@shared/lib/cn";
+import { sanitizeSearchParam as sanitize } from "@shared/lib/sanitize";
 
 type ReviewVotes = {
   helpful: number;
@@ -22,6 +23,18 @@ type ReviewItem = {
   createdLabel: string;
   author_id: string;
   votes: ReviewVotes;
+  // legacy single reply (kept for backwards-compat)
+  reply?: { body: string; created_at: string } | null;
+  // new threaded messages
+  review_id?: string;
+  messages?: Array<{
+    id: string;
+    parent_id: string | null;
+    author_id: string | null;
+    author_role: string | null;
+    body: string;
+    created_at: string;
+  }> | null;
 };
 
 type OwnReview = {
@@ -216,6 +229,10 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
     RATING_ORDER.map((score) => ({ score, count: 0, percent: 0 })),
   );
   const [votePending, setVotePending] = useState<string | null>(null);
+  // threaded replies state (single-box UX per review)
+  const [replyToReviewId, setReplyToReviewId] = useState<string | null>(null);
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
 
   useEffect(() => {
     setHydrated(true);
@@ -319,31 +336,58 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
         const incomingRaw = Array.isArray(json.items) ? json.items : [];
         const normalized = incomingRaw
           .map((raw) => {
-            const votes = (raw as any)?.votes ?? {};
-            const helpfulRaw = Number(votes?.helpful ?? 0);
-            const notHelpfulRaw = Number(votes?.notHelpful ?? 0);
-            const scoreRaw = Number(
-              votes?.score ??
+        const votes = (raw as any)?.votes ?? {};
+        const helpfulRaw = Number(votes?.helpful ?? 0);
+        const notHelpfulRaw = Number(votes?.notHelpful ?? 0);
+        const scoreRaw = Number(
+          votes?.score ??
                 (Number.isFinite(helpfulRaw) && Number.isFinite(notHelpfulRaw) ? helpfulRaw - notHelpfulRaw : 0),
             );
             const userVoteRaw = Number(votes?.user_vote);
-            const authorId = typeof (raw as any)?.author_id === "string" ? (raw as any).author_id : "";
-            const createdAt = typeof (raw as any)?.created_at === "string" ? (raw as any).created_at : "";
+        const authorId = typeof (raw as any)?.author_id === "string" ? (raw as any).author_id : "";
+        const createdAt = typeof (raw as any)?.created_at === "string" ? (raw as any).created_at : "";
+        const replyBodyRaw = typeof (raw as any)?.reply_body === "string" ? (raw as any).reply_body : "";
+        const replyCreatedAtRaw = typeof (raw as any)?.reply_created_at === "string" ? (raw as any).reply_created_at : "";
+        const reply = replyBodyRaw.trim()
+          ? {
+              body: replyBodyRaw.trim(),
+              created_at: replyCreatedAtRaw || createdAt,
+            }
+          : null;
+        const reviewId = typeof (raw as any)?.review_id === "string" ? (raw as any).review_id : undefined;
+        const messagesRaw = Array.isArray((raw as any)?.messages) ? ((raw as any).messages as any[]) : [];
+        const messages = messagesRaw
+          .map((m) => {
+            const id = typeof m?.id === "string" ? m.id : "";
+            if (!id) return null;
             return {
-              rating: Number((raw as any)?.rating ?? 0) || 0,
-              title: typeof (raw as any)?.title === "string" ? (raw as any).title : "",
-              body: typeof (raw as any)?.body === "string" ? (raw as any).body : "",
-              created_at: createdAt,
-              createdLabel: formatReviewDate(createdAt),
-              author_id: authorId,
-              votes: {
-                helpful: Number.isFinite(helpfulRaw) ? helpfulRaw : 0,
-                notHelpful: Number.isFinite(notHelpfulRaw) ? notHelpfulRaw : 0,
-                score: Number.isFinite(scoreRaw) ? scoreRaw : 0,
-                user_vote: userVoteRaw === 1 || userVoteRaw === -1 ? (userVoteRaw as 1 | -1) : null,
-              },
-            } satisfies ReviewItem;
+              id,
+              parent_id: typeof m?.parent_id === "string" ? m.parent_id : null,
+              author_id: typeof m?.author_id === "string" ? m.author_id : null,
+              author_role: typeof m?.author_role === "string" ? m.author_role : null,
+              body: typeof m?.body === "string" ? m.body : "",
+              created_at: typeof m?.created_at === "string" ? m.created_at : createdAt,
+            };
           })
+          .filter(Boolean) as NonNullable<ReviewItem["messages"]>;
+        return {
+          rating: Number((raw as any)?.rating ?? 0) || 0,
+          title: typeof (raw as any)?.title === "string" ? (raw as any).title : "",
+          body: typeof (raw as any)?.body === "string" ? (raw as any).body : "",
+          created_at: createdAt,
+          createdLabel: formatReviewDate(createdAt),
+          author_id: authorId,
+          votes: {
+            helpful: Number.isFinite(helpfulRaw) ? helpfulRaw : 0,
+            notHelpful: Number.isFinite(notHelpfulRaw) ? notHelpfulRaw : 0,
+            score: Number.isFinite(scoreRaw) ? scoreRaw : 0,
+            user_vote: userVoteRaw === 1 || userVoteRaw === -1 ? (userVoteRaw as 1 | -1) : null,
+          },
+          reply,
+          review_id: reviewId,
+          messages,
+        } satisfies ReviewItem;
+      })
           .filter((item) => Boolean(item.created_at));
         const avg = typeof json.stats?.avg_rating === "number" ? json.stats.avg_rating : initialAverage;
         const count =
@@ -590,6 +634,126 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
     [user, title, body, rating, productId, fetchReviews, slug, summary.count, summary.average],
   );
 
+  type Message = NonNullable<ReviewItem["messages"]>[number];
+  type MessageNode = { message: Message; children: MessageNode[] };
+
+  const buildTree = useCallback((messages: Message[] = []): MessageNode[] => {
+    if (!Array.isArray(messages) || messages.length === 0) return [];
+    const sorted = [...messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const map = new Map<string, MessageNode>();
+    const roots: MessageNode[] = [];
+    for (const m of sorted) {
+      const node: MessageNode = map.get(m.id) ?? { message: m, children: [] };
+      node.message = m;
+      map.set(m.id, node);
+    }
+    for (const m of sorted) {
+      const node = map.get(m.id)!;
+      if (m.parent_id && map.has(m.parent_id)) {
+        map.get(m.parent_id)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return roots;
+  }, []);
+
+  const renderNode = useCallback(
+    (node: MessageNode, depth: number, reviewId: string | undefined) => {
+      const messageId = node.message.id;
+      const isReplyableMessage = isUuid(messageId);
+      const isReplyTarget = replyToReviewId === reviewId && replyToMessageId === messageId;
+      const createdLabel = formatReviewDate(node.message.created_at) || node.message.created_at || "-";
+      return (
+        <li key={node.message.id} className={cn("space-y-2", depth > 0 ? "mt-2 border-l pl-3 border-border/30" : undefined)}>
+          <div className="text-sm text-fg/90">
+            <div className="text-xs text-muted-foreground">
+              {(node.message.author_role || "user").toUpperCase()} • {createdLabel}
+            </div>
+            <div className="whitespace-pre-line [overflow-wrap:anywhere]">
+              {sanitize(node.message.body)}
+            </div>
+          </div>
+          {user && isReplyableMessage ? (
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                className="rounded-full border border-border/40 bg-card px-2.5 py-1 text-muted-foreground hover:text-fg hover:border-border/70"
+                onClick={() => {
+                  setReplyToReviewId(reviewId ?? null);
+                  setReplyToMessageId(messageId);
+                  setReplyText("");
+                }}
+              >
+                Ответить
+              </button>
+            </div>
+          ) : null}
+          {isReplyTarget ? (
+            <form
+              className="mt-2 space-y-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!user || !reviewId) return;
+                const text = replyText.trim();
+                if (!text) return;
+                try {
+                  const res = await fetch("/api/reviews/reply", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ review_id: reviewId, parent_message_id: messageId, body: text }),
+                  });
+                  const json = await res.json();
+                  if (!res.ok || json?.ok === false) throw new Error(json?.message || "Не удалось отправить ответ");
+                  setReplyText("");
+                  setReplyToMessageId(null);
+                  setReplyToReviewId(null);
+                  await fetchReviews({ silent: true });
+                } catch (err: any) {
+                  setError(err?.message ?? "Не удалось отправить ответ");
+                }
+              }}
+            >
+              <textarea
+                rows={3}
+                className="w-full rounded-xl border border-border/40 bg-card px-3 py-2 text-sm text-fg placeholder:text-muted"
+                placeholder="Ваш ответ"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-primary/50 bg-primary/10 px-4 text-sm font-semibold text-primary hover:-translate-y-[1px]"
+                >
+                  Отправить
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-border/40 bg-card px-4 text-sm text-muted-foreground hover:text-fg"
+                  onClick={() => {
+                    setReplyText("");
+                    setReplyToMessageId(null);
+                    setReplyToReviewId(null);
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          ) : null}
+          {node.children.length ? (
+            <ul className="space-y-2">
+              {node.children.map((child) => renderNode(child, depth + 1, reviewId))}
+            </ul>
+          ) : null}
+        </li>
+      );
+    },
+    [replyToMessageId, replyToReviewId, replyText, user, fetchReviews],
+  );
+
   if (!ready) {
     return (
       <section
@@ -618,21 +782,41 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
             <span className="font-semibold text-fg">{summary.count}</span> отзывов
           </p>
         </div>
-        <label className="flex w-full flex-col gap-2 text-xs uppercase tracking-[0.24em] text-muted sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-          <span className="sm:whitespace-nowrap">Сортировка</span>
-          <select
-            id="reviews-sort"
-            value={sortKey}
-            onChange={(event) => handleSortChange(event.target.value as SortKey)}
-            className="h-10 rounded-xl border border-border/40 bg-card px-3 text-sm font-medium text-fg shadow-[0_14px_40px_-24px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card sm:min-w-[210px]"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex w-full flex-col gap-3 text-xs uppercase tracking-[0.24em] text-muted sm:w-auto">
+          <span id="reviews-sort-label" className="sm:whitespace-nowrap">
+            Сортировка
+          </span>
+          <div className="rounded-2xl border border-border/30 bg-card/70 p-1.5 shadow-sm">
+            <div className="flex flex-wrap gap-2 text-xs" role="group" aria-labelledby="reviews-sort-label">
+              {SORT_OPTIONS.map((option) => {
+                const active = sortKey === option.value;
+                const baseClasses =
+                  "group inline-flex min-w-[120px] items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold tracking-normal transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+                const activeClasses =
+                  "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
+                const inactiveClasses =
+                  "border-border/30 bg-transparent text-muted-foreground hover:border-primary/30 hover:text-primary";
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+                    onClick={() => {
+                      if (!active) handleSortChange(option.value);
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    <span
+                      className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-border/40 group-hover:bg-primary/70"}`}
+                      aria-hidden
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </header>
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -807,7 +991,92 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
                           {review.createdLabel || formatReviewDate(review.created_at) || "—"}
                         </span>
                       </div>
-                      <p className="mt-2 [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{review.body}</p>
+                      <p className="mt-2 [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{sanitize(review.body)}</p>
+                      {review.reply ? (
+                        <div className="mt-3 rounded-xl border border-border/30 bg-card/60 p-3 text-sm leading-relaxed text-fg">
+                          <div className="text-xs text-muted-foreground">
+                            Ответ магазина • {formatReviewDate(review.reply.created_at) || review.reply.created_at || "-"}
+                          </div>
+                          <div className="mt-1 whitespace-pre-line">{sanitize(review.reply.body)}</div>
+                        </div>
+                      ) : null}
+                      {/* threaded messages */}
+                      {Array.isArray(review.messages) && review.messages.length > 0 ? (
+                        <div className="mt-3">
+                          <ul className="space-y-2">
+                            {buildTree(review.messages).map((node) => renderNode(node, 0, review.review_id))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {user && isUuid(review.review_id ?? null) ? (
+                        <div className="mt-3">
+                          {replyToReviewId === (review.review_id ?? null) && replyToMessageId === null ? (
+                            <form
+                              className="space-y-2"
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                const text = replyText.trim();
+                                if (!text || !review.review_id) return;
+                                try {
+                                  const res = await fetch("/api/reviews/reply", {
+                                    method: "POST",
+                                    headers: { "content-type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ review_id: review.review_id, parent_message_id: null, body: text }),
+                                  });
+                                  const json = await res.json();
+                                  if (!res.ok || json?.ok === false) throw new Error(json?.message || "Не удалось отправить ответ");
+                                  setReplyText("");
+                                  setReplyToMessageId(null);
+                                  setReplyToReviewId(null);
+                                  await fetchReviews({ silent: true });
+                                } catch (err: any) {
+                                  setError(err?.message ?? "Не удалось отправить ответ");
+                                }
+                              }}
+                            >
+                              <textarea
+                                rows={3}
+                                className="w-full rounded-xl border border-border/40 bg-card px-3 py-2 text-sm text-fg placeholder:text-muted"
+                                placeholder="Ваш ответ на отзыв"
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="submit"
+                                  className="inline-flex h-9 items-center justify-center rounded-full border border-primary/50 bg-primary/10 px-4 text-sm font-semibold text-primary hover:-translate-y-[1px]"
+                                >
+                                  Отправить
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inline-flex h-9 items-center justify-center rounded-full border border-border/40 bg-card px-4 text-sm text-muted-foreground hover:text-fg"
+                                  onClick={() => {
+                                    setReplyText("");
+                                    setReplyToMessageId(null);
+                                    setReplyToReviewId(null);
+                                  }}
+                                >
+                                  Отмена
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded-full border border-border/40 bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-fg"
+                              onClick={() => {
+                                setReplyToReviewId(review.review_id ?? null);
+                                setReplyToMessageId(null);
+                                setReplyText("");
+                              }}
+                            >
+                              Ответить на отзыв
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>Этот отзыв был полезен?</span>
                         <button
@@ -877,3 +1146,6 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
 
 
 
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}

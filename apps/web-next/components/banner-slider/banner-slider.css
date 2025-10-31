@@ -1,0 +1,31 @@
+.banner-slider {
+  position: relative;
+}
+
+.banner-slider__swiper {
+  width: 100%;
+}
+
+.banner-slider__slide {
+  display: flex;
+  justify-content: center;
+  padding: 0 0.25rem;
+}
+
+.banner-slider__swiper .swiper-pagination {
+  bottom: 1rem;
+}
+
+.banner-slider__swiper .swiper-pagination-bullet {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.banner-slider__swiper .swiper-pagination-bullet-active {
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.1);
+}
+

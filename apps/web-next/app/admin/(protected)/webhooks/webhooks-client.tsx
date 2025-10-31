@@ -169,6 +169,11 @@ export function WebhooksClient() {
   const [eventState, setEventState] = useState("");
   const [mismatch, setMismatch] = useState("");
   const [eventPage, setEventPage] = useState(0);
+  const [eventId, setEventId] = useState("");
+  const [eventFrom, setEventFrom] = useState("");
+  const [eventTo, setEventTo] = useState("");
+  const [eventMode, setEventMode] = useState<"" | "live" | "test">("");
+  const [eventTotal, setEventTotal] = useState<number | null>(null);
 
   const [logRows, setLogRows] = useState<WebhookLogRow[]>([]);
   const [logTotal, setLogTotal] = useState<number | null>(null);
@@ -187,18 +192,35 @@ export function WebhooksClient() {
       try {
         setEventsLoading(true);
         setEventsError(null);
+        if (eventPage === 0) {
+          setEventTotal(null);
+        }
         const params = new URLSearchParams();
         params.set("page", String(eventPage));
         params.set("pageSize", String(PAGE_SIZE));
         if (eventQuery.trim()) params.set("type", eventQuery.trim());
         if (eventState.trim()) params.set("state", eventState.trim());
         if (mismatch.trim()) params.set("mismatch", mismatch.trim());
+        if (eventId.trim()) params.set("id", eventId.trim());
+        if (eventFrom) params.set("from", eventFrom);
+        if (eventTo) params.set("to", eventTo);
+        if (eventMode) params.set("mode", eventMode);
         const res = await adminFetch(`/api/admin/webhooks/events?${params.toString()}`);
         if (!res.ok) throw new Error(await res.text());
-        const payload = (await res.json()) as { ok: boolean; rows?: StripeWebhookRow[] };
-        if (!cancelled) setEventRows(payload.rows ?? []);
+        const payload = (await res.json()) as {
+          ok: boolean;
+          rows?: StripeWebhookRow[];
+          meta?: { total: number | null };
+        };
+        if (!cancelled) {
+          setEventRows(payload.rows ?? []);
+          setEventTotal(payload.meta?.total ?? null);
+        }
       } catch (error: any) {
-        if (!cancelled) setEventsError(String(error?.message ?? error));
+        if (!cancelled) {
+          setEventsError(String(error?.message ?? error));
+          setEventTotal(null);
+        }
       } finally {
         if (!cancelled) setEventsLoading(false);
       }
@@ -206,11 +228,12 @@ export function WebhooksClient() {
     return () => {
       cancelled = true;
     };
-  }, [eventPage, eventQuery, eventState, mismatch]);
+  }, [eventPage, eventQuery, eventState, mismatch, eventId, eventFrom, eventTo, eventMode]);
 
   useEffect(() => {
     setEventPage(0);
-  }, [eventQuery, eventState, mismatch]);
+    setEventTotal(null);
+  }, [eventQuery, eventState, mismatch, eventId, eventFrom, eventTo, eventMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +285,11 @@ export function WebhooksClient() {
     return Array.from(list) as string[];
   }, [eventRows]);
 
+  const eventTotalPages = useMemo(() => {
+    if (eventTotal == null) return null;
+    return Math.max(1, Math.ceil(eventTotal / PAGE_SIZE));
+  }, [eventTotal]);
+
   const logTotalPages = useMemo(() => {
     if (logTotal == null) return null;
     return Math.max(1, Math.ceil(logTotal / PAGE_SIZE));
@@ -302,6 +330,40 @@ export function WebhooksClient() {
             value={mismatch}
             onChange={(event) => setMismatch(event.target.value)}
           />
+          <Input
+            className="h-9 w-[200px]"
+            placeholder="Event ID (evt_*)"
+            value={eventId}
+            onChange={(event) => setEventId(event.target.value)}
+          />
+          <input
+            type="date"
+            className="h-9 w-[160px] rounded-md border border-white/15 bg-transparent px-3 text-sm text-[var(--text-bright)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+            value={eventFrom}
+            onChange={(event) => setEventFrom(event.target.value)}
+            aria-label="Events from date"
+          />
+          <input
+            type="date"
+            className="h-9 w-[160px] rounded-md border border-white/15 bg-transparent px-3 text-sm text-[var(--text-bright)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+            value={eventTo}
+            onChange={(event) => setEventTo(event.target.value)}
+            aria-label="Events to date"
+          />
+          <div className="relative h-9">
+            <select
+              className="h-full appearance-none rounded-md border border-white/15 bg-transparent px-3 pr-8 text-sm text-[var(--text-bright)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={eventMode}
+              onChange={(event) => setEventMode(event.target.value as typeof eventMode)}
+            >
+              <option value="">All modes</option>
+              <option value="live">Live only</option>
+              <option value="test">Test only</option>
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-dim)]">
+              v
+            </span>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
               variant="soft"
@@ -311,12 +373,17 @@ export function WebhooksClient() {
             >
               Prev
             </Button>
-            <span className="text-sm">Page {eventPage + 1}</span>
+            <span className="text-sm text-[var(--text-dim)]">
+              Page {eventPage + 1}
+              {eventTotalPages != null && eventTotal != null ? ` | ${eventTotalPages} total | ${eventTotal} rows` : ""}
+            </span>
             <Button
               variant="soft"
               className="h-9 min-h-0 px-3 text-sm"
               onClick={() => setEventPage((value) => value + 1)}
-              disabled={eventsLoading}
+              disabled={
+                eventsLoading || (eventTotalPages != null && eventPage + 1 >= eventTotalPages)
+              }
             >
               Next
             </Button>

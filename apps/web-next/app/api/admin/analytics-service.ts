@@ -376,7 +376,7 @@ async function fetchPaidOrdersContext(
     const chunk = orderIds.slice(i, i + chunkSize);
     const { data: itemsData, error: itemsError } = await supabase
       .from("order_items")
-      .select("order_id, total, qty, unit_price, ecom_products!inner(slug)")
+      .select("order_id, total, qty, unit_price, products!inner(slug)")
       .in("order_id", chunk);
 
     if (itemsError) {
@@ -388,7 +388,7 @@ async function fetchPaidOrdersContext(
       const context = orders.get(orderId);
       if (!context) continue;
 
-      const product = parseJsonRecord((row as any).ecom_products);
+      const product = parseJsonRecord((row as any).products);
       const slug = normalizeSlug(product.slug);
       const slugNorm = slug.toLowerCase();
 

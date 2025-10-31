@@ -25,6 +25,18 @@ export function ensureAdminToken(request: Request) {
   return null;
 }
 
+export function parseReviewCompositeId(value: string | null | undefined):
+  | { productId: string; reviewerId: string }
+  | null {
+  if (!value) return null;
+  const parts = value.split(":");
+  if (parts.length < 2) return null;
+  const productId = parts[0]?.trim() ?? "";
+  const reviewerId = parts.slice(1).join(":").trim();
+  if (!productId || !reviewerId || !isUuid(reviewerId)) return null;
+  return { productId, reviewerId };
+}
+
 type ResolveSource = {
   source_schema?: string | null;
   source_table?: string | null;
@@ -41,11 +53,15 @@ export async function resolveProductUid(
   const sourcePk = (source.source_pk ?? "").trim();
 
   if (sourceSchema && sourceTable && sourcePk) {
+    const tableCandidates =
+      sourceTable && ["products", "ecom_products"].includes(sourceTable)
+        ? ["products", "ecom_products"]
+        : [sourceTable];
     const { data, error } = await supabase
       .from("product_catalog")
       .select("product_uid")
       .eq("source_schema", sourceSchema)
-      .eq("source_table", sourceTable)
+      .in("source_table", tableCandidates)
       .eq("source_pk", sourcePk)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -58,7 +74,7 @@ export async function resolveProductUid(
       .from("product_catalog")
       .select("product_uid")
       .eq("source_schema", "public")
-      .eq("source_table", "ecom_products")
+      .in("source_table", ["products", "ecom_products"])
       .eq("source_pk", legacyProductId)
       .maybeSingle();
     if (error) throw new Error(error.message);

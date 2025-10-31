@@ -473,6 +473,7 @@ import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { fetchMessagesForReviews, type ReviewMessageRecord } from "../messages";
 
 const SORT_KEYS = ["newest", "oldest", "rating_desc", "rating_asc"] as const;
 type SortKey = (typeof SORT_KEYS)[number];
@@ -669,11 +670,13 @@ export async function GET(request: Request) {
 
     // optional mapping via product_catalog (если существует)
     if (sourceSchema && sourceTable && sourcePk) {
+      const tableCandidates =
+        ["products", "ecom_products"].includes(sourceTable) ? ["products", "ecom_products"] : [sourceTable];
       const { data, error } = await supabase
         .from("product_catalog")
         .select("product_uid")
         .eq("source_schema", sourceSchema)
-        .eq("source_table", sourceTable)
+        .in("source_table", tableCandidates)
         .eq("source_pk", sourcePk)
         .maybeSingle();
       if (error) {
@@ -693,7 +696,7 @@ export async function GET(request: Request) {
         .from("product_catalog")
         .select("product_uid")
         .eq("source_schema", "public")
-        .eq("source_table", "ecom_products")
+        .in("source_table", ["products", "ecom_products"])
         .eq("source_pk", productId)
         .maybeSingle();
       if (error) {
@@ -736,7 +739,7 @@ export async function GET(request: Request) {
     // список утвержденных отзывов
     let reviewsQuery = supabase
       .from("product_reviews_raw")
-      .select("user_id, rating, title, body, created_at")
+      .select("id, product_id, user_id, rating, title, body, created_at")
       .eq("product_id", productUid)
       .eq("status", "approved");
 
@@ -778,60 +781,146 @@ export async function GET(request: Request) {
       new Set(
         limitedRows
           .map((row) => row.user_id)
-          .filter((v): v is string => typeof v === "string" && !!v)
-      )
+          .filter((v): v is string => typeof v === "string" && !!v),
+      ),
     );
 
+    const votesPromise =
+      authorIds.length > 0
+        ? supabase
+            .from("review_votes")
+            .select("review_author_id, value")
+            .eq("product_id", productUid)
+            .in("review_author_id", authorIds)
+        : Promise.resolve<{ data: Array<{ review_author_id: string | null; value: number | null }> | null; error: null }>({
+            data: [],
+            error: null,
+          });
+
+    const selfVotesPromise =
+      authUser && authorIds.length > 0
+        ? supabase
+            .from("review_votes")
+            .select("review_author_id, value")
+            .eq("product_id", productUid)
+            .eq("voter_id", authUser.id)
+            .in("review_author_id", authorIds)
+        : Promise.resolve<{ data: Array<{ review_author_id: string | null; value: number | null }> | null; error: null }>({
+            data: [],
+            error: null,
+          });
+
+    const statsPromise = supabase.rpc("get_product_rating_stats", { p_product_id: productUid });
+
+    const ownReviewPromise =
+      authUser
+        ? supabase
+            .from("product_reviews_raw")
+            .select("rating, title, body, status, created_at, updated_at")
+            .eq("product_id", productUid)
+            .eq("user_id", authUser.id)
+            .maybeSingle()
+        : Promise.resolve<{ data: Record<string, unknown> | null; error: null }>({ data: null, error: null });
+
+    const [
+      { data: voteRows, error: voteErr },
+      { data: selfVoteRows, error: selfVoteErr },
+      { data: statsJson, error: statsErr },
+      { data: ownRow, error: ownErr },
+    ] = await Promise.all([votesPromise, selfVotesPromise, statsPromise, ownReviewPromise]);
+
     const voteTotals = new Map<string, { helpful: number; notHelpful: number }>();
-    if (authorIds.length) {
-      const { data: voteRows, error: voteErr } = await supabase
-        .from("review_votes")
-        .select("review_author_id, value")
-        .eq("product_id", productUid)
-        .in("review_author_id", authorIds);
-
-      if (voteErr && !isMissingTableError(voteErr)) {
-        console.error("[reviews:list] votes", voteErr.code ?? "unknown", voteErr.message ?? "");
-      } else if (Array.isArray(voteRows)) {
-        for (const entry of voteRows as Array<{ review_author_id: string | null; value: number | null }>) {
-          const id = entry?.review_author_id;
-          if (!id) continue;
-          const current = voteTotals.get(id) ?? { helpful: 0, notHelpful: 0 };
-          if (entry.value === 1) current.helpful += 1;
-          else if (entry.value === -1) current.notHelpful += 1;
-          voteTotals.set(id, current);
-        }
+    if (voteErr && !isMissingTableError(voteErr)) {
+      console.error("[reviews:list] votes", voteErr.code ?? "unknown", voteErr.message ?? "");
+    } else if (Array.isArray(voteRows)) {
+      for (const entry of voteRows as Array<{ review_author_id: string | null; value: number | null }>) {
+        const id = entry?.review_author_id;
+        if (!id) continue;
+        const current = voteTotals.get(id) ?? { helpful: 0, notHelpful: 0 };
+        if (entry.value === 1) current.helpful += 1;
+        else if (entry.value === -1) current.notHelpful += 1;
+        voteTotals.set(id, current);
       }
     }
 
-    // собственный голос пользователя
     const selfVoteMap = new Map<string, number>();
-    if (authUser && authorIds.length) {
-      const { data: selfVoteRows, error: selfVoteErr } = await supabase
-        .from("review_votes")
-        .select("review_author_id, value")
-        .eq("product_id", productUid)
-        .eq("voter_id", authUser.id)
-        .in("review_author_id", authorIds);
-
-      if (selfVoteErr && !isMissingTableError(selfVoteErr)) {
-        console.error("[reviews:list] self_vote", selfVoteErr.code ?? "unknown", selfVoteErr.message ?? "");
-      } else if (Array.isArray(selfVoteRows)) {
-        for (const row of selfVoteRows as Array<{ review_author_id: string | null; value: number | null }>) {
-          if (!row?.review_author_id) continue;
-          if (row.value !== 1 && row.value !== -1) continue;
-          selfVoteMap.set(row.review_author_id, row.value);
-        }
+    if (selfVoteErr && !isMissingTableError(selfVoteErr)) {
+      console.error("[reviews:list] self_vote", selfVoteErr.code ?? "unknown", selfVoteErr.message ?? "");
+    } else if (Array.isArray(selfVoteRows)) {
+      for (const row of selfVoteRows as Array<{ review_author_id: string | null; value: number | null }>) {
+        if (!row?.review_author_id) continue;
+        if (row.value !== 1 && row.value !== -1) continue;
+        selfVoteMap.set(row.review_author_id, row.value);
       }
     }
 
-    const responseItems = limitedRows.map(({ user_id: authorId, ...rest }) => {
+    const reviewIds = limitedRows
+      .map((row) => {
+        const id = (row as any).id;
+        return typeof id === "string" && id ? id : null;
+      })
+      .filter((value): value is string => value !== null);
+
+    const rootIdByReview = new Map<string, string>();
+    const messagesByReview = new Map<string, ReviewMessageRecord[]>();
+    if (reviewIds.length > 0) {
+      const messageResult = await fetchMessagesForReviews(supabase, reviewIds);
+      if (!messageResult.ok) {
+        if (!isMissingTableError(messageResult.error)) {
+          console.error(
+            "[reviews:list] messages",
+            messageResult.error.code ?? "unknown",
+            messageResult.error.message ?? "",
+          );
+        }
+      } else {
+        rootIdByReview.clear();
+        messageResult.rootIdByReview.forEach((value, key) => rootIdByReview.set(key, value));
+        messageResult.messagesByReview.forEach((value, key) => messagesByReview.set(key, value));
+      }
+    }
+
+    const responseItems = limitedRows.map((row) => {
+      const { user_id: authorId, ...rest } = row as {
+        user_id: string | null;
+        id?: string | null;
+        product_id?: string | null;
+        [key: string]: unknown;
+      };
+      const reviewId = typeof (row as any).id === "string" ? (row as any).id : null;
       const totals = authorId ? voteTotals.get(authorId) ?? { helpful: 0, notHelpful: 0 } : { helpful: 0, notHelpful: 0 };
       const userVote = authorId ? selfVoteMap.get(authorId) ?? null : null;
       const score = totals.helpful - totals.notHelpful;
+
+      const rootId = reviewId ? rootIdByReview.get(reviewId) ?? null : null;
+      let messageNodes = reviewId ? messagesByReview.get(reviewId) ?? [] : [];
+      if ((!messageNodes || messageNodes.length === 0) && reviewId) {
+        const fallbackId = `raw:${reviewId}`;
+        messageNodes = [
+          {
+            id: fallbackId,
+            root_review_id: fallbackId,
+            parent_id: null,
+            author_id: authorId ?? null,
+            author_role: "user",
+            body: typeof (rest as any).body === "string" ? ((rest as any).body as string) : "",
+            created_at: typeof (rest as any).created_at === "string" ? ((rest as any).created_at as string) : "",
+            updated_at: typeof (rest as any).created_at === "string" ? ((rest as any).created_at as string) : "",
+          },
+        ];
+      }
+
+      const adminMessages = messageNodes.filter((message) => message.author_role === "admin");
+      const replyMeta = adminMessages.length > 0 ? adminMessages[adminMessages.length - 1] : null;
+
       return {
         ...rest,
         author_id: authorId ?? "",
+        review_id: reviewId,
+        reply_body: replyMeta?.body ?? null,
+        reply_created_at: replyMeta?.created_at ?? null,
+        reply_author_id: replyMeta?.author_id ?? null,
+        messages: messageNodes.map((message) => ({ ...message })),
         votes: {
           helpful: totals.helpful,
           notHelpful: totals.notHelpful,
@@ -844,9 +933,6 @@ export async function GET(request: Request) {
     // рейтинг и гистограмма через RPC вместо .group()
     let statsOut: { avg_rating: number | null; ratings_count: number } | null = null;
     let buckets: Array<{ score: RatingBucket; count: number; percent: number }> = RATING_BUCKETS.map(s => ({ score: s, count: 0, percent: 0 }));
-
-    const { data: statsJson, error: statsErr } = await supabase
-      .rpc("get_product_rating_stats", { p_product_id: productUid });
 
     if (statsErr && !isMissingTableError(statsErr)) {
       console.error("[reviews:list] stats_rpc", statsErr.code ?? "unknown", statsErr.message ?? "");
@@ -874,18 +960,11 @@ export async function GET(request: Request) {
 
     // собственный отзыв пользователя
     let own: Record<string, unknown> | null = null;
-    if (authUser) {
-      const { data: ownRow, error: ownErr } = await supabase
-        .from("product_reviews_raw")
-        .select("rating, title, body, status, created_at, updated_at")
-        .eq("product_id", productUid)
-        .eq("user_id", authUser.id)
-        .maybeSingle();
-      if (ownErr && !isMissingTableError(ownErr)) {
-        return json({ ok: false, code: "db", message: ownErr.message }, 500);
-      } else if (ownRow) {
-        own = ownRow;
-      }
+    if (ownErr && !isMissingTableError(ownErr)) {
+      return json({ ok: false, code: "db", message: ownErr.message }, 500);
+    }
+    if (ownRow) {
+      own = ownRow;
     }
 
     const body = {
