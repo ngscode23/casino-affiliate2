@@ -6,8 +6,10 @@
   "packageManager": "pnpm@9.11.0",
   "scripts": {
     "prestart": "node ../../scripts/patch-next-manifest.mjs .next",
-    "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "dev": "cross-env NEXT_WEBPACK_USE_WORKER_POOL=1 next dev --turbo",
+    "dev:legacy": "cross-env NEXT_WEBPACK_USE_WORKER_POOL=1 next dev --webpack",
+    "dev:profile": "cross-env NEXT_WEBPACK_USE_WORKER_POOL=1 next dev --turbo --profiling",
+    "build": "cross-env NEXT_WEBPACK_USE_WORKER_POOL=1 next build --turbo",
     "start": "node ./scripts/start-with-metrics.mjs",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
     "typecheck": "tsc --noEmit",
@@ -21,6 +23,7 @@
     "@supabase/postgrest-js": "^1.21.4",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.57.4",
+    "@tanstack/react-virtual": "^3.10.5",
     "clsx": "^2.1.1",
     "ddl": "^2.0.2",
     "framer-motion": "^12.23.16",
@@ -29,7 +32,6 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hook-form": "^7.53.0",
-    "recharts": "^3.2.1",
     "some-lib": "^0.0.1",
     "stripe": "^12.18.0",
     "swiper": "^11.2.10"

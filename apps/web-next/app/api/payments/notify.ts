@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/utils/supabase/admin";
+import { normalizeSetupSettings, DEFAULT_SETUP_SETTINGS, type SetupSettings } from "@/lib/admin/setup-shared";
 import { markNotificationFlag, recordWebhookLog } from "./observability";
 
 export type PaymentNotifyKind =
@@ -6,7 +7,8 @@ export type PaymentNotifyKind =
   | "failed"
   | "refunded"
   | "desync"
-  | "requires_action";
+  | "requires_action"
+  | "force_cancelled";
 
 type NotifyPayload = {
   orderId: string;
@@ -25,7 +27,15 @@ type NotifyPayload = {
   refundReason?: string | null;
   chargeId?: string | null;
   notes?: string[];
+  adminUserId?: string | null;
+  adminEmail?: string | null;
 };
+
+const SETUP_SETTINGS_TABLE = "app_settings";
+const SETUP_SETTINGS_KEY = "setup.v1";
+const SETUP_CACHE_TTL_MS = 5 * 60_000;
+let cachedSetupSettings: SetupSettings | null = null;
+let cachedSetupExpiresAt = 0;
 
 function pickEnv(...keys: string[]): string {
   for (const key of keys) {
@@ -61,6 +71,34 @@ async function fetchUserEmail(userId: string | null | undefined): Promise<string
   }
 }
 
+async function loadSetupSettings(): Promise<SetupSettings> {
+  if (cachedSetupSettings && cachedSetupExpiresAt > Date.now()) {
+    return cachedSetupSettings;
+  }
+  try {
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from(SETUP_SETTINGS_TABLE)
+      .select("value")
+      .eq("key", SETUP_SETTINGS_KEY)
+      .maybeSingle<{ value: string | null }>();
+    if (error) {
+      throw error;
+    }
+    const raw = data?.value ? JSON.parse(data.value) : undefined;
+    cachedSetupSettings = normalizeSetupSettings(raw ?? DEFAULT_SETUP_SETTINGS);
+    cachedSetupExpiresAt = Date.now() + SETUP_CACHE_TTL_MS;
+    return cachedSetupSettings;
+  } catch (error) {
+    console.warn("[payments][notify] failed to load setup settings", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    cachedSetupSettings = { ...DEFAULT_SETUP_SETTINGS };
+    cachedSetupExpiresAt = Date.now() + 60_000;
+    return cachedSetupSettings;
+  }
+}
+
 function makeSubject(kind: PaymentNotifyKind, orderId: string): string {
   switch (kind) {
     case "succeeded":
@@ -73,6 +111,8 @@ function makeSubject(kind: PaymentNotifyKind, orderId: string): string {
       return `Payment mismatch - Order ${orderId}`;
     case "requires_action":
       return `Payment requires action - Order ${orderId}`;
+    case "force_cancelled":
+      return `Order force-cancelled - ${orderId}`;
     default:
       return `Payment update - Order ${orderId}`;
   }
@@ -111,6 +151,9 @@ function makeHtml(kind: PaymentNotifyKind, payload: NotifyPayload): string {
   } else if (kind === "requires_action") {
     statusText = "Payment requires customer action";
     color = "#d97706";
+  } else if (kind === "force_cancelled") {
+    statusText = "Order force-cancelled";
+    color = "#dc2626";
   }
 
   const rows: string[] = [];
@@ -137,6 +180,13 @@ function makeHtml(kind: PaymentNotifyKind, payload: NotifyPayload): string {
     if (payload.refundId) rows.push(`<p style="margin:0 0 8px">Refund ID: <code>${payload.refundId}</code></p>`);
     if (payload.refundReason || payload.reason) {
       rows.push(`<p style="margin:0 0 8px">Reason: <b>${payload.refundReason || payload.reason}</b></p>`);
+    }
+  } else if (kind === "force_cancelled") {
+    if (payload.reason) {
+      rows.push(`<p style="margin:0 0 8px">Reason: <b>${payload.reason}</b></p>`);
+    }
+    if (payload.adminUserId) {
+      rows.push(`<p style="margin:0 0 8px">Admin: <code>${payload.adminUserId}</code></p>`);
     }
   } else if (payload.reason && kind !== "desync") {
     rows.push(`<p style="margin:0 0 8px">Reason: <b>${payload.reason}</b></p>`);
@@ -246,4 +296,88 @@ export async function notifyPayment(kind: PaymentNotifyKind, payload: NotifyPayl
       error,
     });
   }
+}
+
+type ForceCancelNotifyOptions = {
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  paymentIntentId?: string | null;
+  userId?: string | null;
+  adminUserId?: string | null;
+  reason: string;
+  eventId: string;
+};
+
+type ForceCancelSlackPayload = {
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  reason: string;
+  adminUserId: string | null;
+};
+
+async function notifyForceCancelSlack(payload: ForceCancelSlackPayload): Promise<void> {
+  const settings = await loadSetupSettings();
+  if (!settings.notificationsSlack) return;
+  const webhookUrl = (settings.slackWebhookUrl || "").trim();
+  if (!webhookUrl) return;
+
+  const amount = formatAmount(payload.amountCents, payload.currency);
+  const lines = [
+    ":no_entry: *Order force-cancelled*",
+    `Order: ${payload.orderId}`,
+    `Amount: ${amount}`,
+    payload.reason ? `Reason: ${payload.reason}` : null,
+    payload.adminUserId ? `Admin: ${payload.adminUserId}` : null,
+  ].filter(Boolean);
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: lines.join("\n") }),
+    });
+  } catch (error) {
+    console.warn("[payments][notify] slack force cancel failed", {
+      orderId: payload.orderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+export async function notifyForceCancel(options: ForceCancelNotifyOptions): Promise<void> {
+  const amountCents = Number.isFinite(options.amountCents)
+    ? Math.max(0, Math.round(options.amountCents))
+    : 0;
+  const currency = (options.currency || "USD").toUpperCase();
+  const reason = options.reason?.trim() || "force_cancelled";
+  const adminUserId = options.adminUserId ?? null;
+
+  try {
+    await notifyPayment("force_cancelled", {
+      orderId: options.orderId,
+      amountCents,
+      currency,
+      paymentIntentId: options.paymentIntentId ?? null,
+      webhookEventId: options.eventId,
+      userId: options.userId ?? null,
+      reason,
+      notes: adminUserId ? [`Initiator: ${adminUserId}`] : undefined,
+      adminUserId,
+    });
+  } catch (error) {
+    console.warn("[payments][notify] force cancel email failed", {
+      orderId: options.orderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  await notifyForceCancelSlack({
+    orderId: options.orderId,
+    amountCents,
+    currency,
+    reason,
+    adminUserId,
+  });
 }

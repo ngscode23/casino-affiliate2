@@ -6,7 +6,8 @@
   "scripts": {
     "changeset": "changeset",
     "start:mcp": "cross-env MCP_MODE=http MCP_SECRET=12345678 PORT=3333 node mcp-server.mjs",
-    "dev:web-next": "turbo run dev --filter=web-next",
+    "dev:web-next": "pnpm --filter web-next dev",
+    "dev:web-next:profile": "pnpm --filter web-next dev:profile",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
@@ -123,11 +124,10 @@
     "react-day-picker": "^9.11.0",
     "react-dom": "^19.2.0",
     "react-resizable-panels": "^3.0.6",
-    "recharts": "^3.2.1",
     "vaul": "^1.1.2"
   },
   "engines": {
-    "node": "v22.21.0"
+    "node":"v22.12.0"
   },
   "description": "Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace now ships a single Next.js application (public site + admin) while sharing UI, state, and types through reusable packages.",
   "main": "eslint.config.js",

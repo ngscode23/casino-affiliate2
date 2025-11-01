@@ -16,7 +16,7 @@ import { emitPaymentMetric, recordWebhookLog, type WebhookLogStatus } from "../o
 import { resetOrdersCache } from "@shared/sdk/ordersClient";
 
 const ORDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MUTABLE_STATUSES = ["pending", "failed"];
+const MUTABLE_STATUSES = ["pending", "failed", "cancelled"];
 
 export const runtime = "nodejs";
 

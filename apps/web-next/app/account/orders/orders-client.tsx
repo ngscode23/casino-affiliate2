@@ -28,6 +28,8 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "requires_action", label: "Requires action" },
 ];
 
+const CANCELLABLE_PAYMENT_STATUSES = new Set(["", "failed", "canceled", "cancelled"]);
+
 type OrderDetail = Awaited<ReturnType<typeof getOrder>>;
 
 type PaymentState = {
@@ -277,7 +279,13 @@ export function OrdersClient() {
         await fetchOrders();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        toast(message || "We couldn't cancel the order.", { variant: "error" });
+        if (typeof message === "string" && message.toLowerCase().includes("payment_in_progress")) {
+          toast("Payment is still being processed. Please wait for the result.", { variant: "info" });
+        } else if (typeof message === "string" && message.toLowerCase().includes("cannot_cancel_in_this_status")) {
+          toast("We can’t cancel this order right now.", { variant: "info" });
+        } else {
+          toast(message || "We couldn't cancel the order.", { variant: "error" });
+        }
       } finally {
         setPendingMap((prev) => ({ ...prev, [orderId]: null }));
       }
@@ -371,7 +379,7 @@ export function OrdersClient() {
                   />
                   <button
                     type="submit"
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/60 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-30px_rgba(252,50,114,0.62)] transition hover:-translate-y-[1px]"
+                    className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/60 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-30px_rgba(252,50,114,0.62)] transition hover:-translate-y-px"
                   >
                     Search
                   </button>
@@ -442,8 +450,11 @@ export function OrdersClient() {
                     const isOpen = !!expanded[orderId];
                     const detail = details[orderId];
                     const paymentState = pendingMap[orderId];
+                    const paymentStatus = (order.payment_status ?? "").toLowerCase();
                     const canPay = order.status === "pending" || order.status === "processing";
-                    const canCancel = order.status === "pending";
+                    const canCancel =
+                      order.status === "pending" &&
+                      (!paymentStatus || CANCELLABLE_PAYMENT_STATUSES.has(paymentStatus));
                     const toggleLabel = isOpen
                       ? "Hide details"
                       : detail
@@ -500,6 +511,10 @@ export function OrdersClient() {
                                 >
                                   {paymentState === "cancel" ? "Cancelling..." : "Cancel order"}
                                 </button>
+                              ) : order.status === "pending" ? (
+                                <span className="inline-flex items-center rounded-full border border-border/30 px-3 py-1.5 text-xs font-semibold text-muted-foreground/70">
+                                  Payment pending…
+                                </span>
                               ) : null}
                             </div>
                           </td>
@@ -615,3 +630,5 @@ export function OrdersClient() {
     </Section>
   );
 }
+
+

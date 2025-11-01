@@ -204,7 +204,13 @@ Acceptance
   1. Check `public.audit_log` for the latest `orders.archive` entry and confirm `exportUrl` + counts.
   2. Spot-check the JSON export (`supabase storage download ...`).
   3. Once validated, deploy the migration that flips `skipDelete` to `false` so archiving starts deleting source rows.
-  4. Use `restore-orders` (dryRun first) to rehydrate any run id as part of incident response.\n## Scripts
+  4. Use `restore-orders` (dryRun first) to rehydrate any run id as part of incident response.
+
+### Admin force cancel / Форс-отмена заказа
+- **EN:** Use the new “Force cancel” action in `/admin/orders` when a Stripe PaymentIntent is stuck in `pending`/`processing` and the customer support team decides to terminate it manually. The UI prompts for confirmation, sends `POST /api/admin/orders/{id}/force-cancel`, and tags the order metadata/history + webhook logs for audit. After triggering the Force cancel action, go to the Stripe dashboard, cancel or refund the matching PaymentIntent, and leave a note referencing the manual cancel so finance can reconcile the payout queue.
+- **RU:** Кнопка «Force cancel» на странице `/admin/orders` пригодится, если платеж в Stripe застрял в статусе `pending`/`processing`, и поддержку попросили завершить заказ вручную. После подтверждения отправляется `POST /api/admin/orders/{id}/force-cancel`, заказ помечается в метаданных/истории и попадает в лог `admin.force_cancel`. После форс-отмены зайдите в Stripe, отмените или рефандните соответствующий PaymentIntent и добавьте комментарий, чтобы бухгалтерия понимала источник операции.
+
+## Scripts
 - `pnpm --filter web-next dev`: local dev
 - `pnpm --filter web-next build`: production build
 

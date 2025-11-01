@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { fetchMessagesForReviews, type ReviewMessageRecord } from "../../reviews/messages";
@@ -9,19 +11,20 @@ function clampLimit(value: string | null) {
   return Math.max(1, Math.min(200, Math.round(parsed)));
 }
 
-export async function GET(request: Request) {
-  const auth = await requireAdmin(request);
-  if ("response" in auth) return auth.response;
+class ApprovedReviewsError extends Error {
+  code: "db" | "internal";
+  status: number;
 
-  const tokenError = ensureAdminToken(request);
-  if (tokenError) return tokenError;
+  constructor(message: string, code: "db" | "internal", status = 500) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
 
-  try {
+const loadApprovedReviews = unstable_cache(
+  async (limit: number, productFilter: string | null, reviewerFilter: string | null) => {
     const supabase = getAdminClient();
-    const url = new URL(request.url);
-    const limit = clampLimit(url.searchParams.get("limit"));
-    const productFilter = url.searchParams.get("product_uid");
-    const reviewerFilter = url.searchParams.get("reviewer_id");
 
     let query = supabase
       .from("reviews_unified")
@@ -32,16 +35,16 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (productFilter && isUuid(productFilter)) {
+    if (productFilter) {
       query = query.eq("product_uid", productFilter);
     }
-    if (reviewerFilter && isUuid(reviewerFilter)) {
+    if (reviewerFilter) {
       query = query.eq("reviewer_id", reviewerFilter);
     }
 
     const { data, error } = await query;
     if (error) {
-      return json({ ok: false, code: "db", message: error.message }, 500);
+      throw new ApprovedReviewsError(error.message, "db");
     }
 
     const rows = Array.isArray(data) ? data : [];
@@ -66,8 +69,7 @@ export async function GET(request: Request) {
     const items = rows.map((row) => {
       const reviewIdRaw = typeof row?.review_id === "string" ? row.review_id : typeof row?.review_id === "number" ? String(row.review_id) : null;
       const createdAtRaw = typeof row?.created_at === "string" ? row.created_at : null;
-      const messages =
-        (reviewIdRaw && messagesByReview.get(reviewIdRaw)) || [];
+      const messages = (reviewIdRaw && messagesByReview.get(reviewIdRaw)) || [];
 
       const normalizedMessages =
         messages.length > 0
@@ -102,9 +104,37 @@ export async function GET(request: Request) {
       };
     });
 
-    return json({ ok: true, items, total: items.length });
+    return { items, total: items.length };
+  },
+  ["admin-approved-reviews"],
+  { revalidate: 30, tags: ["admin-approved-reviews"] },
+);
+
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("response" in auth) return auth.response;
+
+  const tokenError = ensureAdminToken(request);
+  if (tokenError) return tokenError;
+
+  try {
+    const url = new URL(request.url);
+    const limit = clampLimit(url.searchParams.get("limit"));
+    const productFilter = url.searchParams.get("product_uid");
+    const reviewerFilter = url.searchParams.get("reviewer_id");
+
+    const productFilterValid = productFilter && isUuid(productFilter) ? productFilter : null;
+    const reviewerFilterValid = reviewerFilter && isUuid(reviewerFilter) ? reviewerFilter : null;
+
+    const result = await loadApprovedReviews(limit, productFilterValid, reviewerFilterValid);
+
+    return json({ ok: true, items: result.items, total: result.total });
   } catch (error: any) {
-    return json({ ok: false, code: "internal", message: String(error?.message ?? error) }, 500);
+    const normalized =
+      error instanceof ApprovedReviewsError
+        ? error
+        : new ApprovedReviewsError(String(error?.message ?? error), "internal");
+    return json({ ok: false, code: normalized.code, message: normalized.message }, normalized.status);
   }
 }
 

@@ -4,7 +4,13 @@ import Link from "next/link";
 import Button from "@ui/components/common/button";
 import StatusBadge from "@ui/components/admin/StatusBadge";
 import { toast } from "@ui/components/common/toast";
-import { callPayments } from "./orders-api";
+import { callPayments, forceCancelOrder } from "./orders-api";
+
+const FORCE_CANCEL_DISABLED_STATUSES = new Set(["cancelled", "canceled", "refunded", "succeeded", "paid", "fulfilled"]);
+const FORCE_CANCEL_CONFIRM_MESSAGE =
+  "Stripe \u0435\u0449\u0451 \u043d\u0435 \u0434\u0430\u043b \u0444\u0438\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0442\u0432\u0435\u0442, \u0430\u0434\u043c\u0438\u043d \u043e\u0442\u043c\u0435\u043d\u044f\u0435\u0442 \u0432\u0440\u0443\u0447\u043d\u0443\u044e. \u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c?";
+const FORCE_CANCEL_SUCCESS_MESSAGE =
+  "\u0417\u0430\u043a\u0430\u0437 \u043f\u0440\u0438\u043d\u0443\u0434\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u043e\u0442\u043c\u0435\u043d\u0451\u043d";
 
 export interface Payment { id: string; status: string; amount: number; currency: string | null; created_at: string }
 export interface OrderRow {
@@ -63,6 +69,8 @@ export default function OrdersTable({
             {orders.map((order) => {
               const payment = order.payment;
               const formattedTotal = formatCurrency(order.amount_total, order.currency);
+              const statusLower = (order.status || "").toLowerCase();
+              const canForceCancel = !FORCE_CANCEL_DISABLED_STATUSES.has(statusLower);
               return (
                 <tr key={order.id} className="border-b border-border/20 align-top">
                   <td className="py-3 pr-4 font-mono text-xs">
@@ -189,6 +197,39 @@ export default function OrdersTable({
                             </Button>
                           ) : null}
                         </>
+                      ) : null}
+                      {canForceCancel ? (
+                        <Button
+                          variant="secondary"
+                          className="h-9 min-h-0 px-3 text-xs text-destructive border border-destructive/60"
+                          onClick={async () => {
+                            const confirmed = window.confirm(FORCE_CANCEL_CONFIRM_MESSAGE);
+                            if (!confirmed) return;
+                            try {
+                              await forceCancelOrder(order.id, token);
+                              toast(FORCE_CANCEL_SUCCESS_MESSAGE, { variant: "success" });
+                              onOrdersChange((prev) =>
+                                prev.map((item) =>
+                                  item.id === order.id
+                                    ? {
+                                        ...item,
+                                        status: "cancelled",
+                                        payment_status: "cancelled",
+                                        payment: item.payment
+                                          ? { ...(item.payment as Payment), status: "canceled" }
+                                          : item.payment,
+                                      }
+                                    : item,
+                                ),
+                              );
+                              onRefresh();
+                            } catch (err) {
+                              toast(err instanceof Error ? err.message : String(err), { variant: "error" });
+                            }
+                          }}
+                        >
+                          Force cancel
+                        </Button>
                       ) : null}
                     </div>
                   </td>

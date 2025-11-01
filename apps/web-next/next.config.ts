@@ -87,6 +87,21 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  webpackDevMiddleware: (config) => {
+    const ignored = config.watchOptions?.ignored;
+    const ignoredList = Array.isArray(ignored) ? ignored.slice() : ignored ? [ignored] : [];
+    const extraIgnores = [
+      /[\\/]supabase[\\/]migrations[\\/]/,
+      /[\\/]supabase[\\/]auth[\\/]/,
+      /[\\/]logs[\\/]/,
+      /\.log$/i,
+    ];
+    config.watchOptions = {
+      ...(config.watchOptions ?? {}),
+      ignored: [...ignoredList, ...extraIgnores],
+    };
+    return config;
+  },
   async headers() {
     return [
       {

@@ -302,6 +302,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -564,6 +571,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
           {
@@ -932,6 +946,24 @@ export type Database = {
           },
         ]
       }
+      processed_events: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          event_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          event_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          event_type?: string | null
+        }
+        Relationships: []
+      }
       product_impressions: {
         Row: {
           created_at: string
@@ -964,6 +996,13 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_impressions_product_id_fkey"
             columns: ["product_id"]
@@ -1014,6 +1053,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_rating_stats_product_uid_fkey"
+            columns: ["product_uid"]
+            isOneToOne: true
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_rating_stats_product_uid_fkey"
             columns: ["product_uid"]
@@ -1087,6 +1133,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "product_review_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
           {
@@ -1200,6 +1253,13 @@ export type Database = {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -1279,6 +1339,13 @@ export type Database = {
           weight?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recent_views_product_id_fkey"
             columns: ["product_id"]
@@ -1437,6 +1504,13 @@ export type Database = {
             foreignKeyName: "shop_clicks_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -1492,6 +1566,13 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_impressions_product_id_fkey"
             columns: ["product_id"]
@@ -1863,6 +1944,27 @@ export type Database = {
       }
     }
     Views: {
+      catalog_mv: {
+        Row: {
+          category_slug: string | null
+          created_at: string | null
+          id: string | null
+          price: number | null
+          rating: number | null
+          slug: string | null
+          thumbnail_path: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "ecom_categories"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       clicks: {
         Row: {
           params: Json | null
@@ -1902,6 +2004,13 @@ export type Database = {
           url: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
@@ -2156,6 +2265,13 @@ export type Database = {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2312,6 +2428,13 @@ export type Database = {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_uid"]
             isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2436,6 +2559,13 @@ export type Database = {
           status: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_uid"]
@@ -2624,6 +2754,18 @@ export type Database = {
         Returns: undefined
       }
       admin_upsert_product: { Args: { p: Json }; Returns: string }
+      api_catalog_list: {
+        Args: { _category?: string; _limit?: number; _offset?: number }
+        Returns: {
+          created_at: string
+          id: string
+          price: number
+          rating: number
+          slug: string
+          thumbnail_path: string
+          title: string
+        }[]
+      }
       apply_stripe_event: { Args: { event: Json }; Returns: undefined }
       apply_successful_payment: {
         Args: { p_order: string }

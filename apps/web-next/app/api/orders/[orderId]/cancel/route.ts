@@ -15,7 +15,7 @@ export async function POST(request: Request, context: { params: Promise<{ orderI
 
   const { data: order, error } = await supabase
     .from("orders")
-    .select("id, user_id, status")
+    .select("id, user_id, status, payment_status")
     .eq("id", orderId)
     .single();
 
@@ -27,8 +27,17 @@ export async function POST(request: Request, context: { params: Promise<{ orderI
     return json({ ok: false, code: "forbidden" }, 403);
   }
 
-  if (String((order as any).status) !== "pending") {
+  const status = String((order as any).status || "").toLowerCase();
+  const paymentStatusRaw = (order as any).payment_status;
+  const paymentStatus = typeof paymentStatusRaw === "string" ? paymentStatusRaw.toLowerCase() : "";
+
+  if (status !== "pending") {
     return json({ ok: false, code: "conflict", message: "cannot_cancel_in_this_status" }, 409);
+  }
+
+  const cancellablePaymentStatuses = new Set(["", "failed", "canceled", "cancelled"]);
+  if (paymentStatus && !cancellablePaymentStatuses.has(paymentStatus)) {
+    return json({ ok: false, code: "conflict", message: "payment_in_progress" }, 409);
   }
 
   const { error: updateError } = await supabase

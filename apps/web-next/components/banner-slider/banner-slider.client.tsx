@@ -1,13 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { A11y, Autoplay, Pagination } from "swiper/modules";
-import "swiper/css";
-import "swiper/css/pagination";
-import "./banner-slider.css";
+
 import type { BannerRecord } from "@/lib/banners";
-import { BannerCard } from "./banner-card";
 
 type BannerSliderClientProps = {
   initialBanners: BannerRecord[];
@@ -20,6 +16,14 @@ const API_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_AUTOPLAY_MS = 5000;
 const DEFAULT_API_ENDPOINT = "/api/banners";
 const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
+
+const BannerSliderInner = dynamic(
+  () => import("./banner-slider.inner").then((mod) => mod.BannerSliderInner),
+  {
+    ssr: false,
+    loading: () => <div className="h-40 w-full animate-pulse rounded-2xl bg-black/20" />,
+  },
+);
 
 export function BannerSliderClient({
   initialBanners,
@@ -79,22 +83,8 @@ export function BannerSliderClient({
   }
 
   return (
-    <div className="banner-slider">
-      <Swiper
-        modules={[Autoplay, Pagination, A11y]}
-        autoplay={autoplay}
-        pagination={{ clickable: true }}
-        loop={banners.length > 1}
-        spaceBetween={24}
-        slidesPerView={1}
-        className="banner-slider__swiper"
-      >
-        {banners.map((banner) => (
-          <SwiperSlide key={banner.id} className="banner-slider__slide">
-            <BannerCard banner={banner} />
-          </SwiperSlide>
-        ))}
-      </Swiper>
+    <div className="banner-slider min-h-[10rem]">
+      <BannerSliderInner banners={banners} autoplay={autoplay} />
     </div>
   );
 }

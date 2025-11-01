@@ -13,6 +13,8 @@ const CATEGORY_TAG_PREFIX = "category:";
 
 const NEW_WINDOW_MS = 1000 * 60 * 60 * 24 * 14;
 const TOP_LIMIT = 6;
+const DEFAULT_LIST_LIMIT = 240;
+const DEFAULT_CURRENCY = "EUR";
 
 function categoryTag(slug: string) {
   return `${CATEGORY_TAG_PREFIX}${slug}`;
@@ -24,18 +26,6 @@ function humanizeSlug(value: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function mapStatusToAvailability(status: string | null | undefined): Product["availability"] {
-  if (!status) return "InStock";
-  const normalized = status.toLowerCase();
-  if (["sold_out", "out_of_stock", "inactive", "archived", "disabled"].includes(normalized)) {
-    return "OutOfStock";
-  }
-  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(normalized)) {
-    return "PreOrder";
-  }
-  return "InStock";
 }
 
 function buildStructuredData(products: Product[]) {
@@ -73,13 +63,13 @@ async function loadProductsDataInternal(): Promise<{
   catalogName: string;
 }> {
   const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, slug, title, description, price_cents, currency, main_image_url, status, category_slug, created_at, tags")
-    .in("status", ["active", "published"])
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("api_catalog_list", {
+    _category: null,
+    _limit: DEFAULT_LIST_LIMIT,
+    _offset: 0,
+  });
 
-  if (error || !data) {
+  if (error || !Array.isArray(data)) {
     return {
       products: [],
       fetchError: error,
@@ -91,24 +81,37 @@ async function loadProductsDataInternal(): Promise<{
 
   const now = Date.now();
 
-  const products: Product[] = data.map((row, index) => {
-    const createdAt = row.created_at ?? null;
+  const products: Product[] = data.map((row: any, index) => {
+    const id = row?.id != null ? String(row.id) : "";
+    const slug = row?.slug != null ? String(row.slug) : "";
+    const title = row?.title != null ? String(row.title) : "";
+    const createdAt = typeof row?.created_at === "string" ? row.created_at : null;
     const createdTime = createdAt ? Date.parse(createdAt) : NaN;
     const isNew = Number.isFinite(createdTime) ? createdTime >= now - NEW_WINDOW_MS : index < TOP_LIMIT;
 
-    const priceCents = Number(row.price_cents ?? 0);
-    const price = priceCents / 100;
-    const currency = (row.currency ?? "EUR").toUpperCase();
-    const mainImage = normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(String(row.id ?? ""));
+    const priceValue = typeof row?.price === "number" ? row.price : Number(row?.price ?? 0);
+    const normalizedPrice = Number.isFinite(priceValue) ? Math.max(priceValue, 0) : 0;
+    const currencyRaw =
+      typeof row?.currency === "string" && row.currency.trim() ? row.currency.trim().toUpperCase() : DEFAULT_CURRENCY;
+    const thumbnailPath =
+      typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim() ? row.thumbnail_path.trim() : null;
+    const fallbackKey = slug || id || String(index);
+    const mainImage = normalizeImageUrl(thumbnailPath) ?? getFallbackImageByKey(fallbackKey);
+    const rating =
+      typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
+    const categorySlug =
+      typeof row?.category_slug === "string" && row.category_slug.trim() ? row.category_slug.trim() : null;
 
     return {
-      id: String(row.id ?? ""),
-      slug: String(row.slug ?? ""),
-      title: String(row.title ?? ""),
-      description: row.description ? String(row.description) : null,
-      price,
-      currency,
+      id,
+      slug,
+      title,
+      description: null,
+      price: normalizedPrice,
+      currency: currencyRaw,
       mainImage,
+      thumbnailPath,
+      rating,
       clicks: 0,
       impressions: 0,
       dataset: "shop",
@@ -116,8 +119,8 @@ async function loadProductsDataInternal(): Promise<{
       createdAt,
       isNew,
       isTop: false,
-      availability: mapStatusToAvailability(row.status ?? null),
-      categorySlug: row.category_slug ? String(row.category_slug) : null,
+      availability: "InStock",
+      categorySlug,
     } satisfies Product;
   });
 
@@ -169,3 +172,4 @@ export function formatPrice(priceCents: number | null | undefined, currency: str
   const cur = (currency ?? "EUR").toUpperCase();
   return formatCurrency(price, cur);
 }
+

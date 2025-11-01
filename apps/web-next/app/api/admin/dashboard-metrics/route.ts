@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/utils/auth/guard";
@@ -23,11 +24,19 @@ type DashboardMetricsPayload = {
   updatedAt: string;
 };
 
-export async function GET(request: Request) {
-  const auth = await requireAdmin(request);
-  if ("response" in auth) return auth.response;
+class DashboardMetricsError extends Error {
+  code: "db" | "internal";
+  status: number;
 
-  try {
+  constructor(message: string, code: "db" | "internal", status = 500) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const loadDashboardMetrics = unstable_cache(
+  async (): Promise<DashboardMetricsPayload> => {
     const supabase = getAdminClient();
     const { data, error } = await supabase.rpc("admin_dashboard_metrics_v1", {
       month_count: 12,
@@ -35,13 +44,7 @@ export async function GET(request: Request) {
     });
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: "db", message: error.message },
-        {
-          status: 500,
-          headers: { "cache-control": "public, max-age=0, s-maxage=0, must-revalidate" },
-        },
-      );
+      throw new DashboardMetricsError(error.message, "db");
     }
 
     const payload = (data ?? {}) as Partial<DashboardMetricsPayload>;
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
       succeeded: Number("succeeded" in cardsRecord ? cardsRecord.succeeded : cardsRecord.done ?? 0),
     };
 
-    const responsePayload: DashboardMetricsPayload = {
+    return {
       kpis: {
         cash: Number(payload.kpis?.cash ?? 0),
         cashflowForecast: Number(payload.kpis?.cashflowForecast ?? 0),
@@ -70,11 +73,24 @@ export async function GET(request: Request) {
       cashflow: payload.cashflow ?? [],
       updatedAt: payload.updatedAt ?? new Date().toISOString(),
     };
+  },
+  ["admin-dashboard-metrics"],
+  {
+    revalidate: 60,
+    tags: ["admin-dashboard-metrics"],
+  },
+);
 
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("response" in auth) return auth.response;
+
+  try {
+    const metrics = await loadDashboardMetrics();
     return NextResponse.json(
       {
         ok: true,
-        metrics: responsePayload,
+        metrics,
       },
       {
         headers: {
@@ -82,11 +98,16 @@ export async function GET(request: Request) {
         },
       },
     );
-  } catch (error) {
+  } catch (error: any) {
+    const normalized =
+      error instanceof DashboardMetricsError
+        ? error
+        : new DashboardMetricsError(error instanceof Error ? error.message : String(error), "internal");
+
     return NextResponse.json(
-      { ok: false, error: "internal", message: error instanceof Error ? error.message : String(error) },
+      { ok: false, error: normalized.code, message: normalized.message },
       {
-        status: 500,
+        status: normalized.status,
         headers: { "cache-control": "public, max-age=0, s-maxage=0, must-revalidate" },
       },
     );

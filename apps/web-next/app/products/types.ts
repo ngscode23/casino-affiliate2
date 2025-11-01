@@ -6,6 +6,8 @@ export type Product = {
   price: number;
   currency: string;
   mainImage: string | null;
+  thumbnailPath?: string | null;
+  rating: number | null;
   clicks: number;
   impressions: number;
   dataset: "shop" | "legacy";

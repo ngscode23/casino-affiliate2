@@ -24,3 +24,20 @@ export async function callPayments(path: string, body: unknown, adminToken: stri
   }
   return response.json();
 }
+
+export async function forceCancelOrder(
+  orderId: string,
+  adminToken: string,
+  payload: { reason?: string; notify?: boolean } = {},
+) {
+  const response = await authorizedRequest(`/api/admin/orders/${orderId}/force-cancel`, adminToken, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload ?? {}),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `force-cancel ${orderId} ${response.status}`);
+  }
+  return response.json();
+}

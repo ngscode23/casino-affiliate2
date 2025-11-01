@@ -4,6 +4,9 @@ import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const SORT_WHITELIST = new Set(["rating", "price", "title", "created_at"]);
 const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET || "product-images";
+const MAX_FETCH_LIMIT = 500;
+const CACHE_CONTROL = "s-maxage=300, stale-while-revalidate=600";
+const DEFAULT_CURRENCY = "EUR";
 
 function toInt(value: string | null, def: number, min: number, max: number) {
   const num = Number(value);
@@ -11,11 +14,10 @@ function toInt(value: string | null, def: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.round(num)));
 }
 
-function json(body: unknown, status = 200) {
-  return NextResponse.json(body, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
+function json(body: unknown, status = 200, cacheControl?: string) {
+  const response = NextResponse.json(body, { status });
+  response.headers.set("Cache-Control", cacheControl ?? "no-store");
+  return response;
 }
 
 function pickSupabaseUrl(): string {
@@ -39,7 +41,7 @@ function normalizePath(raw: string, bucket: string): string {
 
 function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | null {
   if (typeof path !== "string" || !path.trim()) return null;
-  if (/^https?:/i.test(path)) return path;
+  if (/^https?:/i.test(path)) return path.trim();
   if (!baseUrl) return null;
   const objectPath = normalizePath(path.trim(), bucket)
     .split("/")
@@ -52,184 +54,185 @@ function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | n
 export async function GET(request: Request) {
   try {
     const supabase = getAdminClient();
-    const client = supabase as any;
     const url = new URL(request.url);
     const params = url.searchParams;
 
     const q = sanitizeSearchParam(params.get("q"));
-    const category = sanitizeSearchParam(params.get("category"));
+    const categoryParam = sanitizeSearchParam(params.get("category"));
+    const category = categoryParam && categoryParam !== "all" ? categoryParam : null;
     const min = params.get("min");
     const max = params.get("max");
     const sortRaw = params.get("sort") || "rating";
     const dir = params.get("dir") === "asc" ? "asc" : "desc";
     const page = toInt(params.get("page"), 1, 1, 1000);
     const limit = toInt(params.get("limit"), 24, 1, 200);
-    const status = (params.get("status") || "").trim().toLowerCase();
+    const statusFilterParam = (params.get("status") || "").trim().toLowerCase();
     const minRating = params.get("min_rating");
     const idsCsv = (params.get("ids") || "").trim();
     const ids = idsCsv ? idsCsv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const idsOrder = new Map(ids.map((id, index) => [id, index]));
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const desiredCount = Math.max(limit * page, limit, ids.length);
+    const fetchLimit = Math.min(Math.max(desiredCount, limit), MAX_FETCH_LIMIT);
 
-    let query = client
-      .from("ecom_products_view")
-      .select(
-        "id,sku,slug,title,price,rating,images,short_desc,category_slug,specs,created_at,status,image_path",
-        { count: "exact" }
-      );
+    const { data, error } = await supabase.rpc("api_catalog_list", {
+      _category: category,
+      _limit: fetchLimit,
+      _offset: 0,
+    });
 
-    const DEFAULT_STATUSES = ["active", "published"] as const;
+    if (error) {
+      console.warn("ecom-products: rpc failed", error);
+      return json({ error: "db" }, 500);
+    }
+
+    const baseRows: Array<Record<string, unknown>> = Array.isArray(data) ? (data as any[]) : [];
+    const supabaseUrl = pickSupabaseUrl();
+    const bucket = DEFAULT_BUCKET;
+
+    const baseIds = baseRows
+      .map((row) => (row?.id != null ? String(row.id) : ""))
+      .filter((value) => value.length > 0);
+
+    let metadataRows: Array<Record<string, unknown>> = [];
+    if (baseIds.length) {
+      try {
+        const { data: metaData, error: metaError } = await supabase
+          .from("products")
+          .select("id, status, category_slug, short_desc, currency")
+          .in("id", baseIds);
+        if (!metaError && Array.isArray(metaData)) {
+          metadataRows = metaData as Array<Record<string, unknown>>;
+        } else if (metaError) {
+          console.warn("ecom-products: meta fetch failed", metaError);
+        }
+      } catch (metaErr) {
+        console.warn("ecom-products: meta fetch threw", metaErr);
+      }
+    }
+
+    const metaById = new Map<string, Record<string, unknown>>(
+      metadataRows.map((row) => [String(row.id), row]),
+    );
+
+    const normalized = baseRows.map((row) => {
+      const id = row?.id != null ? String(row.id) : "";
+      const slug = row?.slug != null ? String(row.slug) : "";
+      const title = row?.title != null ? String(row.title) : "";
+      const priceRaw = typeof row?.price === "number" ? row.price : Number(row?.price ?? 0);
+      const price = Number.isFinite(priceRaw) ? Math.max(priceRaw, 0) : 0;
+      const rating =
+        typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
+      const createdAt = typeof row?.created_at === "string" ? row.created_at : null;
+      const thumbnailPath =
+        typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim()
+          ? row.thumbnail_path.trim()
+          : null;
+      const meta = metaById.get(id) ?? null;
+      const statusValue =
+        typeof meta?.status === "string" && meta.status.trim() ? meta.status.trim() : null;
+      const currencySource =
+        typeof row?.currency === "string" && row.currency.trim()
+          ? String(row.currency).trim()
+          : typeof meta?.currency === "string" && meta.currency.trim()
+            ? meta.currency.trim()
+            : DEFAULT_CURRENCY;
+      const currencyValue = currencySource.toUpperCase();
+      const categorySlug =
+        typeof row?.category_slug === "string" && row.category_slug.trim()
+          ? row.category_slug.trim()
+          : typeof meta?.category_slug === "string" && meta.category_slug.trim()
+            ? meta.category_slug.trim()
+            : null;
+      const shortDesc =
+        typeof meta?.short_desc === "string" && meta.short_desc.trim() ? meta.short_desc.trim() : null;
+
+      const imageUrl = toPublicUrl(supabaseUrl, bucket, thumbnailPath);
+
+      return {
+        id,
+        slug,
+        title,
+        price,
+        rating,
+        created_at: createdAt,
+        thumbnail_path: thumbnailPath,
+        category_slug: categorySlug,
+        status: statusValue,
+        currency: currencyValue,
+        short_desc: shortDesc,
+        image_url: imageUrl,
+        images: imageUrl ? [imageUrl] : [],
+      };
+    });
+
+    let filtered = normalized.filter((item) => item.id);
 
     if (ids.length) {
-      query = query.in("id", ids);
-    } else {
-      if (category && category !== "all") query = query.eq("category_slug", category);
-      const minVal = Number(min);
-      if (!Number.isNaN(minVal) && min !== null && min !== "") query = query.gte("price", minVal);
-      const maxVal = Number(max);
-      if (!Number.isNaN(maxVal) && max !== null && max !== "") query = query.lte("price", maxVal);
-      if (q) query = query.or(`title.ilike.%${q}%,short_desc.ilike.%${q}%`);
-      if (status && status !== "all") {
-        query = query.eq("status", status);
-      } else {
-        // Restrict to active/published by default to leverage partial indexes
-        query = query.in("status", DEFAULT_STATUSES as unknown as string[]);
-      }
+      const idsSet = new Set(ids);
+      filtered = filtered.filter((item) => idsSet.has(item.id));
+      filtered.sort((a, b) => {
+        const ai = idsOrder.get(a.id) ?? 0;
+        const bi = idsOrder.get(b.id) ?? 0;
+        return ai - bi;
+      });
+    }
+
+    if (q) {
+      const query = q.toLowerCase();
+      filtered = filtered.filter((item) => item.title.toLowerCase().includes(query));
+    }
+
+    const minVal = Number(min);
+    if (!Number.isNaN(minVal) && min !== null && min !== "") {
+      filtered = filtered.filter((item) => item.price >= minVal);
+    }
+
+    const maxVal = Number(max);
+    if (!Number.isNaN(maxVal) && max !== null && max !== "") {
+      filtered = filtered.filter((item) => item.price <= maxVal);
     }
 
     const minRatingVal = Number(minRating);
     if (!Number.isNaN(minRatingVal) && minRating !== null && minRating !== "") {
-      query = query.gte("rating", minRatingVal);
+      filtered = filtered.filter((item) => (item.rating ?? 0) >= minRatingVal);
+    }
+
+    const statusFilter =
+      statusFilterParam && statusFilterParam !== "all" ? statusFilterParam : null;
+    if (statusFilter) {
+      filtered = filtered.filter(
+        (item) => (item.status?.toLowerCase() ?? "") === statusFilter,
+      );
     }
 
     const sortField = SORT_WHITELIST.has(sortRaw) ? sortRaw : "rating";
-    query = query.order(sortField, { ascending: dir === "asc" }).range(from, to);
-
-    const { data, error, count } = await query;
-    if (error) {
-      console.warn("ecom-products: query failed", error);
-      return json({ error: "db" }, 500);
-    }
-
-    const supabaseUrl = pickSupabaseUrl();
-    const bucket = DEFAULT_BUCKET;
-
-    let rows = Array.isArray(data) ? data : [];
-
-    // Fallback: if fetching by specific ids and some are missing in ecom_products,
-    // try to enrich from legacy `products` table so корзина может посчитать сумму.
-    if (ids.length && rows.length < ids.length) {
-      try {
-        const foundIds = new Set<string>(rows.map((r: any) => String(r?.id ?? "")));
-        const missingIds = ids.filter((id) => !foundIds.has(id));
-        if (missingIds.length) {
-          const { data: legacyRows, error: legacyErr } = await client
-            .from("products")
-            .select("id, slug, title, price_cents, currency, main_image_url, status")
-            .in("id", missingIds);
-          if (!legacyErr && Array.isArray(legacyRows) && legacyRows.length) {
-            const mapped = legacyRows.map((p: any) => ({
-              id: String(p.id),
-              sku: null,
-              slug: String(p.slug ?? ""),
-              title: String(p.title ?? "Untitled"),
-              price: typeof p.price_cents === "number" ? p.price_cents / 100 : 0,
-              rating: null,
-              images: p.main_image_url ? [String(p.main_image_url)] : [],
-              short_desc: null,
-              category_slug: null,
-              tags: null,
-              specs: null,
-              created_at: null,
-              status: String(p.status ?? "active"),
-              image_path: null,
-            }));
-            rows = rows.concat(mapped);
-          }
-        }
-      } catch (fallbackErr) {
-        console.warn("ecom-products: legacy fallback failed", fallbackErr);
+    filtered.sort((a, b) => {
+      const direction = dir === "asc" ? 1 : -1;
+      if (sortField === "title") {
+        return direction * a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
       }
-    }
-
-    const productIds = rows
-      .map((row: any) => (row?.id ? String(row.id) : ""))
-      .filter((value: string): value is string => Boolean(value))
-      .filter((value: string, index: number, arr: string[]) => arr.indexOf(value) === index);
-    const slugs = rows
-      .map((row: any) => (row?.slug ? String(row.slug) : ""))
-      .filter((value: string): value is string => Boolean(value))
-      .filter((value: string, index: number, arr: string[]) => arr.indexOf(value) === index);
-
-    const imagePathBySlug = new Map<string, string>();
-    if (slugs.length) {
-      try {
-        const { data: slugRows, error: slugErr } = await client
-          .from("ecom_products_view")
-          .select("slug,image_path")
-          .in("slug", slugs);
-        if (!slugErr && Array.isArray(slugRows)) {
-          for (const row of slugRows) {
-            if (row?.slug && typeof row.image_path === "string") {
-              imagePathBySlug.set(String(row.slug), row.image_path);
-            }
-          }
-        }
-      } catch (slugErr) {
-        console.warn("ecom-products: ecom_products slug lookup failed", slugErr);
+      if (sortField === "created_at") {
+        const aTime = a.created_at ? Date.parse(a.created_at) || 0 : 0;
+        const bTime = b.created_at ? Date.parse(b.created_at) || 0 : 0;
+        return direction * (aTime - bTime);
       }
-    }
-
-    const imagePathByProductId = new Map<string, string>();
-    if (productIds.length) {
-      try {
-        const { data: versionRows, error: versionErr } = await client
-          .from("ecom_product_image_versions")
-          .select("product_id,path")
-          .in("product_id", productIds)
-          .eq("is_current", true);
-        if (!versionErr && Array.isArray(versionRows)) {
-          for (const row of versionRows) {
-            if (row?.product_id && typeof row.path === "string") {
-              imagePathByProductId.set(String(row.product_id), row.path);
-            }
-          }
-        }
-      } catch (versionErr) {
-        console.warn("ecom-products: image versions lookup failed", versionErr);
+      if (sortField === "price") {
+        return direction * (a.price - b.price);
       }
-    }
-
-    const items = rows.map((row: any) => {
-      const idValue = row?.id ? String(row.id) : "";
-      const slugValue = row?.slug ? String(row.slug) : "";
-      const directPath = typeof row?.image_path === "string" ? row.image_path : null;
-      const mappedPath = imagePathByProductId.get(idValue) ?? imagePathBySlug.get(slugValue) ?? directPath;
-      const imageUrl = toPublicUrl(supabaseUrl, bucket, mappedPath) ||
-        (Array.isArray(row?.images) && row.images[0] ? String(row.images[0]) : null);
-
-      const imagesArray = Array.isArray(row?.images)
-        ? (row.images as any[]).map((value) => String(value)).filter(Boolean)
-        : [];
-
-      let nextImages = imagesArray;
-      if (imageUrl) {
-        if (!imagesArray.length) {
-          nextImages = [imageUrl];
-        } else if (!imagesArray.includes(imageUrl)) {
-          nextImages = [imageUrl, ...imagesArray.filter((value) => value !== imageUrl)];
-        }
-      }
-
-      return {
-        ...row,
-        images: nextImages,
-        image_url: imageUrl,
-      };
+      const aRating =
+        typeof a.rating === "number" && Number.isFinite(a.rating) ? a.rating : -Infinity;
+      const bRating =
+        typeof b.rating === "number" && Number.isFinite(b.rating) ? b.rating : -Infinity;
+      return direction * (aRating - bRating);
     });
 
-    return json({ items, page, limit, total: count ?? rows.length });
+    const total = filtered.length;
+    const start = Math.max(0, (page - 1) * limit);
+    const end = start + limit;
+    const items = filtered.slice(start, end);
+
+    return json({ items, page, limit, total }, 200, CACHE_CONTROL);
   } catch (error) {
     console.error("ecom-products: unexpected error", error);
     return json({ error: "internal" }, 500);
