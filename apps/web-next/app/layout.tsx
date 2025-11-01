@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
+
 import "./globals.css";
 import { SiteLayout } from "../components/site-layout";
 import { siteConfig } from "../lib/site-config";
@@ -21,9 +23,6 @@ export const metadata: Metadata = {
   },
 };
 
-
-
-
 export default function RootLayout({
   children,
 }: {
@@ -35,7 +34,9 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <SiteLayout>{children}</SiteLayout>
         </Suspense>
+        <Analytics />
       </body>
     </html>
   );
 }
+
