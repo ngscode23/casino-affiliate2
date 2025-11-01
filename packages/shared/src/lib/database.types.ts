@@ -1161,68 +1161,6 @@ export type Database = {
           },
         ]
       }
-      product_review_replies: {
-        Row: {
-          author_email: string | null
-          author_id: string
-          created_at: string
-          id: string
-          product_id: string
-          reply: string
-          reviewer_id: string
-          updated_at: string
-        }
-        Insert: {
-          author_email?: string | null
-          author_id: string
-          created_at?: string
-          id?: string
-          product_id: string
-          reply: string
-          reviewer_id: string
-          updated_at?: string
-        }
-        Update: {
-          author_email?: string | null
-          author_id?: string
-          created_at?: string
-          id?: string
-          product_id?: string
-          reply?: string
-          reviewer_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_review_replies_product_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_review_replies_product_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_review_replies_product_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_with_ratings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_review_replies_product_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       product_reviews_raw: {
         Row: {
           body: string
@@ -1238,7 +1176,7 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
-          id: string
+          id?: string
           product_id: string
           rating: number
           status?: string
@@ -2477,15 +2415,6 @@ export type Database = {
           image_path?: string | null
           slug?: string | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      review_backfill_check: {
-        Row: {
-          raw_cnt: number | null
-          replies_cnt: number | null
-          replies_cnt2: number | null
-          roots_cnt: number | null
         }
         Relationships: []
       }
