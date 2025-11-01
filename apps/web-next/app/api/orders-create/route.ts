@@ -106,6 +106,13 @@ export async function POST(request: Request) {
     console.warn("[orders-create] requireAuth failed, continuing anonymously", error);
   }
 
+  if (!userId) {
+    return json(
+      { ok: false, code: "not_authenticated", message: "Login required to place an order" },
+      401,
+    );
+  }
+
   const supabase = getAdminClient();
 
   try {

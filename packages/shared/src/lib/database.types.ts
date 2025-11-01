@@ -735,7 +735,7 @@ export type Database = {
           shipping_total: number
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           amount_cents?: number | null
@@ -754,7 +754,7 @@ export type Database = {
           shipping_total?: number
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           amount_cents?: number | null
@@ -773,7 +773,7 @@ export type Database = {
           shipping_total?: number
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
