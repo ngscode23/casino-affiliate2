@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
+type NextConfigWithDevMiddleware = NextConfig & {
+  webpackDevMiddleware?: (config: any) => any;
+};
+
 process.env.TAILWIND_DISABLE_LIGHTNINGCSS =
   process.env.TAILWIND_DISABLE_LIGHTNINGCSS ?? process.env.DISABLE_LIGHTNINGCSS ?? "0";
 process.env.LIGHTNINGCSS_FORCE_WASM = process.env.LIGHTNINGCSS_FORCE_WASM ?? "1";
@@ -72,7 +76,7 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig: NextConfigWithDevMiddleware = {
   images: {
     remotePatterns,
   },
