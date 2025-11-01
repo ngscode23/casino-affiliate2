@@ -5,7 +5,7 @@ export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 
 export interface OrderSummary {
   id: string;
-  userId: string;
+  userId: string | null;
   createdAt: string;
   totalAmount: number;
   subtotalAmount: number;

@@ -4,7 +4,7 @@
  */
 export interface OrderListItem {
   id: string;
-  userId: string;
+  userId: string | null;
   createdAt: string;
   status: string;
   paymentStatus: string | null;
