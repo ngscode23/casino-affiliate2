@@ -1192,7 +1192,36 @@ export type Database = {
           reviewer_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_review_replies_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_replies_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_replies_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_replies_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_reviews_raw: {
         Row: {
@@ -1434,39 +1463,6 @@ export type Database = {
           review_author_id?: string
           value?: number
           voter_id?: string
-        }
-        Relationships: []
-      }
-      reviews: {
-        Row: {
-          body: string
-          created_at: string
-          product_id: number
-          rating: number
-          status: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          product_id: number
-          rating: number
-          status?: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          product_id?: number
-          rating?: number
-          status?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -2287,45 +2283,72 @@ export type Database = {
         }
         Relationships: []
       }
+      product_catalog: {
+        Row: {
+          created_at: string | null
+          product_uid: string | null
+          slug: string | null
+          source_pk: string | null
+          source_schema: string | null
+          source_table: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          product_uid?: string | null
+          slug?: string | null
+          source_pk?: string | null
+          source_schema?: string | null
+          source_table?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          product_uid?: string | null
+          slug?: string | null
+          source_pk?: string | null
+          source_schema?: string | null
+          source_table?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      product_catalog_v: {
+        Row: {
+          created_at: string | null
+          product_uid: string | null
+          slug: string | null
+          source_pk: string | null
+          source_schema: string | null
+          source_table: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          product_uid?: string | null
+          slug?: string | null
+          source_pk?: string | null
+          source_schema?: string | null
+          source_table?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          product_uid?: string | null
+          slug?: string | null
+          source_pk?: string | null
+          source_schema?: string | null
+          source_table?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       product_impressions_30d: {
         Row: {
           day: string | null
           impressions: number | null
           product_key: string | null
           slug: string | null
-        }
-        Relationships: []
-      }
-      product_reviews: {
-        Row: {
-          body: string | null
-          created_at: string | null
-          product_id: number | null
-          rating: number | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string | null
-          product_id?: number | null
-          rating?: number | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          body?: string | null
-          created_at?: string | null
-          product_id?: number | null
-          rating?: number | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -2645,29 +2668,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      add_review: {
+      add_review_v2: {
         Args: {
-          p_body: string
-          p_product_id: number
-          p_rating: number
-          p_title: string
+          _body: string
+          _product_id: string
+          _rating: number
+          _title: string
+          _user_id: string
         }
-        Returns: {
-          body: string
-          created_at: string
-          product_id: number
-          rating: number
-          status: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "reviews"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
+      }
+      admin_dashboard_metrics_v1: {
+        Args: { day_count?: number; month_count?: number }
+        Returns: Json
       }
       admin_post_review_reply: {
         Args: { _actor_id?: string; _body: string; _review_id: string }
@@ -2681,6 +2694,7 @@ export type Database = {
         Args: { p_review_id: string; p_status: string }
         Returns: undefined
       }
+      admin_upsert_product: { Args: { p: Json }; Returns: string }
       apply_stripe_event: { Args: { event: Json }; Returns: undefined }
       apply_successful_payment: {
         Args: { p_order: string }
@@ -2980,6 +2994,15 @@ export type Database = {
             }
             Returns: undefined
           }
+      log_impression_v1: {
+        Args: {
+          ip: unknown
+          product_id: string
+          referrer?: string
+          user_agent?: string
+        }
+        Returns: undefined
+      }
       mark_orders_as_sim: {
         Args: { p_mark?: boolean; p_order_ids: string[] }
         Returns: number
@@ -3054,6 +3077,10 @@ export type Database = {
             Returns: undefined
           }
         | { Args: { p_from: string; p_to: string }; Returns: undefined }
+      pending_reviews_admin_v1: {
+        Args: { limit_count?: number }
+        Returns: Json
+      }
       place_order: { Args: { p_user_id: string }; Returns: string }
       place_order_with_items:
         | {
@@ -3074,9 +3101,14 @@ export type Database = {
           removed: boolean
         }[]
       }
+      purge_old_events: { Args: { days?: number }; Returns: Json }
       purge_processed_events: {
         Args: { cutoff_ts?: string }
         Returns: undefined
+      }
+      purge_public_data: {
+        Args: { _dry_run?: boolean; _keep?: string[] }
+        Returns: Json
       }
       purge_webhook_logs: { Args: { cutoff_ts?: string }; Returns: number }
       purge_webhooks_failed_90d: { Args: never; Returns: undefined }

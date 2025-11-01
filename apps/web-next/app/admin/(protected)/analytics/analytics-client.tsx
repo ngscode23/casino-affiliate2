@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 
 import Section from "@ui/components/common/section";
-import Card from "@ui/components/common/card";
 import Skeleton from "@ui/components/common/skeleton";
 import {
   loadAnalytics,
@@ -14,6 +13,10 @@ import {
   type AnalyticsFunnel,
   type AnalyticsCompareBlock,
 } from "@/lib/admin/analytics";
+import {
+  AnalyticsTile as Tile,
+  ANALYTICS_KPI_LABEL as KPI_LABEL_CLASS,
+} from "./tiles";
 
 const PRESETS: Array<{ value: AnalyticsRangePreset; label: string }> = [
   { value: "7", label: "7 days" },
@@ -83,7 +86,7 @@ function formatMoneyMap(map?: Record<string, number>, fallback = "-") {
 }
 
 function formatRevenueDiff(abs?: Record<string, number>, pct?: Record<string, number>): string {
-  if (!abs || Object.keys(abs).length === 0) return "—";
+  if (!abs || Object.keys(abs).length === 0) return "-";
   return Object.entries(abs)
     .map(([currency, amount]) => {
       const pctValue = pct?.[currency] ?? 0;
@@ -91,6 +94,7 @@ function formatRevenueDiff(abs?: Record<string, number>, pct?: Record<string, nu
     })
     .join(" · ");
 }
+
 
 export function AdminAnalyticsClient() {
   const [range, setRange] = useState<AnalyticsRangePreset>("30");
@@ -242,10 +246,10 @@ export function AdminAnalyticsClient() {
 
   function KpiCard({ label, value }: { label: string; value: string }) {
     return (
-      <Card className="p-4">
-        <div className="text-sm text-(--text-dim)">{label}</div>
-        <div className="mt-1 text-2xl font-semibold">{value}</div>
-      </Card>
+      <Tile tone="muted" className="space-y-4">
+        <div className={KPI_LABEL_CLASS}>{label}</div>
+        <div className="text-3xl font-semibold text-white">{value}</div>
+      </Tile>
     );
   }
 
@@ -265,36 +269,41 @@ export function AdminAnalyticsClient() {
     const pa = step2 > 0 ? step3 / step2 : 0;
 
     return (
-      <Card className="space-y-3 p-4">
-        <h2 className="font-semibold">Funnel</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-neutral-200 bg-white p-3 text-slate-700 shadow-sm dark:border-white/15 dark:bg-white/5 dark:text-white/80">
-            <div className="text-sm text-slate-500 dark:text-white/60">Impressions</div>
-            <div className="text-xl font-semibold text-slate-900 dark:text-white">{step1.toLocaleString()}</div>
+      <Tile tone="muted" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Funnel</h2>
+          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            CTR {formatPct(ctr)} · CR {formatPct(cr)}
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Impressions</div>
+            <div className="mt-2 text-2xl font-semibold text-white">{step1.toLocaleString()}</div>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-white p-3 text-slate-700 shadow-sm dark:border-white/15 dark:bg-white/5 dark:text-white/80">
-            <div className="text-sm text-slate-500 dark:text-white/60">Clicks</div>
-            <div className="text-xl font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Clicks</div>
+            <div className="mt-2 text-2xl font-semibold text-white">
               {step2.toLocaleString()}
-              <span className="ml-2 text-xs text-slate-500 dark:text-white/60">{formatPct(ctr)}</span>
+              <span className="ml-2 text-xs font-medium text-sky-300">{formatPct(ctr)}</span>
             </div>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-white p-3 text-slate-700 shadow-sm dark:border-white/15 dark:bg-white/5 dark:text-white/80">
-            <div className="text-sm text-slate-500 dark:text-white/60">Payment attempts</div>
-            <div className="text-xl font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Payment attempts</div>
+            <div className="mt-2 text-2xl font-semibold text-white">
               {step3.toLocaleString()}
-              <span className="ml-2 text-xs text-slate-500 dark:text-white/60">{formatPct(pa)}</span>
+              <span className="ml-2 text-xs font-medium text-sky-300">{formatPct(pa)}</span>
             </div>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-white p-3 text-slate-700 shadow-sm dark:border-white/15 dark:bg-white/5 dark:text-white/80">
-            <div className="text-sm text-slate-500 dark:text-white/60">Paid</div>
-            <div className="text-xl font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Paid</div>
+            <div className="mt-2 text-2xl font-semibold text-white">
               {step4.toLocaleString()}
-              <span className="ml-2 text-xs text-slate-500 dark:text-white/60">{formatPct(cr)}</span>
+              <span className="ml-2 text-xs font-medium text-emerald-300">{formatPct(cr)}</span>
             </div>
           </div>
         </div>
-      </Card>
+      </Tile>
     );
   }
 
@@ -309,14 +318,13 @@ export function AdminAnalyticsClient() {
     pct: number;
     absStyle?: "integer" | "decimal" | "percent";
   }) {
-    const tone =
-      abs > 0 || pct > 0 ? "text-emerald-300" : abs < 0 || pct < 0 ? "text-rose-300" : "text-slate-500 dark:text-white/70";
+    const tone = abs > 0 || pct > 0 ? "text-emerald-300" : abs < 0 || pct < 0 ? "text-rose-300" : "text-slate-300";
     return (
-      <div className="flex items-center justify-between rounded border border-neutral-200 bg-white px-3 py-2 text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/80">
-        <span>{label}</span>
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-200 shadow-[0_12px_28px_rgba(8,12,32,0.35)]">
+        <span className="text-xs uppercase tracking-[0.25em] text-slate-500">{label}</span>
         <span className={`text-right ${tone}`}>
           {formatSigned(abs, absStyle)}
-          <span className="ml-2 text-xs text-slate-500 dark:text-white/60">{formatSigned(pct, "percent")}</span>
+          <span className="ml-2 text-xs text-slate-500">{formatSigned(pct, "percent")}</span>
         </span>
       </div>
     );
@@ -324,26 +332,26 @@ export function AdminAnalyticsClient() {
 
   function CompareSummary({ compare }: { compare: AnalyticsCompareBlock }) {
     const { rangePrev, diffAbs, diffPct } = compare;
-    const prevLabel = `${new Date(rangePrev.from).toLocaleDateString()} – ${new Date(rangePrev.to).toLocaleDateString()}`;
+    const prevLabel = `${new Date(rangePrev.from).toLocaleDateString()} - ${new Date(rangePrev.to).toLocaleDateString()}`;
 
     return (
-      <Card className="space-y-3 p-4">
+      <Tile tone="muted" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold">Compare with previous period</h2>
-          <span className="text-xs text-slate-500 dark:text-white/60">Baseline: {prevLabel}</span>
+          <h2 className="text-lg font-semibold text-white">Compare with previous period</h2>
+          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Baseline {prevLabel}</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm text-slate-600 dark:text-white/80">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm text-slate-200">
           <CompareRow label="Clicks" abs={diffAbs.clicks ?? 0} pct={diffPct.clicks ?? 0} />
           <CompareRow label="Impressions" abs={diffAbs.impressions ?? 0} pct={diffPct.impressions ?? 0} />
           <CompareRow label="Paid" abs={diffAbs.paid ?? 0} pct={diffPct.paid ?? 0} />
           <CompareRow label="Conversion rate" abs={diffAbs.cr ?? 0} pct={diffPct.cr ?? 0} absStyle="percent" />
           <CompareRow label="AOV" abs={diffAbs.aov ?? 0} pct={diffPct.aov ?? 0} absStyle="decimal" />
         </div>
-        <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/80">
-          <div className="text-slate-500 dark:text-white/60">Revenue delta</div>
-          <div className="mt-1 text-slate-900 dark:text-white">{formatRevenueDiff(diffAbs.revenue, diffPct.revenue)}</div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 shadow-[0_14px_30px_rgba(8,12,32,0.35)]">
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Revenue delta</div>
+          <div className="mt-2 text-white">{formatRevenueDiff(diffAbs.revenue, diffPct.revenue)}</div>
         </div>
-      </Card>
+      </Tile>
     );
   }
 
@@ -412,116 +420,136 @@ export function AdminAnalyticsClient() {
     [snapshot],
   );
 
-  return (
-    <Section className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Analytics</h1>
-        <p className="text-sm text-slate-500 dark:text-white/60">
-          Overview of impressions, clicks, conversions, and UTM performance.
-        </p>
-      </div>
-      {lastUpdated ? (
-        <div className="text-xs text-slate-500 dark:text-white/40">Updated {lastUpdated.toLocaleString()}</div>
-      ) : null}
-    </div>
+  const previousRangeLabel =
+    compare && snapshot?.compare
+      ? `${new Date(snapshot.compare.rangePrev.from).toLocaleDateString()} – ${new Date(
+          snapshot.compare.rangePrev.to,
+        ).toLocaleDateString()}`
+      : null;
 
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white/80">
-      <label htmlFor="analytics-range" className="text-slate-600 dark:text-white/70">
-        Range
-      </label>
-      <select
-        id="analytics-range"
-        className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/10 dark:bg-black/40 dark:text-white"
-        value={range}
-        onChange={(event) => setRange(event.target.value as AnalyticsRangePreset)}
-      >
-        {PRESETS.map((preset) => (
-          <option key={preset.value} value={preset.value}>
-            {preset.label}
-          </option>
-        ))}
-      </select>
-      {isCustom ? (
-        <>
-          <input
-            type="date"
-            className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/10 dark:bg-black/40 dark:text-white"
-            value={customFrom}
-            onChange={(event) => setCustomFrom(event.target.value)}
-          />
-          <input
-            type="date"
-            className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/10 dark:bg-black/40 dark:text-white"
-            value={customTo}
-            onChange={(event) => setCustomTo(event.target.value)}
-          />
-        </>
-      ) : null}
-      <details className="ml-auto w-full rounded-lg border border-neutral-200 bg-white p-3 shadow-sm md:w-auto md:min-w-[320px] dark:border-white/10 dark:bg-black/40">
-        <summary className="cursor-pointer text-slate-600 dark:text-white/70">Advanced filters</summary>
-        <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-white/80">
+  return (
+    <Section className="space-y-8 !px-3 sm:!px-6 lg:!px-10 pb-12">
+      <Tile tone="accent" className="space-y-6 overflow-hidden">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <div className={KPI_LABEL_CLASS}>Insights</div>
+            <h1 className="text-3xl font-semibold tracking-tight text-white">Analytics</h1>
+            <p className="text-sm text-slate-300">
+              Overview of impressions, clicks, conversions, and UTM performance.
+            </p>
+          </div>
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            {lastUpdated ? `Updated ${lastUpdated.toLocaleString()}` : "Awaiting data"}
+          </div>
+        </div>
+        {previousRangeLabel ? (
+          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
+            <span>Comparing with</span>
+            <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-slate-200">
+              {previousRangeLabel}
+            </span>
+          </div>
+        ) : null}
+      </Tile>
+
+      <Tile tone="base" className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
+          <label htmlFor="analytics-range" className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            Range
+          </label>
+          <select
+            id="analytics-range"
+            className="h-12 rounded-2xl border border-white/10 bg-[#0b1524]/80 px-4 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+            value={range}
+            onChange={(event) => setRange(event.target.value as AnalyticsRangePreset)}
+          >
+            {PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+          {isCustom ? (
+            <>
+              <input
+                type="date"
+                className="h-12 rounded-2xl border border-white/10 bg-[#0b1524]/80 px-4 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                value={customFrom}
+                onChange={(event) => setCustomFrom(event.target.value)}
+              />
+              <input
+                type="date"
+                className="h-12 rounded-2xl border border-white/10 bg-[#0b1524]/80 px-4 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                value={customTo}
+                onChange={(event) => setCustomTo(event.target.value)}
+              />
+            </>
+          ) : null}
+        </div>
+        <details className="rounded-2xl border border-white/10 bg-[#091321]/80 p-4 text-sm text-slate-200">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+            Advanced filters
+          </summary>
+          <div className="mt-4 space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                 placeholder="Slug comma separated"
                 value={slugFilter}
                 onChange={(event) => setSlugFilter(event.target.value)}
               />
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="UTM source"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                placeholder="UTM source(s)"
                 value={utmSourceFilter}
                 onChange={(event) => setUtmSourceFilter(event.target.value)}
               />
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="UTM campaign"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                placeholder="UTM campaign(s)"
                 value={utmCampaignFilter}
                 onChange={(event) => setUtmCampaignFilter(event.target.value)}
               />
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="Device (desktop,mobile)"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                placeholder="Device(s)"
                 value={deviceFilter}
                 onChange={(event) => setDeviceFilter(event.target.value)}
               />
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="Language (en,ru)"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                placeholder="Language(s)"
                 value={langFilter}
                 onChange={(event) => setLangFilter(event.target.value)}
               />
               <input
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="Referrer host"
+                className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                placeholder="Referrer domain(s)"
                 value={referrerFilter}
                 onChange={(event) => setReferrerFilter(event.target.value)}
               />
-              <input
-                type="number"
-                min={10}
-                max={300}
-                step={10}
-                className="h-9 rounded border border-neutral-300 bg-white px-3 text-sm text-slate-900 outline-none shadow-sm focus:border-(--accent) focus:ring-1 focus:ring-(--accent)/20 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                placeholder="Top limit"
-                value={limitInput}
-                onChange={(event) => setLimitInput(event.target.value)}
-              />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-slate-600 dark:text-white/80">
+            <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-slate-500">
+              <label className="flex items-center gap-2">
+                <span>Limit</span>
+                <input
+                  className="h-10 w-20 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                  value={limitInput}
+                  onChange={(event) => setLimitInput(event.target.value)}
+                />
+              </label>
+              <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border border-white/30 bg-white/10 text-(--accent) focus:ring-(--accent)"
                   checked={compare}
                   onChange={(event) => setCompare(event.target.checked)}
+                  className="h-4 w-4 rounded border border-white/20 bg-white/10 text-sky-500 focus:ring-sky-500/50"
                 />
-                Compare with previous period
+                <span>Compare previous</span>
               </label>
               <button
                 type="button"
-                className="ml-auto inline-flex items-center rounded border border-neutral-200 bg-white px-3 py-1 text-xs text-slate-700 transition hover:-translate-y-px hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent)/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-100 transition hover:border-white/20 hover:bg-white/15 disabled:opacity-60"
                 onClick={resetFilters}
                 disabled={!hasAdvancedFilters}
               >
@@ -530,33 +558,29 @@ export function AdminAnalyticsClient() {
             </div>
           </div>
         </details>
-      </div>
-
-      {appliedFilters.length ? (
-        <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/60">
-          <span className="text-slate-500 dark:text-white/50">Active filters:</span>
-          {appliedFilters.map((token) => (
-            <span key={token} className="rounded-full border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5 px-2 py-1 text-slate-500 dark:text-white/70">
-              {token}
-            </span>
-          ))}
-        </div>
-      ) : null}
+        {appliedFilters.length ? (
+          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-slate-500">
+            <span>Active filters:</span>
+            {appliedFilters.map((token) => (
+              <span key={token} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200">
+                {token}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </Tile>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <Tile tone="muted" className="space-y-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Card key={index} className="p-4">
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="mt-3 h-10 w-full" />
-            </Card>
+            <Skeleton key={index} className="h-10 w-full rounded-2xl" />
           ))}
-        </div>
+        </Tile>
       ) : error ? (
-        <Card className="border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</Card>
+        <Tile tone="muted" className="text-sm text-rose-300">{error}</Tile>
       ) : snapshot ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
             <KpiCard label="Impressions" value={(snapshot.totals.impressions || 0).toLocaleString()} />
             <KpiCard label="Clicks" value={(snapshot.totals.clicks || 0).toLocaleString()} />
             <KpiCard
@@ -582,7 +606,9 @@ export function AdminAnalyticsClient() {
 
           <FunnelView funnel={snapshot.funnel} />
 
-          <ClicksByDay data={snapshot.byDay.clicks} label={presetLabel} />
+          <div className="lg:col-span-2">
+            <ClicksByDay data={snapshot.byDay.clicks} label={presetLabel} />
+          </div>
 
           <TopSlugsBlock
             data={snapshot.topSlugs}
@@ -602,33 +628,34 @@ export function AdminAnalyticsClient() {
 
           <UtmTableBlock data={snapshot.utm} onExportCSVAction={handleExportUtmCSV} useVirtualization={virt.utm} />
 
-          <Card className="space-y-3 p-4">
-            <h2 className="font-semibold">Impressions by device</h2>
-            <div className="space-y-1 text-sm text-slate-600 dark:text-white/80">
+          <Tile tone="muted" className="space-y-4">
+            <h2 className="text-lg font-semibold text-white">Impressions by device</h2>
+            <div className="space-y-2 text-sm text-slate-200">
               {snapshot.devices.map((entry) => (
-                <div key={entry.device} className="flex justify-between gap-3">
-                  <span className="capitalize">{entry.device}</span>
-                  <span className="text-slate-500 dark:text-white/70">{entry.count}</span>
+                <div key={entry.device} className="flex items-center justify-between gap-3">
+                  <span className="capitalize text-slate-400">{entry.device}</span>
+                  <span className="font-semibold text-white">{entry.count}</span>
                 </div>
               ))}
             </div>
-          </Card>
+          </Tile>
 
-          <Card className="space-y-3 p-4">
-            <h2 className="font-semibold">Impressions by language</h2>
-            <div className="space-y-1 text-sm text-slate-600 dark:text-white/80">
+          <Tile tone="muted" className="space-y-4">
+            <h2 className="text-lg font-semibold text-white">Impressions by language</h2>
+            <div className="space-y-2 text-sm text-slate-200">
               {snapshot.languages.map((entry) => (
-                <div key={entry.lang} className="flex justify-between gap-3">
-                  <span>{entry.lang}</span>
-                  <span className="text-slate-500 dark:text-white/70">{entry.count}</span>
+                <div key={entry.lang} className="flex items-center justify-between gap-3">
+                  <span className="text-slate-400">{entry.lang}</span>
+                  <span className="font-semibold text-white">{entry.count}</span>
                 </div>
               ))}
             </div>
-          </Card>
+          </Tile>
         </div>
       ) : (
-        <Card className="p-4 text-sm text-slate-500 dark:text-white/60">Select range to load analytics.</Card>
+        <Tile tone="muted" className="text-sm text-slate-300">Select range to load analytics.</Tile>
       )}
+
     </Section>
   );
 }

@@ -110,6 +110,11 @@ describe("track API routes", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith("log_impression", expect.objectContaining({ product_id: "prod-1" }));
+    expect(rpc).toHaveBeenCalledWith("log_impression_v1", {
+      product_id: "prod-1",
+      ip: null,
+      referrer: null,
+      user_agent: null,
+    });
   });
 });

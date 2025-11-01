@@ -1,7 +1,7 @@
 "use client";
 
-import Card from "@ui/components/common/card";
 import VirtualList from "./VirtualList";
+import { AnalyticsTile as Tile } from "../tiles";
 
 type TopSlug = {
   slug: string;
@@ -36,14 +36,14 @@ export default function TopSlugs({
   const showVirtual = useVirtualization && data.length > 50;
 
   return (
-    <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Top slugs</h2>
+    <Tile tone="muted" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-white">Top slugs</h2>
         <div className="flex gap-2">
           {onExportCSVAction ? (
             <button
               type="button"
-              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm transition hover:-translate-y-px hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent)/30 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+              className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-100 transition hover:border-white/20 hover:bg-white/15"
               onClick={onExportCSVAction}
             >
               Export CSV
@@ -52,7 +52,7 @@ export default function TopSlugs({
           {onExportJSONAction ? (
             <button
               type="button"
-              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm transition hover:-translate-y-px hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--accent)/30 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+              className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-100 transition hover:border-white/20 hover:bg-white/15"
               onClick={onExportJSONAction}
             >
               Export JSON
@@ -65,35 +65,42 @@ export default function TopSlugs({
         <VirtualList
           items={data}
           height={360}
-          itemHeight={36}
+          itemHeight={40}
           keyExtractor={(item) => item.slug}
           renderItem={(entry) => (
-            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 text-xs text-slate-600 sm:text-sm dark:text-white/80">
-              <span className="truncate font-medium text-slate-900 dark:text-white">{entry.slug}</span>
-              <span className="text-right">{entry.clicks}</span>
-              <span className="text-right">{entry.impressions}</span>
-              <span className="text-right text-slate-500 dark:text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
-              <span className="text-right">{entry.paid ?? 0}</span>
-              <span className="text-right text-slate-500 dark:text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
-              <span className="col-span-full truncate text-right text-slate-500 dark:text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
+            <div className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 rounded-2xl border border-white/5 bg-white/5 px-4 py-2 text-xs text-slate-200 sm:text-sm">
+              <span className="truncate font-semibold text-white">{entry.slug}</span>
+              <span className="text-right text-slate-300">{entry.clicks}</span>
+              <span className="text-right text-slate-300">{entry.impressions}</span>
+              <span className="text-right text-slate-500">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right text-slate-300">{entry.paid ?? 0}</span>
+              <span className="text-right text-slate-500">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-slate-400 sm:col-span-1">
+                {formatRevenue(entry.revenue)}
+              </span>
             </div>
           )}
         />
       ) : (
-        <div className="space-y-2 text-sm text-slate-600 dark:text-white/80">
+        <div className="space-y-2 text-xs text-slate-300 sm:text-sm">
           {data.slice(0, 10).map((entry) => (
-            <div key={entry.slug} className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] gap-3 text-xs text-slate-600 sm:text-sm dark:text-white/80">
-              <span className="truncate font-medium text-slate-900 dark:text-white">{entry.slug}</span>
-              <span className="text-right">{entry.clicks}</span>
-              <span className="text-right">{entry.impressions}</span>
-              <span className="text-right text-slate-500 dark:text-white/70">{(entry.ctr * 100).toFixed(1)}%</span>
-              <span className="text-right">{entry.paid ?? 0}</span>
-              <span className="text-right text-slate-500 dark:text-white/70">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
-              <span className="col-span-full truncate text-right text-slate-500 dark:text-white/80 sm:col-span-1">{formatRevenue(entry.revenue)}</span>
+            <div
+              key={entry.slug}
+              className="grid grid-cols-[minmax(0,1fr),auto,auto,auto,auto,auto] items-center gap-3 rounded-2xl border border-white/5 bg-white/5 px-4 py-2"
+            >
+              <span className="truncate font-semibold text-white">{entry.slug}</span>
+              <span className="text-right text-slate-300">{entry.clicks}</span>
+              <span className="text-right text-slate-300">{entry.impressions}</span>
+              <span className="text-right text-slate-500">{(entry.ctr * 100).toFixed(1)}%</span>
+              <span className="text-right text-slate-300">{entry.paid ?? 0}</span>
+              <span className="text-right text-slate-500">{((entry.cr ?? 0) * 100).toFixed(1)}%</span>
+              <span className="col-span-full truncate text-right text-slate-400 sm:col-span-1">
+                {formatRevenue(entry.revenue)}
+              </span>
             </div>
           ))}
         </div>
       )}
-    </Card>
+    </Tile>
   );
 }

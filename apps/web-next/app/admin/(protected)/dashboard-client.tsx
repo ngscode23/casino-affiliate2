@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MessageSquare } from "lucide-react";
 
 import Section from "@ui/components/common/section";
-import Card from "@ui/components/common/card";
 import Button from "@ui/components/common/button";
 import Skeleton from "@ui/components/common/skeleton";
 import { toast } from "@ui/components/common/toast";
 import { sanitizeSearchParam as sanitize } from "@shared/lib/sanitize";
+import clsx from "clsx";
 
-import { loadDashboardMetrics, type BarPoint, type LinePoint, type DashboardMetrics } from "@/lib/admin/metrics";
+import { loadDashboardMetrics, type DashboardMetrics } from "@/lib/admin/metrics";
 import {
   fetchPendingReviews,
   approveReview,
@@ -23,8 +23,8 @@ import {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-sm text-(--text-dim)">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-500">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
     </div>
   );
 }
@@ -41,50 +41,63 @@ function toCurrency(n: number) {
   }
 }
 
-function Bars({ data }: { data: BarPoint[] }) {
-  const tooltipStyle = {
-    background: "rgba(12,16,22,0.96)",
-    border: "1px solid rgba(255,255,255,.12)",
-    color: "rgb(var(--text))",
-  } as React.CSSProperties;
-  return (
-    <div className="h-40">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
-          <XAxis dataKey="label" hide tickLine={false} axisLine={false} />
-          <Tooltip
-            contentStyle={{ ...tooltipStyle, fontSize: 12 }}
-            itemStyle={{ color: "rgb(var(--text))" }}
-            labelStyle={{ color: "rgb(var(--text))", fontWeight: 600 }}
-            cursor={{ fill: "rgba(255,255,255,0.05)" }}
-          />
-          <Bar dataKey="value" fill="var(--accent,#60a5fa)" radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
+const BarsChart = dynamic(
+  () => import("./dashboard-charts.client").then((mod) => mod.BarsChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 w-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    ),
+  },
+);
 
-function LineMini({ data }: { data: LinePoint[] }) {
-  const tooltipStyle = {
-    background: "rgba(12,16,22,0.96)",
-    border: "1px solid rgba(255,255,255,.12)",
-    color: "rgb(var(--text))",
-  } as React.CSSProperties;
+const LineMiniChart = dynamic(
+  () => import("./dashboard-charts.client").then((mod) => mod.LineMiniChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 w-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    ),
+  },
+);
+
+const GoalPieChart = dynamic(
+  () => import("./dashboard-charts.client").then((mod) => mod.GoalPieChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[140px] w-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    ),
+  },
+);
+
+const TILE_BASE =
+  "relative overflow-hidden rounded-3xl border border-white/6 bg-[#0c141f]/90 p-6 shadow-[0_28px_55px_rgba(8,12,32,0.55)] backdrop-blur";
+const TILE_MUTED =
+  "relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a121f]/85 p-6 shadow-[0_22px_38px_rgba(8,12,32,0.45)] backdrop-blur";
+const TILE_ACCENT =
+  "relative overflow-hidden rounded-3xl border border-sky-500/40 bg-gradient-to-br from-[#142742] via-[#0f1d33] to-[#0a1425] p-6 shadow-[0_32px_55px_rgba(14,116,219,0.35)] backdrop-blur";
+const TITLE_LABEL_CLASS = "text-[11px] font-semibold uppercase tracking-[0.4em] text-slate-400";
+const METRIC_VALUE_CLASS = "mt-4 text-4xl font-semibold tracking-tight text-white";
+
+type TileTone = "base" | "muted" | "accent";
+
+type TileProps = React.HTMLAttributes<HTMLDivElement> & {
+  tone?: TileTone;
+  children: ReactNode;
+};
+
+function Tile({ tone = "base", className, children, ...rest }: TileProps) {
+  const toneClass = tone === "muted" ? TILE_MUTED : tone === "accent" ? TILE_ACCENT : TILE_BASE;
   return (
-    <div className="h-40">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ left: 0, right: 0, top: 10, bottom: 0 }}>
-          <XAxis dataKey="label" hide />
-          <Tooltip
-            contentStyle={{ ...tooltipStyle, fontSize: 12 }}
-            itemStyle={{ color: "rgb(var(--text))" }}
-            labelStyle={{ color: "rgb(var(--text))", fontWeight: 600 }}
-            cursor={{ stroke: "rgba(255,255,255,0.2)" }}
-          />
-          <Line type="monotone" dataKey="value" stroke="currentColor" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+    <div {...rest} className={clsx(toneClass, className)}>
+      {children}
     </div>
   );
 }
@@ -138,39 +151,52 @@ function MessagesTree({
     const replyable = isUuid(messageId);
     const isActive = replyable && currentTargetId === messageId;
     return (
-      <li key={node.message.id} className={depth > 0 ? "mt-2 border-l border-border/40 pl-3" : undefined}>
-        <div className="text-sm">
-          <div className="text-xs text-(--text-dim)">
-            {(node.message.author_role || "user").toUpperCase()} • {createdLabel}
-          </div>
-          <div className="whitespace-pre-line text-foreground/90">{sanitize(node.message.body)}</div>
-          {allowReply && replyable ? (
-            <div className="mt-1 text-xs">
-              <Button
-                variant={isActive ? "secondary" : "soft"}
-                className="h-7 min-h-0 px-2 text-xs"
-                onClick={() => onChooseTarget(messageId)}
-              >
-                {isActive ? "Replying here" : "Reply here"}
-              </Button>
-            </div>
-          ) : null}
+      <li
+        key={node.message.id}
+        className={clsx(
+          "rounded-2xl border border-white/8 bg-[#101c31]/75 p-4 text-sm text-slate-200 shadow-[0_12px_30px_rgba(8,12,32,0.35)]",
+          depth > 0 && "ml-5 mt-3",
+        )}
+      >
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.25em] text-slate-400">
+          <span>{(node.message.author_role || "user").toUpperCase()}</span>
+          <span className="text-slate-500">{createdLabel}</span>
         </div>
+        <div className="mt-3 whitespace-pre-line text-[13px] leading-5 text-slate-100">
+          {sanitize(node.message.body)}
+        </div>
+        {allowReply && replyable ? (
+          <div className="mt-3">
+            <Button
+              variant="ghost"
+              className={clsx(
+                "!min-h-0 h-8 !rounded-full border border-white/10 bg-white/10 px-3 text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-100 hover:bg-white/15",
+                isActive && "border-sky-500/60 bg-sky-500/20 text-sky-200",
+              )}
+              onClick={() => onChooseTarget(messageId)}
+            >
+              {isActive ? "Ответ здесь" : "Ответить здесь"}
+            </Button>
+          </div>
+        ) : null}
         {node.children.length ? (
-          <ul className="mt-1 space-y-2">{node.children.map((c) => renderNode(c, depth + 1))}</ul>
+          <ul className="mt-3 space-y-3">{node.children.map((c) => renderNode(c, depth + 1))}</ul>
         ) : null}
       </li>
     );
   };
   return (
-    <div className="rounded-md border border-border/40 bg-card/20 p-3">
-      <div className="mb-2 flex items-center justify-between text-xs text-(--text-dim)">
+    <div className="rounded-3xl border border-white/6 bg-[#0b1425]/70 p-4 shadow-[0_20px_38px_rgba(8,12,32,0.45)]">
+      <div className="mb-3 flex items-center justify-between text-[11px] uppercase tracking-[0.35em] text-slate-400">
         <span>Messages</span>
-        <div className="flex items-center gap-2">
-          <span>Target:</span>
+        <div className="flex items-center gap-2 text-[10px] tracking-[0.25em] text-slate-500">
+          <span>Target</span>
           <Button
-            variant={!currentTargetId ? "secondary" : "soft"}
-            className="h-7 min-h-0 px-2 text-xs"
+            variant="ghost"
+            className={clsx(
+              "!min-h-0 h-8 !rounded-full border border-white/10 bg-white/10 px-3 text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-100 hover:bg-white/15",
+              !currentTargetId && "border-sky-500/60 bg-sky-500/20 text-sky-200",
+            )}
             onClick={() => onChooseTarget(null)}
             disabled={!allowReply}
           >
@@ -178,8 +204,12 @@ function MessagesTree({
           </Button>
         </div>
       </div>
-      {nodes.length ? <ul className="space-y-2">{nodes.map((n) => renderNode(n, 0))}</ul> : (
-        <div className="text-xs text-(--text-dim)">No messages yet.</div>
+      {nodes.length ? (
+        <ul className="space-y-3">{nodes.map((n) => renderNode(n, 0))}</ul>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-xs text-slate-500">
+          No messages yet.
+        </div>
       )}
     </div>
   );
@@ -243,6 +273,11 @@ export function AdminDashboardClient() {
     void loadPending();
   }, [loadPending]);
 
+  const scrollToReviews = useCallback(() => {
+    if (typeof window === "undefined") return;
+    document.getElementById("pending-reviews")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   const handleModerate = useCallback(
     async (review: PendingReviewItem, action: "approve" | "reject") => {
       const payload: Record<string, unknown> = {
@@ -289,7 +324,7 @@ export function AdminDashboardClient() {
     async (review: PendingReviewItem) => {
       const draft = (replyDrafts[review.id] ?? "").trim();
       if (!draft) {
-        toast("Введите ответ для отправки", { variant: "error" });
+        toast("Введите текст ответа перед отправкой", { variant: "error" });
         return;
       }
       try {
@@ -326,22 +361,36 @@ export function AdminDashboardClient() {
 
   if (loading) {
     return (
-      <Section className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 9 }).map((_, index) => (
-          <Card key={index} className="p-4">
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="mt-3 h-10 w-1/3" />
-            <Skeleton className="mt-4 h-24 w-full" />
-          </Card>
-        ))}
+      <Section className="space-y-10 !px-3 sm:!px-6 lg:!px-10 pb-12">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Tile key={`kpi-${index}`} tone={index === 1 ? "accent" : "base"}>
+              <Skeleton className="h-3 w-24 rounded-full" />
+              <Skeleton className="mt-4 h-10 w-1/3 rounded-xl" />
+            </Tile>
+          ))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Tile key={`chart-${index}`} tone="muted">
+              <Skeleton className="h-40 w-full rounded-3xl" />
+            </Tile>
+          ))}
+        </div>
+        <Tile tone="base">
+          <Skeleton className="h-5 w-56 rounded-full" />
+          <Skeleton className="mt-4 h-32 w-full rounded-3xl" />
+        </Tile>
       </Section>
     );
   }
 
   if (error) {
     return (
-      <Section className="p-6">
-        <Card className="p-4 text-sm text-rose-500">{error}</Card>
+      <Section className="!px-3 sm:!px-6 lg:!px-10 pb-12">
+        <Tile tone="base">
+          <div className="text-sm text-rose-300">{error}</div>
+        </Tile>
       </Section>
     );
   }
@@ -349,242 +398,293 @@ export function AdminDashboardClient() {
   if (!metrics) return null;
 
   const { kpis, sales, expenses, profit, cashflow } = metrics;
+  const spotlightReview = pendingReviews[0] ?? null;
+  const recentExpenses = expenses.slice(-3);
 
   return (
-    <Section className="p-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card className="p-4">
-          <Stat label="Cash" value={toCurrency(kpis.cash)} />
-        </Card>
-        <Card className="p-4">
-          <div className="mb-1 text-sm text-(--text-dim)">Sales Goal</div>
-          <div className="grid grid-cols-2 items-center gap-2">
-            <div className="h-[140px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    dataKey="value"
-                    data={[
-                      { name: "Done", value: kpis.goalPct },
-                      { name: "Remain", value: Math.max(0, 100 - kpis.goalPct) },
-                    ]}
-                    innerRadius={40}
-                    outerRadius={60}
-                    startAngle={90}
-                    endAngle={-270}
-                    stroke="none"
-                  >
-                    <Cell fill="var(--accent,#60a5fa)" />
-                    <Cell fill="rgba(255,255,255,0.08)" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-semibold">{kpis.goalPct}%</div>
-              <div className="mt-1 text-xs text-(--text-dim)">
-                <span className="mr-2 inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-(--accent,#60a5fa)" />
+    <Section className="space-y-12 !px-3 sm:!px-6 lg:!px-10 pb-12">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Tile tone="accent" className="overflow-hidden">
+          <div className={TITLE_LABEL_CLASS}>Cash</div>
+          <div className={METRIC_VALUE_CLASS}>{toCurrency(kpis.cash)}</div>
+          <div className="mt-3 text-sm text-slate-400">Available balance</div>
+          <span className="pointer-events-none absolute -top-16 right-0 h-56 w-56 rounded-full bg-sky-500/25 blur-3xl" />
+        </Tile>
+        <Tile tone="accent" className="overflow-hidden">
+          <div className={TITLE_LABEL_CLASS}>Goal Progress</div>
+          <div className="mt-6 flex items-center gap-6">
+            <GoalPieChart value={kpis.goalPct} />
+            <div>
+              <div className="text-4xl font-semibold text-white">{kpis.goalPct}%</div>
+              <div className="mt-3 space-y-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-sky-400" />
                   Done
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-white/20" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-white/25" />
                   Remain
-                </span>
+                </div>
               </div>
             </div>
           </div>
-        </Card>
-        <Card className="p-4">
-          <Stat label="Cashflow forecast" value={toCurrency(kpis.cashflowForecast)} />
-        </Card>
+          <span className="pointer-events-none absolute -bottom-12 left-12 h-44 w-44 rounded-full bg-fuchsia-500/25 blur-3xl" />
+        </Tile>
+        <Tile tone="accent" className="overflow-hidden">
+          <div className={TITLE_LABEL_CLASS}>Cashflow Forecast</div>
+          <div className={METRIC_VALUE_CLASS}>{toCurrency(kpis.cashflowForecast)}</div>
+          <div className="mt-3 text-sm text-slate-400">Next 30 days</div>
+          <span className="pointer-events-none absolute -top-12 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl" />
+        </Tile>
+      </div>
 
-        <Card className="p-4">
-          <div className="mb-2 text-sm text-(--text-dim)">Sales (12m)</div>
-          <Bars data={sales} />
-        </Card>
-        <Card className="p-4">
-          <div className="mb-2 text-sm text-(--text-dim)">Expenses (12m)</div>
-          <Bars data={expenses} />
-        </Card>
-        <Card className="p-4">
-          <div className="mb-2 text-sm text-(--text-dim)">Profit (12m)</div>
-          <Bars data={profit} />
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Tile tone="muted">
+          <div className={TITLE_LABEL_CLASS}>Sales · 12 months</div>
+          <div className="mt-4">
+            <BarsChart data={sales} />
+          </div>
+        </Tile>
+        <Tile tone="muted">
+          <div className={TITLE_LABEL_CLASS}>Profit · 12 months</div>
+          <div className="mt-4">
+            <BarsChart data={profit} />
+          </div>
+        </Tile>
+        <Tile tone="muted">
+          <div className={TITLE_LABEL_CLASS}>Productivity · 7 days</div>
+          <div className="mt-4">
+            <LineMiniChart data={cashflow} />
+          </div>
+        </Tile>
+      </div>
 
-        <Card className="p-4">
-          <div className="text-sm text-(--text-dim)">Cards evolution</div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Tile tone="base">
+          <div className={TITLE_LABEL_CLASS}>Review pipeline</div>
+          <div className="mt-6 grid grid-cols-3 gap-4 text-white">
             <Stat label="Pending" value={String(kpis.cards.pending)} />
-            <Stat label="In Progress" value={String(kpis.cards.inProgress)} />
+            <Stat label="In progress" value={String(kpis.cards.inProgress)} />
             <Stat label="Done" value={String(kpis.cards.done)} />
           </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-(--text-dim)">Productivity (7d)</div>
-          <div className="mt-2">
-            <LineMini data={cashflow} />
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-400">
+            Обновляем данные каждые 60 секунд.
           </div>
-        </Card>
-        <Card className="p-4">
-          <div className="mb-2 text-sm text-(--text-dim)">To-do</div>
-          <ul className="list-disc space-y-1 pl-5 text-sm">
-            <li>Review supplier invoices</li>
-            <li>Approve two product listings</li>
-            <li>Check weekly ad spend</li>
-            <li>Follow up with vendor</li>
-          </ul>
-        </Card>
-        <Card id="pending-reviews" className="p-4 md:col-span-2 xl:col-span-3">
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2 text-sm text-(--text-dim)">
-                <MessageSquare size={18} />
-                <span>Pending reviews</span>
+        </Tile>
+        <Tile tone="base">
+          <div className={TITLE_LABEL_CLASS}>Top spend</div>
+          <div className="mt-6 space-y-4 text-sm text-slate-200">
+            {recentExpenses.length ? (
+              [...recentExpenses].reverse().map((point) => (
+                <div key={point.label} className="flex items-center justify-between">
+                  <span className="uppercase tracking-[0.25em] text-slate-500">{point.label}</span>
+                  <span className="font-semibold text-white">{toCurrency(point.value)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-500">Недостаточно данных.</div>
+            )}
+          </div>
+        </Tile>
+        <Tile tone="base" className="flex flex-col gap-5">
+          <div className={TITLE_LABEL_CLASS}>Latest review</div>
+          {spotlightReview ? (
+            <>
+              <div>
+                <div className="text-sm font-semibold text-white">
+                  {spotlightReview.product_title || "Untitled product"}
+                </div>
+                <div className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                  {spotlightReview.product_slug ? `/${spotlightReview.product_slug}` : "-"}
+                </div>
               </div>
-              <div className="mt-1 text-2xl font-semibold">{pendingTotal}</div>
-            </div>
-            <Button
-              variant="ghost"
-              className="h-9 min-h-0 px-3 text-xs"
-              onClick={() => void loadPending()}
-              disabled={reviewsLoading}
-            >
-              Refresh
-            </Button>
-          </div>
-          {reviewsLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <Skeleton key={index} className="h-16 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : reviewsError ? (
-            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
-              {reviewsError}
-            </div>
-          ) : pendingReviews.length === 0 ? (
-            <div className="rounded border border-border/40 bg-card/60 p-4 text-sm text-muted-foreground">
-              All caught up — no pending reviews.
-            </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
+                {(spotlightReview.review_body ?? "No review text provided.").slice(0, 220)}
+                {spotlightReview.review_body && spotlightReview.review_body.length > 220 ? "…" : ""}
+              </div>
+              <div className="mt-auto flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  className="!min-h-0 h-10 !rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100 hover:border-white/20 hover:bg-white/15"
+                  onClick={scrollToReviews}
+                >
+                  Manage
+                </Button>
+                <Button
+                  variant="primary"
+                  className="!min-h-0 h-10 !rounded-full !bg-[#f40083] px-5 text-xs font-semibold uppercase tracking-[0.3em] text-white shadow-[0_12px_30px_rgba(244,0,131,0.35)] hover:shadow-[0_16px_36px_rgba(244,0,131,0.45)]"
+                  onClick={scrollToReviews}
+                >
+                  Reply
+                </Button>
+              </div>
+            </>
           ) : (
-            <ul className="space-y-3">
-              {pendingReviews.map((review) => {
-                const currentTargetId = replyTargets[review.id] ?? null;
-                const targetLabel =
-                  currentTargetId && isUuid(currentTargetId)
-                    ? `message ${currentTargetId.slice(0, 8)}...`
-                    : "root";
-                const canReply = typeof review.review_id === "string" && isUuid(review.review_id);
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-500">
+              Пока нет новых отзывов.
+            </div>
+          )}
+        </Tile>
+      </div>
 
-                return (
-                  <li key={review.id} className="rounded-lg border border-border/40 bg-card/40 p-4">
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <div>
-                          <div className="text-sm font-semibold text-foreground">
-                            {review.product_title || "Untitled product"}
-                          </div>
-                          <div className="text-xs text-(--text-dim)">
-                            {review.product_slug ? `/${review.product_slug}` : "-"}
-                          </div>
-                        </div>
-                        {review.review_title ? (
-                          <div className="text-sm font-medium text-foreground">{review.review_title}</div>
-                        ) : null}
-                        <div className="whitespace-pre-line text-sm text-foreground/80">
-                          {review.review_body || "No review text provided."}
-                        </div>
-                        <div className="flex flex-wrap gap-4 text-xs text-(--text-dim)">
-                          <span>Rating: {review.rating != null ? review.rating : "-"}</span>
-                          <span>
-                            Submitted:{" "}
-                            {new Date(review.created_at).toLocaleString(undefined, {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </span>
-                        </div>
+      <Tile id="pending-reviews" tone="base" className="space-y-6 border-white/8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.35em] text-slate-400">
+              <MessageSquare size={16} />
+              <span>Pending reviews</span>
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-white">{pendingTotal}</div>
+          </div>
+          <Button
+            variant="ghost"
+            className="!min-h-0 h-10 !rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100 hover:border-white/20 hover:bg-white/15 disabled:opacity-60"
+            onClick={() => void loadPending()}
+            disabled={reviewsLoading}
+          >
+            Refresh
+          </Button>
+        </div>
+        {reviewsLoading ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-32 w-full rounded-3xl" />
+            ))}
+          </div>
+        ) : reviewsError ? (
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {reviewsError}
+          </div>
+        ) : pendingReviews.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-500">
+            Все отзывы обработаны.
+          </div>
+        ) : (
+          <ul className="space-y-4">
+            {pendingReviews.map((review) => {
+              const currentTargetId = replyTargets[review.id] ?? null;
+              const targetLabel =
+                currentTargetId && isUuid(currentTargetId)
+                  ? `message ${currentTargetId.slice(0, 8)}...`
+                  : "root";
+              const canReply = typeof review.review_id === "string" && isUuid(review.review_id);
+
+              return (
+                <li
+                  key={review.id}
+                  className="rounded-3xl border border-white/8 bg-[#101c31]/80 p-5 shadow-[0_22px_40px_rgba(8,12,32,0.5)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-white">
+                        {review.product_title || "Untitled product"}
                       </div>
-
-                      {review.reply_body ? (
-                        <div className="rounded-md border border-border/40 bg-card/30 p-3 text-sm text-foreground/90">
-                          <div className="text-xs text-(--text-dim)">
-                            Admin reply{review.reply_created_at ? ` ${new Date(review.reply_created_at).toLocaleString(undefined, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}` : ""}
-                          </div>
-                          <div className="mt-1 whitespace-pre-line">{review.reply_body}</div>
-                        </div>
-                      ) : null}
-
-                      {Array.isArray(review.messages) && review.messages.length > 0 ? (
-                        <MessagesTree
-                          messages={review.messages}
-                          onChooseTarget={(id) => setReplyTargets((prev) => ({ ...prev, [review.id]: id }))}
-                          currentTargetId={currentTargetId}
-                          allowReply={canReply}
-                        />
-                      ) : null}
-
-                      <div className="space-y-2">
-                        <textarea
-                          rows={3}
-                          className="w-full rounded-md border border-border/40 bg-card/20 px-3 py-2 text-sm text-foreground placeholder:text-(--text-dim) focus:border-(--accent) focus:outline-none focus:ring-1 focus:ring-(--accent)/30"
-                          placeholder="???????? ????? ??????????"
-                          value={replyDrafts[review.id] ?? ""}
-                          onChange={(event) =>
-                            setReplyDrafts((prev) => ({ ...prev, [review.id]: event.target.value }))
-                          }
-                          disabled={!canReply || replySavingId === review.id || moderatingId === review.id}
-                        />
-                        <div className="text-xs text-(--text-dim)">
-                          Target: {targetLabel}
-                        </div>
-                        {!canReply ? (
-                          <div className="text-xs text-rose-400">
-                            Нельзя ответить: запись отзыва не найдена (только чтение).
-                          </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            className="h-9 min-h-0 px-3 text-xs"
-                            disabled={!canReply || replySavingId === review.id || moderatingId === review.id}
-                            onClick={() => void handleReply(review)}
-                          >
-                            {replySavingId === review.id ? "Sending..." : "Reply & Approve"}
-                          </Button>
-                          <Button
-                            variant="soft"
-                            className="h-9 min-h-0 px-3 text-xs"
-                            disabled={!canReply || moderatingId === review.id || replySavingId === review.id}
-                            onClick={() => void handleModerate(review, "approve")}
-                          >
-                            {moderatingId === review.id ? "Saving..." : "Approve"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-9 min-h-0 px-3 text-xs"
-                            disabled={!canReply || moderatingId === review.id || replySavingId === review.id}
-                            onClick={() => void handleModerate(review, "reject")}
-                          >
-                            Reject
-                          </Button>
-                        </div>
+                      <div className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                        {review.product_slug ? `/${review.product_slug}` : "-"}
                       </div>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-      </div>
+                    <div className="text-xs text-slate-500">
+                      {new Date(review.created_at).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </div>
+                  </div>
+
+                  {review.review_title ? (
+                    <div className="mt-3 text-sm font-medium text-white">{review.review_title}</div>
+                  ) : null}
+
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
+                    {review.review_body || "No review text provided."}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+                    <span>Rating: {review.rating != null ? review.rating : "-"}</span>
+                    <span>Source: {review.source_table ?? "-"}</span>
+                  </div>
+
+                  {review.reply_body ? (
+                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Admin reply
+                        {review.reply_created_at
+                          ? ` · ${new Date(review.reply_created_at).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}`
+                          : ""}
+                      </div>
+                      <div className="mt-2 whitespace-pre-line">{review.reply_body}</div>
+                    </div>
+                  ) : null}
+
+                  {Array.isArray(review.messages) && review.messages.length > 0 ? (
+                    <div className="mt-4">
+                      <MessagesTree
+                        messages={review.messages}
+                        onChooseTarget={(id) => setReplyTargets((prev) => ({ ...prev, [review.id]: id }))}
+                        currentTargetId={currentTargetId}
+                        allowReply={canReply}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 space-y-3">
+                    <textarea
+                      rows={3}
+                      className="w-full rounded-2xl border border-white/10 bg-[#0a1524]/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      placeholder="Write a reply..."
+                      value={replyDrafts[review.id] ?? ""}
+                      onChange={(event) =>
+                        setReplyDrafts((prev) => ({ ...prev, [review.id]: event.target.value }))
+                      }
+                      disabled={!canReply || replySavingId === review.id || moderatingId === review.id}
+                    />
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <span className="uppercase tracking-[0.3em]">Target: {targetLabel}</span>
+                      {!canReply ? (
+                        <span className="text-rose-300">Ответ невозможен: отзыв не найден.</span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="primary"
+                        className="!min-h-0 h-10 !rounded-full !bg-sky-500 px-5 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-[0_12px_30px_rgba(56,189,248,0.4)] hover:bg-sky-400 disabled:opacity-60"
+                        disabled={!canReply || replySavingId === review.id || moderatingId === review.id}
+                        onClick={() => void handleReply(review)}
+                      >
+                        {replySavingId === review.id ? "Sending..." : "Reply"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="!min-h-0 h-10 !rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100 hover:border-white/20 hover:bg-white/15 disabled:opacity-60"
+                        disabled={!canReply || moderatingId === review.id || replySavingId === review.id}
+                        onClick={() => void handleModerate(review, "approve")}
+                      >
+                        {moderatingId === review.id ? "Saving..." : "Approve"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="!min-h-0 h-10 !rounded-full border border-rose-500/40 bg-rose-500/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-rose-200 hover:border-rose-400 hover:bg-rose-500/20 disabled:opacity-60"
+                        disabled={!canReply || moderatingId === review.id || replySavingId === review.id}
+                        onClick={() => void handleModerate(review, "reject")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Tile>
     </Section>
   );
+
 }
+
 
 
 

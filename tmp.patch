@@ -1,0 +1,11 @@
+*** Begin Patch
+*** Update File: apps/web-next/app/admin/layout.tsx
+@@
+-  return (
+-    <div className="dark min-h-screen">
++  return (
++    <div className="dark theme-noir min-h-screen">
+       <AdminProviders>{children}</AdminProviders>
+     </div>
+   );
+*** End Patch
