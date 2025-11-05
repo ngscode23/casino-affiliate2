@@ -83,7 +83,7 @@ async function loadProductsDataInternal(): Promise<{
 
   const now = Date.now();
 
-  let products: Product[] = data.map((row: any, index) => {
+  const products: Product[] = data.map((row: any, index) => {
     const id = row?.id != null ? String(row.id) : "";
     const slug = row?.slug != null ? String(row.slug) : "";
     const titleSource = row?.title ?? row?.name ?? "";

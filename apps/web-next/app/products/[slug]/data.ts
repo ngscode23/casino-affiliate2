@@ -529,7 +529,19 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
   } catch (error) {
     console.error("[catalog] failed to load product discount view", error);
   }
-  if (process.env.NODE_ENV !== "production") { try { console.debug("product:image", { id: product.id, slug: product.slug, image: product.mainImage, source: "product_with_discount_public" }); } catch {} }  return product;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      console.debug("product:image", {
+        id: product.id,
+        slug: product.slug,
+        image: product.mainImage,
+        source: "product_with_discount_public",
+      });
+    } catch (debugError) {
+      console.warn("[catalog] debug logging failed", debugError);
+    }
+  }
+  return product;
 }
 
 function formatViewPrice(priceCents: number | null | undefined, currency: string | null | undefined): string {
