@@ -4,8 +4,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import Section from "@ui/components/common/section";
-import Card from "@ui/components/common/card";
 import Button from "@ui/components/common/button";
 import Input from "@ui/components/common/input";
 import Skeleton from "@ui/components/common/skeleton";
@@ -13,6 +11,13 @@ import { toast } from "@ui/components/common/toast";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { adminFetch } from "@shared/lib/api";
 import { normalizeSku, slugifyTitle } from "@shared/lib/normalize";
+import {
+  AdminContentWrapper,
+  AdminInfoPanel,
+  AdminPageLayout,
+  AdminStack,
+  AdminSurface,
+} from "@/components/admin/layout";
 
 import { ProductImagesField } from "./product-images-field";
 import { ProductImageHistory } from "./product-image-history";
@@ -258,7 +263,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
   }, [isDirty]);
 
   const categoryOptions = useMemo(() => {
-    return [{ slug: "", name: "-" }, ...categories];
+    return [{ slug: "", name: "Не выбрана" }, ...categories];
   }, [categories]);
 
   const handleUseImage = useCallback((url: string) => {
@@ -276,7 +281,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
       const normalizedSlug = slugifyTitle(slug || title, normalizedSku);
       const priceValue = parseFloat(price.replace(",", "."));
       if (!Number.isFinite(priceValue)) {
-        throw new Error("Price must be a valid number");
+        throw new Error("Цена должна быть числом");
       }
       const ratingValue = parseFloat(rating.replace(",", "."));
 
@@ -284,7 +289,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
       try {
         specsData = specsJson.trim() ? (JSON.parse(specsJson) as Record<string, unknown>) : {};
       } catch (specError) {
-        setSpecsError("Specs must be valid JSON");
+        setSpecsError("Поле должно содержать корректный JSON");
         throw specError;
       }
 
@@ -327,11 +332,11 @@ export function ProductEditorClient({ productId }: EditorProps) {
 
       const json = await response.json();
       if (json?.ok === false) {
-        throw new Error(String(json?.message || json?.error || "Failed to save product"));
+        throw new Error(String(json?.message || json?.error || "Не удалось сохранить товар"));
       }
 
       const nextId = (json?.id as string | undefined) ?? currentId;
-      toast("Saved", { variant: "success" });
+      toast("Сохранено", { variant: "success" });
 
       const snapshot = snapshotState({
         title: payload.title as string,
@@ -363,156 +368,247 @@ export function ProductEditorClient({ productId }: EditorProps) {
     }
   };
 
-  if (loading) {
-    return (
-      <Section className="space-y-4 p-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[320px] w-full" />
-      </Section>
-    );
-  }
+  const formId = "admin-product-editor-form";
+  const pageTitle = isNew ? "Новый товар" : "Редактирование товара";
+  const pageDescription = isNew
+    ? "Заполните карточку и опубликуйте товар в каталоге."
+    : "Обновите контент, цены и статус публикации.";
+  const statusMessage = loading
+    ? "Загрузка данных..."
+    : saving
+      ? "Сохраняем изменения..."
+      : isDirty
+        ? "Есть несохранённые изменения"
+        : "Все изменения сохранены";
+  const breadcrumbs = useMemo(
+    () => [
+      { label: "Админка", href: "/admin" },
+      { label: "Товары", href: "/admin/shop/products" },
+      { label: isNew ? "Новый товар" : title || "Редактирование" },
+    ],
+    [isNew, title],
+  );
 
   return (
-    <Section className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">
-          {currentId ? "Edit product" : "Create product"}
-        </h1>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Status: {isDirty ? "Unsaved changes" : "Saved"}</span>
-        </div>
-      </div>
-
-      <Card className="p-6">
-        <form className="space-y-4" onSubmit={handleSave}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Title</label>
-              <Input value={title} onChange={(event) => setTitle(event.currentTarget.value)} required />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Slug</label>
-              <Input value={slug} onChange={(event) => setSlug(event.currentTarget.value)} required />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="text-sm font-medium">Price</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={price}
-                onChange={(event) => setPrice(event.currentTarget.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Rating</label>
-              <Input
-                type="number"
-                step="0.1"
-                min="0"
-                max="5"
-                value={rating}
-                onChange={(event) => setRating(event.currentTarget.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">SKU</label>
-              <div className="flex gap-2">
-                <Input value={sku} onChange={(event) => setSku(event.currentTarget.value)} required />
-                <Button type="button" variant="ghost" onClick={() => setSku(generateSku())}>
-                  Regenerate
-                </Button>
+    <AdminContentWrapper>
+      <AdminPageLayout
+        title={pageTitle}
+        description={pageDescription}
+        breadcrumbs={breadcrumbs}
+        primaryActions={
+          <Button type="submit" form={formId} disabled={saving || loading}>
+            {saving ? "Сохраняем..." : "Сохранить"}
+          </Button>
+        }
+        secondaryActions={
+          <Button
+            type="button"
+            variant="soft"
+            disabled={saving}
+            onClick={() => router.push("/admin/shop/products")}
+          >
+            К списку товаров
+          </Button>
+        }
+        sidebar={
+          <AdminStack gap="lg">
+            <AdminInfoPanel title="Статус карточки">
+              <div className="space-y-2">
+                <p>{statusMessage}</p>
+                <p className="text-xs text-admin-textSubtle">
+                  {currentId
+                    ? `ID: ${currentId}`
+                    : "Карточка появится после первого сохранения."}
+                </p>
               </div>
-            </div>
-          </div>
+            </AdminInfoPanel>
+            <AdminInfoPanel title="Подсказка">
+              <div className="space-y-2 text-sm">
+                <p>Заполните обязательные поля. После сохранения станет доступна история изображений.</p>
+                <p>Статус «Опубликован» сделает товар видимым в каталоге.</p>
+              </div>
+            </AdminInfoPanel>
+          </AdminStack>
+        }
+      >
+        <AdminSurface padded="lg">
+          {loading ? (
+            <AdminStack gap="lg">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-64" />
+                <Skeleton className="h-[320px] w-full" />
+              </div>
+            </AdminStack>
+          ) : (
+            <form id={formId} className="space-y-6" onSubmit={handleSave}>
+              <AdminStack gap="lg">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Название</label>
+                    <Input
+                      value={title}
+                      onChange={(event) => setTitle(event.currentTarget.value)}
+                      placeholder="Например, Премиум-рулетка"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Слаг</label>
+                    <Input
+                      value={slug}
+                      onChange={(event) => setSlug(event.currentTarget.value)}
+                      placeholder="premium-ruletka"
+                      required
+                    />
+                  </div>
+                </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Category</label>
-              <select
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                value={category ?? ""}
-                onChange={(event) => setCategory(event.currentTarget.value || null)}
-              >
-                {categoryOptions.map((option) => (
-                  <option key={option.slug} value={option.slug}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <select
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                value={status}
-                onChange={(event) => setStatus(event.currentTarget.value)}
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
-          </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Цена</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={price}
+                      onChange={(event) => setPrice(event.currentTarget.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Рейтинг</label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="5"
+                      value={rating}
+                      onChange={(event) => setRating(event.currentTarget.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Артикул (SKU)</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={sku}
+                        onChange={(event) => setSku(event.currentTarget.value)}
+                        required
+                      />
+                      <Button type="button" variant="soft" onClick={() => setSku(generateSku())}>
+                        Сгенерировать
+                      </Button>
+                    </div>
+                  </div>
+                </div>
 
-          <div>
-            <label className="text-sm font-medium">Short description</label>
-            <textarea
-              value={shortDesc}
-              onChange={(event) => setShortDesc(event.currentTarget.value)}
-              rows={3}
-              className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Категория</label>
+                    <select
+                      className="h-10 w-full rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
+                      value={category ?? ""}
+                      onChange={(event) => setCategory(event.currentTarget.value || null)}
+                    >
+                      {categoryOptions.map((option) => (
+                        <option key={option.slug || "none"} value={option.slug}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Статус</label>
+                    <select
+                      className="h-10 w-full rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
+                      value={status}
+                      onChange={(event) => setStatus(event.currentTarget.value)}
+                    >
+                      <option value="draft">Черновик</option>
+                      <option value="published">Опубликован</option>
+                      <option value="archived">Архив</option>
+                    </select>
+                  </div>
+                </div>
 
-          <div>
-            <label className="text-sm font-medium">Tags (comma separated)</label>
-            <Input value={tags} onChange={(event) => setTags(event.currentTarget.value)} />
-          </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-admin-text">Краткое описание</label>
+                  <textarea
+                    value={shortDesc}
+                    onChange={(event) => setShortDesc(event.currentTarget.value)}
+                    rows={3}
+                    className="w-full resize-y rounded-md border border-admin-border bg-admin-surface px-3 py-2 text-sm"
+                    placeholder="Ключевые преимущества товара в двух-трёх предложениях"
+                  />
+                </div>
 
-          <ProductImagesField
-            label="Images"
-            images={images}
-            onChange={setImages}
-            productId={currentId}
-            slug={slug}
-            sku={sku}
-            onVersionCreated={() => setHistoryRefresh((value) => value + 1)}
-          />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-admin-text">Теги (через запятую)</label>
+                  <Input
+                    value={tags}
+                    onChange={(event) => setTags(event.currentTarget.value)}
+                    placeholder="casino, premium, roulette"
+                  />
+                </div>
 
-          {currentId ? (
-            <ProductImageHistory
-              productId={currentId}
-              refreshToken={historyRefresh}
-              onUseImage={handleUseImage}
-            />
-          ) : null}
+                <ProductImagesField
+                  label="Изображения"
+                  images={images}
+                  onChange={setImages}
+                  productId={currentId}
+                  slug={slug}
+                  sku={sku}
+                  onVersionCreated={() => setHistoryRefresh((value) => value + 1)}
+                />
 
-          <div>
-            <label className="text-sm font-medium">Specifications (JSON object)</label>
-            <textarea
-              value={specsJson}
-              onChange={(event) => setSpecsJson(event.currentTarget.value)}
-              rows={6}
-              className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
-            />
-            {specsError ? <p className="mt-1 text-xs text-rose-500">{specsError}</p> : null}
-          </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-admin-text">Характеристики (JSON)</label>
+                  <textarea
+                    value={specsJson}
+                    onChange={(event) => setSpecsJson(event.currentTarget.value)}
+                    rows={6}
+                    className="w-full resize-y rounded-md border border-admin-border bg-admin-surface px-3 py-2 font-mono text-xs"
+                    placeholder='{"volatility": "low", "minBet": 1.5}'
+                  />
+                  {specsError ? <p className="text-xs text-rose-500">{specsError}</p> : null}
+                </div>
 
-          {error ? <p className="text-sm text-rose-500">{error}</p> : null}
+                {error ? <p className="text-sm text-rose-500">{error}</p> : null}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => router.push("/admin/shop/products")}>Back to list</Button>
-          </div>
-        </form>
-      </Card>
-    </Section>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? "Сохраняем..." : "Сохранить"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="soft"
+                    onClick={() => router.push("/admin/shop/products")}
+                  >
+                    К списку товаров
+                  </Button>
+                </div>
+              </AdminStack>
+            </form>
+          )}
+        </AdminSurface>
+
+        {!loading && currentId ? (
+          <AdminSurface tone="muted" padded="lg">
+            <AdminStack gap="md">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-admin-text">История изображений</h2>
+                <p className="text-sm text-admin-textSoft">
+                  Используйте прошлые версии или удалите лишние варианты.
+                </p>
+              </div>
+              <ProductImageHistory
+                productId={currentId}
+                refreshToken={historyRefresh}
+                onUseImage={handleUseImage}
+              />
+            </AdminStack>
+          </AdminSurface>
+        ) : null}
+      </AdminPageLayout>
+    </AdminContentWrapper>
   );
 }

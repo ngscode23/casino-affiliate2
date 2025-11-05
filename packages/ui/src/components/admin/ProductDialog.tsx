@@ -116,18 +116,20 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[720px] max-w-[95vw] rounded-2xl border border-white/15 bg-[rgb(var(--bg-1))] p-4 shadow-2xl shadow-black/40">
-          <DialogTitle className="text-lg font-semibold mb-2">{initial?.id ? 'Edit Product' : 'Add Product'}</DialogTitle>
+      <DialogContent className="w-[720px] max-w-[95vw] rounded-2xl border border-slate-800 bg-slate-900 text-white p-6 shadow-[0_36px_90px_-45px_rgba(15,23,42,0.7)]">
+          <DialogTitle className="text-lg font-semibold mb-2 text-white">
+            {initial?.id ? 'Edit Product' : 'Add Product'}
+          </DialogTitle>
           <DialogDescription id="product-dialog-desc" className="sr-only">Edit or add product details</DialogDescription>
-          <form onSubmit={onSubmit} className="space-y-3">
+          <form onSubmit={onSubmit} className="space-y-3 text-sm text-white">
             <div>
               <label className="block text-sm mb-1">Title</label>
-              <input className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={title} onChange={(e)=>setTitle(e.target.value)} required />
+              <input className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={title} onChange={(e)=>setTitle(e.target.value)} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1">Slug</label>
-                <input className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={slug} onChange={(e)=>setSlug(e.target.value)} required />
+                <input className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={slug} onChange={(e)=>setSlug(e.target.value)} required />
               </div>
               <div>
                 <label className="block text-sm mb-1">Price</label>
@@ -135,7 +137,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
-                  className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white"
+                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
                   value={priceStr}
                   onChange={(e)=>setPriceStr(e.target.value)}
                   required
@@ -145,7 +147,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm mb-1">Category</label>
-                <select className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={category} onChange={(e)=>setCategory(e.target.value)}>
+                <select className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={category} onChange={(e)=>setCategory(e.target.value)}>
                   <option value="">-</option>
                   {categories.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
                 </select>
@@ -161,7 +163,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
               </div>
               <div>
                 <label className="block text-sm mb-1">Status</label>
-                <select className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={status} onChange={(e)=>setStatus(e.target.value as any)}>
+                <select className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={status} onChange={(e)=>setStatus(e.target.value as any)}>
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                   <option value="archived">Archived</option>
@@ -170,17 +172,17 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
             </div>
             <div>
               <label className="block text-sm mb-1">Short description</label>
-              <textarea className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm min-h-[70px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={shortDesc} onChange={(e)=>setShortDesc(e.target.value)} />
+              <textarea className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm min-h-[70px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={shortDesc} onChange={(e)=>setShortDesc(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1">Tags (CSV)</label>
-                <input className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={tagsCsv} onChange={(e)=>setTagsCsv(e.target.value)} placeholder="gaming, accessories" />
+                <input className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={tagsCsv} onChange={(e)=>setTagsCsv(e.target.value)} placeholder="gaming, accessories" />
               </div>
               <div>
                 <label className="block text-sm mb-1">Images (JSON array of URLs)</label>
-                <textarea className="w-full rounded-md border border-border bg-white px-3 py-2 text-text shadow-sm font-mono text-xs min-h-[110px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent-20)] dark:border-white/10 dark:bg-white/10 dark:text-white" value={imagesJson} onChange={(e)=>setImagesJson(e.target.value)} />
-                {imagesParseError && <div className="text-xs text-red-400">{imagesParseError}</div>}
+                <textarea className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm font-mono text-xs min-h-[110px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={imagesJson} onChange={(e)=>setImagesJson(e.target.value)} />
+                {imagesParseError && <div className="text-xs text-rose-400">{imagesParseError}</div>}
               </div>
             </div>
             {/* Preview */}
@@ -189,9 +191,13 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <DialogClose asChild>
-                <Button type="button" variant="ghost">Cancel</Button>
+                <Button type="button" variant="ghost" className="bg-slate-800 hover:bg-slate-700 text-white px-4">
+                  Cancel
+                </Button>
               </DialogClose>
-              <Button type="submit" disabled={saving}>{saving? 'Saving.' : 'Save'}</Button>
+              <Button type="submit" variant="ghost" className="bg-indigo-600 hover:bg-indigo-500 text-white px-5" disabled={saving}>
+                {saving? 'Saving…' : 'Save'}
+              </Button>
             </div>
           </form>
       </DialogContent>

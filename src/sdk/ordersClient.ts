@@ -528,7 +528,7 @@ export class OrdersClient {
     const response = await this.client
       .from("orders")
       .select(
-        "id, user_id, created_at, subtotal, discount_total, amount_cents, grand_total, shipping_total, currency, status, payment_status, checkout_metadata, contact_email, metadata_b, paid_at, cancelled_at, payment_intent_id",
+        "id, user_id, created_at, subtotal, discount_total, amount_cents, grand_total, shipping_total, currency, status, payment_status, checkout_metadata, contact_email, metadata_b, paid_at, cancelled_at, payment_intent_id, applied_promotions, coupon_codes",
       )
       .eq("id", orderId)
       .eq("user_id", userId)
@@ -551,6 +551,10 @@ export class OrdersClient {
 
     const checkoutMetadata = (data.checkout_metadata ?? null) as Record<string, unknown> | null;
     const metadata = (data.metadata_b ?? null) as Record<string, unknown> | null;
+    const appliedPromotions = normalizeAppliedPromotions(data.applied_promotions);
+    const couponCodes = Array.isArray(data.coupon_codes)
+      ? (data.coupon_codes as string[]).filter((code) => typeof code === "string")
+      : [];
 
     return {
       id: data.id,
@@ -572,6 +576,8 @@ export class OrdersClient {
       metadata,
       paidAt: data.paid_at ?? null,
       cancelledAt: data.cancelled_at ?? null,
+      appliedPromotions,
+      couponCodes,
     };
   }
 
@@ -681,6 +687,77 @@ export class OrdersClient {
       } as Record<string, unknown>,
     }));
   }
+}
+
+function normalizeAppliedPromotions(input: unknown) {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.map(normalizeAppliedPromotion).filter((entry): entry is NonNullable<ReturnType<typeof normalizeAppliedPromotion>> => Boolean(entry));
+  }
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(normalizeAppliedPromotion)
+          .filter((entry): entry is NonNullable<ReturnType<typeof normalizeAppliedPromotion>> => Boolean(entry));
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeAppliedPromotion(entry: any) {
+  if (!entry || typeof entry !== "object") return null;
+  const actions =
+    Array.isArray(entry.actions)
+      ? (entry.actions
+          .map((action: any) => {
+            if (!action || typeof action !== "object") return null;
+            return {
+              id: String(action.id ?? ""),
+              kind: String(action.kind ?? ""),
+              amount: toNumber(action.amount),
+              meta: action.meta && typeof action.meta === "object" ? (action.meta as Record<string, unknown>) : undefined,
+            } as { id: string; kind: string; amount: number; meta?: Record<string, unknown> } | null;
+          }) as Array<{ id: string; kind: string; amount: number; meta?: Record<string, unknown> } | null>)
+          .filter(
+            (action): action is { id: string; kind: string; amount: number; meta?: Record<string, unknown> } =>
+              action !== null,
+          )
+      : [];
+
+  const gifts =
+    Array.isArray(entry.giftItems) && entry.giftItems.length
+      ? entry.giftItems
+          .map((gift: any) => {
+            if (!gift || typeof gift !== "object") return null;
+            return {
+              productId: String(gift.productId ?? gift.product_id ?? ""),
+              qty: Number.isFinite(gift.qty) ? Number(gift.qty) : 1,
+              title: gift.title ? String(gift.title) : undefined,
+            };
+          })
+          // Явно типизируем параметр фильтра, чтобы избавиться от implicit any
+          .filter(
+            (gift: { productId?: unknown } | null): gift is { productId: string; qty: number; title?: string } =>
+              Boolean(gift?.productId),
+          )
+      : [];
+
+  return {
+    promotionId: String(entry.promotionId ?? entry.promotion_id ?? ""),
+    slug: String(entry.slug ?? ""),
+    discountTotal: toNumber(entry.discountTotal ?? entry.discount_total),
+    shippingDiscount: toNumber(entry.shippingDiscount ?? entry.shipping_discount),
+    coupons: Array.isArray(entry.coupons)
+      ? entry.coupons.filter((code: unknown): code is string => typeof code === "string")
+      : [],
+    actions,
+    giftItems: gifts,
+  };
 }
 
 let singletonClient: OrdersClient | null = null;

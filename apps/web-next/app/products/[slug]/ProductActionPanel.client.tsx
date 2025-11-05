@@ -7,6 +7,7 @@ type ProductActionPanelProps = {
   productId: string;
   title: string;
   formattedPrice: string;
+  compareAtPrice?: string | null;
   finalPrice: number;
   dataset: "shop" | "legacy";
   variantLabel: string | null;
@@ -20,6 +21,7 @@ export default function ProductActionPanel({
   productId,
   title,
   formattedPrice,
+  compareAtPrice,
   finalPrice,
   dataset,
   variantLabel,
@@ -31,19 +33,22 @@ export default function ProductActionPanel({
   return (
     <div className="space-y-4 rounded-3xl border border-border/40 bg-card/70 p-6">
       <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted">
-        <span>Цена</span>
+        <span>????</span>
       </div>
       <div className="flex flex-wrap items-end gap-4">
-        <div>
+        <div className="flex flex-col gap-1">
+          {compareAtPrice ? (
+            <div className="text-sm text-muted-foreground line-through">{compareAtPrice}</div>
+          ) : null}
           <div className="text-3xl font-semibold text-fg">{formattedPrice}</div>
           {variantLabel ? (
-            <div className="text-xs text-muted-foreground">Выбрано: {variantLabel}</div>
+            <div className="text-xs text-muted-foreground">???????: {variantLabel}</div>
           ) : null}
         </div>
         <AddToCartButton
           productId={productId}
           title={title}
-          label="Добавить в корзину"
+          label="???????? ? ???????"
           className="h-12 rounded-full px-6 text-sm font-semibold"
           quantity={1}
           analyticsParams={{ ...analyticsParams, price: finalPrice }}

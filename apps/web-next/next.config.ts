@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
-type NextConfigWithDevMiddleware = NextConfig & {
-  webpackDevMiddleware?: (config: any) => any;
-};
-
 process.env.TAILWIND_DISABLE_LIGHTNINGCSS =
   process.env.TAILWIND_DISABLE_LIGHTNINGCSS ?? process.env.DISABLE_LIGHTNINGCSS ?? "0";
 process.env.LIGHTNINGCSS_FORCE_WASM = process.env.LIGHTNINGCSS_FORCE_WASM ?? "1";
@@ -50,7 +46,7 @@ const csp = [
   // картинки и медиа
   `img-src 'self' data: blob: https: ${imgHosts.join(' ')}`,
   // скрипты: оставляем inline/eval, чтобы не ломать Next/3rd-party на текущей стадии
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://js.stripe.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://js.stripe.com https://va.vercel-scripts.com",
   // стили: временно разрешаем inline
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
@@ -76,9 +72,10 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
 ];
 
-const nextConfig: NextConfigWithDevMiddleware = {
+const nextConfig: NextConfig = {
   images: {
     remotePatterns,
+    qualities: [55, 75],
   },
   experimental: {
     externalDir: true,
@@ -91,20 +88,19 @@ const nextConfig: NextConfigWithDevMiddleware = {
     }
     return config;
   },
-  webpackDevMiddleware: (config) => {
-    const ignored = config.watchOptions?.ignored;
-    const ignoredList = Array.isArray(ignored) ? ignored.slice() : ignored ? [ignored] : [];
-    const extraIgnores = [
-      /[\\/]supabase[\\/]migrations[\\/]/,
-      /[\\/]supabase[\\/]auth[\\/]/,
-      /[\\/]logs[\\/]/,
-      /\.log$/i,
+  async redirects() {
+    return [
+      {
+        source: "/admin/cms",
+        destination: "https://YOUR_CMS_SUBDOMAIN",
+        permanent: true,
+      },
+      {
+        source: "/admin/cms/:path*",
+        destination: "https://YOUR_CMS_SUBDOMAIN/:path*",
+        permanent: true,
+      },
     ];
-    config.watchOptions = {
-      ...(config.watchOptions ?? {}),
-      ignored: [...ignoredList, ...extraIgnores],
-    };
-    return config;
   },
   async headers() {
     return [
@@ -117,3 +113,5 @@ const nextConfig: NextConfigWithDevMiddleware = {
 };
 
 export default nextConfig;
+
+

@@ -2,12 +2,14 @@ import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import { getFallbackImageByKey } from "../fallback-images";
+import { formatCurrency } from "../currency";
+import { resolveCurrency, resolvePriceDetails } from "../price-utils";
 
 const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
 
-export const PRODUCT_PAGE_REVALIDATE_SECONDS = 90;
+export const PRODUCT_PAGE_REVALIDATE_SECONDS = 1;
 const PRODUCT_COLLECTION_TAG = "products:list";
 const PRODUCT_TAG_PREFIX = "product:";
 const CATEGORY_TAG_PREFIX = "category:";
@@ -67,6 +69,11 @@ export type ProductData = {
   shortDescription: string | null;
   description: string | null;
   price: number;
+  priceCents?: number | null;
+  originalPrice?: number | null;
+  originalPriceCents?: number | null;
+  discountPercent?: number | null;
+  discountAmountCents?: number | null;
   currency: string;
   formattedPrice: string;
   gallery: string[];
@@ -116,6 +123,26 @@ export function normalizeImageUrl(input: string | null | undefined): string | nu
   return toStoragePublicUrl(input);
 }
 
+function resolveThumbnail(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  const source = row as Record<string, unknown>;
+  const candidates: Array<unknown> = [
+    source?.thumbnail,
+    source?.thumbnail_path,
+    source?.thumbnailPath,
+    source?.main_image_url,
+    source?.mainImageUrl,
+  ];
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const normalized = normalizeImageUrl(trimmed);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
 function castString(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -160,21 +187,6 @@ function dedupe<T>(values: T[]): T[] {
 function mergeGallery(mainImage: string | null, extras: string[], fallback: string): string[] {
   const list = [mainImage, ...extras, fallback].filter(Boolean) as string[];
   return dedupe(list);
-}
-
-const FALLBACK_LOCALE = "ru-RU";
-
-export function formatCurrency(value: number, currency = "EUR", locale = FALLBACK_LOCALE): string {
-  try {
-    return new Intl.NumberFormat(locale || FALLBACK_LOCALE, {
-      style: "currency",
-      currency: currency || "EUR",
-      currencyDisplay: "narrowSymbol",
-      maximumFractionDigits: 2,
-    }).format(value ?? 0);
-  } catch {
-    return `${value?.toFixed?.(2) ?? "0.00"} ${currency || "EUR"}`;
-  }
 }
 
 function normalizeAverageRating(input: number | null | undefined, fallback = 0): number {
@@ -366,10 +378,15 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const dataset = (castString(row.dataset ?? row.source_dataset).toLowerCase() === "legacy" ? "legacy" : "shop") as "shop" | "legacy";
   const status = castString(row.status ?? row.product_status ?? payload.status ?? "active").trim() || "active";
 
-  const priceCents = typeof row.price_cents === "number" ? row.price_cents : Number(row.price_cents ?? payload.price_cents ?? 0);
-  const priceRaw = typeof row.price === "number" ? row.price : Number(row.price ?? payload.price ?? 0);
-  const price = Number.isFinite(priceRaw) && priceRaw > 0 ? priceRaw : Number.isFinite(priceCents) ? priceCents / 100 : 0;
-  const currency = ensureCurrency(castString(row.currency ?? row.price_currency ?? payload.currency ?? null) || null, dataset);
+  const priceInfo = resolvePriceDetails(row);
+  const price = priceInfo.price;
+  const priceCents = Number.isFinite(priceInfo.priceCents)
+    ? priceInfo.priceCents
+    : Math.round(price * 100);
+  const currencyCandidate =
+    resolveCurrency(row) ??
+    castString(row.currency ?? row.price_currency ?? payload.currency ?? null);
+  const currency = ensureCurrency(currencyCandidate || null, dataset);
 
   const specsPayload = payload.specs_payload ?? row.specs_payload ?? row.specs ?? payload.specs ?? null;
   const parsed = parseSpecsPayload(specsPayload);
@@ -384,8 +401,11 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
       .filter((value): value is string => Boolean(value)),
   );
 
-  const fallbackImage = normalizeImageUrl(castString(payload.fallback_image ?? row.fallback_image ?? "")) || getFallbackImageByKey(id);
-  const mainImage = normalizedGallery[0] ?? fallbackImage;
+  const primaryImage = resolveThumbnail(row);
+  const fallbackImage =
+    normalizeImageUrl(castString(payload.fallback_image ?? row.fallback_image ?? "")) ||
+    getFallbackImageByKey(id);
+  const mainImage = primaryImage ?? normalizedGallery[0] ?? fallbackImage;
   const gallery = mergeGallery(mainImage, normalizedGallery.slice(1), fallbackImage);
 
   const metrics = ((payload.metrics ?? row.metrics) ?? {}) as Record<string, unknown>;
@@ -413,6 +433,11 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const shippingEstimate = parsed.shippingEstimate || castString(payload.shipping_estimate ?? row.shipping_estimate ?? null) || null;
   const brand = parsed.brand ?? (castString(payload.brand ?? row.brand ?? null) || null);
 
+  const derivedPriceCents =
+    typeof priceCents === "number" && Number.isFinite(priceCents)
+      ? Math.round(priceCents)
+      : Math.round(price * 100);
+
   return {
     id,
     slug,
@@ -420,6 +445,11 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     shortDescription: castString(row.short_desc ?? row.short_description ?? payload.short_desc ?? null) || null,
     description: castString(row.description ?? row.long_description ?? payload.description ?? null) || null,
     price,
+    priceCents: derivedPriceCents,
+    originalPrice: priceInfo.originalPrice,
+    originalPriceCents: priceInfo.originalPriceCents,
+    discountPercent: priceInfo.discountPercent,
+    discountAmountCents: priceInfo.discountAmountCents,
     currency,
     formattedPrice: formatCurrency(price, currency),
     gallery,
@@ -472,7 +502,34 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
   if (!slug) return null;
   const product = await getProductFetcher(slug)();
   if (!product) return null;
-  return product;
+  try {
+    const admin = getAdminClient();
+    const { data: pricedRow, error: priceError } = await admin
+      .from("product_with_discount_public")
+      .select("*")
+      .eq("id", product.id)
+      .maybeSingle();
+
+    if (!priceError && pricedRow) {
+      const pricing = resolvePriceDetails(pricedRow as Record<string, unknown>);
+      const currencyOverride = resolveCurrency(pricedRow as Record<string, unknown>);
+      product.price = pricing.price;
+      product.priceCents = pricing.priceCents;
+      product.originalPrice = pricing.originalPrice ?? product.originalPrice;
+      product.originalPriceCents = pricing.originalPriceCents ?? product.originalPriceCents;
+      product.discountPercent = pricing.discountPercent ?? product.discountPercent;
+      product.discountAmountCents = pricing.discountAmountCents ?? product.discountAmountCents;
+      if (currencyOverride) {
+        product.currency = ensureCurrency(currencyOverride, product.dataset);
+      }
+      product.formattedPrice = formatCurrency(product.price, product.currency);
+    } else if (product.priceCents == null) {
+      product.priceCents = Math.round(product.price * 100);
+    }
+  } catch (error) {
+    console.error("[catalog] failed to load product discount view", error);
+  }
+  if (process.env.NODE_ENV !== "production") { try { console.debug("product:image", { id: product.id, slug: product.slug, image: product.mainImage, source: "product_with_discount_public" }); } catch {} }  return product;
 }
 
 function formatViewPrice(priceCents: number | null | undefined, currency: string | null | undefined): string {
@@ -500,7 +557,7 @@ export async function fetchSimilarProducts(
       .limit(limit);
     if (error || !data) return [];
     return data.map((row) => {
-      const image = normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
       const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       return {
         id: String(row.id ?? ""),
@@ -532,7 +589,7 @@ export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise
     for (const row of data) {
       const slug = String(row.slug ?? "");
       if (!slug) continue;
-      const image = normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
       const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       bySlug.set(slug, {
         id: String(row.id ?? ""),
@@ -554,3 +611,8 @@ export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise
     return [];
   }
 }
+
+
+
+
+

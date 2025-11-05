@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   if ("response" in auth) {
     if (auth.response.status === 401) {
       return NextResponse.json(
-        { ok: false, user: null },
+        { ok: false, user: null, session: null },
         {
           status: 200,
           headers: { "cache-control": "no-store" },
@@ -21,6 +21,12 @@ export async function GET(request: Request) {
     {
       ok: true,
       user: auth.user,
+      session: {
+        accessToken: auth.accessToken,
+        expiresAt: auth.expiresAt,
+        expiresIn: auth.expiresIn,
+        tokenType: auth.tokenType,
+      },
     },
     {
       headers: {

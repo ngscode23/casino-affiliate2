@@ -19,6 +19,9 @@ export interface AuthSuccess {
   user: AuthUserRecord;
   rawUser: User;
   accessToken: string;
+  expiresAt: string | null;
+  expiresIn: number | null;
+  tokenType: string;
 }
 
 export type AuthResult = AuthSuccess | { response: NextResponse };
@@ -93,7 +96,14 @@ export async function requireAuth(request: Request, options: RequireAuthOptions 
         return { response: jsonError(403, "forbidden", "Insufficient role") };
       }
 
-      return { user: record, rawUser: data.user, accessToken: token };
+      return {
+        user: record,
+        rawUser: data.user,
+        accessToken: token,
+        expiresAt: null,
+        expiresIn: null,
+        tokenType: "Bearer",
+      };
     } catch (error: any) {
       return { response: jsonError(500, "auth_error", error?.message ?? "Failed to verify token") };
     }
@@ -133,7 +143,22 @@ export async function requireAuth(request: Request, options: RequireAuthOptions 
       return { response: jsonError(403, "forbidden", "Insufficient role") };
     }
 
-    return { user: record, rawUser: data.user, accessToken };
+    const session = sessionRes.data.session ?? null;
+    const expiresAt =
+      session?.expires_at != null
+        ? new Date(session.expires_at * 1000).toISOString()
+        : null;
+    const expiresIn = session?.expires_in ?? null;
+    const tokenType = session?.token_type ?? "Bearer";
+
+    return {
+      user: record,
+      rawUser: data.user,
+      accessToken,
+      expiresAt,
+      expiresIn,
+      tokenType,
+    };
   } catch (error: any) {
     return { response: jsonError(500, "auth_error", error?.message ?? "Failed to verify session") };
   }

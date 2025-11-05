@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "codex-proxy": "mcp-proxy --host 0.0.0.0 --port 8787 --server sse C:\\nvm4w\\nodejs\\node.exe C:\\Project\\casino-affiliate2\\node_modules\\@supabase\\mcp-server-supabase\\dist\\transports\\stdio.js --project-ref wsqhgnxmotswjantxopb",
     "changeset": "changeset",
     "start:mcp": "cross-env MCP_MODE=http MCP_SECRET=12345678 PORT=3333 node mcp-server.mjs",
     "dev:web-next": "pnpm --filter web-next dev",
@@ -20,6 +21,9 @@
     "mcp:dev": "nodemon --watch mcp-server.mjs --exec \"node ./mcp-server.mjs\"",
     "mcp:shell": "cross-env MCP_STDOUT_MIRROR=1 node ./mcp-server.mjs"
   },
+  "prisma": {
+    "seed": "pnpm exec tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
     "@modelcontextprotocol/sdk": "^1.20.2",
@@ -28,6 +32,7 @@
     "@supabase/mcp-server-supabase": "^0.5.7",
     "@tailwindcss/forms": "^0.5.10",
     "@tsconfig/node22": "^22.0.2",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^24.9.1",
     "@types/react": "^19.1.13",
     "@typescript-eslint/eslint-plugin": "^8.46.0",
@@ -53,6 +58,7 @@
     "mcp-proxy": "^5.9.0",
     "openai": "^6.7.0",
     "playwright": "^1.56.1",
+    "prisma": "^6.18.0",
     "puppeteer": "^24.23.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -61,7 +67,7 @@
     "stripe": "^19.1.0",
     "ts-morph": "^27.0.0",
     "tsx": "^4.20.5",
-    "turbo": "^2.5.8",
+    "turbo": "^2.6.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.46.0",
     "vercel": "^48.2.9",
@@ -88,6 +94,7 @@
   "packageManager": "pnpm@10.19.0",
   "dependencies": {
     "@openai/codex-sdk": "^0.49.0",
+    "@prisma/client": "^6.18.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -114,6 +121,7 @@
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tanstack/react-query": "^5.90.2",
     "@types/react-dom": "^19.1.9",
+    "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "diff": "^8.0.2",
     "embla-carousel-react": "^8.6.0",
@@ -127,7 +135,7 @@
     "vaul": "^1.1.2"
   },
   "engines": {
-    "node":"v22.12.0"
+    "node": "v22.12.0"
   },
   "description": "Production-ready affiliate starter delivered as a pnpm + Turborepo monorepo. The workspace now ships a single Next.js application (public site + admin) while sharing UI, state, and types through reusable packages.",
   "main": "eslint.config.js",

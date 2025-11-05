@@ -11,7 +11,7 @@ export type CacheProfile = string | { expire?: number };
  * Server-only safe wrapper around next/cache revalidateTag.
  * Swallows failures in non-prod to avoid exploding local/dev/test.
  */
-export function revalidate(tag: string, profile: CacheProfile = {}): void {
+export async function revalidate(tag: string, profile: CacheProfile = {}): Promise<void> {
   // Guard against accidental client-side calls
   const hasWindow = typeof globalThis !== "undefined" && Object.prototype.hasOwnProperty.call(globalThis, "window");
   if (hasWindow) {
@@ -21,7 +21,7 @@ export function revalidate(tag: string, profile: CacheProfile = {}): void {
     return;
   }
   try {
-    _revalidateTag(tag, profile);
+    await _revalidateTag(tag, profile);
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("revalidate() failed:", tag, err);
@@ -30,6 +30,8 @@ export function revalidate(tag: string, profile: CacheProfile = {}): void {
 }
 
 /** Revalidate many tags at once. */
-export function revalidateMany(tags: string[], profile: CacheProfile = {}): void {
-  for (const t of tags) revalidate(t, profile);
+export async function revalidateMany(tags: string[], profile: CacheProfile = {}): Promise<void> {
+  for (const t of tags) {
+    await revalidate(t, profile);
+  }
 }

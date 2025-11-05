@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { json } from "@/app/api/orders/utils";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { resolveViewerIdentity } from "@/utils/auth/viewer";
-import { formatCurrency, normalizeImageUrl } from "@/app/products/[slug]/data";
+import { normalizeImageUrl } from "@/app/products/[slug]/data";
+import { formatCurrency } from "@/app/products/currency";
 import type { ProductGridItem } from "@/components/ProductGrid";
 
 const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;

@@ -48,7 +48,7 @@
 import * as React from "react";
 import cn from "@shared/lib/cn";
 
-type Variant = "primary" | "soft" | "secondary" | "ghost";
+type Variant = "primary" | "soft" | "secondary" | "ghost" | "neutral";
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
@@ -57,6 +57,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 export default function Button({
   variant = "primary",
   className = "",
+  type = "button",
   ...props
 }: ButtonProps) {
   const base =
@@ -71,11 +72,13 @@ export default function Button({
     secondary:
       "bg-white text-muted border border-border shadow-sm hover:bg-slate-100 dark:bg-white/5 dark:text-white/95 dark:border-white/10",
     ghost:
-      "bg-transparent text-[var(--text)] hover:bg-slate-100 dark:hover:bg-white/5"
+      "bg-transparent text-[var(--text)] hover:bg-slate-100 dark:hover:bg-white/5",
+    neutral:
+      "border border-slate-300 bg-white text-slate-900 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 hover:text-white disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
   };
 
   return (
-    <button className={cn(base, styles[variant], className)} {...props} />
+    <button type={type} className={cn(base, styles[variant], className)} {...props} />
   );
 }
 

@@ -194,6 +194,60 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_published: {
+        Row: {
+          category_slug: string | null
+          created_at: string | null
+          id: string
+          price: number | null
+          rating: number | null
+          slug: string | null
+          thumbnail_path: string | null
+          title: string | null
+        }
+        Insert: {
+          category_slug?: string | null
+          created_at?: string | null
+          id: string
+          price?: number | null
+          rating?: number | null
+          slug?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+        }
+        Update: {
+          category_slug?: string | null
+          created_at?: string | null
+          id?: string
+          price?: number | null
+          rating?: number | null
+          slug?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      cms_roles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contact_messages: {
         Row: {
           created_at: string
@@ -218,6 +272,84 @@ export type Database = {
           id?: string
           message?: string | null
           metadata?: Json | null
+        }
+        Relationships: []
+      }
+      content_blocks: {
+        Row: {
+          content_json: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          locale: string
+          published_at: string | null
+          slug: string | null
+          status: string
+          type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content_json?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locale?: string
+          published_at?: string | null
+          slug?: string | null
+          status?: string
+          type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content_json?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locale?: string
+          published_at?: string | null
+          slug?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      content_revisions: {
+        Row: {
+          author: string | null
+          created_at: string
+          id: string
+          locale: string | null
+          message: string | null
+          snapshot: Json
+          target_id: string | null
+          target_key: string | null
+          target_table: string
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          locale?: string | null
+          message?: string | null
+          snapshot: Json
+          target_id?: string | null
+          target_key?: string | null
+          target_table: string
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          id?: string
+          locale?: string | null
+          message?: string | null
+          snapshot?: Json
+          target_id?: string | null
+          target_key?: string | null
+          target_table?: string
         }
         Relationships: []
       }
@@ -416,7 +548,169 @@ export type Database = {
             referencedRelation: "ecom_categories"
             referencedColumns: ["slug"]
           },
+          {
+            foreignKeyName: "fk_ecom_products_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
         ]
+      }
+      ecom_wishlist: {
+        Row: {
+          created_at: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_toggles: {
+        Row: {
+          description: string | null
+          ends_at: string | null
+          is_public: boolean
+          key: string
+          starts_at: string | null
+          updated_at: string
+          updated_by: string | null
+          value_bool: boolean | null
+          value_json: Json | null
+        }
+        Insert: {
+          description?: string | null
+          ends_at?: string | null
+          is_public?: boolean
+          key: string
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value_bool?: boolean | null
+          value_json?: Json | null
+        }
+        Update: {
+          description?: string | null
+          ends_at?: string | null
+          is_public?: boolean
+          key?: string
+          starts_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value_bool?: boolean | null
+          value_json?: Json | null
+        }
+        Relationships: []
+      }
+      form_entries: {
+        Row: {
+          data: Json
+          form_id: string
+          id: string
+          locale: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string | null
+        }
+        Insert: {
+          data?: Json
+          form_id: string
+          id?: string
+          locale?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string | null
+        }
+        Update: {
+          data?: Json
+          form_id?: string
+          id?: string
+          locale?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_entries_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          schema_json: Json
+          slug: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          schema_json?: Json
+          slug: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          schema_json?: Json
+          slug?: string
+          title?: string
+        }
+        Relationships: []
       }
       job_runs: {
         Row: {
@@ -456,6 +750,114 @@ export type Database = {
           id?: number
         }
         Relationships: []
+      }
+      media_assets: {
+        Row: {
+          alt: string | null
+          bucket: string
+          checksum: string | null
+          created_at: string
+          description: string | null
+          height: number | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_key: string
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          alt?: string | null
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          description?: string | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt?: string | null
+          bucket?: string
+          checksum?: string | null
+          created_at?: string
+          description?: string | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      navigation_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_external: boolean
+          label: string
+          locale: string
+          menu: string
+          parent_id: string | null
+          published: boolean
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_external?: boolean
+          label: string
+          locale?: string
+          menu: string
+          parent_id?: string | null
+          published?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_external?: boolean
+          label?: string
+          locale?: string
+          menu?: string
+          parent_id?: string | null
+          published?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "navigation_links_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "navigation_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_links_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "published_navigation_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       offer_clicks: {
         Row: {
@@ -720,9 +1122,11 @@ export type Database = {
       orders: {
         Row: {
           amount_cents: number | null
+          applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
           contact_email: string | null
+          coupon_codes: string[]
           created_at: string
           currency: string
           discount_total: number
@@ -739,9 +1143,11 @@ export type Database = {
         }
         Insert: {
           amount_cents?: number | null
+          applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
           contact_email?: string | null
+          coupon_codes?: string[]
           created_at?: string
           currency?: string
           discount_total?: number
@@ -758,9 +1164,11 @@ export type Database = {
         }
         Update: {
           amount_cents?: number | null
+          applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
           contact_email?: string | null
+          coupon_codes?: string[]
           created_at?: string
           currency?: string
           discount_total?: number
@@ -775,7 +1183,15 @@ export type Database = {
           subtotal?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_orders_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       orders_archive: {
         Row: {
@@ -869,6 +1285,66 @@ export type Database = {
           size_bytes?: number
         }
         Relationships: []
+      }
+      page_sections: {
+        Row: {
+          block_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_draft: boolean
+          locale: string
+          page_path: string
+          published_at: string | null
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+          visible: boolean
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_draft?: boolean
+          locale?: string
+          page_path: string
+          published_at?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible?: boolean
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_draft?: boolean
+          locale?: string
+          page_path?: string
+          published_at?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_sections_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "content_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_sections_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "published_content_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -1313,6 +1789,286 @@ export type Database = {
         }
         Relationships: []
       }
+      promotion_actions: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["promotion_action_kind"]
+          promotion_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["promotion_action_kind"]
+          promotion_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["promotion_action_kind"]
+          promotion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_actions_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotion_conditions: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["promotion_condition_kind"]
+          promotion_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["promotion_condition_kind"]
+          promotion_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["promotion_condition_kind"]
+          promotion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_conditions_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotion_coupons: {
+        Row: {
+          code: string
+          created_at: string
+          ends_at: string | null
+          id: string
+          metadata: Json
+          promotion_id: string
+          starts_at: string | null
+          updated_at: string
+          usage_limit_per_user: number | null
+          usage_limit_total: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          metadata?: Json
+          promotion_id: string
+          starts_at?: string | null
+          updated_at?: string
+          usage_limit_per_user?: number | null
+          usage_limit_total?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          metadata?: Json
+          promotion_id?: string
+          starts_at?: string | null
+          updated_at?: string
+          usage_limit_per_user?: number | null
+          usage_limit_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_coupons_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotion_usages: {
+        Row: {
+          applied_actions: Json
+          context: Json
+          coupon_id: string | null
+          created_at: string
+          currency: string
+          discount_amount: number
+          id: string
+          order_id: string | null
+          promotion_id: string
+          user_id: string | null
+        }
+        Insert: {
+          applied_actions?: Json
+          context?: Json
+          coupon_id?: string | null
+          created_at?: string
+          currency?: string
+          discount_amount?: number
+          id?: string
+          order_id?: string | null
+          promotion_id: string
+          user_id?: string | null
+        }
+        Update: {
+          applied_actions?: Json
+          context?: Json
+          coupon_id?: string | null
+          created_at?: string
+          currency?: string
+          discount_amount?: number
+          id?: string
+          order_id?: string | null
+          promotion_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_promo_usages_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "promotion_usages_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "promotion_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_usages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_history_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "promotion_usages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_usages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_usages_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          combinable: boolean
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          metadata: Json
+          name: string
+          priority: number
+          slug: string
+          stack_group: string | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["promotion_status"]
+          updated_at: string
+        }
+        Insert: {
+          combinable?: boolean
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          priority?: number
+          slug: string
+          stack_group?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          updated_at?: string
+        }
+        Update: {
+          combinable?: boolean
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          priority?: number
+          slug?: string
+          stack_group?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["promotion_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      publish_jobs: {
+        Row: {
+          action: string
+          attempts: number
+          created_by: string | null
+          executed_at: string | null
+          id: string
+          last_error: string | null
+          payload: Json
+          scheduled_at: string
+          status: string
+          target: string
+        }
+        Insert: {
+          action?: string
+          attempts?: number
+          created_by?: string | null
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          scheduled_at?: string
+          status?: string
+          target: string
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          created_by?: string | null
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          scheduled_at?: string
+          status?: string
+          target?: string
+        }
+        Relationships: []
+      }
       recent_views: {
         Row: {
           anon_id: string | null
@@ -1471,6 +2227,36 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_content: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          publish_at: string
+          target: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          publish_at: string
+          target: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          publish_at?: string
+          target?: string
+        }
+        Relationships: []
+      }
       shop_clicks: {
         Row: {
           created_at: string
@@ -1602,6 +2388,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_settings: {
+        Row: {
+          is_public: boolean
+          key: string
+          locale: string
+          updated_at: string
+          updated_by: string | null
+          value_json: Json
+        }
+        Insert: {
+          is_public?: boolean
+          key: string
+          locale?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json
+        }
+        Update: {
+          is_public?: boolean
+          key?: string
+          locale?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json
+        }
+        Relationships: []
       }
       stock_items: {
         Row: {
@@ -1942,6 +2755,42 @@ export type Database = {
         }
         Relationships: []
       }
+      translations: {
+        Row: {
+          id: string
+          locale: string
+          namespace: string | null
+          ns_norm: string | null
+          tkey: string
+          updated_at: string
+          updated_by: string | null
+          value_json: Json | null
+          value_text: string | null
+        }
+        Insert: {
+          id?: string
+          locale: string
+          namespace?: string | null
+          ns_norm?: string | null
+          tkey: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json | null
+          value_text?: string | null
+        }
+        Update: {
+          id?: string
+          locale?: string
+          namespace?: string | null
+          ns_norm?: string | null
+          tkey?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_json?: Json | null
+          value_text?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       catalog_mv: {
@@ -2110,6 +2959,13 @@ export type Database = {
             referencedRelation: "ecom_categories"
             referencedColumns: ["slug"]
           },
+          {
+            foreignKeyName: "fk_ecom_products_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
         ]
       }
       ecom_products_with_ratings: {
@@ -2182,7 +3038,15 @@ export type Database = {
           order_id?: string | null
           status?: never
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_orders_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       order_items_v: {
         Row: {
@@ -2335,7 +3199,15 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"] | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_orders_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       product_catalog: {
         Row: {
@@ -2491,6 +3363,13 @@ export type Database = {
             referencedRelation: "ecom_categories"
             referencedColumns: ["slug"]
           },
+          {
+            foreignKeyName: "fk_ecom_products_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
         ]
       }
       products_unified: {
@@ -2538,6 +3417,213 @@ export type Database = {
           image_path?: string | null
           slug?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      published_catalog: {
+        Row: {
+          category_slug: string | null
+          created_at: string | null
+          id: string | null
+          price: number | null
+          rating: number | null
+          slug: string | null
+          thumbnail_path: string | null
+          title: string | null
+        }
+        Insert: {
+          category_slug?: string | null
+          created_at?: string | null
+          id?: string | null
+          price?: number | null
+          rating?: number | null
+          slug?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+        }
+        Update: {
+          category_slug?: string | null
+          created_at?: string | null
+          id?: string | null
+          price?: number | null
+          rating?: number | null
+          slug?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      published_content_blocks: {
+        Row: {
+          content_json: Json | null
+          id: string | null
+          locale: string | null
+          published_at: string | null
+          slug: string | null
+          type: string | null
+        }
+        Insert: {
+          content_json?: Json | null
+          id?: string | null
+          locale?: string | null
+          published_at?: string | null
+          slug?: string | null
+          type?: string | null
+        }
+        Update: {
+          content_json?: Json | null
+          id?: string | null
+          locale?: string | null
+          published_at?: string | null
+          slug?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
+      published_media_assets: {
+        Row: {
+          alt: string | null
+          bucket: string | null
+          created_at: string | null
+          description: string | null
+          height: number | null
+          id: string | null
+          mime_type: string | null
+          size_bytes: number | null
+          storage_key: string | null
+          width: number | null
+        }
+        Insert: {
+          alt?: string | null
+          bucket?: string | null
+          created_at?: string | null
+          description?: string | null
+          height?: number | null
+          id?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt?: string | null
+          bucket?: string | null
+          created_at?: string | null
+          description?: string | null
+          height?: number | null
+          id?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      published_navigation_links: {
+        Row: {
+          id: string | null
+          is_external: boolean | null
+          label: string | null
+          locale: string | null
+          menu: string | null
+          sort_order: number | null
+          url: string | null
+        }
+        Insert: {
+          id?: string | null
+          is_external?: boolean | null
+          label?: string | null
+          locale?: string | null
+          menu?: string | null
+          sort_order?: number | null
+          url?: string | null
+        }
+        Update: {
+          id?: string | null
+          is_external?: boolean | null
+          label?: string | null
+          locale?: string | null
+          menu?: string | null
+          sort_order?: number | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      published_page_sections: {
+        Row: {
+          block_id: string | null
+          id: string | null
+          locale: string | null
+          page_path: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          block_id?: string | null
+          id?: string | null
+          locale?: string | null
+          page_path?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          block_id?: string | null
+          id?: string | null
+          locale?: string | null
+          page_path?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_sections_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "content_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_sections_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "published_content_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      published_site_settings: {
+        Row: {
+          key: string | null
+          locale: string | null
+          value_json: Json | null
+        }
+        Insert: {
+          key?: string | null
+          locale?: string | null
+          value_json?: Json | null
+        }
+        Update: {
+          key?: string | null
+          locale?: string | null
+          value_json?: Json | null
+        }
+        Relationships: []
+      }
+      published_translations: {
+        Row: {
+          locale: string | null
+          namespace: string | null
+          tkey: string | null
+          value: string | null
+        }
+        Insert: {
+          locale?: string | null
+          namespace?: string | null
+          tkey?: string | null
+          value?: never
+        }
+        Update: {
+          locale?: string | null
+          namespace?: string | null
+          tkey?: string | null
+          value?: never
         }
         Relationships: []
       }
@@ -2791,13 +3877,94 @@ export type Database = {
           date: string
         }[]
       }
+      cms_attach_section: {
+        Args: {
+          p_block_id: string
+          p_is_draft?: boolean
+          p_locale: string
+          p_page_path: string
+          p_published_at?: string
+          p_sort_order?: number
+          p_visible?: boolean
+        }
+        Returns: string
+      }
+      cms_create_block: {
+        Args: {
+          p_content: Json
+          p_locale: string
+          p_slug?: string
+          p_status?: string
+          p_type: string
+        }
+        Returns: string
+      }
+      cms_enqueue_publish: {
+        Args: { p_action?: string; p_payload?: Json; p_target: string }
+        Returns: string
+      }
+      cms_insert_revision: {
+        Args: {
+          p_locale: string
+          p_message?: string
+          p_snapshot: Json
+          p_target_id: string
+          p_target_key: string
+          p_target_table: string
+        }
+        Returns: string
+      }
+      cms_is_admin: { Args: never; Returns: boolean }
+      cms_is_editor: { Args: never; Returns: boolean }
+      cms_publish_block: {
+        Args: { p_block_id: string; p_when?: string }
+        Returns: undefined
+      }
+      cms_publish_nav: {
+        Args: { p_locale?: string; p_menu: string; p_when?: string }
+        Returns: undefined
+      }
+      cms_publish_section: {
+        Args: { p_section_id: string; p_when?: string }
+        Returns: undefined
+      }
+      cms_unpublish_block: { Args: { p_block_id: string }; Returns: undefined }
+      cms_unpublish_nav: {
+        Args: { p_locale?: string; p_menu: string }
+        Returns: undefined
+      }
+      cms_unpublish_section: {
+        Args: { p_section_id: string }
+        Returns: undefined
+      }
+      cms_upsert_setting: {
+        Args: {
+          p_is_public?: boolean
+          p_key: string
+          p_locale: string
+          p_value: Json
+        }
+        Returns: undefined
+      }
+      cms_upsert_translation: {
+        Args: {
+          p_locale: string
+          p_namespace?: string
+          p_tkey: string
+          p_value_json?: Json
+          p_value_text?: string
+        }
+        Returns: string
+      }
       create_or_get_pending_order: {
         Args: { p_user_id: string }
         Returns: {
           amount_cents: number | null
+          applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
           contact_email: string | null
+          coupon_codes: string[]
           created_at: string
           currency: string
           discount_total: number
@@ -2838,6 +4005,7 @@ export type Database = {
           jwt_email: string
         }[]
       }
+      ecom_wishlist_toggle: { Args: { p_product_id: string }; Returns: string }
       ensure_review_root: { Args: { _review_id: string }; Returns: string }
       get_my_auth_user: {
         Args: never
@@ -3153,17 +4321,10 @@ export type Database = {
         Returns: Json
       }
       place_order: { Args: { p_user_id: string }; Returns: string }
-      place_order_with_items:
-        | {
-            Args: { payload: Json }
-            Returns: {
-              order_id: string
-            }[]
-          }
-        | {
-            Args: { p_currency?: string; p_items: Json; p_user_id: string }
-            Returns: string
-          }
+      place_order_with_items: {
+        Args: { p_currency?: string; p_items: Json; p_user_id: string }
+        Returns: string
+      }
       purge_hanging_orders: {
         Args: { p_cutoff?: string; p_dry_run?: boolean }
         Returns: {
@@ -3329,6 +4490,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      sync_catalog_published: {
+        Args: { p_refresh_mv?: boolean }
+        Returns: undefined
+      }
       table_counts_small: {
         Args: { max_size_mb?: number }
         Returns: {
@@ -3365,6 +4530,28 @@ export type Database = {
         | "refunded"
         | "partial_refund"
         | "requires_action"
+      promotion_action_kind:
+        | "percentage_discount"
+        | "fixed_amount_discount"
+        | "buy_x_get_y"
+        | "free_shipping"
+        | "gift_product"
+      promotion_condition_kind:
+        | "product"
+        | "category"
+        | "collection"
+        | "order_total"
+        | "order_quantity"
+        | "user_segment"
+        | "utm"
+        | "schedule"
+        | "custom"
+      promotion_status:
+        | "draft"
+        | "scheduled"
+        | "active"
+        | "expired"
+        | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3512,6 +4699,25 @@ export const Constants = {
         "partial_refund",
         "requires_action",
       ],
+      promotion_action_kind: [
+        "percentage_discount",
+        "fixed_amount_discount",
+        "buy_x_get_y",
+        "free_shipping",
+        "gift_product",
+      ],
+      promotion_condition_kind: [
+        "product",
+        "category",
+        "collection",
+        "order_total",
+        "order_quantity",
+        "user_segment",
+        "utm",
+        "schedule",
+        "custom",
+      ],
+      promotion_status: ["draft", "scheduled", "active", "expired", "archived"],
     },
   },
 } as const

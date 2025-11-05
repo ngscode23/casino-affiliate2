@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "apps/web-next/*"
+        "apps/web-next/*",
+        "apps/cms-admin/*"
       ],
       "@shared/*": [
         "packages/shared/src/*"
@@ -37,6 +38,9 @@
       ],
       "@web-next/*": [
         "apps/web-next/*"
+      ],
+      "lucide-react": [
+        "node_modules/lucide-react/dist/lucide-react"
       ]
     },
     "resolvePackageJsonExports": true,

@@ -39,8 +39,14 @@
       "@casino-affiliate/types/*": [
         "packages/types/src/types/*"
       ],
+      "@generated/prisma/*": [
+        "generated/prisma/*"
+      ],
       "@web-next/*": [
         "apps/web-next/*"
+      ],
+      "lucide-react": [
+        "node_modules/lucide-react/dist/lucide-react"
       ]
     },
     "types": [

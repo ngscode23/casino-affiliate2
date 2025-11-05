@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-export type ToastVariant = "info" | "success" | "error";
+export type ToastVariant = "info" | "success" | "error" | "warning";
 
 export type ToastEventDetail = {
   id?: number;
@@ -67,6 +67,7 @@ export function ToastContainer() {
             t.variant === "success" && "border-green-500/40",
             t.variant === "error" && "border-red-500/40",
             t.variant === "info" && "border-white/15",
+            t.variant === "warning" && "border-amber-400/50",
           ].filter(Boolean).join(" ")}
           onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
         >

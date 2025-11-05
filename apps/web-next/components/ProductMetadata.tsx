@@ -1,5 +1,5 @@
 import type { ProductData } from "@/app/products/[slug]/data";
-import { formatCurrency } from "@/app/products/[slug]/data";
+import { formatCurrency } from "@/app/products/currency";
 import { SITE_NAME, SITE_URL } from "@shared/config";
 import { makeBreadcrumbsLD, serializeJsonLd } from "@shared/lib/jsonld";
 

@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+  schemas      = ["discounts"]
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model Brand {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Vendor {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Category {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Product {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sku        String    @unique
+  name       String
+  brandId    String?   @db.Uuid
+  vendorId   String?   @db.Uuid
+  categoryId String?   @db.Uuid
+  priceCents Int
+  currency   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  brand      Brand?    @relation(fields: [brandId], references: [id])
+  vendor     Vendor?   @relation(fields: [vendorId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([brandId])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@schema("discounts")
+}
+
+model Discount {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  type              DiscountType
+  description       String?
+  percentOff        Decimal?             @db.Decimal(5, 4)
+  amountOffCts      Int?
+  currency          String?
+  bogoBuyQty        Int?
+  bogoGetQty        Int?
+  stackable         Boolean              @default(false)
+  priority          Int                  @default(100)
+  minSubtotalCts    Int?
+  minQty            Int?
+  startAt           DateTime?
+  endAt             DateTime?
+  channel           String               @default("all")
+  usageLimitTotal   Int?
+  usageLimitPerUser Int?
+  active            Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  assignments       DiscountAssignment[]
+  exclusions        DiscountExclusion[]
+  coupons           Coupon[]
+  redemptions       CouponRedemption[]
+
+  @@index([active, startAt, endAt, channel])
+  @@index([priority, startAt])
+  @@schema("discounts")
+}
+
+model DiscountAssignment {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  discountId String          @db.Uuid
+  scope      AssignmentScope
+  refId      String
+  discount   Discount        @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, scope, refId])
+  @@index([scope, refId])
+  @@schema("discounts")
+}
+
+model DiscountExclusion {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  discountId String          @db.Uuid
+  scope      AssignmentScope
+  refId      String
+  discount   Discount        @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, scope, refId])
+  @@index([scope, refId])
+  @@schema("discounts")
+}
+
+model Coupon {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String             @unique @db.Citext
+  discountId     String             @db.Uuid
+  maxRedemptions Int?
+  redemptions    Int                @default(0)
+  metadata       Json?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  discount       Discount           @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  redemptionsLog CouponRedemption[]
+
+  @@index([discountId])
+  @@index([startsAt, endsAt])
+  @@schema("discounts")
+}
+
+model CouponRedemption {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  couponId    String?  @db.Uuid
+  discountId  String   @db.Uuid
+  userId      String?
+  orderId     String?
+  amountCents Int
+  currency    String
+  redeemedAt  DateTime @default(now())
+  metadata    Json?
+  coupon      Coupon?  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  discount    Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, redeemedAt])
+  @@index([discountId, redeemedAt])
+  @@index([userId, couponId])
+  @@schema("discounts")
+}
+
+enum DiscountType {
+  percent_off
+  amount_off
+  bogo
+  tiered
+  coupon
+
+  @@schema("discounts")
+}
+
+enum AssignmentScope {
+  BRAND
+  CATEGORY
+  PRODUCT
+  VENDOR
+  CUSTOMER_GROUP
+
+  @@schema("discounts")
+}

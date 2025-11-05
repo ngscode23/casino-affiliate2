@@ -1,13 +1,15 @@
 import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { getFallbackImageByKey } from "./fallback-images";
+import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
-import { normalizeImageUrl, formatCurrency } from "./[slug]/data";
+import { formatCurrency } from "./currency";
+import { resolveCurrency, resolvePriceDetails } from "./price-utils";
 
 export type CategorySummary = { slug: string; label: string; count: number };
 
 export const CATALOG_NAME = "Neon Shop Product Catalog";
-export const PRODUCT_LIST_REVALIDATE_SECONDS = 90;
+export const PRODUCT_LIST_REVALIDATE_SECONDS = 1;
 const PRODUCT_COLLECTION_TAG = "products:list";
 const CATEGORY_TAG_PREFIX = "category:";
 
@@ -63,11 +65,11 @@ async function loadProductsDataInternal(): Promise<{
   catalogName: string;
 }> {
   const supabase = getAdminClient();
-  const { data, error } = await supabase.rpc("api_catalog_list", {
-    _category: null,
-    _limit: DEFAULT_LIST_LIMIT,
-    _offset: 0,
-  });
+  const { data, error } = await supabase
+    .from("product_with_discount_public")
+    .select("id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path")
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(DEFAULT_LIST_LIMIT);
 
   if (error || !Array.isArray(data)) {
     return {
@@ -81,33 +83,59 @@ async function loadProductsDataInternal(): Promise<{
 
   const now = Date.now();
 
-  const products: Product[] = data.map((row: any, index) => {
+  let products: Product[] = data.map((row: any, index) => {
     const id = row?.id != null ? String(row.id) : "";
     const slug = row?.slug != null ? String(row.slug) : "";
-    const title = row?.title != null ? String(row.title) : "";
-    const createdAt = typeof row?.created_at === "string" ? row.created_at : null;
+    const titleSource = row?.title ?? row?.name ?? "";
+    const title = titleSource != null ? String(titleSource) : "";
+    const createdAtRaw = row?.created_at ?? row?.createdAt ?? null;
+    const createdAt = typeof createdAtRaw === "string" ? createdAtRaw : null;
     const createdTime = createdAt ? Date.parse(createdAt) : NaN;
     const isNew = Number.isFinite(createdTime) ? createdTime >= now - NEW_WINDOW_MS : index < TOP_LIMIT;
 
-    const priceValue = typeof row?.price === "number" ? row.price : Number(row?.price ?? 0);
-    const normalizedPrice = Number.isFinite(priceValue) ? Math.max(priceValue, 0) : 0;
-    const currencyRaw =
-      typeof row?.currency === "string" && row.currency.trim() ? row.currency.trim().toUpperCase() : DEFAULT_CURRENCY;
-    const thumbnailPath =
-      typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim() ? row.thumbnail_path.trim() : null;
+    const priceDetails = resolvePriceDetails(row as Record<string, unknown>);
+    const currencyResolved = resolveCurrency(row as Record<string, unknown>);
+    const normalizedPrice = priceDetails.price;
+    const normalizedPriceCents = Number.isFinite(priceDetails.priceCents)
+      ? priceDetails.priceCents
+      : Math.round(normalizedPrice * 100);
+    const currencyRaw = (currencyResolved ?? DEFAULT_CURRENCY).toUpperCase();
+    const thumbnailPath = (() => {   
+         if (typeof row?.thumbnail === "string" && row.thumbnail.trim()) return row.thumbnail.trim();  
+             if (typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim())
+               return row.thumbnail_path.trim();
+            return null;   
+           })
+            ();
     const fallbackKey = slug || id || String(index);
-    const mainImage = normalizeImageUrl(thumbnailPath) ?? getFallbackImageByKey(fallbackKey);
+    const mainImage = thumbnailPath? normalizeImageUrl(thumbnailPath) ?? getFallbackImageByKey(fallbackKey) : getFallbackImageByKey(fallbackKey);
     const rating =
       typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
-    const categorySlug =
-      typeof row?.category_slug === "string" && row.category_slug.trim() ? row.category_slug.trim() : null;
+    const categorySlug = (() => {
+      const value =
+        (typeof row?.category_slug === "string" && row.category_slug.trim()
+          ? row.category_slug
+          : typeof (row as Record<string, unknown>)?.categorySlug === "string"
+            ? (row as Record<string, unknown>).categorySlug
+            : null) ?? null;
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : null;
+      }
+      return null;
+    })();
 
     return {
       id,
       slug,
       title,
-      description: null,
+      description: typeof row?.description === "string" ? row.description : null,
       price: normalizedPrice,
+      priceCents: normalizedPriceCents,
+      originalPrice: priceDetails.originalPrice,
+      originalPriceCents: priceDetails.originalPriceCents,
+      discountPercent: priceDetails.discountPercent,
+      discountAmountCents: priceDetails.discountAmountCents,
       currency: currencyRaw,
       mainImage,
       thumbnailPath,
@@ -149,6 +177,22 @@ async function loadProductsDataInternal(): Promise<{
 
   const structuredData = buildStructuredData(products);
 
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      for (const p of products) {
+        console.debug("catalog:image", {
+          id: p.id,
+          sku: p.slug,
+          slug: p.slug,
+          image: p.mainImage,
+          source: "product_with_discount_public",
+        });
+      }
+    } catch {
+      // no-op debug hook
+    }
+  }
+
   return {
     products,
     fetchError: null,
@@ -172,4 +216,11 @@ export function formatPrice(priceCents: number | null | undefined, currency: str
   const cur = (currency ?? "EUR").toUpperCase();
   return formatCurrency(price, cur);
 }
+
+
+
+
+
+
+
 

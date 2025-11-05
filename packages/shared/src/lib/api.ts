@@ -1,4 +1,5 @@
 import { envString } from "./env";
+import { getValidAccessToken } from "./auth";
 
 // Functions base URL resolution
 function pickEnv(...keys: string[]): string {
@@ -21,11 +22,18 @@ export function fnUrl(name: string) {
 
 // Helper to call admin endpoints with token header when available
 export async function adminFetch(input: string, init: RequestInit = {}) {
-  const token =
-    pickEnv("NEXT_PUBLIC_ADMIN_TOKEN", "ADMIN_TOKEN") || undefined;
+  const token = pickEnv("NEXT_PUBLIC_ADMIN_TOKEN", "ADMIN_TOKEN") || undefined;
   const headers = new Headers(init.headers as HeadersInit | undefined);
   if (!headers.has("accept")) headers.set("accept", "application/json");
   if (token && !headers.has("x-admin-token")) headers.set("x-admin-token", token);
+
+  if (!headers.has("authorization")) {
+    const accessToken = await getValidAccessToken().catch(() => null);
+    if (accessToken) {
+      headers.set("authorization", `Bearer ${accessToken}`);
+    }
+  }
+
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   return fetch(input, { ...init, headers });
 }

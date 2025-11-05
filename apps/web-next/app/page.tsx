@@ -122,8 +122,28 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
   const items: ProductGridItem[] = curated.map((product) => {
     const priceValue = Number(product.price ?? 0);
     const badge = product.isNew ? "new" : product.isTop ? "bestseller" : null;
-    const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12) : null;
-
+    const rawDiscountPercent =
+      typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
+    const discountPercent =
+      rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
+    let originalPrice: string | null = null;
+    if (rawDiscountPercent && rawDiscountPercent > 0 && rawDiscountPercent < 100 && priceValue > 0) {
+      const base = priceValue / (1 - rawDiscountPercent / 100);
+      if (Number.isFinite(base) && base > priceValue) {
+        originalPrice = formatPrice(base);
+      }
+    }
+    if (!originalPrice) {
+      const rawOriginal = typeof product.originalPrice === "number" ? product.originalPrice : null;
+      if (typeof rawOriginal === "number" && rawOriginal > priceValue) {
+        originalPrice = formatPrice(rawOriginal);
+      }
+      const rawOriginalCents =
+        typeof product.originalPriceCents === "number" ? product.originalPriceCents : null;
+      if (!originalPrice && typeof rawOriginalCents === "number" && rawOriginalCents > priceValue * 100) {
+        originalPrice = formatPrice(rawOriginalCents / 100);
+      }
+    }
     return {
       id: product.id,
       slug: product.slug,

@@ -11,6 +11,7 @@ coverage/
 playwright-report/
 test-results/
 apps/*/{dist,.turbo}
+apps/cms-admin/
 
 # Editor / OS junk
 .vscode/*
@@ -59,3 +60,5 @@ st/
 # VSIX bundles
 openai.chatgpt-*.vsix
 .vercel
+
+/generated/prisma

@@ -122,9 +122,33 @@ export async function ensureSession(): Promise<void> {
         cache: "no-store",
       });
       if (response.ok) {
-        const json = (await response.json()) as { user?: Partial<AuthUser> | null } | null;
+        const json = (await response.json()) as {
+          user?: Partial<AuthUser> | null;
+          session?: {
+            accessToken?: string | null;
+            expiresAt?: string | null;
+            expiresIn?: number | null;
+            tokenType?: string | null;
+          } | null;
+        } | null;
         const apiUser = json?.user;
         if (apiUser && apiUser.id) {
+          const apiSession = json?.session ?? null;
+          const session = (() => {
+            if (apiSession?.accessToken) {
+              const fallbackExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+              const tokenType: "Bearer" =
+                apiSession.tokenType === "Bearer" ? "Bearer" : "Bearer";
+              return {
+                accessToken: String(apiSession.accessToken),
+                expiresAt: apiSession.expiresAt ?? fallbackExpiresAt,
+                expiresIn: apiSession.expiresIn ?? 0,
+                tokenType,
+              };
+            }
+            return getAuthState().session;
+          })();
+
           setAuthState({
             user: {
               id: String(apiUser.id),
@@ -136,7 +160,7 @@ export async function ensureSession(): Promise<void> {
               updatedAt: String(apiUser.updatedAt ?? apiUser.createdAt ?? new Date().toISOString()),
               lastLoginAt: (apiUser.lastLoginAt as string | null) ?? null,
             },
-            session: getAuthState().session,
+            session,
           });
         }
       }

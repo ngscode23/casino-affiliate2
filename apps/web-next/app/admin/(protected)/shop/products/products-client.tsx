@@ -1,20 +1,34 @@
-
 "use client";
 
-import { useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Columns3, Download, Filter, MoreHorizontal, Save, Search, Tag, Upload } from "lucide-react";
+import clsx from "clsx";
 
-import Section from "@ui/components/common/section";
 import Button from "@ui/components/common/button";
-import Input from "@ui/components/common/input";
 import Skeleton from "@ui/components/common/skeleton";
 import StatusBadge from "@ui/components/admin/StatusBadge";
 import ProductDialog from "@ui/components/admin/ProductDialog";
 import { toast } from "@ui/components/common/toast";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@ui/components/common/dropdown-menu";
+import { adminFetch } from "@shared/lib/api";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
-import { adminFetch } from "@shared/lib/api";
-import clsx from "clsx";
+
+import {
+  AdminContentWrapper,
+  AdminInfoPanel,
+  AdminPageLayout,
+  AdminStack,
+  AdminSurface,
+} from "@/components/admin/layout";
 
 interface ProductRow {
   id: string;
@@ -43,6 +57,7 @@ interface FetchParams {
   category?: string;
   sort?: string;
   dir?: "asc" | "desc";
+  limit?: number;
 }
 
 async function authorizedFetch(input: string, init?: RequestInit) {
@@ -63,7 +78,7 @@ async function fetchProducts(params: FetchParams) {
   }
   if (params.sort) url.searchParams.set("sort", params.sort);
   if (params.dir) url.searchParams.set("dir", params.dir);
-  url.searchParams.set("limit", "25");
+  url.searchParams.set("limit", String(params.limit ?? 25));
 
   const res = await authorizedFetch(url.toString());
   if (!res.ok) {
@@ -79,11 +94,9 @@ async function fetchProducts(params: FetchParams) {
 async function fetchCategories() {
   try {
     const res = await authorizedFetch("/api/ecom-categories");
-    if (!res.ok) return [];
+    if (!res.ok) return [] as CategoryOption[];
     const json = await res.json();
-    return Array.isArray(json?.items)
-      ? (json.items as CategoryOption[])
-      : [];
+    return Array.isArray(json?.items) ? (json.items as CategoryOption[]) : [];
   } catch (error) {
     console.warn("Failed to load categories", error);
     return [];
@@ -133,6 +146,64 @@ function pickCategoryDot(slug: string | null) {
   return CATEGORY_PALETTES[idx];
 }
 
+type SavedView = {
+  id: string;
+  name: string;
+  filters: {
+    q?: string;
+    status?: string;
+    category?: string;
+    sort?: string;
+    dir?: "asc" | "desc";
+  };
+};
+
+const DEFAULT_VIEWS: SavedView[] = [
+  { id: "default", name: "Все товары", filters: {} },
+  { id: "drafts", name: "Черновики", filters: { status: "draft" } },
+  { id: "hidden", name: "Архив", filters: { status: "archived" } },
+];
+
+const PRODUCT_COLUMNS = [
+  { key: "sku", label: "SKU" },
+  { key: "price", label: "Цена" },
+  { key: "category", label: "Категория" },
+  { key: "status", label: "Статус" },
+  { key: "rating", label: "Рейтинг" },
+  { key: "created_at", label: "Создан" },
+] as const;
+
+type ProductColumnKey = (typeof PRODUCT_COLUMNS)[number]["key"];
+
+function filtersMatch(a: SavedView["filters"], b: SavedView["filters"]): boolean {
+  return (
+    (a.q ?? undefined) === (b.q ?? undefined) &&
+    (a.status ?? "all") === (b.status ?? "all") &&
+    (a.category ?? "all") === (b.category ?? "all") &&
+    (a.sort ?? "created_at") === (b.sort ?? "created_at") &&
+    (a.dir ?? "desc") === (b.dir ?? "desc")
+  );
+}
+
+function formatCurrency(value: number | null | undefined) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 2,
+    }).format(value ?? 0);
+  } catch {
+    return value != null ? String(value) : "-";
+  }
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+}
+
 export function ProductsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -142,24 +213,41 @@ export function ProductsClient() {
   const [status, setStatus] = useState(() => searchParams?.get("status") ?? "all");
   const [category, setCategory] = useState(() => searchParams?.get("category") ?? "all");
   const [items, setItems] = useState<ProductRow[]>([]);
-  const [refreshToken, setRefreshToken] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [pageSize, setPageSize] = useState(25);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [visibleColumns, setVisibleColumns] = useState(() => new Set<ProductColumnKey>(["price", "status", "category", "created_at"]));
+  const [savedViews, setSavedViews] = useState<SavedView[]>(DEFAULT_VIEWS);
+  const [activeViewId, setActiveViewId] = useState<string>("default");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<ProductRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
   const normalizedCategories = useMemo(
     () => categories.map((item) => ({ ...item, color: item.color ?? undefined })),
     [categories],
   );
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<ProductRow | null>(null);
+
+  const currentFilters = useMemo(
+    () => ({
+      q: query || undefined,
+      status: status === "all" ? undefined : status,
+      category: category === "all" ? undefined : category,
+      sort: "created_at",
+      dir: "desc" as const,
+    }),
+    [query, status, category],
+  );
 
   const dialogInitial = useMemo(() => {
     if (!editing) return undefined;
-    const status: 'draft' | 'published' | 'archived' =
-      editing.status === 'published' || editing.status === 'archived' ? editing.status : 'draft';
+    const draftStatus: "draft" | "published" | "archived" =
+      editing.status === "published" || editing.status === "archived" ? editing.status : "draft";
     return {
       id: editing.id,
       title: editing.title,
@@ -167,7 +255,7 @@ export function ProductsClient() {
       sku: editing.sku ?? undefined,
       price: editing.price ?? 0,
       category_slug: editing.category_slug ?? null,
-      status,
+      status: draftStatus,
       rating: editing.rating ?? undefined,
       short_desc: editing.short_desc ?? undefined,
       images: editing.images ?? undefined,
@@ -177,10 +265,10 @@ export function ProductsClient() {
 
   const statusOptions = useMemo(
     () => [
-      { value: "all", label: "All statuses" },
-      { value: "draft", label: "Draft" },
-      { value: "published", label: "Published" },
-      { value: "archived", label: "Archived" },
+      { value: "all", label: "Все статусы" },
+      { value: "draft", label: "Черновик" },
+      { value: "published", label: "Опубликован" },
+      { value: "archived", label: "Архив" },
     ],
     [],
   );
@@ -211,13 +299,7 @@ export function ProductsClient() {
       try {
         setLoading(true);
         setError(null);
-        const { items, total } = await fetchProducts({
-          q: query || undefined,
-          status: status || undefined,
-          category: category || undefined,
-          sort: "created_at",
-          dir: "desc",
-        });
+        const { items, total } = await fetchProducts({ ...currentFilters, limit: pageSize });
         if (!cancelled) {
           setItems(items);
           setTotal(total);
@@ -233,312 +315,365 @@ export function ProductsClient() {
     return () => {
       cancelled = true;
     };
-  }, [query, status, category, refreshToken]);
+  }, [currentFilters, pageSize, refreshToken]);
 
-  const handleDelete = async (product: ProductRow) => {
-    const productTitle = (product.title ?? "").trim();
-    const confirmed = window.confirm(
-      productTitle
-        ? `Delete "${productTitle}"? This action cannot be undone.`
-        : "Delete this product? This action cannot be undone.",
-    );
-    if (!confirmed) return;
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [items]);
 
-    setDeletingId(product.id);
-    try {
-      const res = await authorizedFetch("/api/admin-products", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "delete", ids: [product.id] }),
-      });
-      const responseText = await res.text();
-      const payload = parseAdminResponse(responseText);
-      if (!res.ok) {
-        const errorMessage =
-          (payload && typeof payload.error === "string" && payload.error) ||
-          responseText ||
-          "Failed to archive product";
-        throw new Error(errorMessage);
+  useEffect(() => {
+    const matched = savedViews.find((view) => filtersMatch(view.filters, currentFilters));
+    setActiveViewId(matched ? matched.id : "__custom");
+  }, [currentFilters, savedViews]);
+
+  const handleDelete = useCallback(
+    async (product: ProductRow) => {
+      const productTitle = (product.title ?? "").trim();
+      const confirmed = window.confirm(
+        productTitle
+          ? `Удалить «${productTitle}»? Это действие нельзя отменить.`
+          : "Удалить товар? Это действие нельзя отменить.",
+      );
+      if (!confirmed) return;
+      setDeletingId(product.id);
+      try {
+        const res = await authorizedFetch("/api/admin-products", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ op: "delete", ids: [product.id] }),
+        });
+        const responseText = await res.text();
+        const payload = parseAdminResponse(responseText);
+        if (!res.ok) {
+          const errorMessage =
+            (payload && typeof payload.error === "string" && payload.error) ||
+            responseText ||
+            "Failed to archive product";
+          throw new Error(errorMessage);
+        }
+        if (payload && payload.ok === false) {
+          const errorMessage =
+            (typeof payload.error === "string" && payload.error) || "Failed to archive product";
+          throw new Error(errorMessage);
+        }
+
+        const archivedCount =
+          payload && typeof payload.archived === "number"
+            ? payload.archived
+            : payload && typeof payload.deleted === "number"
+              ? payload.deleted
+              : 1;
+        setItems((prev) => prev.filter((item) => item.id !== product.id));
+        setTotal((prev) => Math.max(0, prev - archivedCount));
+        toast("Товар перемещён в архив", { variant: "success" });
+        setRefreshToken((value) => value + 1);
+      } catch (err) {
+        console.error("products-client: delete failed", err);
+        const message = err instanceof Error ? err.message : "Failed to archive product";
+        toast(message, { variant: "error" });
+      } finally {
+        setDeletingId(null);
       }
-      if (payload && payload.ok === false) {
-        const errorMessage =
-          (typeof payload.error === "string" && payload.error) || "Failed to archive product";
-        throw new Error(errorMessage);
-      }
-
-      const archivedCount =
-        payload && typeof payload.archived === "number"
-          ? payload.archived
-          : payload && typeof payload.deleted === "number"
-            ? payload.deleted
-            : 1;
-      setItems((prev) => prev.filter((item) => item.id !== product.id));
-      setTotal((prev) => Math.max(0, prev - archivedCount));
-      toast("Product archived", { variant: "success" });
-      setRefreshToken((value) => value + 1);
-    } catch (err) {
-      console.error("products-client: delete failed", err);
-      const message = err instanceof Error ? err.message : "Failed to archive product";
-      toast(message, { variant: "error" });
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleDuplicate = async (product: ProductRow) => {
-    setDuplicatingId(product.id);
-    try {
-      const res = await authorizedFetch("/api/admin-products", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "duplicate", ids: [product.id] }),
-      });
-      const responseText = await res.text();
-      const payload = parseAdminResponse(responseText);
-      if (!res.ok) {
-        const errorMessage =
-          (payload && typeof payload.error === "string" && payload.error) ||
-          responseText ||
-          "Failed to duplicate product";
-        throw new Error(errorMessage);
-      }
-      if (payload && payload.ok === false) {
-        const errorMessage =
-          (typeof payload.error === "string" && payload.error) || "Failed to duplicate product";
-        throw new Error(errorMessage);
-      }
-
-      toast("Product duplicated", { variant: "success" });
-      setRefreshToken((value) => value + 1);
-    } catch (err) {
-      console.error("products-client: duplicate failed", err);
-      const message = err instanceof Error ? err.message : "Failed to duplicate product";
-      toast(message, { variant: "error" });
-    } finally {
-      setDuplicatingId(null);
-    }
-  };
-
-  const categoryLabel = (slug: string | null) => {
-    if (!slug) return "-";
-    const match = categories.find((item) => item.slug === slug);
-  return match?.name ?? slug;
-};
-
-const TILE_BASE =
-  "relative overflow-hidden rounded-3xl border border-white/6 bg-[#0c141f]/85 p-6 shadow-[0_28px_55px_rgba(8,12,32,0.55)] backdrop-blur";
-const TILE_MUTED =
-  "relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a121f]/80 p-6 shadow-[0_22px_38px_rgba(8,12,32,0.45)] backdrop-blur";
-const TILE_ACCENT =
-  "relative overflow-hidden rounded-3xl border border-sky-500/40 bg-gradient-to-br from-[#142742] via-[#101c2e] to-[#091321] p-6 shadow-[0_32px_55px_rgba(14,116,219,0.35)] backdrop-blur";
-const TITLE_LABEL_CLASS =
-  "text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400";
-const SUBTEXT_CLASS = "text-sm text-slate-400";
-
-type TileTone = "base" | "muted" | "accent";
-
-type TileProps = HTMLAttributes<HTMLDivElement> & {
-  tone?: TileTone;
-  children: ReactNode;
-};
-
-function Tile({ tone = "base", className, children, ...rest }: TileProps) {
-  const toneClass = tone === "muted" ? TILE_MUTED : tone === "accent" ? TILE_ACCENT : TILE_BASE;
-  return (
-    <div {...rest} className={clsx(toneClass, className)}>
-      {children}
-    </div>
+    },
+    [],
   );
-}
 
-  const statusLabel = statusOptions.find((option) => option.value === status)?.label ?? status;
-  const activeFilterLabels = [
-    status !== "all" ? `Status: ${statusLabel}` : null,
-    category !== "all" ? `Category: ${categoryLabel(category)}` : null,
-    query ? `Search: "${query}"` : null,
+  const handleDuplicate = useCallback(
+    async (product: ProductRow) => {
+      setDuplicatingId(product.id);
+      try {
+        const res = await authorizedFetch("/api/admin-products", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ op: "duplicate", ids: [product.id] }),
+        });
+        const responseText = await res.text();
+        const payload = parseAdminResponse(responseText);
+        if (!res.ok) {
+          const errorMessage =
+            (payload && typeof payload.error === "string" && payload.error) ||
+            responseText ||
+            "Failed to duplicate product";
+          throw new Error(errorMessage);
+        }
+        if (payload && payload.ok === false) {
+          const errorMessage =
+            (typeof payload.error === "string" && payload.error) || "Failed to duplicate product";
+          throw new Error(errorMessage);
+        }
+
+        toast("Товар продублирован", { variant: "success" });
+        setRefreshToken((value) => value + 1);
+      } catch (err) {
+        console.error("products-client: duplicate failed", err);
+        const message = err instanceof Error ? err.message : "Failed to duplicate product";
+        toast(message, { variant: "error" });
+      } finally {
+        setDuplicatingId(null);
+      }
+    },
+    [],
+  );
+
+  const categoryLabel = useCallback(
+    (slug: string | null) => {
+      if (!slug) return "-";
+      const match = categories.find((item) => item.slug === slug);
+      return match?.name ?? slug;
+    },
+    [categories],
+  );
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (!checked) {
+        setSelectedIds(new Set());
+        return;
+      }
+      setSelectedIds(new Set(items.map((item) => item.id)));
+    },
+    [items],
+  );
+
+  const handleSaveCurrentView = useCallback(() => {
+    const name = window.prompt("Название вида", `Вид ${savedViews.length + 1}`);
+    if (!name) return;
+    const newView: SavedView = {
+      id: `${Date.now()}`,
+      name: name.trim(),
+      filters: { ...currentFilters },
+    };
+    setSavedViews((prev) => [...prev, newView]);
+    setActiveViewId(newView.id);
+    toast("Вид сохранён", { variant: "success" });
+  }, [currentFilters, savedViews.length]);
+
+  const handleApplyView = useCallback(
+    (view: SavedView) => {
+      setActiveViewId(view.id);
+      setQuery(view.filters.q ?? "");
+      setStatus(view.filters.status ?? "all");
+      setCategory(view.filters.category ?? "all");
+    },
+    [],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setQuery("");
+    setStatus("all");
+    setCategory("all");
+  }, []);
+
+  const handleMassAction = useCallback(
+    (action: "publish" | "archive" | "export" | "tag") => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      switch (action) {
+        case "publish":
+          toast(`Отправляем ${ids.length} товар(ов) в публикацию`, { variant: "info" });
+          break;
+        case "archive":
+          toast(`Архивируем ${ids.length} товар(ов)`, { variant: "warning" });
+          break;
+        case "export":
+          toast(`Экспортируем ${ids.length} товар(ов) в CSV`, { variant: "info" });
+          break;
+        case "tag":
+          toast(`Назначаем теги для ${ids.length} товар(ов)`, { variant: "info" });
+          break;
+        default:
+          break;
+      }
+    },
+    [selectedIds],
+  );
+
+  const handleColumnsChange = useCallback((key: ProductColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      if (next.size === 0) {
+        next.add("price");
+      }
+      return next;
+    });
+  }, []);
+
+  const handleQuickEdit = useCallback((product: ProductRow) => {
+    setEditing(product);
+    setDialogOpen(true);
+  }, []);
+
+  const selectedCount = selectedIds.size;
+  const allSelected = items.length > 0 && selectedCount === items.length;
+  const statusLabel = statusOptions.find((option) => option.value === status)?.label ?? "Все статусы";
+  const activeFilters = [
+    query ? `Поиск: ${query}` : null,
+    status !== "all" ? `Статус: ${statusLabel}` : null,
+    category !== "all" ? `Категория: ${categoryLabel(category)}` : null,
   ].filter(Boolean) as string[];
-  const filtersSummary = activeFilterLabels.join(" · ");
-  const filteredCount = items.length;
+
+  const toolbarContent = (
+    <ProductsToolbar
+      query={query}
+      status={status}
+      category={category}
+      categories={categories}
+      statusOptions={statusOptions}
+      savedViews={savedViews}
+      activeViewId={activeViewId}
+      visibleColumns={visibleColumns}
+      pageSize={pageSize}
+      onQueryChange={setQuery}
+      onStatusChange={setStatus}
+      onCategoryChange={setCategory}
+      onSaveView={handleSaveCurrentView}
+      onApplyView={handleApplyView}
+      onResetFilters={handleResetFilters}
+      onToggleColumn={handleColumnsChange}
+      onPageSizeChange={setPageSize}
+      onRefresh={() => setRefreshToken((value) => value + 1)}
+      loading={loading}
+    />
+  );
+
+  const sidebarContent = (
+    <>
+      <AdminInfoPanel title="Сводка">
+        <InfoRow label="На странице" value={items.length} />
+        <InfoRow label="Выбрано" value={selectedCount} />
+        <InfoRow label="Всего" value={total || items.length} />
+      </AdminInfoPanel>
+      <AdminInfoPanel title="Активные фильтры">
+        {activeFilters.length ? (
+          <ul className="space-y-2 text-sm text-admin-textSoft">
+            {activeFilters.map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <Tag size={14} className="text-admin-textSubtle" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-admin-textSubtle">Фильтры не применены.</p>
+        )}
+      </AdminInfoPanel>
+      <AdminInfoPanel title="Сохранённые виды">
+        <SavedViewsList savedViews={savedViews} activeViewId={activeViewId} onApplyView={handleApplyView} />
+      </AdminInfoPanel>
+    </>
+  );
 
   return (
-    <Section className="space-y-8 !px-3 sm:!px-6 lg:!px-10 pb-12">
-      <Tile tone="accent" className="overflow-hidden">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <div className={TITLE_LABEL_CLASS}>Catalog</div>
-            <h1 className="text-3xl font-semibold tracking-tight text-white">Products</h1>
-            <p className={SUBTEXT_CLASS}>
-              {total ? `Total ${total} items` : "Manage marketplace inventory"}
-              {activeFilterLabels.length ? ` · ${filtersSummary}` : ""}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+    <AdminContentWrapper>
+      <AdminPageLayout
+        title="Товары"
+        description="Каталог, статусы и остатки по каналам."
+        breadcrumbs={[
+          { label: "Админка", href: "/admin" },
+          { label: "Товары" },
+        ]}
+        primaryActions={
+          <Button onClick={() => router.push("/admin/shop/products/new")}>Создать товар</Button>
+        }
+        secondaryActions={
+          <>
             <Button
-              className="rounded-full bg-[#f40083] px-5 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-[0_12px_30px_rgba(244,0,131,0.35)] transition hover:shadow-[0_16px_36px_rgba(244,0,131,0.45)]"
-              onClick={() => router.push("/admin/shop/products/new")}
+              variant="soft"
+              className="flex items-center gap-2"
+              onClick={() => toast("Импорт CSV выполняется через ERP", { variant: "info" })}
             >
-              Add product
+              <Upload size={16} /> Импорт
             </Button>
             <Button
-              variant="ghost"
-              className="rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-200 hover:border-white/20 hover:bg-white/15"
-              onClick={() => {
-                setEditing(null);
-                setDialogOpen(true);
-              }}
+              variant="soft"
+              className="flex items-center gap-2"
+              onClick={() => toast("Экспорт сформирован и отправлен на почту", { variant: "info" })}
             >
-              Quick add
+              <Download size={16} /> Экспорт
             </Button>
-          </div>
-        </div>
-        <span className="pointer-events-none absolute -right-10 top-1/2 hidden h-56 w-56 -translate-y-1/2 rounded-full bg-sky-500/20 blur-3xl lg:block" />
-      </Tile>
-
-      <Tile tone="base" className="space-y-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_220px_220px]">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder="Search products..."
-            className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+          </>
+        }
+        toolbar={toolbarContent}
+        sidebar={sidebarContent}
+      >
+        {selectedCount ? (
+          <MassActionsBar
+            selectedCount={selectedCount}
+            onClear={() => setSelectedIds(new Set())}
+            onAction={handleMassAction}
           />
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-[#0b1524]/80 px-4 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
-            value={status}
-            onChange={(event) => setStatus(event.currentTarget.value)}
-          >
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-[#0b1524]/80 px-4 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
-            value={category}
-            onChange={(event) => setCategory(event.currentTarget.value)}
-          >
-            <option value="all">All categories</option>
-            {categories.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {activeFilterLabels.length ? (
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
-            Filters: {filtersSummary}
-          </div>
         ) : null}
-      </Tile>
 
-      {loading ? (
-        <Tile tone="muted" className="space-y-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-10 w-full rounded-2xl" />
-          ))}
-        </Tile>
-      ) : error ? (
-        <Tile tone="muted" className="text-sm text-rose-300">{error}</Tile>
-      ) : filteredCount === 0 ? (
-        <Tile tone="muted" className="py-12 text-center text-sm text-slate-400">
-          No products found.
-        </Tile>
-      ) : (
-        <Tile tone="muted" className="p-0">
-          <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-400">
-            <span className="uppercase tracking-[0.3em]">
-              Showing {filteredCount} of {total || filteredCount} items
-            </span>
-            {activeFilterLabels.length ? (
-              <span className="hidden uppercase tracking-[0.3em] sm:inline">
-                {filtersSummary}
-              </span>
-            ) : null}
+        {error ? (
+          <AdminSurface tone="muted">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm text-rose-600">{error}</span>
+              <Button variant="soft" onClick={() => setRefreshToken((value) => value + 1)}>
+                Повторить
+              </Button>
+            </div>
+          </AdminSurface>
+        ) : null}
+
+        <AdminSurface padded={false} className="overflow-hidden">
+          {loading && !items.length ? (
+            <LoadingTableSkeleton rows={6} />
+          ) : (
+            <ProductsTable
+              items={items}
+              visibleColumns={visibleColumns}
+              selectedIds={selectedIds}
+              allSelected={allSelected}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onEdit={(product) => router.push(`/admin/shop/products/${product.id}`)}
+              onQuickEdit={handleQuickEdit}
+              onDuplicate={handleDuplicate}
+              onArchive={handleDelete}
+              duplicatingId={duplicatingId}
+              deletingId={deletingId}
+              categoryLabel={categoryLabel}
+            />
+          )}
+        </AdminSurface>
+
+        <div className="flex flex-col gap-3 text-sm text-admin-textSubtle lg:flex-row lg:items-center lg:justify-between">
+          <span>
+            Показано {items.length} из {total || items.length} товаров
+          </span>
+          <div className="flex items-center gap-2">
+            <span>Показывать:</span>
+            <select
+              className="h-10 rounded-lg border border-admin-border bg-admin-surface px-3 text-sm"
+              value={pageSize}
+              onChange={(event) => setPageSize(Number(event.currentTarget.value) || 25)}
+            >
+              {[25, 50, 100, 250].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="overflow-x-auto px-2 pb-4">
-            <table className="min-w-full border-separate border-spacing-y-3 text-sm text-slate-100">
-              <thead>
-                <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-slate-500">
-                  <th className="px-4">Title</th>
-                  <th className="px-4">Status</th>
-                  <th className="px-4">Price</th>
-                  <th className="px-4">Category</th>
-                  <th className="px-4">Rating</th>
-                  <th className="px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="rounded-2xl bg-white/5 text-slate-100 shadow-[0_18px_35px_rgba(8,12,32,0.4)] backdrop-blur transition hover:bg-white/10"
-                  >
-                    <td className="px-4 py-4 align-top">
-                      <div className="font-semibold text-white">{product.title}</div>
-                      <div className="text-xs text-slate-400">{product.slug}</div>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <StatusBadge status={product.status ?? "unknown"} />
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      {new Intl.NumberFormat(undefined, {
-                        style: "currency",
-                        currency: "EUR",
-                      }).format(product.price ?? 0)}
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-100">
-                        <span className={clsx("inline-block h-2 w-2 rounded-full", pickCategoryDot(product.category_slug))} />
-                        {categoryLabel(product.category_slug)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-top text-slate-300">{product.rating ?? 0}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="primary"
-                          className="h-9 min-h-0 rounded-full bg-sky-500 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-[0_12px_30px_rgba(56,189,248,0.4)] hover:bg-sky-400"
-                          onClick={() => router.push(`/admin/shop/products/${product.id}`)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="h-9 min-h-0 rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100 hover:border-white/20 hover:bg-white/15"
-                          onClick={() => {
-                            setEditing(product);
-                            setDialogOpen(true);
-                          }}
-                        >
-                          Quick edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="h-9 min-h-0 rounded-full border border-white/10 bg-white/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-100 hover:border-white/20 hover:bg-white/15 disabled:opacity-60"
-                          disabled={duplicatingId === product.id}
-                          onClick={() => handleDuplicate(product)}
-                        >
-                          {duplicatingId === product.id ? "Duplicating..." : "Duplicate"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="h-9 min-h-0 rounded-full border border-rose-500/40 bg-rose-500/10 px-4 text-xs font-semibold uppercase tracking-[0.25em] text-rose-200 hover:border-rose-400 hover:bg-rose-500/20 disabled:opacity-50 disabled:pointer-events-none"
-                          disabled={deletingId === product.id}
-                          onClick={() => handleDelete(product)}
-                        >
-                          {deletingId === product.id ? "Deleting..." : "Delete"}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Tile>
-      )}
+        </div>
+      </AdminPageLayout>
 
       <ProductDialog
         open={dialogOpen}
@@ -549,14 +684,430 @@ function Tile({ tone = "base", className, children, ...rest }: TileProps) {
         initial={dialogInitial}
         categories={normalizedCategories}
         onSaved={() => {
-          toast("Saved", { variant: "success" });
+          toast("Сохранено", { variant: "success" });
           setDialogOpen(false);
           setEditing(null);
-          // trigger refetch
           setRefreshToken((value) => value + 1);
         }}
       />
-    </Section>
+    </AdminContentWrapper>
   );
 }
 
+function ProductsToolbar({
+  query,
+  status,
+  category,
+  categories,
+  statusOptions,
+  savedViews,
+  activeViewId,
+  visibleColumns,
+  pageSize,
+  onQueryChange,
+  onStatusChange,
+  onCategoryChange,
+  onSaveView,
+  onApplyView,
+  onResetFilters,
+  onToggleColumn,
+  onPageSizeChange,
+  onRefresh,
+  loading,
+}: {
+  query: string;
+  status: string;
+  category: string;
+  categories: CategoryOption[];
+  statusOptions: { value: string; label: string }[];
+  savedViews: SavedView[];
+  activeViewId: string;
+  visibleColumns: Set<ProductColumnKey>;
+  pageSize: number;
+  onQueryChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onSaveView: () => void;
+  onApplyView: (view: SavedView) => void;
+  onResetFilters: () => void;
+  onToggleColumn: (key: ProductColumnKey) => void;
+  onPageSizeChange: (size: number) => void;
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  return (
+    <AdminSurface tone="muted" padded="lg" className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <form
+          className="flex flex-1 items-center gap-2 rounded-xl border border-admin-border bg-admin-surface px-3 py-2 text-sm text-admin-text shadow-sm focus-within:border-admin-primary focus-within:ring-2 focus-within:ring-admin-primary/20"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onRefresh();
+          }}
+        >
+          <Search size={16} className="text-admin-textSubtle" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Поиск: SKU, заказ, клиент..."
+            className="h-6 flex-1 bg-transparent text-sm text-admin-text placeholder:text-admin-textSubtle focus:outline-none"
+          />
+        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="neutral"
+            className="flex items-center gap-2 h-9 min-h-0 px-4"
+            onClick={onSaveView}
+            disabled={loading}
+          >
+            <Save size={16} /> Сохранить вид
+          </Button>
+          <Button
+            variant="neutral"
+            className="flex items-center gap-2 h-9 min-h-0 px-4"
+            onClick={onResetFilters}
+            disabled={loading}
+          >
+            <Filter size={16} /> Сбросить
+          </Button>
+          <Button
+            variant="neutral"
+            className="flex items-center gap-2 h-9 min-h-0 px-4"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            <MoreHorizontal size={16} /> Обновить
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            className="h-10 rounded-lg border border-admin-border bg-admin-surface px-3 text-sm"
+            value={status}
+            onChange={(event) => onStatusChange(event.currentTarget.value)}
+          >
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-10 rounded-lg border border-admin-border bg-admin-surface px-3 text-sm"
+            value={category}
+            onChange={(event) => onCategoryChange(event.currentTarget.value)}
+          >
+            <option value="all">Все категории</option>
+            {categories.map((item) => (
+              <option key={item.slug} value={item.slug}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-10 rounded-lg border border-admin-border bg-admin-surface px-3 text-sm"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(Number(event.currentTarget.value) || 25)}
+          >
+            {[25, 50, 100, 250].map((size) => (
+              <option key={size} value={size}>
+                Показать {size}
+              </option>
+            ))}
+          </select>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="neutral" className="flex items-center gap-2 h-9 min-h-0 px-4">
+              <Columns3 size={16} /> Колонки
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[220px]">
+            <DropdownMenuLabel>Показать</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {PRODUCT_COLUMNS.map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.key}
+                checked={visibleColumns.has(column.key)}
+                onCheckedChange={() => onToggleColumn(column.key)}
+              >
+                {column.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <SavedViewChips savedViews={savedViews} activeViewId={activeViewId} onApplyView={onApplyView} />
+    </AdminSurface>
+  );
+}
+
+function SavedViewChips({
+  savedViews,
+  activeViewId,
+  onApplyView,
+}: {
+  savedViews: SavedView[];
+  activeViewId: string;
+  onApplyView: (view: SavedView) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {savedViews.map((view) => {
+        const isActive = view.id === activeViewId;
+        return (
+          <button
+            key={view.id}
+            type="button"
+            className={clsx(
+              "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]",
+              isActive
+                ? "bg-admin-primary text-admin-primary-foreground"
+                : "border border-admin-border bg-admin-surface text-admin-text hover:bg-admin-surfaceMuted",
+            )}
+            onClick={() => onApplyView(view)}
+          >
+            {view.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MassActionsBar({
+  selectedCount,
+  onClear,
+  onAction,
+}: {
+  selectedCount: number;
+  onClear: () => void;
+  onAction: (action: "publish" | "archive" | "export" | "tag") => void;
+}) {
+  return (
+    <AdminSurface tone="muted" padded="sm" className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-sm font-semibold text-admin-text">Выбрано {selectedCount}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="soft" onClick={() => onAction("publish")}>
+          Опубликовать
+        </Button>
+        <Button variant="soft" onClick={() => onAction("archive")}>
+          Архивировать
+        </Button>
+        <Button variant="soft" onClick={() => onAction("tag")}>
+          Назначить тег
+        </Button>
+        <Button variant="soft" onClick={() => onAction("export")}>
+          Экспорт CSV
+        </Button>
+        <Button variant="ghost" onClick={onClear}>
+          Очистить
+        </Button>
+      </div>
+    </AdminSurface>
+  );
+}
+
+function ProductsTable({
+  items,
+  visibleColumns,
+  selectedIds,
+  allSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+  onEdit,
+  onQuickEdit,
+  onDuplicate,
+  onArchive,
+  duplicatingId,
+  deletingId,
+  categoryLabel,
+}: {
+  items: ProductRow[];
+  visibleColumns: Set<ProductColumnKey>;
+  selectedIds: Set<string>;
+  allSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: (checked: boolean) => void;
+  onEdit: (product: ProductRow) => void;
+  onQuickEdit: (product: ProductRow) => void;
+  onDuplicate: (product: ProductRow) => void;
+  onArchive: (product: ProductRow) => void;
+  duplicatingId: string | null;
+  deletingId: string | null;
+  categoryLabel: (slug: string | null) => string;
+}) {
+  if (!items.length) {
+    return (
+      <div className="py-16 text-center text-sm text-admin-textSubtle">
+        Ничего не найдено. Попробуйте изменить фильтры.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-separate border-spacing-0 text-sm text-admin-text">
+        <thead className="bg-admin-surfaceSubtle">
+          <tr className="text-left text-[11px] uppercase tracking-[0.25em] text-admin-textSubtle">
+            <th className="w-10 border-b border-admin-border px-4 py-3">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(event) => onToggleSelectAll(event.currentTarget.checked)}
+                className="h-4 w-4 rounded border-admin-border"
+                aria-label="Выбрать все"
+              />
+            </th>
+            <th className="border-b border-admin-border px-4 py-3">Товар</th>
+            {visibleColumns.has("sku") ? <th className="border-b border-admin-border px-4 py-3">SKU</th> : null}
+            {visibleColumns.has("price") ? <th className="border-b border-admin-border px-4 py-3">Цена</th> : null}
+            {visibleColumns.has("category") ? <th className="border-b border-admin-border px-4 py-3">Категория</th> : null}
+            {visibleColumns.has("status") ? <th className="border-b border-admin-border px-4 py-3">Статус</th> : null}
+            {visibleColumns.has("rating") ? <th className="border-b border-admin-border px-4 py-3">Рейтинг</th> : null}
+            {visibleColumns.has("created_at") ? <th className="border-b border-admin-border px-4 py-3">Создан</th> : null}
+            <th className="border-b border-admin-border px-4 py-3 text-right">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((product) => {
+            const isSelected = selectedIds.has(product.id);
+            return (
+              <tr
+                key={product.id}
+                className="border-b border-admin-border/70 last:border-b-0 hover:bg-admin-surfaceMuted/60"
+              >
+                <td className="px-4 py-3 align-top">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(product.id)}
+                    className="h-4 w-4 rounded border-admin-border"
+                  />
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-admin-text">{product.title}</span>
+                    <span className="text-xs text-admin-textSubtle">{product.slug}</span>
+                  </div>
+                </td>
+                {visibleColumns.has("sku") ? (
+                  <td className="px-4 py-3 align-top text-admin-textSubtle">{product.sku ?? "-"}</td>
+                ) : null}
+                {visibleColumns.has("price") ? (
+                  <td className="px-4 py-3 align-top text-admin-text">{formatCurrency(product.price)}</td>
+                ) : null}
+                {visibleColumns.has("category") ? (
+                  <td className="px-4 py-3 align-top">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-admin-border bg-admin-surface px-3 py-1 text-xs text-admin-text">
+                      <span className={clsx("inline-block h-2 w-2 rounded-full", pickCategoryDot(product.category_slug))} />
+                      {categoryLabel(product.category_slug)}
+                    </span>
+                  </td>
+                ) : null}
+                {visibleColumns.has("status") ? (
+                  <td className="px-4 py-3 align-top">
+                    <StatusBadge status={product.status ?? "unknown"} />
+                  </td>
+                ) : null}
+                {visibleColumns.has("rating") ? (
+                  <td className="px-4 py-3 align-top text-admin-textSubtle">{product.rating ?? 0}</td>
+                ) : null}
+                {visibleColumns.has("created_at") ? (
+                  <td className="px-4 py-3 align-top text-admin-textSubtle">{formatDate(product.created_at)}</td>
+                ) : null}
+                <td className="px-4 py-3 align-top">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="neutral" className="h-9 min-h-0 px-4" onClick={() => onEdit(product)}>
+                      Открыть
+                    </Button>
+                    <Button variant="neutral" className="h-9 min-h-0 px-4" onClick={() => onQuickEdit(product)}>
+                      Быстро
+                    </Button>
+                    <Button
+                      variant="neutral"
+                      className="h-9 min-h-0 px-4 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                      disabled={duplicatingId === product.id}
+                      onClick={() => onDuplicate(product)}
+                    >
+                      {duplicatingId === product.id ? "Дублируем..." : "Дублировать"}
+                    </Button>
+                    <Button
+                      variant="soft"
+                      className="h-9 min-h-0 text-rose-600"
+                      disabled={deletingId === product.id}
+                      onClick={() => onArchive(product)}
+                    >
+                      {deletingId === product.id ? "Удаляем..." : "Архив"}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SavedViewsList({
+  savedViews,
+  activeViewId,
+  onApplyView,
+}: {
+  savedViews: SavedView[];
+  activeViewId: string;
+  onApplyView: (view: SavedView) => void;
+}) {
+  if (!savedViews.length) {
+    return <p className="text-sm text-admin-textSubtle">Нет сохранённых видов.</p>;
+  }
+  return (
+    <AdminStack gap="sm">
+      {savedViews.map((view) => {
+        const isActive = view.id === activeViewId;
+        return (
+          <button
+            key={view.id}
+            type="button"
+            className={clsx(
+              "flex items-center justify-between rounded-lg border px-3 py-2 text-sm",
+              isActive
+                ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
+                : "border-admin-border bg-admin-surface text-admin-text hover:bg-admin-surfaceMuted",
+            )}
+            onClick={() => onApplyView(view)}
+          >
+            <span>{view.name}</span>
+            {isActive ? <span className="text-xs uppercase tracking-[0.2em] text-admin-primary">Активно</span> : null}
+          </button>
+        );
+      })}
+    </AdminStack>
+  );
+}
+
+function LoadingTableSkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="space-y-3 px-4 py-6">
+      {Array.from({ length: rows }).map((_, index) => (
+        <Skeleton key={index} className="h-12 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: ReactNode; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-admin-textSubtle">{label}</span>
+      <span className="font-semibold text-admin-text">{value}</span>
+    </div>
+  );
+}

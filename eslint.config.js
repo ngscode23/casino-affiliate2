@@ -33,6 +33,7 @@ export default [
       'public/**',
       'apps/web-next/public/**',
       'apps/web-next/supabase/**',
+      'apps/cms-admin/**',
       'infra/supabase/**',
       'supabase/**',
       'tmp/**',
@@ -124,6 +125,7 @@ export default [
     files: [
       'scripts/**/*.{ts,js}',
       'apps/**/middleware.ts',
+      'apps/**/proxy.ts',
       'apps/**/next.config.*',
       'apps/**/server/**/*.{ts,js}',
       'apps/**/api/**/*.{ts,js}',

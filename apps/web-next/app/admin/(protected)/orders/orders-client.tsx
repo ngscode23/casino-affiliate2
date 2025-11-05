@@ -1,21 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 
-import Section from "@ui/components/common/section";
-import Card from "@ui/components/common/card";
 import Skeleton from "@ui/components/common/skeleton";
 import Input from "@ui/components/common/input";
 import Button from "@ui/components/common/button";
-import StatusBadge from "@ui/components/admin/StatusBadge";
-import { toast } from "@ui/components/common/toast";
-import { supabase } from "@shared/lib/supabase";
-import OrdersTable from "./OrdersTable";
-const LazyOrdersTable = dynamic(() => import("./OrdersTable"), { ssr: false });
 import { getValidAccessToken } from "@shared/lib/auth";
 import { useDebounce } from "@shared/hooks/useDebounce";
+import {
+  AdminContentWrapper,
+  AdminInfoPanel,
+  AdminPageLayout,
+  AdminStack,
+  AdminSurface,
+} from "@/components/admin/layout";
+
+const LazyOrdersTable = dynamic(() => import("./OrdersTable"), { ssr: false });
 
 const DEFAULT_ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
 
@@ -180,12 +181,12 @@ function formatCurrency(amount: number, currency: string | null | undefined) {
 }
 
 const STATUS_OPTIONS = [
-  { value: "all", label: "All statuses" },
-  { value: "pending", label: "Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "succeeded", label: "Succeeded" },
-  { value: "failed", label: "Failed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "all", label: "Все статусы" },
+  { value: "pending", label: "Ожидание" },
+  { value: "processing", label: "В обработке" },
+  { value: "succeeded", label: "Оплачен" },
+  { value: "failed", label: "Ошибка" },
+  { value: "cancelled", label: "Отменён" },
 ];
 
 const PAGE_SIZE = 25;
@@ -261,10 +262,10 @@ export function OrdersClient() {
   const summaryCards = useMemo(() => {
     if (!summary) return null;
     return [
-      { label: "Orders", value: summary.total.toLocaleString() },
-      { label: "Conversion", value: `${summary.conversion.toFixed(2)}%` },
-      { label: "Average check", value: formatCurrency(summary.average_check, "EUR") },
-      { label: "Failed share", value: `${summary.failed_share.toFixed(2)}%` },
+      { label: "Всего заказов", value: summary.total.toLocaleString() },
+      { label: "Конверсия", value: `${summary.conversion.toFixed(2)}%` },
+      { label: "Средний чек", value: formatCurrency(summary.average_check, "EUR") },
+      { label: "Доля отказов", value: `${summary.failed_share.toFixed(2)}%` },
     ];
   }, [summary]);
 
@@ -277,36 +278,20 @@ export function OrdersClient() {
 
   const handleRefresh = () => setRefreshToken((value) => value + 1);
 
-  return (
-    <Section className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">Orders</h1>
-        <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
-          <label className="text-muted-foreground" htmlFor="admin-token-input">
-            Admin token
-          </label>
-          <Input
-            id="admin-token-input"
-            value={token}
-            onChange={(event) => setToken(event.currentTarget.value)}
-            placeholder="x-admin-token"
-            className="h-9 w-64"
-          />
-          <Button variant="ghost" className="h-9" onClick={handleRefresh}>
-            Refresh
-          </Button>
-        </div>
-      </div>
+  const hasActiveFilters =
+    status !== "all" || Boolean(search.trim()) || Boolean(from) || Boolean(to);
 
-      <Card className="p-4">
+  const toolbarContent = (
+    <AdminSurface tone="muted" padded="md">
+      <div className="flex flex-col gap-4">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_140px_140px]">
           <Input
             value={search}
             onChange={(event) => setSearch(event.currentTarget.value)}
-            placeholder="Search by order id..."
+            placeholder="Поиск по номеру заказа..."
           />
           <select
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-10 rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
             value={status}
             onChange={(event) => setStatus(event.currentTarget.value)}
           >
@@ -316,258 +301,133 @@ export function OrdersClient() {
               </option>
             ))}
           </select>
-          <Input type="date" value={from} onChange={(event) => setFrom(event.currentTarget.value)} />
-          <Input type="date" value={to} onChange={(event) => setTo(event.currentTarget.value)} />
-        </div>
-        <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <Button variant="ghost" className="h-8 px-3" onClick={clearFilters}>
-            Clear filters
-          </Button>
-        </div>
-      </Card>
-
-      {summaryCards ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {summaryCards.map((card) => (
-            <Card key={card.label} className="p-4">
-              <div className="text-sm text-muted-foreground">{card.label}</div>
-              <div className="text-xl font-semibold">{card.value}</div>
-            </Card>
-          ))}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-6 w-1/2" />
-          <Skeleton className="h-6 w-2/3" />
-        </div>
-      ) : error ? (
-        <div className="text-sm text-rose-500">{error}</div>
-      ) : orders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No orders.</div>
-      ) : (
-        <div className="space-y-4">
-          {/* Defer heavy table to a lazy chunk */}
-          <LazyOrdersTable
-            orders={orders}
-            total={total}
-            page={page}
-            totalPages={totalPages}
-            setPage={setPage}
-            token={token}
-            onOrdersChange={setOrders}
-            onRefresh={handleRefresh}
+          <Input
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.currentTarget.value)}
+          />
+          <Input
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.currentTarget.value)}
           />
         </div>
-      )}
-    </Section>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-admin-textSubtle">
+          <span>Фильтры применяются автоматически.</span>
+          <Button
+            type="button"
+            variant="soft"
+            className="h-8 px-3"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+          >
+            Сбросить фильтры
+          </Button>
+        </div>
+      </div>
+    </AdminSurface>
+  );
+
+  const sidebarContent = (
+    <AdminStack gap="lg">
+      <AdminInfoPanel title="Токен администратора">
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label
+              htmlFor="admin-token-input"
+              className="text-xs font-semibold uppercase tracking-[0.2em] text-admin-textSubtle"
+            >
+              x-admin-token
+            </label>
+            <Input
+              id="admin-token-input"
+              value={token}
+              onChange={(event) => setToken(event.currentTarget.value)}
+              placeholder="Вставьте токен"
+            />
+          </div>
+          <p className="text-xs text-admin-textSoft">
+            Храним токен в локальном хранилище браузера и используем для запросов к платежному API.
+          </p>
+        </div>
+      </AdminInfoPanel>
+      <AdminInfoPanel title="Подсказки">
+        <ul className="space-y-2 text-sm text-admin-textSoft">
+          <li>Обновление перезагружает данные заказов и сводку за последние 30 дней.</li>
+          <li>Фильтры по дате используют локальную таймзону браузера.</li>
+        </ul>
+      </AdminInfoPanel>
+    </AdminStack>
+  );
+
+  return (
+    <AdminContentWrapper>
+      <AdminPageLayout
+        title="Заказы"
+        description="Контролируйте оплаты, статусы и ручные сценарии."
+        breadcrumbs={[
+          { label: "Админка", href: "/admin" },
+          { label: "Заказы" },
+        ]}
+        primaryActions={
+          <Button type="button" onClick={handleRefresh} disabled={loading}>
+            {loading ? "Обновляем..." : "Обновить данные"}
+          </Button>
+        }
+        toolbar={toolbarContent}
+        sidebar={sidebarContent}
+      >
+        {summaryCards ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {summaryCards.map((card) => (
+              <AdminSurface key={card.label} tone="muted" padded="lg">
+                <div className="text-xs font-medium uppercase tracking-[0.14em] text-admin-textSubtle">
+                  {card.label}
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-admin-text">
+                  {card.value}
+                </div>
+              </AdminSurface>
+            ))}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <AdminSurface padded="lg">
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </AdminSurface>
+        ) : error ? (
+          <AdminSurface tone="muted" padded="lg">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm text-rose-500">{error}</span>
+              <Button type="button" variant="soft" onClick={handleRefresh}>
+                Повторить
+              </Button>
+            </div>
+          </AdminSurface>
+        ) : orders.length === 0 ? (
+          <AdminSurface tone="muted" padded="lg">
+            <div className="text-sm text-admin-textSoft">Заказы не найдены.</div>
+          </AdminSurface>
+        ) : (
+          <AdminSurface padded="lg" className="overflow-hidden">
+            <LazyOrdersTable
+              orders={orders}
+              total={total}
+              page={page}
+              totalPages={totalPages}
+              setPage={setPage}
+              token={token}
+              onOrdersChange={setOrders}
+              onRefresh={handleRefresh}
+            />
+          </AdminSurface>
+        )}
+      </AdminPageLayout>
+    </AdminContentWrapper>
   );
 }
-
-/* Legacy table left here for reference (trimmed in favor of LazyOrdersTable) */
-/*
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-4">Order</th>
-                  <th className="py-2 pr-4">Created</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Total</th>
-                  <th className="py-2 pr-4">Payment</th>
-                  <th className="py-2 pr-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => {
-                  const payment = order.payment;
-                  const formattedTotal = formatCurrency(order.amount_total, order.currency);
-                  return (
-                    <tr key={order.id} className="border-b border-border/20 align-top">
-                      <td className="py-3 pr-4 font-mono text-xs">
-                        <div>{order.id}</div>
-                        <Link className="text-xs text-primary underline" href={`/admin/orders/${order.id}`}>
-                          View details
-                        </Link>
-                      </td>
-                      <td className="py-3 pr-4 text-sm">
-                        {new Date(order.created_at).toLocaleString()}
-                      </td>
-                      <td className="py-3 pr-4 text-sm">
-                        <StatusBadge status={order.status} />
-                        {order.payment_status ? (
-                          <div className="text-xs text-muted-foreground">Payment: {order.payment_status}</div>
-                        ) : null}
-                      </td>
-                      <td className="py-3 pr-4 text-sm">{formattedTotal}</td>
-                      <td className="py-3 pr-4 text-xs">
-                        {payment ? (
-                          <div className="space-y-1">
-                            <div className="font-mono">{payment.id}</div>
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">{payment.status}</span>
-                              {" | "}
-                              {formatCurrency(Number(payment.amount || 0), payment.currency || order.currency)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="soft"
-                            className="h-9 min-h-0 px-3 text-xs"
-                            onClick={async () => {
-                              try {
-                                const result = await callPayments(
-                                  "/create",
-                                  { order_id: order.id },
-                                  token,
-                                );
-                                toast(`Payment created: ${result.payment_id ?? "ok"}`, {
-                                  variant: "success",
-                                });
-                                const refreshed = await supabase
-                                  .from("payments")
-                                  .select("id,order_id,status,amount,created_at,currency")
-                                  .eq("order_id", order.id)
-                                  .order("created_at", { ascending: false })
-                                  .limit(1)
-                                  .maybeSingle();
-                                const refreshedData = refreshed.data;
-                                if (!refreshed.error && refreshedData) {
-                                  setOrders((prev) =>
-                                    prev.map((item) =>
-                                      item.id === order.id
-                                        ? {
-                                            ...item,
-                                            payment: {
-                                              id: refreshedData.id,
-                                              status: refreshedData.status,
-                                              amount: Number(refreshedData.amount || 0),
-                                              currency: refreshedData.currency ?? order.currency,
-                                              created_at: refreshedData.created_at,
-                                            },
-                                          }
-                                        : item,
-                                    ),
-                                  );
-                                }
-                                handleRefresh();
-                              } catch (err) {
-                                toast(err instanceof Error ? err.message : String(err), {
-                                  variant: "error",
-                                });
-                              }
-                            }}
-                          >
-                            Create payment
-                          </Button>
-                          {payment ? (
-                            <>
-                              <Button
-                                variant="soft"
-                                className="h-9 min-h-0 px-3 text-xs"
-                                onClick={async () => {
-                                  try {
-                                    await callPayments(
-                                      "/webhook",
-                                      { payment_id: payment.id, status: "succeeded" },
-                                      token,
-                                    );
-                                    setOrders((prev) =>
-                                      prev.map((item) =>
-                                        item.id === order.id
-                                          ? {
-                                              ...item,
-                                              payment: {
-                                                ...(item.payment as Payment),
-                                                status: "succeeded",
-                                              },
-                                            }
-                                          : item,
-                                      ),
-                                    );
-                                    handleRefresh();
-                                  } catch (err) {
-                                    toast(err instanceof Error ? err.message : String(err), {
-                                      variant: "error",
-                                    });
-                                  }
-                                }}
-                              >
-                                Mark succeeded
-                              </Button>
-                              <Button
-                                variant="soft"
-                                className="h-9 min-h-0 px-3 text-xs"
-                                onClick={async () => {
-                                  try {
-                                    await callPayments(
-                                      "/webhook",
-                                      { payment_id: payment.id, status: "failed" },
-                                      token,
-                                    );
-                                    setOrders((prev) =>
-                                      prev.map((item) =>
-                                        item.id === order.id
-                                          ? {
-                                              ...item,
-                                              payment: {
-                                                ...(item.payment as Payment),
-                                                status: "failed",
-                                              },
-                                            }
-                                          : item,
-                                      ),
-                                    );
-                                    handleRefresh();
-                                  } catch (err) {
-                                    toast(err instanceof Error ? err.message : String(err), {
-                                      variant: "error",
-                                    });
-                                  }
-                                }}
-                              >
-                                Mark failed
-                              </Button>
-                            </>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <div>
-              Showing {orders.length} of {total.toLocaleString()} orders
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                className="h-8 px-3"
-                disabled={page <= 1}
-                onClick={() => setPage((value) => Math.max(1, value - 1))}
-              >
-                Previous
-              </Button>
-              <span>
-                Page {page} of {totalPages.toLocaleString()}
-              </span>
-              <Button
-                variant="ghost"
-                className="h-8 px-3"
-                disabled={page >= totalPages}
-                onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-*/

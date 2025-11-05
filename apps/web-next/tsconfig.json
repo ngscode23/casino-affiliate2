@@ -27,6 +27,9 @@
       "@casino-affiliate/types/*": [
         "../../packages/types/src/types/*"
       ],
+      "@generated/prisma/*": [
+        "../../generated/prisma/*"
+      ],
       "@types": [
         "../../packages/types/src/index"
       ],
@@ -45,7 +48,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "**/*.d.ts"
+    "**/*.d.ts",
+    "../../generated/prisma/**/*.ts"
   ],
   "exclude": [
     "node_modules",

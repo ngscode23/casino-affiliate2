@@ -1,6 +1,29 @@
+export interface OrderPromotionActionSummary {
+  id: string;
+  kind: string;
+  amount: number;
+  meta?: Record<string, unknown>;
+}
+
+export interface OrderPromotionGiftSummary {
+  productId: string;
+  qty: number;
+  title?: string;
+}
+
+export interface OrderPromotionSummary {
+  promotionId: string;
+  slug: string;
+  discountTotal: number;
+  shippingDiscount: number;
+  coupons: string[];
+  actions: OrderPromotionActionSummary[];
+  giftItems?: OrderPromotionGiftSummary[];
+}
+
 /**
- * DTO для списка заказов. Используем одинаково в SDK и API, чтобы
- * избежать расходжений между фронтом и бэкендом.
+ * DTO для сводки заказов. Используется клиентом в SDK и API, чтобы
+ * избежать дублирования типов между фронтом и бэкендом.
  */
 export interface OrderListItem {
   id: string;
@@ -16,6 +39,8 @@ export interface OrderListItem {
   currency: string;
   lastPaymentStatus: string | null;
   lastPaymentAt: string | null;
+  couponCodes?: string[];
+  appliedPromotions?: OrderPromotionSummary[];
 }
 
 export interface OrderPayment {
@@ -103,3 +128,4 @@ export interface OrderDetailsResponse {
     };
   };
 }
+

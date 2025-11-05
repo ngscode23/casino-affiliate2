@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles } from "lucide-react";
+import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles, Filter } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { LucideIcon } from "lucide-react";
 
@@ -12,6 +12,7 @@ import type { CategorySummary } from "./data";
 import { formatPrice } from "./utils";
 const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
 const LayoutPicker = dynamic(() => import("./filters/LayoutPicker"), { ssr: false });
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@ui/components/common/sheet";
 
 type LayoutMode = "grid" | "single" | "masonry";
 
@@ -109,6 +110,7 @@ export default function ProductsClient({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
@@ -389,7 +391,28 @@ export default function ProductsClient({
       displayed.map((product) => {
         const priceValue = Number(product.price ?? 0);
         const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
-        const originalPrice = product.isTop && priceValue > 0 ? formatPrice(priceValue * 1.12, product.currency) : null;
+        const rawDiscountPercent =
+          typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
+        const discountPercent =
+          rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
+        let originalPrice: string | null = null;
+        if (rawDiscountPercent && rawDiscountPercent > 0 && rawDiscountPercent < 100 && priceValue > 0) {
+          const base = priceValue / (1 - rawDiscountPercent / 100);
+          if (Number.isFinite(base) && base > priceValue) {
+            originalPrice = formatPrice(base, product.currency);
+          }
+        }
+        if (!originalPrice) {
+          const rawOriginal = typeof product.originalPrice === "number" ? product.originalPrice : null;
+          if (typeof rawOriginal === "number" && rawOriginal > priceValue) {
+            originalPrice = formatPrice(rawOriginal, product.currency);
+          }
+          const rawOriginalCents =
+            typeof product.originalPriceCents === "number" ? product.originalPriceCents : null;
+          if (!originalPrice && typeof rawOriginalCents === "number" && rawOriginalCents > priceValue * 100) {
+            originalPrice = formatPrice(rawOriginalCents / 100, product.currency);
+          }
+        }
         const availabilityLabel = availabilityLabelMap.get(product.availability) ?? null;
         const statsLabel =
           product.clicks || product.impressions
@@ -420,14 +443,72 @@ export default function ProductsClient({
   const visibleCount = displayed.length;
   const totalCount = products.length;
   const activeCategoryLabel = categoryLabelMap.get(filters.category) ?? "All categories";
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.dataset !== "all") count++;
+    if (filters.category !== "all") count++;
+    if (filters.query.trim()) count++;
+    return count;
+  }, [filters.category, filters.dataset, filters.query]);
 
   return (
     <div
       ref={topRef}
       className="w-full pt-0 pb-12 sm:pb-14 lg:pb-16"
     >
+      {/* Mobile filters launcher */}
+      <div className="mb-6 flex items-center justify-between lg:hidden">
+        <span className="text-sm text-muted">
+          <span className="font-medium text-fg">{visibleCount}</span> of {totalCount} products
+        </span>
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Filter className="h-4 w-4" aria-hidden />
+              Filters{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" aria-label="Filters" className="max-h-[85vh] overflow-auto rounded-t-3xl">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="p-4">
+              <FiltersForm
+                queryInput={queryInput}
+                isPending={isPending}
+                filters={filters}
+                datasetOptions={datasetOptions}
+                layoutOptions={layoutOptions}
+                categoryOptions={categoryOptions}
+                handleQueryChange={handleQueryChange}
+                handleDatasetChange={handleDatasetChange}
+                handleLayoutChange={handleLayoutChange}
+                handleCategoryChange={handleCategoryChange}
+                handleSortChange={handleSortChange}
+                resetFilters={() => {
+                  resetFilters();
+                  setFiltersOpen(false);
+                }}
+              />
+            </div>
+            <SheetFooter className="pt-0">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+              >
+                Close
+              </button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      </div>
+
       <div className="grid items-start gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
-        <aside className="flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
+        <aside className="hidden lg:flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
           <header className="space-y-1 text-fg">
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Neon Shop</span>
             <h2 className="text-2xl font-semibold">Filters</h2>
@@ -436,123 +517,24 @@ export default function ProductsClient({
             </p>
           </header>
 
-          <div className="flex flex-col gap-6">
-            <section className="flex flex-col gap-2">
-              <label htmlFor="products-query" className="text-xs font-semibold uppercase tracking-wide text-muted">Search</label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                  id="products-query"
-                  value={queryInput}
-                  onChange={(event) => handleQueryChange(event.currentTarget.value)}
-                  placeholder="Search products"
-                  className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-                  disabled={isPending}
-                />
-              </div>
-            </section>
-
-            <DatasetPicker
-              value={filters.dataset}
-              options={datasetOptions}
-              onChange={(v) => handleDatasetChange(v as FiltersState["dataset"])}
-              isPending={isPending}
-            />
-
-            <LayoutPicker
-              value={filters.layout}
-              options={layoutOptions}
-              onChange={(v) => handleLayoutChange(v as LayoutMode)}
-              isPending={isPending}
-            />
-
-            {categoryOptions.length > 1 ? (
-              <section className="flex flex-col gap-2">
-                <label htmlFor="products-category" className="text-sm font-semibold text-fg">Category</label>
-                <div className="relative">
-                  <select
-                    id="products-category"
-                    value={filters.category}
-                    onChange={(event) => handleCategoryChange(event.currentTarget.value)}
-                    disabled={isPending}
-                    className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-                  >
-                    {categoryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                </div>
-              </section>
-            ) : null}
-
-            <section className="flex flex-col gap-3">
-              <span id="products-sort-label" className="text-sm font-semibold text-fg">
-                Sort by
-              </span>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-2 shadow-sm">
-                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="products-sort-label">
-                  {sortOptions.map((option) => {
-                    const active = filters.sort === option.value;
-                    const baseClasses =
-                      "group inline-flex min-w-[140px] flex-1 items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-60";
-                    const activeClasses =
-                      "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
-                    const inactiveClasses =
-                      "border-white/10 bg-transparent text-muted hover:border-primary/30 hover:text-primary";
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={active}
-                        disabled={isPending}
-                        onClick={() => {
-                          if (!active) handleSortChange(option.value);
-                        }}
-                        className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
-                      >
-                        <span>{option.label}</span>
-                        <span
-                          className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-white/30 group-hover:bg-primary/70"}`}
-                          aria-hidden
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70">
-                <span>{activeCategoryLabel}</span>
-                <span>
-                  {visibleCount} / {totalCount}
-                </span>
-              </div>
-              <p className="mt-3 text-sm text-muted">{summary}</p>
-            </section>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={resetFilters}
-                disabled={isPending}
-                className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-60"
-              >
-                Reset filters
-              </button>
-              <button
-                type="button"
-                onClick={scrollToTop}
-                className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-              >
-                Back to top
-              </button>
-            </div>
-          </div>
+          <FiltersForm
+            queryInput={queryInput}
+            isPending={isPending}
+            filters={filters}
+            datasetOptions={datasetOptions}
+            layoutOptions={layoutOptions}
+            categoryOptions={categoryOptions}
+            handleQueryChange={handleQueryChange}
+            handleDatasetChange={handleDatasetChange}
+            handleLayoutChange={handleLayoutChange}
+            handleCategoryChange={handleCategoryChange}
+            handleSortChange={handleSortChange}
+            resetFilters={resetFilters}
+            activeCategoryLabel={activeCategoryLabel}
+            summary={summary}
+            visibleCount={visibleCount}
+            totalCount={totalCount}
+          />
         </aside>
 
         <div className="space-y-8">
@@ -641,3 +623,176 @@ function humanize(input: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+type FiltersFormProps = {
+  queryInput: string;
+  isPending: boolean;
+  filters: FiltersState;
+  datasetOptions: { value: FiltersState["dataset"]; label: string; icon: any }[];
+  layoutOptions: { value: LayoutMode; label: string; icon: any }[];
+  categoryOptions: { value: string; label: string; display: string }[];
+  handleQueryChange: (v: string) => void;
+  handleDatasetChange: (v: FiltersState["dataset"]) => void;
+  handleLayoutChange: (v: LayoutMode) => void;
+  handleCategoryChange: (v: string) => void;
+  handleSortChange: (v: FiltersState["sort"]) => void;
+  resetFilters: () => void;
+  // optional summary blocks for desktop sidebar
+  activeCategoryLabel?: string;
+  summary?: string;
+  visibleCount?: number;
+  totalCount?: number;
+};
+
+function FiltersForm(props: FiltersFormProps) {
+  const {
+    queryInput,
+    isPending,
+    filters,
+    datasetOptions,
+    layoutOptions,
+    categoryOptions,
+    handleQueryChange,
+    handleDatasetChange,
+    handleLayoutChange,
+    handleCategoryChange,
+    handleSortChange,
+    resetFilters,
+    activeCategoryLabel,
+    summary,
+    visibleCount,
+    totalCount,
+  } = props;
+
+  const sortOptions: { value: FiltersState["sort"]; label: string }[] = [
+    { value: "recent", label: "Newest first" },
+    { value: "popular", label: "Most popular" },
+    { value: "price-asc", label: "Price: low to high" },
+    { value: "price-desc", label: "Price: high to low" },
+    { value: "impressions", label: "Most impressions" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-2">
+        <label htmlFor="products-query" className="text-xs font-semibold uppercase tracking-wide text-muted">
+          Search
+        </label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            id="products-query"
+            value={queryInput}
+            onChange={(event) => handleQueryChange(event.currentTarget.value)}
+            placeholder="Search products"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+            disabled={isPending}
+          />
+        </div>
+      </section>
+
+      <DatasetPicker
+        value={filters.dataset}
+        options={datasetOptions}
+        onChange={(v) => handleDatasetChange(v as FiltersState["dataset"])}
+        isPending={isPending}
+      />
+
+      <LayoutPicker
+        value={filters.layout}
+        options={layoutOptions}
+        onChange={(v) => handleLayoutChange(v as LayoutMode)}
+        isPending={isPending}
+      />
+
+      {categoryOptions.length > 1 ? (
+        <section className="flex flex-col gap-2">
+          <label htmlFor="products-category" className="text-sm font-semibold text-fg">
+            Category
+          </label>
+          <div className="relative">
+            <select
+              id="products-category"
+              value={filters.category}
+              onChange={(event) => handleCategoryChange(event.currentTarget.value)}
+              disabled={isPending}
+              className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+            >
+              {categoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="flex flex-col gap-3">
+        <span id="products-sort-label" className="text-sm font-semibold text-fg">
+          Sort by
+        </span>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-2 shadow-sm">
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="products-sort-label">
+            {sortOptions.map((option) => {
+              const active = filters.sort === option.value;
+              const baseClasses =
+                "group inline-flex min-w-[140px] flex-1 items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-60";
+              const activeClasses = "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
+              const inactiveClasses = "border-white/10 bg-transparent text-muted hover:border-primary/30 hover:text-primary";
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={isPending}
+                  onClick={() => {
+                    if (!active) handleSortChange(option.value);
+                  }}
+                  className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+                >
+                  <span>{option.label}</span>
+                  <span className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-white/30 group-hover:bg-primary/70"}`} aria-hidden />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {(typeof visibleCount === "number" && typeof totalCount === "number") || summary ? (
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
+          {(activeCategoryLabel || (typeof visibleCount === "number" && typeof totalCount === "number")) && (
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70">
+              <span>{activeCategoryLabel ?? "Selected"}</span>
+              {typeof visibleCount === "number" && typeof totalCount === "number" ? (
+                <span>
+                  {visibleCount} / {totalCount}
+                </span>
+              ) : null}
+            </div>
+          )}
+          {summary ? <p className="mt-3 text-sm text-muted">{summary}</p> : null}
+        </section>
+      ) : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={resetFilters}
+          disabled={isPending}
+          className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-60"
+        >
+          Reset filters
+        </button>
+        <button
+          type="button"
+          onClick={() => window?.scrollTo?.({ top: 0, behavior: "smooth" })}
+          className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+        >
+          Back to top
+        </button>
+      </div>
+    </div>
+  );
+}

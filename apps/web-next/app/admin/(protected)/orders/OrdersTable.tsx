@@ -57,12 +57,12 @@ export default function OrdersTable({
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="py-2 pr-4">Order</th>
-              <th className="py-2 pr-4">Created</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Total</th>
-              <th className="py-2 pr-4">Payment</th>
-              <th className="py-2 pr-4">Actions</th>
+              <th className="py-2 pr-4">Заказ</th>
+              <th className="py-2 pr-4">Создан</th>
+              <th className="py-2 pr-4">Статус</th>
+              <th className="py-2 pr-4">Сумма</th>
+              <th className="py-2 pr-4">Платёж</th>
+              <th className="py-2 pr-4">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -76,14 +76,14 @@ export default function OrdersTable({
                   <td className="py-3 pr-4 font-mono text-xs">
                     <div>{order.id}</div>
                     <Link className="text-xs text-primary underline" href={`/admin/orders/${order.id}`}>
-                      View details
+                      Подробнее
                     </Link>
                   </td>
                   <td className="py-3 pr-4 text-sm">{new Date(order.created_at).toLocaleString()}</td>
                   <td className="py-3 pr-4 text-sm">
                     <StatusBadge status={order.status} />
                     {order.payment_status ? (
-                      <div className="text-xs text-muted-foreground">Payment: {order.payment_status}</div>
+                      <div className="text-xs text-muted-foreground">Платёж: {order.payment_status}</div>
                     ) : null}
                   </td>
                   <td className="py-3 pr-4 text-sm">{formattedTotal}</td>
@@ -91,8 +91,10 @@ export default function OrdersTable({
                     <div className="space-y-1">
                       {payment ? (
                         <>
-                          <div className="text-xs text-muted-foreground">Payment ID: {payment.id}</div>
-                          <div className="text-xs text-muted-foreground">{payment.amount} {payment.currency}</div>
+                          <div className="text-xs text-muted-foreground">ID платежа: {payment.id}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Сумма: {payment.amount} {payment.currency}
+                          </div>
                         </>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -103,7 +105,7 @@ export default function OrdersTable({
                     <div className="flex flex-wrap gap-2">
                       {!payment ? (
                         <Button
-                          variant="soft"
+                          variant="neutral"
                           className="h-9 min-h-0 px-3 text-xs"
                           onClick={async () => {
                             try {
@@ -114,13 +116,13 @@ export default function OrdersTable({
                             }
                           }}
                         >
-                          Create payment
+                          Создать платёж
                         </Button>
                       ) : null}
                       {payment ? (
                         <>
                           <Button
-                            variant="soft"
+                            variant="neutral"
                             className="h-9 min-h-0 px-3 text-xs"
                             onClick={async () => {
                               try {
@@ -138,11 +140,11 @@ export default function OrdersTable({
                               }
                             }}
                           >
-                            Mark succeeded
+                            Отметить успешным
                           </Button>
                           <Button
-                            variant="soft"
-                            className="h-9 min-h-0 px-3 text-xs"
+                            variant="neutral"
+                            className="h-9 min-h-0 px-3 text-xs text-amber-600 hover:text-white"
                             onClick={async () => {
                               try {
                                 await callPayments("/webhook", { payment_id: payment.id, status: "failed" }, token);
@@ -159,13 +161,13 @@ export default function OrdersTable({
                               }
                             }}
                           >
-                          Mark failed
+                            Пометить с ошибкой
                           </Button>
-                          {/* Refund button visible for paid/fulfilled */}
+                          {/* Кнопка возврата доступна для paid/fulfilled */}
                           {(/^(paid|fulfilled)$/i).test(order.status) ? (
                             <Button
-                              variant="soft"
-                              className="h-9 min-h-0 px-3 text-xs"
+                              variant="neutral"
+                              className="h-9 min-h-0 px-3 text-xs text-indigo-600 hover:text-white"
                               onClick={async () => {
                                 try {
                                   const amountStr = window.prompt(
@@ -193,15 +195,15 @@ export default function OrdersTable({
                                 }
                               }}
                             >
-                              Refund
+                              Возврат
                             </Button>
                           ) : null}
                         </>
                       ) : null}
                       {canForceCancel ? (
                         <Button
-                          variant="secondary"
-                          className="h-9 min-h-0 px-3 text-xs text-destructive border border-destructive/60"
+                          variant="neutral"
+                          className="h-9 min-h-0 px-3 text-xs text-rose-600 hover:text-white"
                           onClick={async () => {
                             const confirmed = window.confirm(FORCE_CANCEL_CONFIRM_MESSAGE);
                             if (!confirmed) return;
@@ -228,7 +230,7 @@ export default function OrdersTable({
                             }
                           }}
                         >
-                          Force cancel
+                          Принудительно отменить
                         </Button>
                       ) : null}
                     </div>
@@ -240,11 +242,29 @@ export default function OrdersTable({
         </table>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <div>Showing {orders.length} of {total.toLocaleString()} orders</div>
+        <div>
+          Показано {orders.length} из {total.toLocaleString()} заказов
+        </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" className="h-8 px-3" disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))}>Previous</Button>
-          <span>Page {page} of {totalPages.toLocaleString()}</span>
-          <Button variant="ghost" className="h-8 px-3" disabled={page >= totalPages} onClick={() => setPage((v) => Math.min(totalPages, v + 1))}>Next</Button>
+          <Button
+            variant="ghost"
+            className="h-8 px-3"
+            disabled={page <= 1}
+            onClick={() => setPage((v) => Math.max(1, v - 1))}
+          >
+            Назад
+          </Button>
+          <span>
+            Страница {page} из {totalPages.toLocaleString()}
+          </span>
+          <Button
+            variant="ghost"
+            className="h-8 px-3"
+            disabled={page >= totalPages}
+            onClick={() => setPage((v) => Math.min(totalPages, v + 1))}
+          >
+            Вперёд
+          </Button>
         </div>
       </div>
     </div>

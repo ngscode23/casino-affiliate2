@@ -1,0 +1,1350 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+generator defaultClient {
+  provider = "prisma-client"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+  schemas      = ["discounts", "public"]
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model Brand {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Vendor {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Category {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@schema("discounts")
+}
+
+model Product {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sku        String    @unique
+  name       String
+  brandId    String?   @db.Uuid
+  vendorId   String?   @db.Uuid
+  categoryId String?   @db.Uuid
+  priceCents Int
+  currency   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  brand      Brand?    @relation(fields: [brandId], references: [id])
+  vendor     Vendor?   @relation(fields: [vendorId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([brandId])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@schema("discounts")
+}
+
+model Discount {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  type              DiscountType
+  description       String?
+  percentOff        Decimal?             @db.Decimal(5, 4)
+  amountOffCts      Int?
+  currency          String?
+  bogoBuyQty        Int?
+  bogoGetQty        Int?
+  stackable         Boolean              @default(false)
+  priority          Int                  @default(100)
+  minSubtotalCts    Int?
+  minQty            Int?
+  startAt           DateTime?
+  endAt             DateTime?
+  channel           String               @default("all")
+  usageLimitTotal   Int?
+  usageLimitPerUser Int?
+  active            Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  assignments       DiscountAssignment[]
+  exclusions        DiscountExclusion[]
+  coupons           Coupon[]
+  redemptions       CouponRedemption[]
+
+  @@index([active, startAt, endAt, channel])
+  @@index([priority, startAt])
+  @@schema("discounts")
+}
+
+model DiscountAssignment {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  discountId String          @db.Uuid
+  scope      AssignmentScope
+  refId      String
+  discount   Discount        @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, scope, refId])
+  @@index([scope, refId])
+  @@schema("discounts")
+}
+
+model DiscountExclusion {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  discountId String          @db.Uuid
+  scope      AssignmentScope
+  refId      String
+  discount   Discount        @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, scope, refId])
+  @@index([scope, refId])
+  @@schema("discounts")
+}
+
+model Coupon {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String             @unique @db.Citext
+  discountId     String             @db.Uuid
+  maxRedemptions Int?
+  redemptions    Int                @default(0)
+  metadata       Json?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  discount       Discount           @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  redemptionsLog CouponRedemption[]
+
+  @@index([discountId])
+  @@index([startsAt, endsAt])
+  @@schema("discounts")
+}
+
+model CouponRedemption {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  couponId    String?  @db.Uuid
+  discountId  String   @db.Uuid
+  userId      String?
+  orderId     String?
+  amountCents Int
+  currency    String
+  redeemedAt  DateTime @default(now())
+  metadata    Json?
+  coupon      Coupon?  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  discount    Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, redeemedAt])
+  @@index([discountId, redeemedAt])
+  @@index([userId, couponId])
+  @@schema("discounts")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ab_events {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  ts         DateTime? @db.Timestamptz(6)
+  test       String
+  variant    String
+  event      String
+  href       String?
+  props      Json      @default("{}")
+
+  @@index([event])
+  @@index([test, ts(sort: Desc)])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model admin_emails {
+  email String @id
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model app_settings {
+  key        String   @id
+  value      String
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model auth_roles {
+  role        String  @id
+  description String?
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model auth_users {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String    @unique
+  password_hash       String
+  role                String    @default("user")
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  is_active           Boolean   @default(true)
+  metadata            Json      @default("{}")
+  last_login_at       DateTime? @db.Timestamptz(6)
+  password_updated_at DateTime? @db.Timestamptz(6)
+  token_version       Int       @default(1)
+  updated_at          DateTime? @db.Timestamptz(6)
+
+  @@index([is_active], map: "idx_auth_users_is_active")
+  @@index([metadata], map: "idx_auth_users_metadata_gin", type: Gin)
+  @@index([role], map: "idx_auth_users_role")
+  @@index([token_version], map: "idx_auth_users_token_ver")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model banners {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  subtitle    String?
+  image_url   String
+  href        String
+  priority    Int       @default(0)
+  active_from DateTime? @db.Timestamptz(6)
+  active_to   DateTime? @db.Timestamptz(6)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active, active_from, active_to], map: "banners_active_window_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model carts {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id], map: "idx_carts_user")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model catalog_published {
+  id             String    @id @db.Uuid
+  slug           String?   @unique(map: "uq_catalog_published_slug")
+  title          String?
+  price          Decimal?  @db.Decimal(10, 2)
+  rating         Float?    @db.Real
+  category_slug  String?
+  created_at     DateTime? @db.Timestamptz(6)
+  thumbnail_path String?
+
+  @@index([category_slug, created_at(sort: Desc)], map: "idx_catpub_cat_created")
+  @@index([category_slug], map: "idx_catpub_category")
+  @@index([created_at(sort: Desc)], map: "idx_catpub_created_desc")
+  @@index([price], map: "idx_catpub_price")
+  @@index([rating], map: "idx_catpub_rating")
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "idx_catpub_title_trgm", type: Gin)
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cms_roles {
+  user_id    String   @id @db.Uuid
+  role       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  created_by String?  @db.Uuid
+
+  @@index([role], map: "idx_cms_roles_role")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contact_messages {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  full_name  String?
+  email      String?
+  message    String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  metadata   Json?    @default("{}")
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model content_blocks {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locale       String    @default("en")
+  type         String
+  slug         String?   @unique
+  status       String    @default("draft")
+  content_json Json      @default("{}")
+  published_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  created_by   String?   @db.Uuid
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_by   String?   @db.Uuid
+
+  @@index([locale, status], map: "idx_content_blocks_locale_status")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model content_revisions {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_table String
+  target_id    String?  @db.Uuid
+  target_key   String?
+  locale       String?
+  snapshot     Json
+  author       String?  @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  message      String?
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model currencies {
+  code       String @id
+  minor_unit Int    @db.SmallInt
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ecom_categories {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug       String   @unique
+  name       String
+  icon       String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ecom_product_image_versions {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id   String   @db.Uuid
+  sku          String?
+  path         String
+  uploaded_at  DateTime @default(now()) @db.Timestamptz(6)
+  uploaded_by  String?  @db.Uuid
+  is_current   Boolean  @default(false)
+  source_url   String?
+  metadata     Json?
+  uploaded_via String?
+
+  @@index([product_id, uploaded_at(sort: Desc)], map: "ecom_piv_product_created_idx")
+  @@index([product_id, uploaded_at(sort: Desc), id, path, metadata], map: "idx_ecom_img_versions_pid_uploaddesc_inc")
+  @@index([product_id], map: "idx_ecom_product_image_versions_product_id")
+  @@index([product_id, is_current], map: "idx_epiv_product_current")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model ecom_products {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug           String    @unique
+  title          String
+  price          Decimal   @db.Decimal(10, 2)
+  rating         Float     @default(0) @db.Real
+  images         Json      @default("[]")
+  category_slug  String?
+  tags           String[]  @default([])
+  short_desc     String?
+  specs          Json      @default("{}")
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  status         String    @default("active")
+  sku            String    @unique(map: "uq_ecom_products_sku")
+  image_path     String?
+  currency       String?   @default("EUR")
+  seller_id      String?   @db.Uuid
+  to_delete      Boolean?
+  status_lc      String?   @default(dbgenerated("lower(status)"))
+  deleted_at     DateTime? @db.Timestamptz(6)
+  description    String?
+  main_image_url String?
+  price_cents    BigInt?
+
+  @@index([category_slug], map: "ecom_products_category_idx")
+  @@index([price])
+  @@index([rating])
+  @@index([slug])
+  @@index([slug(ops: raw("gin_trgm_ops"))], map: "ecom_products_slug_trgm", type: Gin)
+  @@index([status])
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "ecom_products_title_trgm", type: Gin)
+  @@index([category_slug, created_at(sort: Desc)], map: "idx_ecom_products_category_created_at")
+  @@index([category_slug], map: "idx_ecom_products_category_slug")
+  @@index([category_slug, status, created_at(sort: Desc)], map: "idx_ecom_products_category_status_created")
+  @@index([seller_id], map: "idx_ecom_products_seller")
+  @@index([seller_id, status, created_at(sort: Desc)], map: "idx_ecom_products_seller_status_created")
+  @@index([specs], map: "idx_ecom_products_specs_gin", type: Gin)
+  @@index([status, created_at(sort: Desc)], map: "idx_ecom_products_status_created_at")
+  @@index([status, price], map: "idx_ecom_products_status_price")
+  @@index([tags], map: "idx_ecom_products_tags_gin", type: Gin)
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "idx_ecom_products_title_trgm", type: Gin)
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ecom_wishlist {
+  user_id    String   @db.Uuid
+  product_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, product_id])
+  @@index([user_id, created_at(sort: Desc)], map: "idx_wishlist_user_created")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model feature_toggles {
+  key         String    @id
+  description String?
+  value_bool  Boolean?
+  value_json  Json?
+  is_public   Boolean   @default(true)
+  starts_at   DateTime? @db.Timestamptz(6)
+  ends_at     DateTime? @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_by  String?   @db.Uuid
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model form_entries {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  form_id      String   @db.Uuid
+  locale       String?
+  submitted_at DateTime @default(now()) @db.Timestamptz(6)
+  submitted_by String?  @db.Uuid
+  data         Json     @default("{}")
+  status       String   @default("new")
+
+  @@index([form_id, submitted_at], map: "idx_form_entries_form")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model form_templates {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String   @unique
+  title       String
+  schema_json Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  created_by  String?  @db.Uuid
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model job_runs {
+  id       BigInt   @id @default(autoincrement())
+  jobname  String
+  status   Int
+  response Json?
+  ran_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model line_total_is_generated {
+  coalesce Boolean?
+  id       BigInt   @id @default(autoincrement())
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model media_assets {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bucket      String   @default("public-media")
+  storage_key String
+  mime_type   String?
+  width       Int?
+  height      Int?
+  size_bytes  BigInt?
+  alt         String?
+  description String?
+  uploaded_by String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  checksum    String?
+
+  @@unique([bucket, storage_key])
+  @@index([bucket, storage_key], map: "idx_media_bucket_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model navigation_links {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locale      String   @default("en")
+  menu        String
+  label       String
+  url         String
+  sort_order  Int      @default(0)
+  published   Boolean  @default(true)
+  is_external Boolean  @default(false)
+  parent_id   String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  created_by  String?  @db.Uuid
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_by  String?  @db.Uuid
+
+  @@index([menu, locale], map: "idx_nav_links_menu_locale")
+  @@index([published, sort_order], map: "idx_nav_links_published_sort")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model offer_clicks {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String
+  click_id         String?
+  target_url       String?
+  target_url_final String?
+  target_host      String?
+  params           Json?    @default("{}")
+  referrer         String?
+  user_agent       String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([slug, created_at(sort: Desc)], map: "offer_clicks_slug_created_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model order_items {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id   String   @db.Uuid
+  product_id String?  @db.Uuid
+  variant_id String?  @db.Uuid
+  title      String
+  qty        Int
+  unit_price Decimal  @db.Decimal(10, 2)
+  total      Decimal? @default(dbgenerated("((qty)::numeric * unit_price)")) @db.Decimal(10, 2)
+  meta       Json?    @default("{}")
+
+  @@unique([order_id, product_id], map: "order_items_uniq")
+  @@index([order_id], map: "idx_order_items_order")
+  @@index([order_id], map: "idx_order_items_order_id")
+  @@index([product_id], map: "idx_order_items_product")
+  @@index([product_id], map: "idx_order_items_product_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model order_status_audit {
+  id         BigInt   @id @default(autoincrement())
+  order_id   String   @db.Uuid
+  old_status String?
+  new_status String
+  changed_at DateTime @default(now()) @db.Timestamptz(6)
+  changed_by String?  @db.Uuid
+  reason     String?
+  source     String?
+
+  @@index([changed_at])
+  @@index([order_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model order_status_history {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id    String   @db.Uuid
+  from_status String?
+  to_status   String
+  changed_by  String?  @db.Uuid
+  reason      String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([order_id], map: "idx_order_status_history_order")
+  @@index([order_id], map: "idx_order_status_history_order_id")
+  @@index([order_id, created_at(sort: Desc)], map: "order_status_history_order_created_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orders {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String         @db.Uuid
+  status             order_status   @default(pending)
+  subtotal           Decimal        @default(0) @db.Decimal(10, 2)
+  discount_total     Decimal        @default(0) @db.Decimal(10, 2)
+  shipping_total     Decimal        @default(0) @db.Decimal(10, 2)
+  grand_total        Decimal        @default(0) @db.Decimal(10, 2)
+  currency           String         @default("USD")
+  created_at         DateTime       @default(now()) @db.Timestamptz(6)
+  paid_at            DateTime?      @db.Timestamptz(6)
+  cancelled_at       DateTime?      @db.Timestamptz(6)
+  checkout_metadata  Json           @default("{}")
+  contact_email      String?        @default(dbgenerated("(checkout_metadata ->> 'contact_email'::text)"))
+  metadata_b         Json?          @default(dbgenerated("checkout_metadata"))
+  amount_cents       BigInt?
+  payment_intent_id  String?
+  payment_status     payment_status @default(pending)
+  applied_promotions Json           @default("[]")
+  coupon_codes       String[]       @default([])
+
+  @@index([grand_total(sort: Desc), created_at(sort: Desc)], map: "idx_orders_amount_created")
+  @@index([created_at(sort: Desc), id(sort: Desc)], map: "idx_orders_created_id")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_orders_user_created")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_orders_user_created_at")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_orders_user_id_created_at")
+  @@index([created_at], map: "orders_created_at_brin", type: Brin)
+  @@index([created_at])
+  @@index([payment_intent_id])
+  @@index([payment_status])
+  @@index([status])
+  @@index([user_id, status, created_at(sort: Desc)], map: "orders_user_status_created_idx")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orders_archive {
+  id                String    @id @db.Uuid
+  user_id           String    @db.Uuid
+  status            String?
+  payment_status    String?
+  subtotal          Decimal?  @db.Decimal
+  discount_total    Decimal?  @db.Decimal
+  shipping_total    Decimal?  @db.Decimal
+  grand_total       Decimal?  @db.Decimal
+  currency          String?
+  created_at        DateTime? @db.Timestamptz(6)
+  paid_at           DateTime? @db.Timestamptz(6)
+  cancelled_at      DateTime? @db.Timestamptz(6)
+  checkout_metadata Json?
+  contact_email     String?
+  metadata_b        Json?
+  amount_cents      BigInt?
+  payment_intent_id String?
+  archived_at       DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  archive_run_id    String    @db.Uuid
+  archived_payload  Json      @default("{}")
+
+  @@index([grand_total(sort: Desc), created_at(sort: Desc)], map: "idx_orders_archive_amount_created")
+  @@index([created_at], map: "idx_orders_archive_created_at")
+  @@index([created_at(sort: Desc), id(sort: Desc)], map: "idx_orders_archive_created_id")
+  @@index([archive_run_id], map: "idx_orders_archive_run_id")
+  @@index([status], map: "idx_orders_archive_status")
+  @@index([user_id, created_at], map: "idx_orders_archive_user_created")
+  @@index([user_id], map: "idx_orders_archive_user_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orders_archive_export {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  run_id      String   @db.Uuid
+  payload_url String
+  created_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  size_bytes  BigInt   @default(0)
+
+  @@index([created_at], map: "idx_orders_archive_export_created_at")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model page_sections {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  page_path    String
+  locale       String    @default("en")
+  block_id     String    @db.Uuid
+  sort_order   Int       @default(0)
+  is_draft     Boolean   @default(false)
+  visible      Boolean   @default(true)
+  published_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  created_by   String?   @db.Uuid
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_by   String?   @db.Uuid
+
+  @@index([page_path, locale, sort_order], map: "idx_page_sections_key")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payments {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id     String?        @db.Uuid
+  provider     String
+  provider_ref String?
+  amount       Decimal        @db.Decimal(10, 2)
+  currency     String         @default("EUR")
+  status       payment_status @default(pending)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([order_id], map: "idx_payments_order")
+  @@index([order_id], map: "idx_payments_order_id")
+  @@index([status, created_at(sort: Desc)], map: "ix_payments_status_created")
+  @@index([order_id, created_at(sort: Desc)], map: "payments_order_created_idx")
+  @@index([provider_ref])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model processed_events {
+  event_id   String    @id
+  event_type String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_impressions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  ip         String?  @db.Inet
+  user_agent String?
+  referrer   String?
+  session_id String?
+  slug       String?
+
+  @@index([product_id, created_at], map: "idx_product_impressions_prod_created")
+  @@index([product_id], map: "idx_product_impressions_product")
+  @@index([product_id, created_at(sort: Desc)], map: "idx_product_impressions_product_created")
+  @@index([product_id], map: "idx_product_impressions_product_id")
+  @@index([created_at(sort: Desc)], map: "product_impressions_created_idx")
+  @@index([product_id, created_at(sort: Desc)], map: "product_impressions_product_created_idx")
+  @@index([product_id], map: "product_impressions_product_idx")
+  @@index([slug])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_rating_stats {
+  product_uid   String   @id @db.Uuid
+  avg_rating    Decimal  @default(0) @db.Decimal(3, 2)
+  ratings_count Int      @default(0)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_review_messages {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id     String   @db.Uuid
+  root_review_id String   @db.Uuid
+  parent_id      String?  @db.Uuid
+  review_raw_id  String?  @db.Uuid
+  author_id      String?  @db.Uuid
+  author_role    String
+  body           String
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([author_id, created_at(sort: Desc)], map: "idx_review_msgs_author_created")
+  @@index([product_id, created_at], map: "idx_review_msgs_prod_created")
+  @@index([product_id, created_at(sort: Desc)], map: "idx_review_msgs_prod_created_desc")
+  @@index([review_raw_id], map: "idx_review_msgs_raw_id")
+  @@index([author_id], map: "ix_prm_author")
+  @@index([parent_id], map: "ix_prm_parent")
+  @@index([product_id], map: "ix_prm_product")
+  @@index([root_review_id], map: "ix_prm_root")
+  @@index([root_review_id, created_at], map: "ix_prm_root_created")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_reviews_raw {
+  product_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  rating     Int
+  title      String
+  body       String
+  status     String   @default("pending")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  id         String   @unique(map: "uq_product_reviews_raw_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  @@id([product_id, user_id], map: "product_reviews_pkey")
+  @@index([user_id], map: "idx_product_reviews_raw_user_id")
+  @@index([product_id, status, created_at(sort: Desc)], map: "idx_reviews_product")
+  @@index([product_id, status], map: "idx_reviews_product_status")
+  @@index([product_id], map: "idx_reviews_raw_product")
+  @@index([user_id], map: "idx_reviews_raw_user")
+  @@index([product_id, status, rating(sort: Desc), created_at(sort: Desc)], map: "idx_reviews_sort_rating")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profiles {
+  id         String    @id @db.Uuid
+  updated_at DateTime? @db.Timestamptz(6)
+  username   String?   @unique
+  full_name  String?
+  avatar_url String?
+  website    String?
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model promotion_actions {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotion_id String                @db.Uuid
+  kind         promotion_action_kind
+  config       Json                  @default("{}")
+  created_at   DateTime              @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model promotion_conditions {
+  id           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotion_id String                   @db.Uuid
+  kind         promotion_condition_kind
+  config       Json                     @default("{}")
+  created_at   DateTime                 @default(now()) @db.Timestamptz(6)
+
+  @@index([promotion_id, kind], map: "promotion_conditions_promotion_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model promotion_coupons {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotion_id         String    @db.Uuid
+  code                 String    @unique(map: "uq_promotion_coupons_code")
+  usage_limit_total    Int?
+  usage_limit_per_user Int?
+  starts_at            DateTime? @db.Timestamptz(6)
+  ends_at              DateTime? @db.Timestamptz(6)
+  metadata             Json      @default("{}")
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model promotion_usages {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotion_id    String   @db.Uuid
+  coupon_id       String?  @db.Uuid
+  order_id        String?  @db.Uuid
+  user_id         String?  @db.Uuid
+  discount_amount Decimal  @default(0) @db.Decimal(12, 2)
+  currency        String   @default("USD") @db.Char(3)
+  context         Json     @default("{}")
+  applied_actions Json     @default("[]")
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([order_id], map: "idx_promo_usages_order")
+  @@index([promotion_id], map: "idx_promo_usages_promotion")
+  @@index([user_id], map: "idx_promo_usages_user")
+  @@index([coupon_id, user_id], map: "promotion_usages_coupon_idx")
+  @@index([promotion_id, created_at(sort: Desc)], map: "promotion_usages_promotion_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model promotions {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String           @unique(map: "promotions_slug_unique")
+  name        String
+  description String?
+  status      promotion_status @default(draft)
+  priority    Int              @default(100)
+  combinable  Boolean          @default(true)
+  stack_group String?
+  starts_at   DateTime?        @db.Timestamptz(6)
+  ends_at     DateTime?        @db.Timestamptz(6)
+  metadata    Json             @default("{}")
+  created_at  DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime         @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model publish_jobs {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target       String
+  action       String    @default("revalidate")
+  payload      Json      @default("{}")
+  status       String    @default("pending")
+  attempts     Int       @default(0)
+  last_error   String?
+  scheduled_at DateTime  @default(now()) @db.Timestamptz(6)
+  executed_at  DateTime? @db.Timestamptz(6)
+  created_by   String?   @db.Uuid
+
+  @@index([status, scheduled_at], map: "idx_publish_jobs_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model recent_views {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?  @db.Uuid
+  anon_id    String?
+  product_id String   @db.Uuid
+  seen_at    DateTime @default(now()) @db.Timestamptz(6)
+  weight     Float    @default(1) @db.Real
+
+  @@index([product_id], map: "idx_recent_views_product")
+  @@index([user_id, seen_at], map: "idx_recent_views_user_seen")
+  @@index([anon_id, seen_at(sort: Desc)], map: "ix_recent_anon_seen_at")
+  @@index([product_id], map: "ix_recent_product")
+  @@index([user_id, seen_at(sort: Desc)], map: "ix_recent_user_seen_at")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model public_refresh_tokens {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String    @db.Uuid
+  expires_at     DateTime  @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  token_hash     String    @unique
+  user_agent     String?
+  ip_address     String?   @db.Inet
+  metadata       Json      @default("{}")
+  revoked_at     DateTime? @db.Timestamptz(6)
+  revoked_reason String?
+  updated_at     DateTime? @db.Timestamptz(6)
+
+  @@index([user_id], map: "idx_refresh_tokens_user")
+  @@index([user_id, expires_at], map: "idx_refresh_tokens_user_exp")
+  @@map("refresh_tokens")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model review_rate_limits {
+  ip_hash   String   @id
+  last_at   DateTime @default(now()) @db.Timestamptz(6)
+  count_24h Int      @default(0)
+  user_id   String?  @db.Uuid
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model review_votes {
+  product_id       String   @db.Uuid
+  review_author_id String   @db.Uuid
+  voter_id         String   @db.Uuid
+  value            Int
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([product_id, review_author_id, voter_id], map: "review_votes_pk")
+  @@index([product_id, review_author_id], map: "review_votes_product_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model scheduled_content {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target       String
+  payload      Json      @default("{}")
+  publish_at   DateTime  @db.Timestamptz(6)
+  created_by   String?   @db.Uuid
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at DateTime? @db.Timestamptz(6)
+
+  @@index([publish_at], map: "idx_scheduled_content_time")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model shop_clicks {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  ip         String?  @db.Inet
+  user_agent String?
+  referrer   String?
+  session_id String?
+
+  @@index([created_at], map: "brin_shop_clicks_created_at", type: Brin)
+  @@index([created_at(sort: Desc)], map: "idx_shop_clicks_created_at")
+  @@index([product_id, session_id, referrer, created_at(sort: Desc)], map: "idx_shop_clicks_dedupe")
+  @@index([product_id, created_at], map: "idx_shop_clicks_prod_created")
+  @@index([product_id], map: "idx_shop_clicks_product_id")
+  @@index([referrer, created_at(sort: Desc)], map: "idx_shop_clicks_referrer_created_at")
+  @@index([product_id, created_at(sort: Desc)], map: "shop_clicks_product_created_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model shop_impressions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  ip         String?  @db.Inet
+  user_agent String?
+  referrer   String?
+  session_id String?
+
+  @@index([created_at], map: "brin_shop_impressions_created_at", type: Brin)
+  @@index([created_at(sort: Desc)], map: "idx_shop_impressions_created_at")
+  @@index([product_id, session_id, referrer, created_at(sort: Desc)], map: "idx_shop_impressions_dedupe")
+  @@index([product_id, created_at], map: "idx_shop_impressions_prod_created")
+  @@index([product_id, created_at(sort: Desc)], map: "idx_shop_impressions_product_created")
+  @@index([product_id], map: "idx_shop_impressions_product_id")
+  @@index([referrer, created_at(sort: Desc)], map: "idx_shop_impressions_referrer_created_at")
+  @@index([product_id, created_at(sort: Desc)], map: "shop_impressions_product_created_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model site_settings {
+  key        String
+  locale     String   @default("en")
+  value_json Json     @default("{}")
+  is_public  Boolean  @default(true)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_by String?  @db.Uuid
+
+  @@id([key, locale])
+  @@index([locale], map: "idx_site_settings_locale")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stock_items {
+  product_id    String   @id @db.Uuid
+  qty_available Int      @default(0)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stock_movements {
+  id            BigInt   @id @default(autoincrement())
+  order_id      String?  @db.Uuid
+  order_item_id String?  @db.Uuid
+  product_id    String   @db.Uuid
+  qty_delta     Int
+  reason        String
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([order_id], map: "stock_movements_order_idx")
+  @@index([product_id], map: "stock_movements_product_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_balance_transactions_cache {
+  id         String    @id
+  amount     BigInt?
+  currency   String?
+  fee        BigInt?
+  net        BigInt?
+  status     String?
+  type       String?
+  created    DateTime? @db.Timestamptz(6)
+  attrs      Json?
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_charges_cache {
+  id             String    @id
+  customer       String?
+  amount         BigInt?
+  currency       String?
+  description    String?
+  invoice        String?
+  payment_intent String?
+  status         String?
+  created        DateTime? @db.Timestamp(6)
+  email          String?
+  name           String?
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_customers_cache {
+  id          String    @id
+  email       String?
+  name        String?
+  description String?
+  created     DateTime? @db.Timestamp(6)
+  attrs       Json?
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_products_cache {
+  id            String    @id
+  name          String?
+  active        Boolean?
+  default_price String?
+  description   String?
+  created       DateTime? @db.Timestamp(6)
+  updated       DateTime? @db.Timestamp(6)
+  attrs         Json?
+  created_at    DateTime? @db.Timestamptz(6)
+  updated_at    DateTime? @db.Timestamptz(6)
+  is_public     Boolean?  @default(true)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_webhooks {
+  id                       String    @id
+  type                     String
+  livemode                 Boolean
+  api_version              String?
+  created_utc              DateTime  @db.Timestamptz(6)
+  data                     Json
+  raw                      Json?
+  inserted_at              DateTime? @default(now()) @db.Timestamptz(6)
+  mode                     String?   @default(dbgenerated("\nCASE\n    WHEN livemode THEN 'live'::text\n    ELSE 'test'::text\nEND"))
+  mismatch_reason          String?
+  expected_amount_cents    Int?
+  expected_currency        String?
+  stripe_amount_cents      Int?
+  stripe_currency          String?
+  processing_state         String?
+  processing_error         String?
+  notified_succeeded       Boolean   @default(false)
+  notified_failed          Boolean   @default(false)
+  notified_refunded        Boolean   @default(false)
+  notified_desync          Boolean   @default(false)
+  notified_requires_action Boolean   @default(false)
+
+  @@index([created_utc], map: "idx_sw_created")
+  @@index([created_utc(sort: Desc)], map: "stripe_webhooks_created_idx")
+  @@index([type])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stripe_webhooks_failed {
+  id           String    @unique
+  type         String?
+  livemode     Boolean?
+  api_version  String?
+  created_utc  DateTime? @db.Timestamptz(6)
+  data         Json?
+  raw          Json?
+  inserted_at  DateTime? @db.Timestamptz(6)
+  surrogate_id BigInt    @id @default(autoincrement())
+
+  @@index([created_utc], map: "stripe_webhooks_failed_created_brin", type: Brin)
+  @@index([created_utc], map: "stripe_webhooks_failed_created_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model title_blacklist {
+  pattern String @id
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model total_is_generated {
+  coalesce Boolean?
+  id       BigInt   @id @default(autoincrement())
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model translations {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locale     String
+  tkey       String
+  value_text String?
+  value_json Json?
+  namespace  String?
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_by String?  @db.Uuid
+  ns_norm    String?  @default(dbgenerated("COALESCE(namespace, ''::text)"))
+
+  @@unique([locale, tkey, ns_norm], map: "uq_translations_locale_key_ns")
+  @@schema("public")
+}
+
+enum DiscountType {
+  percent_off
+  amount_off
+  bogo
+  tiered
+  coupon
+
+  @@schema("discounts")
+}
+
+enum AssignmentScope {
+  BRAND
+  CATEGORY
+  PRODUCT
+  VENDOR
+  CUSTOMER_GROUP
+
+  @@schema("discounts")
+}
+
+enum order_status {
+  pending
+  paid
+  cancelled
+  refunded
+  canceled
+  failed
+
+  @@schema("public")
+}
+
+enum payment_status {
+  pending
+  succeeded
+  failed
+  authorized
+  captured
+  paid
+  canceled
+  refunded
+  partial_refund
+  requires_action
+
+  @@schema("public")
+}
+
+enum promotion_action_kind {
+  percentage_discount
+  fixed_amount_discount
+  buy_x_get_y
+  free_shipping
+  gift_product
+
+  @@schema("public")
+}
+
+enum promotion_condition_kind {
+  product
+  category
+  collection
+  order_total
+  order_quantity
+  user_segment
+  utm
+  schedule
+  custom
+
+  @@schema("public")
+}
+
+enum promotion_status {
+  draft
+  scheduled
+  active
+  expired
+  archived
+
+  @@schema("public")
+}

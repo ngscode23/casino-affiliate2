@@ -10,7 +10,7 @@ import ProductSpecs from "@/components/ProductSpecs";
 import { ProductGrid } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
-import { formatCurrency } from "./data";
+import { formatCurrency } from "../currency";
 import { track } from "@shared/lib/analytics";
 import { cn } from "@shared/lib/cn";
 
@@ -314,6 +314,35 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     () => computePrice(product, selection),
     [product, selection],
   );
+  const compareAtPrice = useMemo(() => {
+    if (typeof product.originalPrice === "number" && product.originalPrice > product.price) {
+      return formatCurrency(product.originalPrice, product.currency);
+    }
+    if (
+      typeof product.originalPriceCents === "number" &&
+      product.originalPriceCents > (product.priceCents ?? Math.round(product.price * 100))
+    ) {
+      return formatCurrency(product.originalPriceCents / 100, product.currency);
+    }
+    if (
+      typeof product.discountPercent === "number" &&
+      product.discountPercent > 0 &&
+      product.discountPercent < 100
+    ) {
+      const base = product.price / (1 - product.discountPercent / 100);
+      if (Number.isFinite(base) && base > product.price) {
+        return formatCurrency(base, product.currency);
+      }
+    }
+    return null;
+  }, [
+    product.currency,
+    product.discountPercent,
+    product.originalPrice,
+    product.originalPriceCents,
+    product.price,
+    product.priceCents,
+  ]);
   const variantLabel = useMemo(() => formatVariantLabel(product.variants, selection), [product.variants, selection]);
   const reviewAverage = Number.isFinite(reviewStats.average) ? reviewStats.average : 0;
   const reviewCount = Number.isFinite(reviewStats.count) ? reviewStats.count : 0;
@@ -620,6 +649,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               productId={product.id}
               title={product.title}
               formattedPrice={formattedPrice}
+              compareAtPrice={compareAtPrice}
               finalPrice={finalPrice}
               dataset={product.dataset}
               variantLabel={variantLabel}

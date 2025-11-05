@@ -226,6 +226,20 @@ export function SidebarClient({
             </Link>
           </div>
 
+          <div className="rounded-2xl border border-primary/30 bg-primary/10 p-5 text-primary shadow">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary/70">Admin</p>
+            <p className="mt-2 text-sm text-primary/80">
+              Manage site content, navigation, translations, and media assets.
+            </p>
+            <Link
+              href="/admin/cms"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary/50 bg-primary px-4 py-2 text-sm font-semibold text-primaryfg transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+              onClick={() => onNavigate?.()}
+            >
+              Open Admin CMS
+            </Link>
+          </div>
+
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/70 px-3 py-2">
             <LanguageSwitcher />
             <ThemeToggle />

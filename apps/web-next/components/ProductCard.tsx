@@ -57,8 +57,10 @@ function BaseProductCard({ product }: ProductCardProps) {
   );
   const [imageUrl, setImageUrl] = useState(imageSrc);
   const title = product.title || "Product";
+  const rawDiscountPercent =
+    typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
   const discountPercent =
-    typeof product.discountPercent === "number" && product.discountPercent > 0 ? Math.round(product.discountPercent) : null;
+    rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
   const badgeType: BadgeType = discountPercent
     ? "sale"
     : product.isNew
@@ -76,12 +78,21 @@ function BaseProductCard({ product }: ProductCardProps) {
           : null;
   const badgeVariant = badgeType ?? "default";
   const originalPriceLabel = useMemo(() => {
-    if (discountPercent && discountPercent < 90) {
-      const base = product.price / (1 - discountPercent / 100);
-      if (Number.isFinite(base)) return formatPrice(base);
+    if (typeof product.originalPrice === "number" && product.originalPrice > product.price) {
+      return formatPrice(product.originalPrice);
+    }
+    if (
+      typeof product.originalPriceCents === "number" &&
+      product.originalPriceCents > (product.priceCents ?? Math.round(product.price * 100))
+    ) {
+      return formatPrice(product.originalPriceCents / 100);
+    }
+    if (rawDiscountPercent && rawDiscountPercent < 90) {
+      const base = product.price / (1 - rawDiscountPercent / 100);
+      if (Number.isFinite(base) && base > product.price) return formatPrice(base);
     }
     return null;
-  }, [discountPercent, product.price]);
+  }, [product.originalPrice, product.originalPriceCents, product.price, product.priceCents, rawDiscountPercent]);
   const href = safeSlug ? `/products/${safeSlug}` : "/products";
 
   const toggleCompare = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -118,8 +129,7 @@ function BaseProductCard({ product }: ProductCardProps) {
   const viewDetailsLabel = translate("products.viewDetails", "View details");
 
   return (
-    <Link
-      href={href}
+    <Link key={product.sku || product.id} href={href}
       prefetch={false}
       className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
@@ -225,6 +235,7 @@ function ProductCardSkeleton() {
 export { ProductCardSkeleton };
 
 export default memo(BaseProductCard);
+
 
 
 

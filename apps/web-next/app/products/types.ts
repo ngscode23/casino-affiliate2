@@ -4,6 +4,11 @@ export type Product = {
   title: string;
   description: string | null;
   price: number;
+  priceCents?: number | null;
+  originalPrice?: number | null;
+  originalPriceCents?: number | null;
+  discountPercent?: number | null;
+  discountAmountCents?: number | null;
   currency: string;
   mainImage: string | null;
   thumbnailPath?: string | null;

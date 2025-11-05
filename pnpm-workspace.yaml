@@ -1,3 +1,4 @@
 packages:
-  - apps/web-next
-  - packages/*
+  - "apps/*"
+  - "packages/*"
+  - "apps/cms-admin"

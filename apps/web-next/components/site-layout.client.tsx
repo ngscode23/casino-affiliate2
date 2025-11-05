@@ -66,7 +66,12 @@ export function SiteLayoutClient({ children }: { children: ReactNode }) {
               </Sheet>
               <div className="flex-1">
                 <div className="mx-auto w-full max-w-screen-xl px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
-                  <main className="pb-16 lg:pb-20 animate-page-fade">{children}</main>
+                  <main
+                    key={pathname ?? "site-root"}
+                    className="pb-16 lg:pb-20 animate-page-fade"
+                  >
+                    {children}
+                  </main>
                   <SiteFooter />
                 </div>
               </div>

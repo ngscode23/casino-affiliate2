@@ -113,6 +113,7 @@ export default [
     files: [
       'scripts/**/*.{ts,js}',
       '**/middleware.ts',
+      '**/proxy.ts',
       '**/next.config.*',
       '**/server/**/*.{ts,js}',
       '**/api/**/*.{ts,js}',

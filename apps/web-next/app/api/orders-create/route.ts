@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { applyPromotionsToOrder } from "@/lib/promotions/apply";
 
 type OrderItemInput = { id?: string; qty?: number };
 
@@ -26,6 +27,7 @@ type OrderPayload = {
   items?: OrderItemInput[];
   currency?: string;
   checkout?: CheckoutPayload | null;
+  coupons?: string[];
 };
 
 function json(body: unknown, status = 200) {
@@ -60,6 +62,13 @@ function normalizeField(value: unknown, max = 512): string | undefined {
   if (!trimmed) return undefined;
   if (trimmed.length > max) return trimmed.slice(0, max);
   return trimmed;
+}
+
+function normalizeCurrency3(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const code = value.trim().slice(0, 3).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(code)) return undefined;
+  return code;
 }
 
 function extractCheckout(raw: unknown): CheckoutPayload | null {
@@ -131,51 +140,80 @@ export async function POST(request: Request) {
       console.warn("orders-create orphan check failed", orphanError);
     }
 
-    const payload = parsePayload(await request.json().catch(() => ({})));
-    const rawItems = Array.isArray(payload.items) ? payload.items : [];
+  const payload = parsePayload(await request.json().catch(() => ({})));
+  const rawItems = Array.isArray(payload.items) ? payload.items : [];
     const items = rawItems
       .filter((item): item is { id: string; qty?: number } => Boolean(item && item.id))
       .map((item) => ({ id: String(item.id), qty: sanitizeQuantity(item.qty ?? 1) }))
       .filter((item) => isUuid(item.id));
 
-    const currency =
-      typeof payload.currency === "string" && payload.currency.trim()
-        ? payload.currency.trim()
-        : undefined;
-    const checkoutMeta = extractCheckout(payload.checkout ?? null);
+    // Enforce 3-letter uppercase currency code to satisfy FK to public.currencies(code)
+    const currency = normalizeCurrency3(payload.currency);
+  const checkoutMeta = extractCheckout(payload.checkout ?? null);
+  const couponCodes = Array.isArray(payload.coupons)
+    ? payload.coupons.filter((code): code is string => typeof code === "string" && code.trim().length > 0)
+    : [];
 
-    let rpcResponse;
-    if (items.length) {
-      rpcResponse = await supabase.rpc("place_order_with_items", {
-        p_user_id: userId,
-        p_items: items,
-        p_currency: currency,
-      });
-    } else {
-      rpcResponse = await supabase.rpc("place_order", { p_user_id: userId });
+    if (!items.length) {
+      return json(
+        { ok: false, code: "empty_order", message: "No items provided" },
+        400,
+      );
     }
+
+    const rpcResponse = await supabase.rpc("place_order_with_items", {
+      p_user_id: userId,
+      p_items: items,
+      p_currency: currency,
+    });
 
     if (rpcResponse.error) {
       console.error("orders-create", rpcResponse.error);
+      const err = rpcResponse.error;
+      const code = String(err.code || "");
+      const message = String(err.message || "");
       if (
-        rpcResponse.error.code === "23503" &&
-        typeof rpcResponse.error.message === "string" &&
-        rpcResponse.error.message.includes("orders_user_id_fkey")
+        code === "23503" &&
+        message.includes("orders_user_id_fkey")
       ) {
         return json({ ok: false, code: "user_not_found", message: "User record missing" }, 409);
+      }
+      if (code === "22023") {
+        if (message.includes("unsupported_currency")) {
+          return json({ ok: false, code: "bad_currency", message: "unsupported_currency" }, 400);
+        }
+        if (message.includes("empty_order_payload")) {
+          return json({ ok: false, code: "invalid_payload", message: "empty_order" }, 400);
+        }
+        if (message.includes("order_total_zero_after_insert")) {
+          return json({ ok: false, code: "invalid_order_total" }, 400);
+        }
       }
       return json({ ok: false, code: "db", message: "Database error" }, 500);
     }
 
     const orderId = typeof rpcResponse.data === "string" && rpcResponse.data ? rpcResponse.data : null;
 
-    if (checkoutMeta && orderId) {
-      const { error } = await supabase
-        .from("orders")
-        .update({ checkout_metadata: checkoutMeta })
-        .eq("id", orderId);
-      if (error) {
-        console.warn("orders-create checkout metadata", error);
+    if (orderId) {
+      if (checkoutMeta) {
+        const { error } = await supabase
+          .from("orders")
+          .update({ checkout_metadata: checkoutMeta })
+          .eq("id", orderId);
+        if (error) {
+          console.warn("orders-create checkout metadata", error);
+        }
+      }
+      if (couponCodes.length) {
+        try {
+          await applyPromotionsToOrder({
+            supabase,
+            orderId,
+            couponCodes,
+          });
+        } catch (applyError) {
+          console.warn("orders-create apply promotions failed", applyError);
+        }
       }
     }
 

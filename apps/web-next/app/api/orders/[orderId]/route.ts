@@ -48,9 +48,12 @@ export async function GET(request: Request, context: { params: Promise<{ orderId
         amount_discounts: order.discount,
         amount_tax: order.tax,
         amount_total: order.total,
+        shipping_total: order.shipping ?? 0,
         currency: order.currency,
         status: order.status,
         payment_status: order.paymentStatus,
+        coupons: order.couponCodes ?? [],
+        promotions: order.appliedPromotions ?? [],
       },
       items: detail.items.map((item) => ({
         id: item.id,

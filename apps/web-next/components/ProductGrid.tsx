@@ -65,7 +65,7 @@ export function ProductGrid({
       style={{ contentVisibility: 'auto' as any, containIntrinsicSize: '1200px' }}
     >
       {items.map((product, index) => (
-        <div key={product.id} className="h-full" role="listitem">
+        <div key={product.slug || product.id} className="h-full" role="listitem">
           <ProductCard
             product={product}
             index={index}
@@ -124,10 +124,8 @@ function ProductCard({ product, index, href, showAddToCart, addLabel, noImageLab
               src={product.image}
               alt={product.title ?? ""}
               fill
-              priority={index === 0}
-              loading={index === 0 ? "eager" : "lazy"}
-              fetchPriority={index === 0 ? "high" as any : undefined}
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 25vw, 20vw"
+              loading={index === 0 ? "eager" : "lazy"}        
+                  sizes="(max-width: 640px) 100vw, (max-width: 1280px) 25vw, 20vw"
               quality={55}
               className="h-full w-full object-cover object-center transition duration-700 ease-out group-hover:scale-[1.04]"
               placeholder={product.image.startsWith("data:") ? "blur" : "empty"}
@@ -228,6 +226,9 @@ export function ProductSkeleton() {
     </article>
   );
 }
+
+
+
 
 
 
