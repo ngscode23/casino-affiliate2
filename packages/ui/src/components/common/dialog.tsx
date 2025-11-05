@@ -83,6 +83,7 @@ export function DialogTrigger({ asChild = false, children, onClick, ...props }: 
     [onClick, setOpen],
   )
 
+
   if (asChild && isReactElement(children)) {
     const child = children
     const childOnClick = (child.props as { onClick?: (event: React.MouseEvent<any>) => void }).onClick
