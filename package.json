@@ -6,6 +6,7 @@
   "scripts": {
     "codex-proxy": "mcp-proxy --host 0.0.0.0 --port 8787 --server sse C:\\nvm4w\\nodejs\\node.exe C:\\Project\\casino-affiliate2\\node_modules\\@supabase\\mcp-server-supabase\\dist\\transports\\stdio.js --project-ref wsqhgnxmotswjantxopb",
     "changeset": "changeset",
+    "bootstrap": "node ./scripts/bootstrap.mjs",
     "start:mcp": "cross-env MCP_MODE=http MCP_SECRET=12345678 PORT=3333 node mcp-server.mjs",
     "dev:web-next": "pnpm --filter web-next dev",
     "dev:web-next:profile": "pnpm --filter web-next dev:profile",
@@ -62,7 +63,7 @@
     "puppeteer": "^24.23.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "rimraf": "^6.0.1",
+    "rimraf": "^6.1.0",
     "rollup-plugin-visualizer": "^6.0.4",
     "stripe": "^19.1.0",
     "ts-morph": "^27.0.0",
