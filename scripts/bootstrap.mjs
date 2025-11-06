@@ -41,6 +41,7 @@ const options = {
 
 const notes = [];
 const needsPnpm = !options.skipInstall || !options.skipBuild;
+const PNPM_EXECUTABLE = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 function log(message, type = 'info') {
   const prefix = type === 'error' ? '✖' : type === 'success' ? '✔' : '•';
@@ -80,8 +81,9 @@ async function ensurePrerequisites() {
   if (needsPnpm) {
     log('Checking pnpm availability…');
     try {
-      const pnpmVersion = await getCommandVersion('pnpm');
-      log(`pnpm version OK (${pnpmVersion})`, 'success');
+      const pnpmVersion = await getCommandVersion(PNPM_EXECUTABLE);
+      const versionLabel = pnpmVersion ? ` (${pnpmVersion})` : '';
+      log(`pnpm version OK${versionLabel}`, 'success');
     } catch (error) {
       throw new Error(
         `pnpm is required for this step. Install it (https://pnpm.io/installation) and re-run.\nDetails: ${error.message}`,
@@ -106,6 +108,7 @@ function getCommandVersion(command) {
     const child = spawn(command, ['--version'], {
       cwd: ROOT_DIR,
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
     });
 
     let stdout = '';
@@ -181,11 +184,11 @@ async function installDependencies() {
     installArgs.push('--prefer-offline');
   }
 
-  await runCommand('pnpm', installArgs);
+  await runCommand(PNPM_EXECUTABLE, installArgs);
 }
 
 async function buildWebNext() {
-  await runCommand('pnpm', ['--filter', 'web-next', 'build']);
+  await runCommand(PNPM_EXECUTABLE, ['--filter', 'web-next', 'build']);
   notes.push('Run `pnpm dev:web-next` to start the Next.js dev server.');
 }
 
@@ -198,6 +201,7 @@ function runCommand(command, args, overrides = {}) {
     const child = spawn(command, args, {
       cwd: ROOT_DIR,
       stdio: 'inherit',
+      shell: process.platform === 'win32',
       ...overrides,
     });
 
