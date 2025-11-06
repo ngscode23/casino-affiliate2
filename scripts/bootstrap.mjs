@@ -40,6 +40,7 @@ const options = {
 };
 
 const notes = [];
+const needsPnpm = !options.skipInstall || !options.skipBuild;
 
 function log(message, type = 'info') {
   const prefix = type === 'error' ? '✖' : type === 'success' ? '✔' : '•';
@@ -76,9 +77,19 @@ async function ensurePrerequisites() {
   }
   log(`Node.js version OK (${currentNode})`, 'success');
 
-  log('Checking pnpm availability…');
-  const pnpmVersion = await getCommandVersion('pnpm');
-  log(`pnpm version OK (${pnpmVersion})`, 'success');
+  if (needsPnpm) {
+    log('Checking pnpm availability…');
+    try {
+      const pnpmVersion = await getCommandVersion('pnpm');
+      log(`pnpm version OK (${pnpmVersion})`, 'success');
+    } catch (error) {
+      throw new Error(
+        `pnpm is required for this step. Install it (https://pnpm.io/installation) and re-run.\nDetails: ${error.message}`,
+      );
+    }
+  } else if (options.verbose) {
+    log('Skipping pnpm check (pnpm commands disabled by flags).');
+  }
 
   try {
     const supabaseVersion = await getCommandVersion('supabase');
@@ -262,4 +273,3 @@ main().catch((error) => {
   }
   process.exit(1);
 });
-
