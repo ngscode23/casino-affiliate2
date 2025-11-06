@@ -18,6 +18,16 @@ const TOP_LIMIT = 6;
 const DEFAULT_LIST_LIMIT = 240;
 const DEFAULT_CURRENCY = "EUR";
 
+export type ProductFilters = {
+  query?: string;
+  category?: string;
+  dataset?: "all" | "shop" | "legacy";
+  priceMin?: number | null;
+  priceMax?: number | null;
+  minRating?: number | null;
+  sort?: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
+};
+
 function categoryTag(slug: string) {
   return `${CATEGORY_TAG_PREFIX}${slug}`;
 }
@@ -57,19 +67,130 @@ function buildStructuredData(products: Product[]) {
   } satisfies Record<string, unknown>;
 }
 
-async function loadProductsDataInternal(): Promise<{
+type NormalizedCachePayload = {
+  query: string;
+  category: string;
+  dataset: "all" | "shop" | "legacy";
+  priceMin: number | null;
+  priceMax: number | null;
+  minRating: number | null;
+  sort: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
+};
+
+function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
+  const normalized: ProductFilters = {};
+
+  const trimmedQuery = filters.query?.trim();
+  if (trimmedQuery) normalized.query = trimmedQuery;
+
+  const category = filters.category?.trim();
+  if (category && category !== "all") normalized.category = category;
+
+  normalized.dataset = filters.dataset === "legacy" ? "legacy" : filters.dataset === "shop" ? "shop" : "all";
+
+  if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
+    normalized.priceMin = Math.max(0, Math.round(filters.priceMin * 100) / 100);
+  }
+
+  if (typeof filters.priceMax === "number" && Number.isFinite(filters.priceMax) && filters.priceMax >= 0) {
+    normalized.priceMax = Math.max(0, Math.round(filters.priceMax * 100) / 100);
+  }
+
+  if (
+    normalized.priceMin != null &&
+    normalized.priceMax != null &&
+    normalized.priceMax < normalized.priceMin
+  ) {
+    normalized.priceMax = normalized.priceMin;
+  }
+
+  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating)) {
+    const rating = filters.minRating;
+    if (rating >= 4.5) normalized.minRating = 4.5;
+    else if (rating >= 4) normalized.minRating = 4;
+    else if (rating >= 3) normalized.minRating = 3;
+  }
+
+  normalized.sort = filters.sort ?? "recent";
+
+  return normalized;
+}
+
+function buildCachePayload(filters: ProductFilters): NormalizedCachePayload {
+  return {
+    query: filters.query ?? "",
+    category: filters.category ?? "",
+    dataset: filters.dataset ?? "all",
+    priceMin: typeof filters.priceMin === "number" ? filters.priceMin : null,
+    priceMax: typeof filters.priceMax === "number" ? filters.priceMax : null,
+    minRating: typeof filters.minRating === "number" ? filters.minRating : null,
+    sort: filters.sort ?? "recent",
+  };
+}
+
+async function loadProductsDataInternal(filters: ProductFilters = {}): Promise<{
   products: Product[];
   fetchError: unknown;
   structuredData: Record<string, unknown> | null;
   categories: CategorySummary[];
   catalogName: string;
+  totalCount: number;
 }> {
   const supabase = getAdminClient();
-  const { data, error } = await supabase
+  const appliedSort = filters.sort ?? "recent";
+
+  let query = supabase
     .from("product_with_discount_public")
-    .select("id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path")
-    .order("created_at", { ascending: false, nullsFirst: false })
+    .select(
+      "id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path",
+      { count: "exact" },
+    )
     .limit(DEFAULT_LIST_LIMIT);
+
+  const trimmedQuery = filters.query?.trim();
+  if (trimmedQuery) {
+    const pattern = `%${trimmedQuery.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
+    query = query.or(`name.ilike.${pattern},slug.ilike.${pattern}`);
+  }
+
+  if (filters.category && filters.category !== "all") {
+    query = query.eq("category_slug", filters.category);
+  }
+
+  if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
+    query = query.gte("effectivePriceCents", Math.round(filters.priceMin * 100));
+  }
+
+  if (typeof filters.priceMax === "number" && Number.isFinite(filters.priceMax) && filters.priceMax >= 0) {
+    query = query.lte("effectivePriceCents", Math.round(filters.priceMax * 100));
+  }
+
+  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating) && filters.minRating > 0) {
+    query = query.gte("rating", filters.minRating);
+  }
+
+  switch (appliedSort) {
+    case "popular":
+      query = query
+        .order("rating", { ascending: false, nullsFirst: true })
+        .order("created_at", { ascending: false, nullsFirst: false });
+      break;
+    case "price-asc":
+      query = query.order("effectivePriceCents", { ascending: true, nullsFirst: false });
+      break;
+    case "price-desc":
+      query = query.order("effectivePriceCents", { ascending: false, nullsFirst: false });
+      break;
+    case "impressions":
+      query = query.order("created_at", { ascending: false, nullsFirst: false });
+      break;
+    case "recent":
+    default:
+      query = query.order("created_at", { ascending: false, nullsFirst: false });
+      break;
+  }
+
+  const { data, error, count } = await query;
 
   if (error || !Array.isArray(data)) {
     return {
@@ -78,6 +199,7 @@ async function loadProductsDataInternal(): Promise<{
       structuredData: null,
       categories: [],
       catalogName: CATALOG_NAME,
+      totalCount: 0,
     };
   }
 
@@ -157,15 +279,19 @@ async function loadProductsDataInternal(): Promise<{
     products[i].isTop = true;
   }
 
+  const filteredProducts = filters.dataset && filters.dataset !== "all"
+    ? products.filter((product) => product.dataset === filters.dataset)
+    : products;
+
   const categories = (() => {
     const counts = new Map<string, { label: string; count: number }>();
-    for (const product of products) {
+    for (const product of filteredProducts) {
       const slug = product.categorySlug;
       if (!slug) continue;
       const label = humanizeSlug(slug);
-      const entry = counts.get(slug);
-      if (entry) {
-        entry.count += 1;
+      const existing = counts.get(slug);
+      if (existing) {
+        existing.count += 1;
       } else {
         counts.set(slug, { label, count: 1 });
       }
@@ -175,7 +301,7 @@ async function loadProductsDataInternal(): Promise<{
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   })();
 
-  const structuredData = buildStructuredData(products);
+  const structuredData = buildStructuredData(filteredProducts);
 
   if (process.env.NODE_ENV !== "production") {
     try {
@@ -194,16 +320,42 @@ async function loadProductsDataInternal(): Promise<{
   }
 
   return {
-    products,
+    products: filteredProducts,
     fetchError: null,
     structuredData,
     categories,
     catalogName: CATALOG_NAME,
+    totalCount:
+      filters.dataset && filters.dataset !== "all"
+        ? filteredProducts.length
+        : typeof count === "number"
+          ? count
+          : filteredProducts.length,
   };
 }
 
-export const loadProductsData = unstable_cache(
-  () => loadProductsDataInternal(),
+export async function loadProductsData(filters: ProductFilters = {}) {
+  const normalized = normalizeFilters(filters);
+  const payload = buildCachePayload(normalized);
+  const key = JSON.stringify(payload);
+  const result = await loadProductsDataCached(key);
+  return result;
+}
+
+const loadProductsDataCached = unstable_cache(
+  async (key: string) => {
+    const parsed = JSON.parse(key) as NormalizedCachePayload;
+    const normalized: ProductFilters = {
+      dataset: parsed.dataset,
+      sort: parsed.sort,
+    };
+    if (parsed.query) normalized.query = parsed.query;
+    if (parsed.category) normalized.category = parsed.category;
+    if (parsed.priceMin != null) normalized.priceMin = parsed.priceMin;
+    if (parsed.priceMax != null) normalized.priceMax = parsed.priceMax;
+    if (parsed.minRating != null) normalized.minRating = parsed.minRating;
+    return loadProductsDataInternal(normalized);
+  },
   ["products:list:data"],
   {
     revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,

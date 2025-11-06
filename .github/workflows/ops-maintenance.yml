@@ -1,0 +1,52 @@
+name: Maintenance Jobs
+
+on:
+  schedule:
+    # Cleanup clicks daily at 03:00 UTC
+    - cron: "0 3 * * *"
+    # Cleanup recent views daily at 03:30 UTC
+    - cron: "30 3 * * *"
+    # Refresh analytics MVs daily at 04:00 UTC (adjust as needed)
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  cleanup-clicks:
+    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup-clicks RPC endpoint
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-admin-token: ${{ secrets.ADMIN_TOKEN }}" \
+            "$BASE_URL/api/admin/maintenance/cleanup-clicks"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
+  cleanup-recent-views:
+    if: github.event.schedule == '30 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup-recent-views RPC endpoint
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-admin-token: ${{ secrets.ADMIN_TOKEN }}" \
+            "$BASE_URL/api/admin/maintenance/cleanup-recent-views"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
+  refresh-analytics:
+    if: github.event.schedule == '0 4 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger refresh of analytics materialized views
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-admin-token: ${{ secrets.ADMIN_TOKEN }}" \
+            "$BASE_URL/api/admin/analytics/refresh"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+

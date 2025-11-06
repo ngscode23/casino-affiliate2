@@ -1,242 +1,143 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { memo, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import Link from "next/link";
+import { memo } from "react";
 
-import type { Product } from "@/app/products/types";
-import { formatPrice } from "@/app/products/utils";
-import { getFallbackImageByKey } from "@/app/products/fallback-images";
+import AddToCartButton from "@/app/products/components/AddToCartButton";
 import { cn } from "@shared/lib/cn";
-import { useT } from "@shared/lib/useT";
-import { Shuffle } from "lucide-react";
 import WishlistHeart from "./WishlistHeart";
 
-type ProductWithDiscount = Product & {
-  discountPercent?: number | null;
+export type ProductGridItem = {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string | null;
+  price?: string | null;
+  originalPrice?: string | null;
+  meta?: string | null;
+  badge?: string | null;
+  image?: string | null;
 };
 
 type ProductCardProps = {
-  product: ProductWithDiscount;
+  product: ProductGridItem;
+  index: number;
+  href: string;
+  showAddToCart: boolean;
+  addLabel: string;
+  noImageLabel: string;
+  translate: (key: string, fallback: string) => string;
 };
 
-const badgeStyles: Record<string, string> = {
-  sale: "bg-[#fbe6d5] text-[#b3612f]",
-  new: "bg-primary/15 text-primary",
-  bestseller: "bg-muted text-muted-foreground",
-  default: "bg-accent text-accent-foreground",
-};
-
-function resolveImage(src: Product["mainImage"], key: string) {
-  if (typeof src === "string" && src.trim().length > 0) {
-    return src;
-  }
-  return getFallbackImageByKey(key);
-}
-
-type BadgeType = "sale" | "new" | "bestseller" | null;
-
-function BaseProductCard({ product }: ProductCardProps) {
-  const [isCompared, setIsCompared] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const t = useT();
-  const translate = useCallback(
-    (key: string, fallback: string) => {
-      const value = t(key);
-      return value && value !== key ? value : fallback;
-    },
-    [t],
-  );
-
-  const priceLabel = useMemo(() => formatPrice(product.price), [product.price]);
-  const slugOrId = product.slug || product.id;
-  const safeSlug = slugOrId ? encodeURIComponent(slugOrId) : "";
-  const imageSrc = useMemo(
-    () => resolveImage(product.mainImage, slugOrId),
-    [product.mainImage, slugOrId],
-  );
-  const [imageUrl, setImageUrl] = useState(imageSrc);
-  const title = product.title || "Product";
-  const rawDiscountPercent =
-    typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
-  const discountPercent =
-    rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
-  const badgeType: BadgeType = discountPercent
-    ? "sale"
-    : product.isNew
-      ? "new"
-      : product.isTop
-        ? "bestseller"
-        : null;
-  const badgeLabel =
-    badgeType === "sale"
-      ? `-${discountPercent}%`
-      : badgeType === "new"
-        ? translate("products.badges.new", "New")
-        : badgeType === "bestseller"
-          ? translate("products.badges.bestseller", "Top")
-          : null;
-  const badgeVariant = badgeType ?? "default";
-  const originalPriceLabel = useMemo(() => {
-    if (typeof product.originalPrice === "number" && product.originalPrice > product.price) {
-      return formatPrice(product.originalPrice);
-    }
-    if (
-      typeof product.originalPriceCents === "number" &&
-      product.originalPriceCents > (product.priceCents ?? Math.round(product.price * 100))
-    ) {
-      return formatPrice(product.originalPriceCents / 100);
-    }
-    if (rawDiscountPercent && rawDiscountPercent < 90) {
-      const base = product.price / (1 - rawDiscountPercent / 100);
-      if (Number.isFinite(base) && base > product.price) return formatPrice(base);
-    }
-    return null;
-  }, [product.originalPrice, product.originalPriceCents, product.price, product.priceCents, rawDiscountPercent]);
-  const href = safeSlug ? `/products/${safeSlug}` : "/products";
-
-  const toggleCompare = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsCompared((prev) => !prev);
-  }, []);
-
-  const handleImageLoad = useCallback(() => {
-    setIsImageLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    setImageUrl(imageSrc);
-  }, [imageSrc]);
-
-  useEffect(() => {
-    setIsImageLoaded(false);
-  }, [imageUrl]);
-
-  const handleImageError = useCallback(() => {
-    const fallback = getFallbackImageByKey(slugOrId);
-    if (fallback && fallback !== imageUrl) {
-      setImageUrl(fallback);
-    }
-  }, [imageUrl, slugOrId]);
-
-  const datasetLabel = (() => {
-    if (!product.dataset) return null;
-    const key = `products.dataset.${product.dataset}`;
-    const value = t(key);
-    return value && value !== key ? value : product.dataset;
-  })();
-  const viewDetailsLabel = translate("products.viewDetails", "View details");
+function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImageLabel, translate }: ProductCardProps) {
+  const badgeLabel = getBadgeLabel(product, translate);
+  const badgeClass = getBadgeClass(badgeLabel);
+  const originalPrice =
+    product.originalPrice && product.originalPrice !== product.price ? product.originalPrice : null;
 
   return (
-    <Link key={product.slug || product.id} href={href}
-      prefetch={false}
-      className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    <article
+      aria-label={product.title}
+      className="flex h-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card text-fg shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/30"
     >
-      <article className="surface relative flex h-full flex-col rounded-[calc(var(--radius)+0.75rem)] shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
-        <header className="flex items-start justify-between px-7 pt-7">
+      <Link
+        href={href}
+        prefetch={false}
+        aria-label={product.title}
+        className="group flex flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+      >
+        <div className="relative aspect-[4/5] overflow-hidden">
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.title ?? ""}
+              fill
+              loading={index === 0 ? "eager" : "lazy"}
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 25vw, 20vw"
+              quality={55}
+              className="h-full w-full object-cover object-center transition duration-700 ease-out group-hover:scale-[1.04]"
+              placeholder={product.image.startsWith("data:") ? "blur" : "empty"}
+              blurDataURL={product.image.startsWith("data:") ? product.image : undefined}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium uppercase tracking-[0.2em] text-muted">
+              {noImageLabel}
+            </div>
+          )}
           {badgeLabel ? (
             <span
               className={cn(
-                "inline-flex items-center rounded-full px-3.5 py-1 text-xs font-medium",
-                badgeStyles[badgeVariant] ?? badgeStyles.default,
+                "pointer-events-none absolute left-4 top-4 inline-flex min-h-[1.75rem] items-center rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.08em]",
+                badgeClass,
               )}
             >
               {badgeLabel}
             </span>
-          ) : (
-            <span className="h-7" aria-hidden="true" />
-          )}
-          <div className="flex items-center gap-2">
-            <WishlistHeart productId={product.id} className="border border-transparent bg-secondary/60 text-secondary-foreground/70 hover:bg-secondary hover:text-secondary-foreground" />
-            <button
-              type="button"
-              onClick={toggleCompare}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-secondary/60 text-secondary-foreground/70 transition-colors hover:bg-secondary hover:text-secondary-foreground cursor-pointer"
-              aria-label={isCompared ? "Remove from compare" : "Add to compare"}
-              aria-pressed={isCompared}
-            >
-              <Shuffle className={cn("h-4 w-4", isCompared ? "text-primary" : "")}
-              />
-            </button>
-          </div>
-        </header>
-
-        <div className="mt-6 px-7">
-          <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-bg to-accent/60">
-            <div className="relative aspect-square">
-              <Image
-                src={imageUrl}
-                alt={title}
-                fill
-                loading="lazy"
-                sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 28vw, (min-width: 768px) 42vw, 100vw"
-                className={cn(
-                  "object-cover transition duration-500 ease-out group-hover:scale-[1.03]",
-                  isImageLoaded ? "opacity-100" : "opacity-0",
-                )}
-                onLoadingComplete={handleImageLoad}
-                onError={handleImageError}
-              />
-            </div>
-          </div>
+          ) : null}
+          <WishlistHeart productId={product.id} className="absolute right-4 top-4" />
         </div>
 
-        <div className="flex flex-1 flex-col px-7 pb-7 text-sm">
-          <div className="mt-6 flex-1">
-            <h2 className="text-xl font-semibold tracking-tight text-fg">{title}</h2>
-            {product.description ? (
-              <p className="mt-3 line-clamp-2 text-sm text-fg/80">{product.description}</p>
-            ) : null}
-          </div>
-          <div className="mt-6 flex items-baseline justify-between gap-3 text-sm">
-            <div className="flex items-baseline gap-3">
-              <span className="text-xl font-semibold text-fg">{priceLabel}</span>
-              {originalPriceLabel ? (
-                <span className="text-sm text-muted-foreground line-through">{originalPriceLabel}</span>
-              ) : null}
+        <div className="flex flex-1 flex-col gap-2 px-4 py-3 text-left">
+          <h3 className="text-[15px] font-semibold leading-snug text-fg line-clamp-2">{product.title}</h3>
+          {product.price ? (
+            <div className="flex items-baseline gap-2">
+              {originalPrice ? <span className="text-xs text-muted line-through">{originalPrice}</span> : null}
+              <span className="text-base font-semibold">{product.price}</span>
             </div>
-            {datasetLabel ? (
-              <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{datasetLabel}</span>
-            ) : null}
-          </div>
-          <div className="mt-6">
-            <span className="inline-flex w-full items-center justify-center rounded-full bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-colors group-hover:bg-secondary/80">
-              {viewDetailsLabel}
-            </span>
-          </div>
+          ) : null}
+          {product.meta ? <p className="text-xs text-muted-foreground">{product.meta}</p> : null}
+          {product.subtitle ? <p className="text-sm text-muted">{product.subtitle}</p> : null}
         </div>
-      </article>
-    </Link>
+      </Link>
+
+      {showAddToCart ? (
+        <div className="mt-auto px-4 pb-4 pt-0">
+          <AddToCartButton
+            productId={product.id}
+            title={product.title ?? ""}
+            label={addLabel}
+            variant="soft"
+            className="h-11 w-full justify-center rounded-full font-semibold"
+          />
+        </div>
+      ) : null}
+    </article>
   );
 }
-
-function ProductCardSkeleton() {
-  return (
-    <div className="animate-pulse rounded-[calc(var(--radius)+0.75rem)] bg-card p-7 shadow-card">
-      <div className="flex items-start justify-between">
-        <div className="h-7 w-20 rounded-full bg-border/40" />
-        <div className="h-9 w-9 rounded-full bg-border/30" />
-      </div>
-      <div className="mt-6 aspect-square w-full rounded-[1.75rem] bg-border/30" />
-      <div className="mt-6 space-y-3">
-        <div className="h-4 w-3/4 rounded bg-border/40" />
-        <div className="h-3 w-2/3 rounded bg-border/30" />
-      </div>
-      <div className="mt-6 flex items-center justify-between">
-        <div className="h-4 w-24 rounded bg-border/30" />
-        <div className="h-3 w-16 rounded bg-border/20" />
-      </div>
-      <div className="mt-6 h-10 rounded-full bg-border/30" />
-    </div>
-  );
-}
-
-export { ProductCardSkeleton };
 
 export default memo(BaseProductCard);
 
+function getBadgeLabel(
+  product: ProductGridItem,
+  translate: (key: string, fallback: string) => string,
+): string | null {
+  const raw = product.badge?.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower.includes("sale")) {
+    return translate("products.badges.sale", raw);
+  }
+  if (lower.includes("new")) {
+    return translate("products.badges.new", raw);
+  }
+  if (lower.includes("best")) {
+    return translate("products.badges.bestseller", raw);
+  }
+  return raw;
+}
 
-
-
-
+function getBadgeClass(label: string | null): string {
+  if (!label) return "";
+  const lower = label.toLowerCase();
+  if (lower.includes("sale")) {
+    return "bg-[#fbe7da] text-[#b3582f]";
+  }
+  if (lower.includes("new")) {
+    return "bg-secondary/30 text-secondary-foreground";
+  }
+  if (lower.includes("best")) {
+    return "bg-[#e9ecff] text-[#4951b3]";
+  }
+  return "bg-surface/20 text-muted";
+}

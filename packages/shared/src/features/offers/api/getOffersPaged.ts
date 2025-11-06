@@ -1,118 +1,173 @@
-// src/features/offers/api/getOffersPaged.ts
-import { supabase } from '@shared/lib/supabase';
-import { offersNormalized, type NormalizedOffer } from '@shared/lib/offers';
-import { HAS_SUPABASE } from '@shared/config';
+import { supabase } from "@shared/lib/supabase";
+import { offersNormalized, type NormalizedOffer } from "@shared/lib/offers";
+import { HAS_SUPABASE } from "@shared/config";
 
 type PagedResult = { items: NormalizedOffer[]; total: number };
 
-// normalizeRow was inlined and is no longer needed
+type RemoteRow = {
+  slug: string;
+  title: string | null;
+  rating: number | null;
+  attributes: Record<string, unknown> | null;
+};
+
+const REMOTE_SELECT = "slug,title,rating,attributes";
+const REMOTE_FETCH_LIMIT = 500;
+
+function fallbackPaged(filters: Record<string, any>, limit: number, offset: number): PagedResult {
+  const license = filters?.license;
+  const query = String(filters?.q ?? "").trim().toLowerCase();
+  let items = offersNormalized.map((offer) => ({ ...offer }));
+  if (license && license !== "all") {
+    items = items.filter((offer) => String(offer.license) === String(license));
+  }
+  if (query) {
+    items = items.filter((offer) => {
+      const haystack = [offer.name, offer.license, ...(offer.methods ?? [])].join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+  const sort = String(filters?.sort || "rating");
+  const dir = (filters?.dir === "asc" || filters?.dir === "desc" ? filters.dir : "desc") as "asc" | "desc";
+  items.sort((a, b) => {
+    if (sort === "name") {
+      const left = String(a.name || "");
+      const right = String(b.name || "");
+      return dir === "asc" ? left.localeCompare(right) : right.localeCompare(left);
+    }
+    if (sort === "payoutHours") {
+      const left = Number(a.payoutHours ?? Number.POSITIVE_INFINITY);
+      const right = Number(b.payoutHours ?? Number.POSITIVE_INFINITY);
+      return dir === "asc" ? left - right : right - left;
+    }
+    const left = Number(a.rating ?? 0);
+    const right = Number(b.rating ?? 0);
+    return dir === "asc" ? left - right : right - left;
+  });
+  const total = items.length;
+  const page = items.slice(offset, offset + limit);
+  return { items: page, total };
+}
+
+function normalizeLicense(raw: unknown): NormalizedOffer["license"] {
+  if (typeof raw !== "string") return "Other";
+  const trimmed = raw.trim();
+  if (!trimmed) return "Other";
+  const ascii = trimmed
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+  if (ascii === "mga") return "MGA";
+  if (ascii === "ukgc") return "UKGC";
+  if (/^cura(c|k)ao$/.test(ascii)) return "Curaçao";
+  return trimmed;
+}
+
+function normalizeMethods(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
+  const result: string[] = [];
+  for (const value of values) {
+    const str = String(value ?? "").trim();
+    if (!str) continue;
+    if (!result.includes(str)) result.push(str);
+  }
+  return result;
+}
+
+function parsePayoutHours(raw: unknown): number | undefined {
+  if (raw == null) return undefined;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function mapRemoteRow(row: RemoteRow): NormalizedOffer {
+  const attrs = (row.attributes ?? {}) as Record<string, unknown>;
+  return {
+    slug: String(row.slug),
+    name: row.title ?? row.slug,
+    license: normalizeLicense(attrs.compliance_license),
+    rating: Number(row.rating ?? 0),
+    payout: "",
+    payoutHours: parsePayoutHours(attrs.payout_time_hours),
+    methods: normalizeMethods(attrs.payout_methods),
+    link: undefined,
+    enabled: true,
+    position: undefined,
+  } as NormalizedOffer;
+}
 
 export async function getOffersPaged(filters: Record<string, any>, opts: { limit: number; offset: number }): Promise<PagedResult> {
   const { limit, offset } = opts;
-  // Fallback to local data when Supabase is disabled or unreachable
-  const applyLocal = (): PagedResult => {
-    const license = filters?.license;
-    const qStr = String(filters?.q ?? '').trim().toLowerCase();
-    let arr = [...offersNormalized];
-    if (license && license !== 'all') arr = arr.filter((o) => String(o.license) === String(license));
-    if (qStr) {
-      arr = arr.filter((o) => {
-        const hay = [o.name, o.license, ...(o.methods ?? [])].join(' ').toLowerCase();
-        return hay.includes(qStr);
-      });
-    }
-    // apply sort locally
-    const sortRaw = String(filters?.sort || 'rating');
-    const dirRaw  = (filters?.dir === 'asc' || filters?.dir === 'desc') ? (filters.dir as 'asc'|'desc') : 'desc';
-    const sortKey: 'rating' | 'payoutHours' | 'name' = (sortRaw === 'payoutHours' || sortRaw === 'name') ? (sortRaw as any) : 'rating';
-    arr.sort((a, b) => {
-      let av: any;
-      let bv: any;
-      if (sortKey === 'name') { av = String(a.name || ''); bv = String(b.name || ''); return dirRaw === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); }
-      if (sortKey === 'payoutHours') { av = Number(a.payoutHours ?? Number.POSITIVE_INFINITY); bv = Number(b.payoutHours ?? Number.POSITIVE_INFINITY); return dirRaw === 'asc' ? av - bv : bv - av; }
-      av = Number(a.rating ?? 0); bv = Number(b.rating ?? 0); return dirRaw === 'asc' ? av - bv : bv - av;
-    });
-    const total = arr.length;
-    const items = arr.slice(offset, offset + limit);
-    return { items, total };
-  };
 
   if (!HAS_SUPABASE) {
-    return applyLocal();
+    return fallbackPaged(filters, limit, offset);
   }
 
   try {
-    // Query the flattened view to avoid joining client-side
-    let q = supabase
-      .from('v_products_flat')
-      .select('slug,name,rating,compliance_license,payout_time_hours,payout_methods', { count: 'exact' });
+    let query = supabase
+      .from("v_products_flat")
+      .select(REMOTE_SELECT, { count: "exact" });
+
+    const search = String(filters?.q ?? "").trim();
+    if (search) {
+      const pattern = `%${search}%`;
+      query = query.or(`title.ilike.${pattern},slug.ilike.${pattern}`);
+    }
+
+    const ratingFilter = filters?.rating as { min?: number; max?: number } | undefined;
+    if (ratingFilter && (Number.isFinite(ratingFilter.min as any) || Number.isFinite(ratingFilter.max as any))) {
+      if (Number.isFinite(ratingFilter.min as any)) query = query.gte("rating", Number(ratingFilter.min));
+      if (Number.isFinite(ratingFilter.max as any)) query = query.lte("rating", Number(ratingFilter.max));
+    }
+
+    const sortKey = String(filters?.sort || "rating");
+    const direction = (filters?.dir === "asc" || filters?.dir === "desc" ? filters.dir : "desc") as "asc" | "desc";
+    const orderColumn = sortKey === "name" ? "title" : "rating";
+    query = query.order(orderColumn as any, { ascending: direction === "asc" });
+    if (orderColumn !== "title") {
+      query = query.order("title", { ascending: true });
+    }
+    query = query.order("slug", { ascending: true });
+    query = query.range(0, REMOTE_FETCH_LIMIT - 1);
+
+    const { data, error } = await query;
+    if (error || !data) {
+      return fallbackPaged(filters, limit, offset);
+    }
+
+    let items = (data as RemoteRow[]).map(mapRemoteRow);
 
     const licenseFilter = (filters?.compliance_license || filters?.license) as string | string[] | undefined;
     if (Array.isArray(licenseFilter) && licenseFilter.length) {
-      q = (q as any).in('compliance_license', licenseFilter);
-    } else if (typeof licenseFilter === 'string' && licenseFilter && licenseFilter !== 'all') {
-      q = q.eq('compliance_license', licenseFilter);
-    }
-    const qStr = String(filters?.q ?? '').trim();
-    if (qStr) {
-      const pat = `%${qStr}%`;
-      q = q.or(`name.ilike.${pat},slug.ilike.${pat}`);
-    }
-    // number range filter: payout_time_hours
-    const hours = filters?.payout_time_hours as { min?: number; max?: number } | undefined;
-    if (hours && (Number.isFinite(hours.min as any) || Number.isFinite(hours.max as any))) {
-      if (Number.isFinite(hours.min as any)) q = q.gte('payout_time_hours', Number(hours.min));
-      if (Number.isFinite(hours.max as any)) q = q.lte('payout_time_hours', Number(hours.max));
-    }
-    // number range filter: rating
-    const rating = filters?.rating as { min?: number; max?: number } | undefined;
-    if (rating && (Number.isFinite(rating.min as any) || Number.isFinite(rating.max as any))) {
-      if (Number.isFinite(rating.min as any)) q = q.gte('rating', Number(rating.min));
-      if (Number.isFinite(rating.max as any)) q = q.lte('rating', Number(rating.max));
-    }
-    // multi_enum: payout_methods any-of
-    const methods = Array.isArray(filters?.payout_methods) ? (filters?.payout_methods as string[]) : [];
-    if (methods.length) {
-      q = (q as any).overlaps('payout_methods', methods);
+      const allowed = new Set(licenseFilter.map((value) => String(value)));
+      items = items.filter((offer) => allowed.has(String(offer.license)));
+    } else if (typeof licenseFilter === "string" && licenseFilter && licenseFilter !== "all") {
+      items = items.filter((offer) => String(offer.license) === String(licenseFilter));
     }
 
-    // sorting
-    const sortRaw = String(filters?.sort || 'rating');
-    const dirRaw  = (filters?.dir === 'asc' || filters?.dir === 'desc') ? (filters.dir as 'asc'|'desc') : 'desc';
-    const col = sortRaw === 'payoutHours' ? 'payout_time_hours' : sortRaw === 'name' ? 'name' : 'rating';
-    q = q.order(col as any, { ascending: dirRaw === 'asc' });
-    // stable tie-breakers
-    if (col !== 'name') q = q.order('name', { ascending: true });
-    q = q.order('slug', { ascending: true });
+    const hoursFilter = filters?.payout_time_hours as { min?: number; max?: number } | undefined;
+    if (hoursFilter && (Number.isFinite(hoursFilter.min as any) || Number.isFinite(hoursFilter.max as any))) {
+      items = items.filter((offer) => {
+        const value = offer.payoutHours;
+        if (value == null) return false;
+        if (Number.isFinite(hoursFilter.min as any) && value < Number(hoursFilter.min)) return false;
+        if (Number.isFinite(hoursFilter.max as any) && value > Number(hoursFilter.max)) return false;
+        return true;
+      });
+    }
 
-    q = q.range(offset, Math.max(offset, offset + limit - 1));
+    const methodsFilter = Array.isArray(filters?.payout_methods) ? (filters.payout_methods as string[]) : [];
+    if (methodsFilter.length) {
+      const desired = new Set(methodsFilter.map((value) => String(value)));
+      items = items.filter((offer) => (offer.methods ?? []).some((method) => desired.has(String(method))));
+    }
 
-    const { data, count, error } = await q;
-    if (error) throw error;
-    const items = (data ?? []).map((r: any) => {
-      // map view row to NormalizedOffer
-      const lic = String(r.compliance_license ?? '').toLowerCase();
-      const license = lic === 'mga' ? 'MGA' : lic === 'ukgc' ? 'UKGC' : lic === 'curacao' ? 'Curaçao' : lic ? 'Other' : 'Other';
-      const o: NormalizedOffer = {
-        slug: String(r.slug),
-        name: String(r.name),
-        rating: typeof r.rating === 'number' ? r.rating : Number(r.rating ?? 0),
-        license,
-        payout: '',
-        payoutHours: r.payout_time_hours ?? undefined,
-        methods: Array.isArray(r.payout_methods) ? (r.payout_methods as string[]) : [],
-        link: undefined,
-        enabled: true,
-        position: undefined,
-      } as NormalizedOffer;
-      return o;
-    });
-    return { items, total: count ?? items.length };
+    const total = items.length;
+    const page = items.slice(offset, offset + limit);
+    return { items: page, total };
   } catch {
-    // fallback on any error
-    return applyLocal();
+    return fallbackPaged(filters, limit, offset);
   }
 }
 
 export default getOffersPaged;
-

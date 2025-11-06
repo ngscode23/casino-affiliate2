@@ -50,13 +50,13 @@ export default function TableRenderer({ vertical: vOverride, products, columns, 
         if (!registry || !products.length || !selectedColumns.length) return;
         const slugs = products.map((p) => p.slug || p.id).filter(Boolean) as string[];
         const { data, error } = await (supabase as any)
-          .from('offers')
-          .select('id,slug')
+          .from('v_products_flat')
+          .select('id,slug,title')
           .in('slug', slugs);
         if (error) throw error;
-        const map: Record<string, number> = {};
+        const map: Record<string, string> = {};
         for (const row of (data as any[] || [])) {
-          map[String(row.slug)] = Number(row.id);
+          map[String(row.slug)] = String(row.id);
         }
         setSlugToId(map);
         const ids = Object.values(map);

@@ -22,6 +22,9 @@ type FiltersState = {
   sort: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
   layout: LayoutMode;
   category: string;
+  priceMin: number | null;
+  priceMax: number | null;
+  minRating: number | null;
 };
 
 const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
@@ -38,11 +41,21 @@ const LAYOUT_DESCRIPTORS: Record<LayoutMode, { label: string; icon: LucideIcon }
   single: { label: "Single column", icon: AlignJustify },
 };
 
+function priceValue(product: Product): number {
+  if (typeof product.priceCents === "number" && Number.isFinite(product.priceCents)) {
+    return product.priceCents;
+  }
+  if (typeof product.price === "number" && Number.isFinite(product.price)) {
+    return Math.round(product.price * 100);
+  }
+  return 0;
+}
+
 const sortComparators: Record<FiltersState["sort"], (a: Product, b: Product) => number> = {
   recent: (a, b) => a.order - b.order,
   popular: (a, b) => (b.clicks || 0) - (a.clicks || 0) || (b.impressions || 0) - (a.impressions || 0),
-  "price-asc": (a, b) => a.price - b.price,
-  "price-desc": (a, b) => b.price - a.price,
+  "price-asc": (a, b) => priceValue(a) - priceValue(b),
+  "price-desc": (a, b) => priceValue(b) - priceValue(a),
   impressions: (a, b) => (b.impressions || 0) - (a.impressions || 0),
 };
 
@@ -72,6 +85,12 @@ export default function ProductsClient({
   initialLayout = "grid",
   initialQuery = "",
   initialCategory = "all",
+  initialDataset = "all",
+  initialSort = "recent",
+  initialPriceMin = null,
+  initialPriceMax = null,
+  initialMinRating = null,
+  totalAvailable,
 }: {
   products: Product[];
   categories: CategorySummary[];
@@ -79,6 +98,12 @@ export default function ProductsClient({
   initialLayout?: LayoutMode;
   initialQuery?: string;
   initialCategory?: string;
+  initialDataset?: FiltersState["dataset"];
+  initialSort?: FiltersState["sort"];
+  initialPriceMin?: number | null;
+  initialPriceMax?: number | null;
+  initialMinRating?: number | null;
+  totalAvailable?: number | null;
 }) {
   const normalizedInitialQuery = (initialQuery ?? "").trim();
   const normalizedInitialCategory = useMemo(() => {
@@ -98,10 +123,16 @@ export default function ProductsClient({
 
   const [filters, setFilters] = useState<FiltersState>({
     query: normalizedInitialQuery,
-    dataset: "all",
-    sort: "recent",
+    dataset: initialDataset,
+    sort: initialSort,
     layout: initialLayout,
     category: normalizedInitialCategory,
+    priceMin: typeof initialPriceMin === "number" && Number.isFinite(initialPriceMin) && initialPriceMin >= 0 ? Number(initialPriceMin) : null,
+    priceMax: typeof initialPriceMax === "number" && Number.isFinite(initialPriceMax) && initialPriceMax >= 0 ? Number(initialPriceMax) : null,
+    minRating:
+      typeof initialMinRating === "number" && Number.isFinite(initialMinRating) && initialMinRating > 0
+        ? Number(initialMinRating)
+        : null,
   });
   const [queryInput, setQueryInput] = useState(normalizedInitialQuery);
   const [visible, setVisible] = useState(CHUNK_SIZE);
@@ -115,9 +146,16 @@ export default function ProductsClient({
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
   const datasetValues = useMemo<FiltersState["dataset"][]>(() => {
-    const values = new Set<Product["dataset"]>();
-    for (const product of products) values.add(product.dataset);
-    return ["all", ...Array.from(values)] as FiltersState["dataset"][];
+    const values = new Set<FiltersState["dataset"]>(["all"]);
+    let hasShop = false;
+    let hasLegacy = false;
+    for (const product of products) {
+      if (product.dataset === "shop") hasShop = true;
+      if (product.dataset === "legacy") hasLegacy = true;
+    }
+    if (hasShop) values.add("shop");
+    if (hasLegacy) values.add("legacy");
+    return Array.from(values.values());
   }, [products]);
 
   const datasetOptions = useMemo(
@@ -186,8 +224,29 @@ export default function ProductsClient({
       result = result.filter((product) => product.categorySlug === filters.category);
     }
 
+    if (filters.priceMin != null) {
+      result = result.filter((product) => {
+        const price = typeof product.price === "number" ? product.price : product.priceCents ? product.priceCents / 100 : 0;
+        return price >= filters.priceMin!;
+      });
+    }
+
+    if (filters.priceMax != null) {
+      result = result.filter((product) => {
+        const price = typeof product.price === "number" ? product.price : product.priceCents ? product.priceCents / 100 : 0;
+        return price <= filters.priceMax!;
+      });
+    }
+
+    if (filters.minRating != null) {
+      result = result.filter((product) => {
+        const rating = typeof product.rating === "number" ? product.rating : 0;
+        return rating >= filters.minRating!;
+      });
+    }
+
     return [...result].sort(sortComparators[filters.sort]);
-  }, [filters.category, filters.dataset, filters.query, filters.sort, products]);
+  }, [filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, filters.query, filters.sort, products]);
 
   const totals = useMemo(() => {
     let clicks = 0;
@@ -204,10 +263,17 @@ export default function ProductsClient({
 
   const summary = useMemo(() => {
     const visibleCount = displayed.length;
-    const totalProducts = products.length;
+    const totalProducts = typeof totalAvailable === "number" ? totalAvailable : products.length;
     const parts = [visibleCount + " of " + totalProducts + " products"];
     if (filters.category !== "all") {
       parts.push(categoryLabelMap.get(filters.category) ?? "Selected category");
+    }
+    if (filters.priceMin != null || filters.priceMax != null) {
+      const priceLabel = `${filters.priceMin != null ? "≥ " + filters.priceMin : "Any"} – ${filters.priceMax != null ? filters.priceMax : "Any"}`;
+      parts.push(`Price ${priceLabel}`);
+    }
+    if (filters.minRating != null) {
+      parts.push(`Rating ≥ ${filters.minRating}`);
     }
     if (totals.clicks > 0) {
       parts.push(numberFormatter.format(totals.clicks) + " clicks");
@@ -216,7 +282,7 @@ export default function ProductsClient({
       parts.push(numberFormatter.format(totals.impressions) + " views");
     }
     return parts.join(" | ");
-  }, [displayed.length, numberFormatter, products.length, totals.clicks, totals.impressions]);
+  }, [categoryLabelMap, displayed.length, filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, numberFormatter, products.length, totalAvailable, totals.clicks, totals.impressions]);
 
   useEffect(() => {
     setQueryInput(normalizedInitialQuery);
@@ -258,7 +324,11 @@ export default function ProductsClient({
   }, [filtered.length]);
 
   const updateFilters = useCallback(
-    (updater: (prev: FiltersState) => FiltersState) => {
+    (updater: (prev: FiltersState) => FiltersState, options?: { immediate?: boolean }) => {
+      if (options?.immediate) {
+        setFilters((prev) => updater(prev));
+        return;
+      }
       startTransition(() => {
         setFilters((prev) => updater(prev));
       });
@@ -276,26 +346,6 @@ export default function ProductsClient({
     }
   }, []);
 
-  const updateUrlQuery = useCallback((value: string) => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const trimmed = value.trim();
-    if (trimmed) {
-      params.set("q", trimmed);
-    } else {
-      params.delete("q");
-    }
-    if (filters.category !== "all") {
-      params.set("category", filters.category);
-    } else {
-      params.delete("category");
-    }
-    const hash = window.location.hash;
-    const search = params.toString();
-    const nextUrl = `${window.location.pathname}${search ? "?" + search : ""}${hash}`;
-    window.history.replaceState(null, "", nextUrl);
-  }, [filters.category]);
-
   useEffect(() => {
     if (queryInput === filters.query) return;
     const timeout = window.setTimeout(() => {
@@ -303,10 +353,34 @@ export default function ProductsClient({
         if (prev.query === queryInput) return prev;
         return { ...prev, query: queryInput };
       });
-      updateUrlQuery(queryInput);
     }, 180);
     return () => window.clearTimeout(timeout);
-  }, [filters.query, queryInput, updateFilters, updateUrlQuery]);
+  }, [filters.query, queryInput, updateFilters]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const setParam = (key: string, value: string | null) => {
+      if (value && value.trim()) {
+        params.set(key, value.trim());
+      } else {
+        params.delete(key);
+      }
+    };
+
+    setParam("q", filters.query);
+    setParam("category", filters.category !== "all" ? filters.category : null);
+    setParam("dataset", filters.dataset !== "all" ? filters.dataset : null);
+    setParam("price_min", filters.priceMin != null ? String(filters.priceMin) : null);
+    setParam("price_max", filters.priceMax != null ? String(filters.priceMax) : null);
+    setParam("rating_min", filters.minRating != null ? String(filters.minRating) : null);
+    setParam("sort", filters.sort !== "recent" ? filters.sort : null);
+
+    const hash = window.location.hash;
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? "?" + search : ""}${hash}`;
+    window.history.replaceState(null, "", nextUrl);
+  }, [filters]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQueryInput(value);
@@ -316,25 +390,8 @@ export default function ProductsClient({
     (value: FiltersState["dataset"]) => {
       scrollToTop();
       updateFilters((prev) => ({ ...prev, dataset: value }));
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        if (value && value !== "all") {
-          params.set("dataset", value);
-        } else {
-          params.delete("dataset");
-        }
-        if (filters.category !== "all") {
-          params.set("category", filters.category);
-        }
-        if (filters.query) {
-          params.set("q", filters.query);
-        }
-        const hash = window.location.hash;
-        const nextUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${hash}`;
-        window.history.replaceState(null, "", nextUrl);
-      }
     },
-    [filters.category, filters.query, scrollToTop, updateFilters],
+    [scrollToTop, updateFilters],
   );
 
   const handleSortChange = useCallback(
@@ -343,6 +400,51 @@ export default function ProductsClient({
       updateFilters((prev) => ({ ...prev, sort: value }));
     },
     [scrollToTop, updateFilters],
+  );
+
+  const handlePriceMinChange = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const parsed = Number(trimmed);
+      const next = trimmed === "" || !Number.isFinite(parsed) || parsed < 0 ? null : Math.round(parsed * 100) / 100;
+      updateFilters(
+        (prev) => {
+          const adjustedMax = prev.priceMax != null && next != null && prev.priceMax < next ? null : prev.priceMax;
+          return { ...prev, priceMin: next, priceMax: adjustedMax };
+        },
+        { immediate: true },
+      );
+    },
+    [updateFilters],
+  );
+
+  const handlePriceMaxChange = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const parsed = Number(trimmed);
+      const next = trimmed === "" || !Number.isFinite(parsed) || parsed < 0 ? null : Math.round(parsed * 100) / 100;
+      updateFilters(
+        (prev) => {
+          let adjusted = next;
+          if (adjusted != null && prev.priceMin != null && adjusted < prev.priceMin) {
+            adjusted = prev.priceMin;
+          }
+          return { ...prev, priceMax: adjusted };
+        },
+        { immediate: true },
+      );
+    },
+    [updateFilters],
+  );
+
+  const handleMinRatingChange = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const parsed = Number(trimmed);
+      const next = trimmed === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
+      updateFilters((prev) => ({ ...prev, minRating: next }));
+    },
+    [updateFilters],
   );
 
   const handleLayoutChange = useCallback(
@@ -357,33 +459,23 @@ export default function ProductsClient({
     (value: string) => {
       scrollToTop();
       updateFilters((prev) => ({ ...prev, category: value }));
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        if (filters.query) {
-          params.set("q", filters.query);
-        }
-        if (value && value !== "all") {
-          params.set("category", value);
-        } else {
-          params.delete("category");
-        }
-        if (filters.dataset !== "all") {
-          params.set("dataset", filters.dataset);
-        } else {
-          params.delete("dataset");
-        }
-        const hash = window.location.hash;
-        const nextUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${hash}`;
-        window.history.replaceState(null, "", nextUrl);
-      }
     },
-    [filters.dataset, filters.query, scrollToTop, updateFilters],
+    [scrollToTop, updateFilters],
   );
 
   const resetFilters = useCallback(() => {
     scrollToTop();
     setQueryInput("");
-    updateFilters(() => ({ query: "", dataset: "all", sort: "recent", layout: initialLayout, category: "all" }));
+    updateFilters(() => ({
+      query: "",
+      dataset: "all",
+      sort: "recent",
+      layout: initialLayout,
+      category: "all",
+      priceMin: null,
+      priceMax: null,
+      minRating: null,
+    }));
   }, [initialLayout, scrollToTop, updateFilters]);
 
   const gridItems = useMemo(
@@ -441,15 +533,18 @@ export default function ProductsClient({
   const layoutMode: LayoutMode = filters.layout;
   const datasetLabelText = filters.dataset === "all" ? "All products" : datasetLabel(filters.dataset);
   const visibleCount = displayed.length;
-  const totalCount = products.length;
+  const totalCount = typeof totalAvailable === "number" ? totalAvailable : products.length;
   const activeCategoryLabel = categoryLabelMap.get(filters.category) ?? "All categories";
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.dataset !== "all") count++;
     if (filters.category !== "all") count++;
     if (filters.query.trim()) count++;
+     if (filters.priceMin != null) count++;
+     if (filters.priceMax != null) count++;
+     if (filters.minRating != null) count++;
     return count;
-  }, [filters.category, filters.dataset, filters.query]);
+  }, [filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, filters.query]);
 
   return (
     <div
@@ -488,6 +583,9 @@ export default function ProductsClient({
                 handleLayoutChange={handleLayoutChange}
                 handleCategoryChange={handleCategoryChange}
                 handleSortChange={handleSortChange}
+                handlePriceMinChange={handlePriceMinChange}
+                handlePriceMaxChange={handlePriceMaxChange}
+                handleMinRatingChange={handleMinRatingChange}
                 resetFilters={() => {
                   resetFilters();
                   setFiltersOpen(false);
@@ -529,6 +627,9 @@ export default function ProductsClient({
             handleLayoutChange={handleLayoutChange}
             handleCategoryChange={handleCategoryChange}
             handleSortChange={handleSortChange}
+            handlePriceMinChange={handlePriceMinChange}
+            handlePriceMaxChange={handlePriceMaxChange}
+            handleMinRatingChange={handleMinRatingChange}
             resetFilters={resetFilters}
             activeCategoryLabel={activeCategoryLabel}
             summary={summary}
@@ -635,6 +736,9 @@ type FiltersFormProps = {
   handleLayoutChange: (v: LayoutMode) => void;
   handleCategoryChange: (v: string) => void;
   handleSortChange: (v: FiltersState["sort"]) => void;
+  handlePriceMinChange: (value: string) => void;
+  handlePriceMaxChange: (value: string) => void;
+  handleMinRatingChange: (value: string) => void;
   resetFilters: () => void;
   // optional summary blocks for desktop sidebar
   activeCategoryLabel?: string;
@@ -656,6 +760,9 @@ function FiltersForm(props: FiltersFormProps) {
     handleLayoutChange,
     handleCategoryChange,
     handleSortChange,
+    handlePriceMinChange,
+    handlePriceMaxChange,
+    handleMinRatingChange,
     resetFilters,
     activeCategoryLabel,
     summary,
@@ -760,6 +867,67 @@ function FiltersForm(props: FiltersFormProps) {
         </div>
       </section>
 
+      <section className="flex flex-col gap-3">
+        <span className="text-sm font-semibold text-fg">Price range</span>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex-1">
+            <label htmlFor="products-price-min" className="text-xs font-medium uppercase tracking-wide text-muted">
+              Min
+            </label>
+            <input
+              id="products-price-min"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={1}
+              value={filters.priceMin ?? ""}
+              onChange={(event) => handlePriceMinChange(event.currentTarget.value)}
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+              placeholder="0"
+              disabled={isPending}
+            />
+          </div>
+          <div className="flex-1">
+            <label htmlFor="products-price-max" className="text-xs font-medium uppercase tracking-wide text-muted">
+              Max
+            </label>
+            <input
+              id="products-price-max"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={1}
+              value={filters.priceMax ?? ""}
+              onChange={(event) => handlePriceMaxChange(event.currentTarget.value)}
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+              placeholder="Any"
+              disabled={isPending}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <label htmlFor="products-rating" className="text-sm font-semibold text-fg">
+          Minimum rating
+        </label>
+        <div className="relative">
+          <select
+            id="products-rating"
+            value={filters.minRating != null ? String(filters.minRating) : ""}
+            onChange={(event) => handleMinRatingChange(event.currentTarget.value)}
+            disabled={isPending}
+            className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
+          >
+            <option value="">Any rating</option>
+            <option value="3">3★ and up</option>
+            <option value="4">4★ and up</option>
+            <option value="4.5">4.5★ and up</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        </div>
+      </section>
+
       {(typeof visibleCount === "number" && typeof totalCount === "number") || summary ? (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
           {(activeCategoryLabel || (typeof visibleCount === "number" && typeof totalCount === "number")) && (
@@ -796,3 +964,4 @@ function FiltersForm(props: FiltersFormProps) {
     </div>
   );
 }
+

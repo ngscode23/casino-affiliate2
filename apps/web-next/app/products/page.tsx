@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductsClient from "./products-client";
-import { CATALOG_NAME, loadProductsData } from "./data";
+import { CATALOG_NAME, loadProductsData, type ProductFilters } from "./data";
 import { serializeJsonLd } from "@shared/lib/jsonld";
 
 export const metadata: Metadata = {
@@ -19,25 +19,35 @@ export const metadata: Metadata = {
 
 export const revalidate = 90;
 
+type SortOption = NonNullable<ProductFilters["sort"]>;
+const SORT_OPTIONS: readonly SortOption[] = ["recent", "popular", "price-asc", "price-desc", "impressions"];
+const isSortOption = (value: unknown): value is SortOption =>
+  typeof value === "string" && SORT_OPTIONS.includes(value as SortOption);
+
 export default async function ProductsPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const { products, fetchError, structuredData, categories, catalogName } = await loadProductsData();
+  const datasetParam = (() => {
+    const raw = resolvedSearchParams?.dataset;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return value === "shop" || value === "legacy" ? value : "all";
+  })();
 
-  if (!products.length) {
-    return (
-      <div className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">Products</h1>
-        <p className="mt-4 text-red-500">Failed to load products: {String((fetchError as any)?.message ?? fetchError)}</p>
-        <Link href="/" className="mt-6 inline-flex items-center text-sm text-blue-400 hover:text-blue-300">
-          Go back home
-        </Link>
-      </div>
-    );
-  }
+  const initialSort: SortOption = (() => {
+    const raw = resolvedSearchParams?.sort;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return isSortOption(value) ? value : "recent";
+  })();
+
+  const parseNumberParam = (value: string | string[] | undefined) => {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (typeof raw !== "string") return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   const initialQuery = (() => {
     const raw = resolvedSearchParams?.q;
@@ -52,6 +62,39 @@ export default async function ProductsPage({
     if (Array.isArray(raw) && raw.length > 0) return raw[0] ?? "";
     return "all";
   })();
+
+  const initialPriceMin = parseNumberParam(resolvedSearchParams?.price_min);
+  const initialPriceMax = parseNumberParam(resolvedSearchParams?.price_max);
+  const initialMinRatingRaw = parseNumberParam(resolvedSearchParams?.rating_min);
+  const initialMinRating = (() => {
+    if (initialMinRatingRaw == null) return null;
+    if (initialMinRatingRaw >= 4.5) return 4.5;
+    if (initialMinRatingRaw >= 4) return 4;
+    if (initialMinRatingRaw >= 3) return 3;
+    return null;
+  })();
+
+  const { products, fetchError, structuredData, categories, catalogName, totalCount } = await loadProductsData({
+    query: initialQuery,
+    category: initialCategory !== "all" ? initialCategory : undefined,
+    dataset: datasetParam,
+    priceMin: initialPriceMin,
+    priceMax: initialPriceMax,
+    minRating: initialMinRating,
+    sort: initialSort,
+  });
+
+  if (fetchError && !products.length) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <h1 className="text-2xl font-semibold">Products</h1>
+        <p className="mt-4 text-red-500">Failed to load products: {String((fetchError as any)?.message ?? fetchError)}</p>
+        <Link href="/" className="mt-6 inline-flex items-center text-sm text-blue-400 hover:text-blue-300">
+          Go back home
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background">
@@ -89,6 +132,12 @@ export default async function ProductsPage({
           catalogName={catalogName}
           initialQuery={initialQuery}
           initialCategory={initialCategory}
+          initialDataset={datasetParam}
+          initialSort={initialSort}
+          initialPriceMin={initialPriceMin}
+          initialPriceMax={initialPriceMax}
+          initialMinRating={initialMinRating}
+          totalAvailable={totalCount}
         />
       </section>
     </div>

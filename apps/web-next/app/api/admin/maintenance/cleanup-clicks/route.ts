@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const supabase = getAdminClient();
     const days = Number(process.env.CLICKS_RETENTION_DAYS ?? 90);
     const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-    const { error } = await supabase.rpc("cleanup_clicks_before", { cutoff_ts: cutoff });
+    const { error } = await supabase.rpc("cleanup_clicks_before", { ts: cutoff });
     if (error) {
       return json({ ok: false, code: "db", message: error.message }, 500);
     }
