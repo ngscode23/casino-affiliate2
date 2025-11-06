@@ -129,7 +129,7 @@ function BaseProductCard({ product }: ProductCardProps) {
   const viewDetailsLabel = translate("products.viewDetails", "View details");
 
   return (
-    <Link key={product.sku || product.id} href={href}
+    <Link key={product.slug || product.id} href={href}
       prefetch={false}
       className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
@@ -235,6 +235,7 @@ function ProductCardSkeleton() {
 export { ProductCardSkeleton };
 
 export default memo(BaseProductCard);
+
 
 
 
