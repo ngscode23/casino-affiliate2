@@ -1,0 +1,86 @@
+:root {
+  --vc-card-width: 353.33px;
+  --vc-card-height: 452px;
+  --vc-grid-max-width: 1110px;
+  --vc-grid-min-height: 996px;
+  --vc-grid-column-gap: 24px;
+  --vc-grid-row-gap: 36px;
+  --vc-card-radius: 25px;
+  --vc-card-inner-radius: 18px;
+  --vc-card-image-radius: 11px;
+  --vc-card-image-inset: 10px;
+  --vc-card-frame-padding: 7px;
+  --vc-card-surface-gap: 10px;
+  --vc-button-height: 44px;
+  --vc-card-bg: rgb(var(--card-rgb, 255 255 255));
+  --vc-card-surface: color-mix(in srgb, rgb(var(--card-rgb, 255 255 255)) 82%, rgb(var(--bg-rgb, 245 245 245)) 18%);
+  --vc-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 1px 1px -0.5px rgba(15, 23, 42, 0.08), 0 4px 4px -1px rgba(15, 23, 42, 0.08), 0 8px 12px -4px rgba(15, 23, 42, 0.08), 0 20px 24px -12px rgba(15, 23, 42, 0.08);
+  --vc-card-shadow-hover: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 6px 24px -6px rgba(15, 23, 42, 0.16), 0 24px 44px -18px rgba(15, 23, 42, 0.18);
+  --vc-focus-ring: 0 0 0 2px rgb(var(--bg-rgb, 255 255 255)), 0 0 0 6px rgba(229, 94, 121, 0.35);
+  --vc-text-strong: rgb(var(--fg-rgb, 42 42 42));
+  --vc-price-color: rgb(var(--fg-rgb, 42 42 42));
+  --vc-price-strike: rgba(15, 23, 42, 0.45);
+  --vc-meta-color: rgba(15, 23, 42, 0.55);
+  --vc-description-color: rgba(15, 23, 42, 0.72);
+  --vc-placeholder-bg: rgba(15, 23, 42, 0.08);
+  --vc-placeholder-fg: rgba(15, 23, 42, 0.55);
+  --vc-badge-neutral-bg: rgba(6, 7, 10, 0.85);
+  --vc-badge-neutral-fg: #fff;
+  --vc-badge-sale-bg: #fbe7da;
+  --vc-badge-sale-fg: #b3582f;
+  --vc-badge-new-bg: #e2f3ff;
+  --vc-badge-new-fg: #1f4bad;
+  --vc-badge-best-bg: #e9ecff;
+  --vc-badge-best-fg: #4951b3;
+}
+
+:root.dark {
+  --vc-card-bg: color-mix(in srgb, rgb(var(--card-rgb, 7 16 30)) 88%, rgb(var(--bg-rgb, 2 6 14)) 12%);
+  --vc-card-surface: color-mix(in srgb, rgb(var(--card-rgb, 7 16 30)) 70%, rgb(var(--bg-rgb, 2 6 14)) 30%);
+  --vc-card-shadow: 0 0 0 1px rgba(3, 6, 18, 0.5), 0 12px 32px -14px rgba(0, 0, 0, 0.9);
+  --vc-card-shadow-hover: 0 0 0 1px rgba(3, 6, 18, 0.6), 0 18px 40px -14px rgba(0, 0, 0, 0.95);
+  --vc-focus-ring: 0 0 0 2px rgb(var(--bg-rgb, 2 6 14)), 0 0 0 6px rgba(252, 50, 114, 0.45);
+  --vc-text-strong: rgb(var(--fg-rgb, 229 238 255));
+  --vc-price-color: rgb(var(--fg-rgb, 229 238 255));
+  --vc-price-strike: rgba(255, 255, 255, 0.5);
+  --vc-meta-color: rgba(255, 255, 255, 0.6);
+  --vc-description-color: rgba(255, 255, 255, 0.72);
+  --vc-placeholder-bg: rgba(255, 255, 255, 0.08);
+  --vc-placeholder-fg: rgba(255, 255, 255, 0.5);
+  --vc-badge-neutral-bg: rgba(255, 255, 255, 0.12);
+  --vc-badge-neutral-fg: rgb(var(--fg-rgb, 229 238 255));
+}
+
+.theme-noir {
+  --vc-card-bg: color-mix(in srgb, rgb(var(--card-rgb, 18 18 28)) 86%, rgb(var(--bg-rgb, 10 10 14)) 14%);
+  --vc-card-surface: color-mix(in srgb, rgb(var(--card-rgb, 18 18 28)) 68%, rgb(var(--bg-rgb, 10 10 14)) 32%);
+  --vc-card-shadow: 0 0 0 1px rgba(0, 0, 0, 0.48), 0 12px 32px -14px rgba(0, 0, 0, 0.92);
+  --vc-card-shadow-hover: 0 0 0 1px rgba(0, 0, 0, 0.58), 0 18px 40px -14px rgba(0, 0, 0, 0.97);
+  --vc-focus-ring: 0 0 0 2px rgb(var(--bg-rgb, 10 10 14)), 0 0 0 6px rgba(252, 50, 114, 0.48);
+  --vc-text-strong: rgb(var(--fg-rgb, 236 236 246));
+  --vc-price-color: rgb(var(--fg-rgb, 236 236 246));
+  --vc-price-strike: rgba(255, 255, 255, 0.55);
+  --vc-meta-color: rgba(255, 255, 255, 0.62);
+  --vc-description-color: rgba(255, 255, 255, 0.74);
+  --vc-placeholder-bg: rgba(255, 255, 255, 0.1);
+  --vc-placeholder-fg: rgba(255, 255, 255, 0.52);
+  --vc-badge-neutral-bg: rgba(255, 255, 255, 0.14);
+  --vc-badge-neutral-fg: rgb(var(--fg-rgb, 236 236 246));
+}
+
+.theme-admin {
+  --vc-card-bg: color-mix(in srgb, rgb(var(--card-rgb, 255 255 255)) 94%, rgb(var(--bg-rgb, 245 246 248)) 6%);
+  --vc-card-surface: color-mix(in srgb, rgb(var(--card-rgb, 255 255 255)) 88%, rgb(var(--bg-rgb, 245 246 248)) 12%);
+  --vc-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 10px 26px -12px rgba(15, 23, 42, 0.12);
+  --vc-card-shadow-hover: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 16px 34px -12px rgba(15, 23, 42, 0.16);
+  --vc-focus-ring: 0 0 0 2px rgb(var(--bg-rgb, 245 246 248)), 0 0 0 6px rgba(29, 78, 216, 0.35);
+  --vc-text-strong: rgb(var(--fg-rgb, 31 41 55));
+  --vc-price-color: rgb(var(--fg-rgb, 31 41 55));
+  --vc-price-strike: rgba(15, 23, 42, 0.45);
+  --vc-meta-color: rgba(15, 23, 42, 0.6);
+  --vc-description-color: rgba(15, 23, 42, 0.72);
+  --vc-placeholder-bg: rgba(15, 23, 42, 0.08);
+  --vc-placeholder-fg: rgba(15, 23, 42, 0.52);
+  --vc-badge-neutral-bg: rgba(15, 23, 42, 0.08);
+  --vc-badge-neutral-fg: rgb(var(--fg-rgb, 31 41 55));
+}

@@ -1,22 +1,25 @@
+import { Suspense } from "react";
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { siteConfig } from "@/lib/site-config";
+import { headers } from "next/headers";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProductGrid, type ProductGridItem } from "@/components/ProductGrid";
-import { HeroSliderClient } from "@/components/hero-slider-client";
-import type { HeroSlide } from "@/components/hero-slider";
-import { BannerSlider } from "@/components/banner-slider";
+import { HeroSection, HeroSectionSkeleton } from "@/components/HeroSection";
+import { FeaturedSkeleton } from "@/components/product-grid/FeaturedSkeleton";
 import { serializeJsonLd, makeOrganizationLD } from "@shared/lib/jsonld";
 import { createClient } from "@/utils/supabase/server";
 import { loadProductsData } from "./products/data";
 import type { Product } from "./products/types";
 import { formatPrice } from "./products/utils";
+import { fetchUserProfile } from "@/lib/personalization/rank";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 export const metadata: Metadata = {
-  title: `${siteConfig.name} — ${siteConfig.tagline || siteConfig.description}`,
+  title: `${siteConfig.name} - ${siteConfig.tagline || siteConfig.description}`,
   description: siteConfig.description,
   alternates: { canonical: "/" },
   openGraph: { title: siteConfig.name, description: siteConfig.description, url: "/" },
@@ -24,8 +27,23 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const headerStore = new Headers(await headers());
+  const experimentCookieName = process.env.EXPERIMENT_COOKIE_NAME || "exp";
+  const getCookie = (name: string): string | null => {
+    const cookieHeader = headerStore.get("cookie") || "";
+    const match = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+    return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+  };
+
+  const anonId = headerStore.get("x-anon-id") || getCookie("anon_id");
+  const experimentVariant =
+    headerStore.get("x-experiment-variant") || getCookie(experimentCookieName) || null;
+  const country = headerStore.get("x-geo-country") || headerStore.get("x-country") || undefined;
+  const device = headerStore.get("x-device-class") || undefined;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,8 +53,19 @@ export default async function HomePage() {
     redirect("/admin");
   }
 
-  const { products, structuredData } = await loadProductsData();
-  const heroSlides = buildHeroSlides(products.length);
+  const profile = anonId ? await fetchUserProfile(anonId) : null;
+
+  const { products, structuredData } = await loadProductsData(
+    {},
+    {
+      personalize: {
+        profile,
+        country: country ?? undefined,
+        device,
+        experimentVariant: experimentVariant ?? undefined,
+      },
+    },
+  );
   const featuredProducts = products.slice(0, 4);
   const origin = (process.env.NEXT_SITE_URL || "").replace(/\/$/, "");
 
@@ -62,15 +91,13 @@ export default async function HomePage() {
         />
       ) : null}
 
-      <section aria-labelledby="storefront-hero" className="scroll-mt-28">
-        <div className="rounded-[48px] shadow-[0_40px_120px_-60px_rgba(16,23,40,0.7)]">
-          <HeroSliderClient slides={heroSlides} className="rounded-[48px]" />
-        </div>
-      </section>
+      <Suspense fallback={<HeroSectionSkeleton />}>
+        <HeroSection />
+      </Suspense>
 
-      <BannerSlider />
-
-      <FeaturedProducts products={featuredProducts} totalProducts={products.length} />
+      <Suspense fallback={<FeaturedSkeleton />}>
+        <FeaturedProducts products={featuredProducts} totalProducts={products.length} />
+      </Suspense>
 
       <section className="relative overflow-hidden rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/60 px-6 py-16 text-center shadow-card sm:px-10 sm:py-20 lg:flex lg:items-center lg:justify-between lg:text-left">
         <div className="flex-1 space-y-4">
@@ -93,6 +120,20 @@ export default async function HomePage() {
     </div>
   );
 }
+
+type FeaturedGridStyle = CSSProperties & {
+  "--vc-grid-max-width"?: string;
+  "--vc-grid-column-gap"?: string;
+  "--vc-grid-row-gap"?: string;
+  "--vc-padding-top-desktop"?: string;
+};
+
+const FEATURED_GRID_STYLE: FeaturedGridStyle = {
+  "--vc-grid-max-width": "1260px",
+  "--vc-grid-column-gap": "15px",
+  "--vc-grid-row-gap": "20px",
+  "--vc-padding-top-desktop": "20px",
+};
 
 function FeaturedProducts({ products, totalProducts }: { products: Product[]; totalProducts: number }) {
   if (!products.length) {
@@ -178,54 +219,14 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
         </Link>
       </div>
 
-      <div className="rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10">
+      <div
+        className="mx-auto w-full max-w-[1260px] rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10"
+        style={FEATURED_GRID_STYLE}
+      >
         <ProductGrid items={items} layout="grid" showAddToCart wrapWithContainer={false} />
       </div>
     </section>
   );
-}
-
-function buildHeroSlides(totalProducts: number): HeroSlide[] {
-  const formattedTotal = numberFormatter.format(totalProducts);
-
-  return [
-    {
-      id: "storefront",
-      eyebrow: "# Storefront ready",
-      title: "Your product grid is ready to sell",
-      description:
-        "Beautiful cards, inventory badges, and wishlists are baked in. Sync products from Supabase or seed our demo catalog in minutes.",
-      primaryCta: { label: "Preview components", href: "#featured" },
-      secondaryCta: { label: "Browse catalog", href: "/products" },
-      highlights: ["Shoppable cards", "Inventory states", "Wishlist toggle"],
-      visual: "storefront",
-      backgroundClass: "bg-gradient-to-br from-[#0b1228] via-[#121f3f] to-[#080d1c]",
-    },
-    {
-      id: "checkout",
-      eyebrow: "# Checkout flows",
-      title: "Polished checkout for mobile and desktop",
-      description:
-        "Auto-applied taxes, responsive layouts, and wallet-ready payment buttons come configured out of the box so you can launch faster.",
-      primaryCta: { label: "Review checkout", href: "/checkout" },
-      secondaryCta: { label: "See pricing", href: "/products" },
-      highlights: ["Secure payments", "Wallet buttons", "One-click upsells"],
-      visual: "checkout",
-      backgroundClass: "bg-gradient-to-br from-[#101b34] via-[#16294d] to-[#091021]",
-    },
-    {
-      id: "analytics",
-      eyebrow: "# Partner analytics",
-      title: "Monitor clicks, conversions, and payouts",
-      description:
-        "Track partner performance in real time with Supabase analytics. Export reports, trigger loyalty perks, and keep partners motivated.",
-      primaryCta: { label: "Open dashboard", href: "/admin" },
-      secondaryCta: { label: "Read docs", href: "/contact" },
-      highlights: ["Realtime dashboards", "Automated reports", `${formattedTotal}+ catalog items`],
-      visual: "reviews",
-      backgroundClass: "bg-gradient-to-br from-[#0f172a] via-[#1a2d56] to-[#0a1226]",
-    },
-  ];
 }
 
 function looksLikePlaceholderTitle(title: string): boolean {

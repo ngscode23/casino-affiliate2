@@ -48,6 +48,11 @@ interface ProductRow {
 interface CategoryOption {
   slug: string;
   name: string;
+  title?: string;
+  description?: string | null;
+  parent_id?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean;
   color?: string | null;
 }
 

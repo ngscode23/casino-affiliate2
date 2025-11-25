@@ -1,12 +1,17 @@
-"use client"
+"use client";
 import { useEffect } from "react";
+import { track } from "@/lib/track";
 
 export default function ProductImpression({
   productId,
   dataset,
+  category,
+  priceBucket,
 }: {
   productId: string;
   dataset: "shop" | "legacy";
+  category?: string | null;
+  priceBucket?: string | null;
 }) {
   useEffect(() => {
     if (!productId) return;
@@ -18,11 +23,12 @@ export default function ProductImpression({
     let idleHandle: number | null = null;
 
     const send = () => {
-      fetch("/api/track/impression", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, dataset }),
-      }).catch(() => {});
+      track({
+        event: "product_impression",
+        productId,
+        category: category ?? dataset,
+        priceBucket: priceBucket ?? undefined,
+      });
     };
 
     if (typeof win.requestIdleCallback === "function") {
@@ -37,7 +43,7 @@ export default function ProductImpression({
       }
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [productId, dataset]);
+  }, [productId, dataset, category, priceBucket]);
   return null;
 }
 

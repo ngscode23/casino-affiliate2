@@ -25,6 +25,11 @@ import { ProductImageHistory } from "./product-image-history";
 interface Category {
   slug: string;
   name: string;
+  title?: string;
+  description?: string | null;
+  parent_id?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean;
 }
 
 interface EditorProps {

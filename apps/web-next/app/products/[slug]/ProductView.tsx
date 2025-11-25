@@ -55,7 +55,17 @@ const ProductActionPanel = dynamic(() => import("./ProductActionPanel.client"), 
 
 const RECENT_KEY = "recent:products:v1";
 const RECENT_SYNC_ENDPOINT = "/api/recent-views";
-const PAYMENT_METHODS = ["Visa", "Mastercard", "Apple Pay", "Stripe"];
+const PAYMENT_METHODS = ["Visa", "Mastercard", "Apple Pay", "Stripe"];
+
+function resolvePriceBucket(price: number | null | undefined): string | null {
+  if (price == null || Number.isNaN(price)) return null;
+  const value = Number(price);
+  if (!Number.isFinite(value)) return null;
+  if (value < 50) return "low";
+  if (value < 150) return "mid";
+  if (value < 400) return "high";
+  return "premium";
+}
 
 function ReviewsSkeleton() {
   return (
@@ -314,6 +324,10 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     () => computePrice(product, selection),
     [product, selection],
   );
+  const priceBucket = useMemo(
+    () => resolvePriceBucket(finalPrice ?? product.price),
+    [finalPrice, product.price],
+  );
   const compareAtPrice = useMemo(() => {
     if (typeof product.originalPrice === "number" && product.originalPrice > product.price) {
       return formatCurrency(product.originalPrice, product.currency);
@@ -498,7 +512,12 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
   return (
     <div className="space-y-12">
       <ProductClientEffects product={product} />
-      <ProductImpression productId={product.id} dataset={product.dataset} />
+      <ProductImpression
+        productId={product.id}
+        dataset={product.dataset}
+        category={product.category?.slug}
+        priceBucket={priceBucket}
+      />
 
       <nav aria-label="Хлебные крошки" className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-2">
@@ -695,7 +714,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         selectedVariantLabel={variantLabel}
         secondaryAction={
           admin.isAdmin ? (
-            <TrackClickButton productId={product.id} dataset={product.dataset} />
+            <TrackClickButton productId={product.id} dataset={product.dataset} category={product.category?.slug} />
           ) : null
         }
         analyticsParams={{
@@ -709,4 +728,5 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     </div>
   );
 }
+
 

@@ -1,3 +1,4 @@
+import { createRequire } from "module";
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
@@ -72,13 +73,31 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
 ];
 
+const require = createRequire(import.meta.url);
+
+const withBundleAnalyzer =
+  (() => {
+    try {
+      // Optional: only active when ANALYZE=1 and when the package is installed
+      // (keeps CI/dev flowing even if @next/bundle-analyzer is absent)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      return require("@next/bundle-analyzer")({
+        enabled: process.env.ANALYZE === "1" || process.env.ANALYZE === "true",
+      });
+    } catch {
+      return (config: NextConfig) => config;
+    }
+  })();
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns,
-    qualities: [55, 75],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60, // 1h CDN TTL hint
   },
   experimental: {
     externalDir: true,
+    optimizePackageImports: ["lucide-react"],
   },
   transpilePackages: ["@shared", "@casino-affiliate/types", "@ui"],
   productionBrowserSourceMaps: process.env.NEXT_PROD_SOURCE_MAPS === "1",
@@ -112,6 +131,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
 
 

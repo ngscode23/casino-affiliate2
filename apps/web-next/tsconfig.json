@@ -53,6 +53,8 @@
   ],
   "exclude": [
     "node_modules",
-    "tests"
+    "tests",
+    "../supabase/functions/**",
+    "../../supabase/functions/**"
   ]
 }

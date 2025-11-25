@@ -82,22 +82,28 @@
 
 @layer base {
   html, body { min-height: 100%; }
-  body {
-    margin: 0;
-    background: rgb(var(--bg-rgb));
-    color: rgb(var(--fg-rgb));
-    font-family: var(--font-sans, 'OpenAI Sans', system-ui);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 200ms ease, color 200ms ease;
-  }
+body {
+  margin: 0;
+  background: rgb(var(--bg-rgb));
+  color: rgb(var(--fg-rgb));
+  font-family: var(--font-sans, 'OpenAI Sans', system-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
+}
 
-  :focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 2px rgb(var(--bg-rgb)),
-      0 0 0 4px rgb(var(--primary-rgb) / 0.4);
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgb(var(--bg-rgb)),
+    0 0 0 4px rgb(var(--primary-rgb) / 0.4);
+}
+
+@media (max-width: 1024px) {
+  body:has(.vhBottomNav) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
+}
 }
 
 /* Minimal token utilities (if not provided by plugin) */

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { CSSProperties } from "react";
 import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles, Filter } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { LucideIcon } from "lucide-react";
@@ -28,6 +29,13 @@ type FiltersState = {
 };
 
 const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
+type ProductGridStyle = CSSProperties & { "--vc-grid-max-width"?: string };
+const GRID_SURFACE_CLASS =
+  "rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10";
+const GRID_STYLE: ProductGridStyle = { "--vc-grid-max-width": "1100px" };
+const FULL_BLEED_CLASS = "relative left-1/2 right-1/2 w-screen -translate-x-1/2";
+const LAYOUT_CONTAINER_CLASS =
+  "mx-auto w-full max-w-[1500px] px-6 pt-0 pb-12 sm:px-8 sm:pb-14 lg:px-12 lg:pb-16";
 
 const DATASET_DESCRIPTORS: Record<FiltersState["dataset"], { label: string; icon: LucideIcon }> = {
   all: { label: "All products", icon: Sparkles },
@@ -547,153 +555,145 @@ export default function ProductsClient({
   }, [filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, filters.query]);
 
   return (
-    <div
-      ref={topRef}
-      className="w-full pt-0 pb-12 sm:pb-14 lg:pb-16"
-    >
-      {/* Mobile filters launcher */}
-      <div className="mb-6 flex items-center justify-between lg:hidden">
-        <span className="text-sm text-muted">
-          <span className="font-medium text-fg">{visibleCount}</span> of {totalCount} products
-        </span>
-        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <Filter className="h-4 w-4" aria-hidden />
-              Filters{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" aria-label="Filters" className="max-h-[85vh] overflow-auto rounded-t-3xl">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Filters</SheetTitle>
-            </SheetHeader>
-            <div className="p-4">
-              <FiltersForm
-                queryInput={queryInput}
-                isPending={isPending}
-                filters={filters}
-                datasetOptions={datasetOptions}
-                layoutOptions={layoutOptions}
-                categoryOptions={categoryOptions}
-                handleQueryChange={handleQueryChange}
-                handleDatasetChange={handleDatasetChange}
-                handleLayoutChange={handleLayoutChange}
-                handleCategoryChange={handleCategoryChange}
-                handleSortChange={handleSortChange}
-                handlePriceMinChange={handlePriceMinChange}
-                handlePriceMaxChange={handlePriceMaxChange}
-                handleMinRatingChange={handleMinRatingChange}
-                resetFilters={() => {
-                  resetFilters();
-                  setFiltersOpen(false);
-                }}
-              />
-            </div>
-            <SheetFooter className="pt-0">
+    <div className={FULL_BLEED_CLASS}>
+      <div ref={topRef} className={LAYOUT_CONTAINER_CLASS}>
+        {/* Mobile filters launcher */}
+        <div className="mb-6 flex items-center justify-between lg:hidden">
+          <span className="text-sm text-muted">
+            <span className="font-medium text-fg">{visibleCount}</span> of {totalCount} products
+          </span>
+          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <SheetTrigger asChild>
               <button
                 type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                Close
+                <Filter className="h-4 w-4" aria-hidden />
+                Filters{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
               </button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="grid items-start gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
-        <aside className="hidden lg:flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
-          <header className="space-y-1 text-fg">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Neon Shop</span>
-            <h2 className="text-2xl font-semibold">Filters</h2>
-            <p className="text-sm text-muted">
-              Refine the catalog to match what you need.
-            </p>
-          </header>
-
-          <FiltersForm
-            queryInput={queryInput}
-            isPending={isPending}
-            filters={filters}
-            datasetOptions={datasetOptions}
-            layoutOptions={layoutOptions}
-            categoryOptions={categoryOptions}
-            handleQueryChange={handleQueryChange}
-            handleDatasetChange={handleDatasetChange}
-            handleLayoutChange={handleLayoutChange}
-            handleCategoryChange={handleCategoryChange}
-            handleSortChange={handleSortChange}
-            handlePriceMinChange={handlePriceMinChange}
-            handlePriceMaxChange={handlePriceMaxChange}
-            handleMinRatingChange={handleMinRatingChange}
-            resetFilters={resetFilters}
-            activeCategoryLabel={activeCategoryLabel}
-            summary={summary}
-            visibleCount={visibleCount}
-            totalCount={totalCount}
-          />
-        </aside>
-
-        <div className="space-y-8">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted">{datasetLabelText}</p>
-              <h2 className="text-3xl font-semibold text-fg sm:text-4xl">{catalogName}</h2>
-            </div>
-            <span className="inline-flex items-center rounded-full bg-surface/10 px-4 py-2 text-sm font-medium text-muted">
-              {visibleCount} of {totalCount} products
-            </span>
-          </header>
-
-          {topCategoryLinks.length ? (
-            <nav aria-label="Popular categories">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                <span className="font-semibold text-fg/80">Popular categories:</span>
-                {topCategoryLinks.map((category) => (
-                  <Link
-                    key={category.slug}
-                    href={`/products?category=${encodeURIComponent(category.slug)}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-medium text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    {category.label}
-                    <span className="text-xs text-muted">({category.count})</span>
-                  </Link>
-                ))}
+            </SheetTrigger>
+            <SheetContent side="bottom" aria-label="Filters" className="max-h-[85vh] overflow-auto rounded-t-3xl">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              <div className="p-4">
+                <FiltersForm
+                  queryInput={queryInput}
+                  isPending={isPending}
+                  filters={filters}
+                  datasetOptions={datasetOptions}
+                  layoutOptions={layoutOptions}
+                  categoryOptions={categoryOptions}
+                  handleQueryChange={handleQueryChange}
+                  handleDatasetChange={handleDatasetChange}
+                  handleLayoutChange={handleLayoutChange}
+                  handleCategoryChange={handleCategoryChange}
+                  handleSortChange={handleSortChange}
+                  handlePriceMinChange={handlePriceMinChange}
+                  handlePriceMaxChange={handlePriceMaxChange}
+                  handleMinRatingChange={handleMinRatingChange}
+                  resetFilters={() => {
+                    resetFilters();
+                    setFiltersOpen(false);
+                  }}
+                />
               </div>
-            </nav>
-          ) : null}
+              <SheetFooter className="pt-0">
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                >
+                  Close
+                </button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+        </div>
 
-          <div className="space-y-6">
-            {showSkeleton ? (
-              <div className="py-6">
-                <div className={skeletonLayoutClass[layoutMode]}>
-                  {Array.from({ length: skeletonCount }).map((_, index) => (
-                    <div key={"skeleton-" + index} className={skeletonItemWrapperClass[layoutMode]}>
-                      <ProductSkeleton />
-                    </div>
+        <div className="grid items-start gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
+          <aside className="hidden lg:flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
+            <header className="space-y-1 text-fg">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Neon Shop</span>
+              <h2 className="text-2xl font-semibold">Filters</h2>
+              <p className="text-sm text-muted">Refine the catalog to match what you need.</p>
+            </header>
+            <FiltersForm
+              queryInput={queryInput}
+              isPending={isPending}
+              filters={filters}
+              datasetOptions={datasetOptions}
+              layoutOptions={layoutOptions}
+              categoryOptions={categoryOptions}
+              handleQueryChange={handleQueryChange}
+              handleDatasetChange={handleDatasetChange}
+              handleLayoutChange={handleLayoutChange}
+              handleCategoryChange={handleCategoryChange}
+              handleSortChange={handleSortChange}
+              handlePriceMinChange={handlePriceMinChange}
+              handlePriceMaxChange={handlePriceMaxChange}
+              handleMinRatingChange={handleMinRatingChange}
+              resetFilters={resetFilters}
+              activeCategoryLabel={activeCategoryLabel}
+              summary={summary}
+              visibleCount={visibleCount}
+              totalCount={totalCount}
+            />
+          </aside>
+
+          <div className="space-y-8">
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted">{datasetLabelText}</p>
+                <h2 className="text-3xl font-semibold text-fg sm:text-4xl">{catalogName}</h2>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-surface/10 px-4 py-2 text-sm font-medium text-muted">
+                {visibleCount} of {totalCount} products
+              </span>
+            </header>
+
+            {topCategoryLinks.length ? (
+              <nav aria-label="Popular categories">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span className="font-semibold text-fg/80">Popular categories:</span>
+                  {topCategoryLinks.map((category) => (
+                    <Link
+                      key={category.slug}
+                      href={`/products?category=${encodeURIComponent(category.slug)}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-medium text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      {category.label}
+                      <span className="text-xs text-muted">({category.count})</span>
+                    </Link>
                   ))}
                 </div>
-              </div>
-            ) : displayed.length > 0 ? (
-              <div className="py-6">
-                <ProductGrid items={gridItems} layout={layoutMode} showAddToCart wrapWithContainer={false} />
-              </div>
-            ) : (
-              <div className="py-6">
-                <EmptyState onReset={resetFilters} />
-              </div>
-            )}
-
-            <div ref={sentinelRef} aria-hidden />
-            {hasMore && !showSkeleton ? (
-              <p className="py-6 text-center text-sm text-muted" role="status">
-                Loading more products...
-              </p>
+              </nav>
             ) : null}
+
+            <div className="space-y-6">
+              <div className={GRID_SURFACE_CLASS} style={GRID_STYLE}>
+                {showSkeleton ? (
+                  <div className={skeletonLayoutClass[layoutMode]}>
+                    {Array.from({ length: skeletonCount }).map((_, index) => (
+                      <div key={`skeleton-${index}`} className={skeletonItemWrapperClass[layoutMode]}>
+                        <ProductSkeleton />
+                      </div>
+                    ))}
+                  </div>
+                ) : displayed.length > 0 ? (
+                  <ProductGrid items={gridItems} layout={layoutMode} showAddToCart wrapWithContainer={false} />
+                ) : (
+                  <EmptyState onReset={resetFilters} />
+                )}
+              </div>
+
+              <div ref={sentinelRef} aria-hidden />
+              {hasMore && !showSkeleton ? (
+                <p className="py-6 text-center text-sm text-muted" role="status">
+                  Loading more products...
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -964,4 +964,3 @@ function FiltersForm(props: FiltersFormProps) {
     </div>
   );
 }
-

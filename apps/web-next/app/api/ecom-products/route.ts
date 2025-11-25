@@ -115,6 +115,16 @@ export async function GET(request: Request) {
       metadataRows.map((row) => [String(row.id), row]),
     );
 
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        for (const row of baseRows) {
+          console.debug("rpc item", row?.thumbnail_path, row?.slug);
+        }
+      } catch {
+        // ignore debug logging failures
+      }
+    }
+
     const normalized = baseRows.map((row) => {
       const id = row?.id != null ? String(row.id) : "";
       const slug = row?.slug != null ? String(row.slug) : "";

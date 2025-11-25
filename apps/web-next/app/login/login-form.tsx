@@ -41,7 +41,12 @@ export default function LoginForm() {
   }, [state.success, router, searchParams]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-4">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="space-y-4"
+      suppressHydrationWarning
+    >
       <div className="space-y-1">
         <label htmlFor="email" className="block text-sm font-medium text-neutral-400">
           Email
@@ -52,6 +57,7 @@ export default function LoginForm() {
           type="email"
           required
           autoComplete="email"
+          suppressHydrationWarning
           className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-neutral-500"
           placeholder="you@example.com"
         />
@@ -67,6 +73,7 @@ export default function LoginForm() {
           required
           minLength={8}
           autoComplete="current-password"
+          suppressHydrationWarning
           className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-neutral-500"
           placeholder="********"
         />

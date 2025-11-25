@@ -748,6 +748,27 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -894,7 +915,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
           {
@@ -923,6 +951,27 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecom_wishlist_product_id_fkey"
             columns: ["product_id"]
@@ -1093,6 +1142,81 @@ export type Database = {
           schema_json?: Json
           slug?: string
           title?: string
+        }
+        Relationships: []
+      }
+      hero_campaigns: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          end_at: string | null
+          eyebrow: string | null
+          id: string
+          image_alt: string | null
+          image_url: string | null
+          primary_cta_href: string | null
+          primary_cta_label: string | null
+          priority: number | null
+          published: boolean | null
+          secondary_cta_href: string | null
+          secondary_cta_label: string | null
+          segment_country: string | null
+          segment_currency: string | null
+          segment_locale: string | null
+          start_at: string | null
+          theme: string | null
+          title: string
+          tracking_id: string | null
+          updated_at: string | null
+          variant: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          end_at?: string | null
+          eyebrow?: string | null
+          id?: string
+          image_alt?: string | null
+          image_url?: string | null
+          primary_cta_href?: string | null
+          primary_cta_label?: string | null
+          priority?: number | null
+          published?: boolean | null
+          secondary_cta_href?: string | null
+          secondary_cta_label?: string | null
+          segment_country?: string | null
+          segment_currency?: string | null
+          segment_locale?: string | null
+          start_at?: string | null
+          theme?: string | null
+          title: string
+          tracking_id?: string | null
+          updated_at?: string | null
+          variant?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          end_at?: string | null
+          eyebrow?: string | null
+          id?: string
+          image_alt?: string | null
+          image_url?: string | null
+          primary_cta_href?: string | null
+          primary_cta_label?: string | null
+          priority?: number | null
+          published?: boolean | null
+          secondary_cta_href?: string | null
+          secondary_cta_label?: string | null
+          segment_country?: string | null
+          segment_currency?: string | null
+          segment_locale?: string | null
+          start_at?: string | null
+          theme?: string | null
+          title?: string
+          tracking_id?: string | null
+          updated_at?: string | null
+          variant?: string | null
         }
         Relationships: []
       }
@@ -1410,6 +1534,27 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
             referencedColumns: ["id"]
           },
           {
@@ -2061,6 +2206,27 @@ export type Database = {
             foreignKeyName: "product_attributes_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_attributes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_attributes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_attributes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -2152,6 +2318,27 @@ export type Database = {
           source?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_id_map_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_id_map_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_id_map_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_id_map_product_id_fkey"
             columns: ["product_id"]
@@ -2260,6 +2447,27 @@ export type Database = {
             foreignKeyName: "product_impressions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -2348,6 +2556,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_rating_stats_product_uid_fkey"
+            columns: ["product_uid"]
+            isOneToOne: true
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_rating_stats_product_uid_fkey"
+            columns: ["product_uid"]
+            isOneToOne: true
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_rating_stats_product_uid_fkey"
+            columns: ["product_uid"]
+            isOneToOne: true
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_rating_stats_product_uid_fkey"
             columns: ["product_uid"]
@@ -2463,6 +2692,27 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "product_review_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
             referencedColumns: ["id"]
           },
           {
@@ -2614,6 +2864,27 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_id"]
@@ -3023,6 +3294,27 @@ export type Database = {
             foreignKeyName: "recent_views_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -3273,6 +3565,27 @@ export type Database = {
             foreignKeyName: "shop_clicks_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -3370,6 +3683,27 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_impressions_product_id_fkey"
             columns: ["product_id"]
@@ -3844,8 +4178,149 @@ export type Database = {
         }
         Relationships: []
       }
+      user_events: {
+        Row: {
+          anon_id: string
+          category: string | null
+          country: string | null
+          device: string | null
+          event: string
+          experiment_variant: string | null
+          id: number
+          price_bucket: string | null
+          product_id: string | null
+          referrer: string | null
+          ts: string
+        }
+        Insert: {
+          anon_id: string
+          category?: string | null
+          country?: string | null
+          device?: string | null
+          event: string
+          experiment_variant?: string | null
+          id?: number
+          price_bucket?: string | null
+          product_id?: string | null
+          referrer?: string | null
+          ts?: string
+        }
+        Update: {
+          anon_id?: string
+          category?: string | null
+          country?: string | null
+          device?: string | null
+          event?: string
+          experiment_variant?: string | null
+          id?: number
+          price_bucket?: string | null
+          product_id?: string | null
+          referrer?: string | null
+          ts?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          anon_id: string
+          categories: string[]
+          cold_start: boolean
+          countries: string[]
+          device_pref: string | null
+          discount_affinity: number
+          experiment_variant: string | null
+          first_seen: string
+          last_seen: string
+          opt_out: boolean
+          updated_at: string
+          visit_count: number
+        }
+        Insert: {
+          anon_id: string
+          categories?: string[]
+          cold_start?: boolean
+          countries?: string[]
+          device_pref?: string | null
+          discount_affinity?: number
+          experiment_variant?: string | null
+          first_seen?: string
+          last_seen?: string
+          opt_out?: boolean
+          updated_at?: string
+          visit_count?: number
+        }
+        Update: {
+          anon_id?: string
+          categories?: string[]
+          cold_start?: boolean
+          countries?: string[]
+          device_pref?: string | null
+          discount_affinity?: number
+          experiment_variant?: string | null
+          first_seen?: string
+          last_seen?: string
+          opt_out?: boolean
+          updated_at?: string
+          visit_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
+      _alert_dangling_category_slugs: {
+        Row: {
+          category_slug: string | null
+          id: string | null
+          slug: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      _alert_inactive_category_products: {
+        Row: {
+          category_slug: string | null
+          id: string | null
+          slug: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      _alert_missing_thumbnails: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          slug: string | null
+        }
+        Relationships: []
+      }
       catalog_mv: {
         Row: {
           category_slug: string | null
@@ -3862,10 +4337,47 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
         ]
+      }
+      categories: {
+        Row: {
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          parent_id: string | null
+          slug: string | null
+          sort_order: number | null
+          title: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          parent_id?: string | null
+          slug?: string | null
+          sort_order?: number | null
+          title?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          parent_id?: string | null
+          slug?: string | null
+          sort_order?: number | null
+          title?: string | null
+        }
+        Relationships: []
       }
       clicks: {
         Row: {
@@ -3922,6 +4434,27 @@ export type Database = {
           url: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
@@ -4060,7 +4593,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
           {
@@ -4094,10 +4634,59 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
         ]
+      }
+      filters: {
+        Row: {
+          category_id: string | null
+          filter_key: string | null
+          id: string | null
+          label: string | null
+          options: Json | null
+          sort_order: number | null
+          type: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          filter_key?: string | null
+          id?: string | null
+          label?: string | null
+          options?: Json | null
+          sort_order?: number | null
+          type?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          filter_key?: string | null
+          id?: string | null
+          label?: string | null
+          options?: Json | null
+          sort_order?: number | null
+          type?: string | null
+        }
+        Relationships: []
+      }
+      header_categories: {
+        Row: {
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          parent_id: string | null
+          slug: string | null
+          sort_order: number | null
+          title: string | null
+        }
+        Relationships: []
       }
       impressions: {
         Row: {
@@ -4227,6 +4816,27 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
             referencedColumns: ["id"]
           },
           {
@@ -4419,12 +5029,65 @@ export type Database = {
         }
         Relationships: []
       }
+      product_categories: {
+        Row: {
+          category_id: string | null
+          is_primary: boolean | null
+          product_id: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          is_primary?: boolean | null
+          product_id?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          is_primary?: boolean | null
+          product_id?: string | null
+        }
+        Relationships: []
+      }
+      product_filters: {
+        Row: {
+          filter_key: string | null
+          filter_value: string | null
+          product_id: string | null
+        }
+        Relationships: []
+      }
       product_impressions_30d: {
         Row: {
           day: string | null
           impressions: number | null
           product_key: string | null
           slug: string | null
+        }
+        Relationships: []
+      }
+      product_media: {
+        Row: {
+          alt: string | null
+          id: string | null
+          product_id: string | null
+          sort_order: number | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          alt?: string | null
+          id?: string | null
+          product_id?: string | null
+          sort_order?: number | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          alt?: string | null
+          id?: string | null
+          product_id?: string | null
+          sort_order?: number | null
+          type?: string | null
+          url?: string | null
         }
         Relationships: []
       }
@@ -4446,6 +5109,27 @@ export type Database = {
           status: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_uid"]
@@ -4539,7 +5223,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
           {
@@ -4573,7 +5264,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
         ]
@@ -4605,7 +5303,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
           {
@@ -4894,6 +5599,27 @@ export type Database = {
             foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_uid"]
             isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
+            columns: ["product_uid"]
+            isOneToOne: false
             referencedRelation: "catalog_mv"
             referencedColumns: ["id"]
           },
@@ -5043,7 +5769,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
         ]
@@ -5056,6 +5789,27 @@ export type Database = {
           source_url: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
@@ -5159,7 +5913,14 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
             isOneToOne: false
-            referencedRelation: "ecom_categories"
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
             referencedColumns: ["slug"]
           },
           {
@@ -5486,6 +6247,16 @@ export type Database = {
       ecom_wishlist_toggle: { Args: { p_product_id: string }; Returns: string }
       ensure_review_root: { Args: { _review_id: string }; Returns: string }
       expire_partner_pins: { Args: never; Returns: number }
+      get_header_categories: {
+        Args: { p_limit?: number }
+        Returns: Database["public"]["Views"]["categories"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "categories"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_my_auth_user: {
         Args: never
         Returns: {

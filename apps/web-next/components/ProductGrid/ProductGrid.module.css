@@ -1,0 +1,173 @@
+.vcContainer {
+  width: 100%;
+  max-width: calc(var(--vc-grid-max-width, 1110px) + 2 * clamp(1rem, 3.5vw, 3rem));
+  padding-left: clamp(1.25rem, 4vw, 3rem);
+  padding-right: clamp(1.25rem, 4vw, 3rem);
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.vcGridBase {
+  display: grid;
+  width: 100%;
+  justify-content: center;
+  gap: var(--vc-grid-row-gap, 36px) var(--vc-grid-column-gap, 24px);
+  max-width: var(--vc-grid-max-width, 1110px);
+  min-height: var(--vc-grid-min-height, 996px);
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0;
+  list-style: none;
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: var(--vc-grid-min-height, 996px);
+}
+
+.vcGridItem {
+  display: flex;
+  justify-content: center;
+}
+
+.vcLayoutGrid {
+  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
+}
+
+@media (min-width: 768px) {
+  .vcLayoutGrid {
+    grid-template-columns: repeat(2, minmax(0, var(--vc-card-width, 353.33px)));
+  }
+}
+
+@media (min-width: 1200px) {
+  .vcLayoutGrid {
+    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
+  }
+}
+
+@media (min-width: 1350px) {
+  .vcGridBase {
+    max-width: 1260px;
+    -moz-column-gap: 15px;
+    column-gap: 15px;
+    row-gap: 20px;
+    padding-top: var(--vc-padding-top-desktop, 15px);
+  }
+
+  .vcLayoutGrid,
+  .vcLayoutMasonry {
+    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
+  }
+}
+
+@media (min-width: 1260px) {
+  .vcGridBase {
+    --vc-padding-top-desktop: 20px;
+  }
+}
+
+.vcLayoutSingle {
+  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
+  gap: var(--vc-grid-row-gap, 36px);
+}
+
+.vcLayoutMasonry {
+  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
+  grid-auto-rows: minmax(calc(var(--vc-card-height, 452px) * 0.6), auto);
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .vcLayoutMasonry {
+    grid-template-columns: repeat(2, minmax(0, var(--vc-card-width, 353.33px)));
+  }
+}
+
+@media (min-width: 1200px) {
+  .vcLayoutMasonry {
+    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
+  }
+}
+
+.vcSkeletonCard {
+  width: 100%;
+  max-width: var(--vc-card-width, 353.33px);
+  min-height: var(--vc-card-height, 452px);
+  display: flex;
+  flex-direction: column;
+  padding: var(--vc-card-frame-padding, 7px);
+  border-radius: var(--vc-card-radius, 25px);
+  background: var(--vc-card-bg, #fff);
+  box-shadow: var(--vc-card-shadow, 0 24px 48px rgba(15, 23, 42, 0.08));
+  gap: var(--vc-card-frame-gap, 8px);
+}
+
+.vcSkeletonSurface {
+  flex: 1;
+  border-radius: calc(var(--vc-card-inner-radius, 18px));
+  background: var(--vc-card-surface, #f3f3f3);
+  padding: var(--vc-card-surface-gap, 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vcSkeletonMedia {
+  width: 100%;
+  padding-top: 100%;
+  border-radius: var(--vc-card-image-radius, 11px);
+  background: var(--vc-placeholder-bg, rgba(0, 0, 0, 0.06));
+  position: relative;
+  overflow: hidden;
+}
+
+.vcSkeletonMedia::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.55) 45%, transparent 90%);
+  transform: translateX(-100%);
+  animation: vcShimmer 1.4s ease-in-out infinite;
+}
+
+.vcSkeletonLines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vcSkeletonLine {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--vc-placeholder-bg, rgba(0, 0, 0, 0.08));
+}
+
+.vcSkeletonLineShort {
+  width: 60%;
+}
+
+.vcSkeletonFooter {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vcSkeletonPrice {
+  height: 16px;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--vc-placeholder-bg, rgba(0, 0, 0, 0.08));
+}
+
+.vcSkeletonButton {
+  height: var(--vc-button-height, 44px);
+  border-radius: 999px;
+  background: var(--vc-placeholder-bg, rgba(0, 0, 0, 0.08));
+}
+
+@keyframes vcShimmer {
+  100% {
+    transform: translateX(120%);
+  }
+}

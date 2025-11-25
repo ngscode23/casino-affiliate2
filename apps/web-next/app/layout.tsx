@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 
 import "./globals.css";
+import "../styles/vite-bridge.css";
 import { SiteLayout } from "../components/site-layout";
 import { siteConfig } from "../lib/site-config";
 import { openAISans } from "./fonts";

@@ -30,6 +30,10 @@ const TEST_KEY = "cta_text";
 const COOKIE = `ab:${TEST_KEY}`;
 const ANON_COOKIE = "anon_id";
 const ANON_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
+const EXPERIMENT_COOKIE = process.env.EXPERIMENT_COOKIE_NAME || "exp";
+const EXP_VARIANTS = ["personalized", "control"] as const;
+const SECURE_COOKIE = process.env.NODE_ENV !== "development";
+const PERS_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 
 function ensureAnonCookie(req: NextRequest, res: NextResponse): NextResponse {
   const existing = req.cookies.get(ANON_COOKIE)?.value ?? res.cookies.get(ANON_COOKIE)?.value;
@@ -64,13 +68,60 @@ function ensureAbCookie(req: NextRequest, res: NextResponse): NextResponse {
   return res;
 }
 
+function ensureExperimentCookie(req: NextRequest, res: NextResponse): NextResponse {
+  const existing = req.cookies.get(EXPERIMENT_COOKIE)?.value ?? res.cookies.get(EXPERIMENT_COOKIE)?.value;
+  if (existing && EXP_VARIANTS.includes(existing as any)) return res;
+  const variant = Math.random() < 0.5 ? EXP_VARIANTS[0] : EXP_VARIANTS[1];
+  res.cookies.set({
+    name: EXPERIMENT_COOKIE,
+    value: variant,
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: SECURE_COOKIE,
+    maxAge: PERS_MAX_AGE_SECONDS,
+  });
+  return res;
+}
+
 function ensureVisitorCookies(req: NextRequest, res: NextResponse): NextResponse {
   const withAnon = ensureAnonCookie(req, res);
-  return ensureAbCookie(req, withAnon);
+  const withAb = ensureAbCookie(req, withAnon);
+  return ensureExperimentCookie(req, withAb);
+}
+
+function enrichRequestHeaders(req: NextRequest): Headers {
+  const headers = new Headers(req.headers);
+  const anon = req.cookies.get(ANON_COOKIE)?.value;
+  if (anon) headers.set("x-anon-id", anon);
+
+  const exp = req.cookies.get(EXPERIMENT_COOKIE)?.value;
+  if (exp && EXP_VARIANTS.includes(exp as any)) headers.set("x-experiment-variant", exp);
+
+  const geo = (req as any).geo as { country?: string } | undefined;
+  const country =
+    geo?.country ||
+    req.headers.get("x-vercel-ip-country") ||
+    req.headers.get("x-country") ||
+    req.headers.get("cf-ipcountry");
+  if (country) headers.set("x-geo-country", country.toLowerCase());
+
+  const ua = req.headers.get("user-agent") || "";
+  const viewport = req.headers.get("sec-ch-viewport-width") || req.headers.get("viewport-width") || undefined;
+  const uaLower = ua.toLowerCase();
+  const isMobile = /\b(mobile|iphone|ipod|android(?!.+tablet))\b/.test(uaLower) || req.headers.get("sec-ch-ua-mobile") === "?1";
+  const isTablet = /\b(ipad|tablet|sm-t|kindle|playbook)\b/.test(uaLower);
+  const device = isMobile ? "mobile" : isTablet ? "tablet" : ua ? "desktop" : "unknown";
+  headers.set("x-device-class", device);
+  if (viewport) headers.set("x-viewport-width", viewport);
+
+  return headers;
 }
 
 function nextWithAb(req: NextRequest): NextResponse {
-  return ensureVisitorCookies(req, NextResponse.next());
+  const headers = enrichRequestHeaders(req);
+  const res = NextResponse.next({ request: { headers } });
+  return ensureVisitorCookies(req, res);
 }
 function withAb(req: NextRequest, res: NextResponse): NextResponse {
   return ensureVisitorCookies(req, res);

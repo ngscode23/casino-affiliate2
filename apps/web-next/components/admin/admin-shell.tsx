@@ -21,6 +21,7 @@ import {
   Bell,
   Search,
   MessageSquare,
+  Layers,
 } from "lucide-react";
 
 import { getUser, signOut, ensureSession } from "@shared/lib/auth";
@@ -59,6 +60,10 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/admin/orders", label: "Заказы", icon: ShoppingCart },
       { href: "/admin/customers", label: "Клиенты", icon: Users },
     ],
+  },
+  {
+    title: "Каталог",
+    items: [{ href: "/admin/catalog/categories", label: "Категории", icon: Layers }],
   },
   {
     title: "Развитие",

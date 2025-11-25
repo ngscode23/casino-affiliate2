@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
-import { getFallbackImageByKey } from "./fallback-images";
+import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
 import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
 import { formatCurrency } from "./currency";
@@ -26,6 +26,15 @@ export type ProductFilters = {
   priceMax?: number | null;
   minRating?: number | null;
   sort?: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
+};
+
+export type LoadProductsOptions = {
+  personalize?: {
+    profile?: UserProfile | null;
+    country?: string;
+    device?: string;
+    experimentVariant?: string | null;
+  };
 };
 
 function categoryTag(slug: string) {
@@ -128,7 +137,10 @@ function buildCachePayload(filters: ProductFilters): NormalizedCachePayload {
   };
 }
 
-async function loadProductsDataInternal(filters: ProductFilters = {}): Promise<{
+async function loadProductsDataInternal(
+  filters: ProductFilters = {},
+  options?: LoadProductsOptions,
+): Promise<{
   products: Product[];
   fetchError: unknown;
   structuredData: Record<string, unknown> | null;
@@ -222,15 +234,21 @@ async function loadProductsDataInternal(filters: ProductFilters = {}): Promise<{
       ? priceDetails.priceCents
       : Math.round(normalizedPrice * 100);
     const currencyRaw = (currencyResolved ?? DEFAULT_CURRENCY).toUpperCase();
-    const thumbnailPath = (() => {   
-         if (typeof row?.thumbnail === "string" && row.thumbnail.trim()) return row.thumbnail.trim();  
-             if (typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim())
-               return row.thumbnail_path.trim();
-            return null;   
-           })
-            ();
-    const fallbackKey = slug || id || String(index);
-    const mainImage = thumbnailPath? normalizeImageUrl(thumbnailPath) ?? getFallbackImageByKey(fallbackKey) : getFallbackImageByKey(fallbackKey);
+    const thumbnailPath = (() => {
+      if (typeof row?.thumbnail === "string" && row.thumbnail.trim()) return row.thumbnail.trim();
+      if (typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim()) return row.thumbnail_path.trim();
+      return null;
+    })();
+
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        console.debug("catalog:image", slug, thumbnailPath);
+      } catch {
+        // ignore debug logging failures
+      }
+    }
+
+    const mainImage = thumbnailPath ? normalizeImageUrl(thumbnailPath) : null;
     const rating =
       typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
     const categorySlug = (() => {
@@ -301,11 +319,20 @@ async function loadProductsDataInternal(filters: ProductFilters = {}): Promise<{
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   })();
 
-  const structuredData = buildStructuredData(filteredProducts);
+  const personalizedProducts = options?.personalize
+    ? applyPersonalizedRanking(filteredProducts, {
+        profile: options.personalize.profile,
+        country: options.personalize.country,
+        device: options.personalize.device,
+        experimentVariant: options.personalize.experimentVariant,
+      })
+    : filteredProducts;
+
+  const structuredData = buildStructuredData(personalizedProducts);
 
   if (process.env.NODE_ENV !== "production") {
     try {
-      for (const p of products) {
+      for (const p of personalizedProducts) {
         console.debug("catalog:image", {
           id: p.id,
           sku: p.slug,
@@ -320,22 +347,25 @@ async function loadProductsDataInternal(filters: ProductFilters = {}): Promise<{
   }
 
   return {
-    products: filteredProducts,
+    products: personalizedProducts,
     fetchError: null,
     structuredData,
     categories,
     catalogName: CATALOG_NAME,
     totalCount:
       filters.dataset && filters.dataset !== "all"
-        ? filteredProducts.length
+        ? personalizedProducts.length
         : typeof count === "number"
           ? count
-          : filteredProducts.length,
+          : personalizedProducts.length,
   };
 }
 
-export async function loadProductsData(filters: ProductFilters = {}) {
+export async function loadProductsData(filters: ProductFilters = {}, options?: LoadProductsOptions) {
   const normalized = normalizeFilters(filters);
+  if (options?.personalize) {
+    return loadProductsDataInternal(normalized, options);
+  }
   const payload = buildCachePayload(normalized);
   const key = JSON.stringify(payload);
   const result = await loadProductsDataCached(key);

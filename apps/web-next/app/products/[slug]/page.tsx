@@ -1,10 +1,16 @@
 // app/products/[slug]/page.tsx
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { serializeJsonLd } from "@shared/lib/jsonld";
 import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
+import ProductsClient from "../products-client";
+import { loadProductsData } from "../data";
+import { resolveFilterParams } from "../filter-params";
 import { fetchProduct, fetchSimilarProducts } from "./data";
+import { fetchCatalogCategoryBySlug, type CatalogCategory } from "@/lib/catalog/categories";
 
 export const revalidate = 90;
 
@@ -85,38 +91,82 @@ function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
-  const { slug } = await params;                // ← тут await обязателен
+  const { slug } = await params;
+  const category = await fetchCatalogCategoryBySlug(slug);
+
+  if (category) {
+    const canonicalPath = `/products/${category.slug}`;
+    const description =
+      category.description?.slice(0, 180) ??
+      `Подборка товаров из раздела «${category.title}»: отсортируйте по популярности, цене или рейтингу и находите актуальные предложения.`;
+
+    return {
+      title: `${category.title} — Каталог`,
+      description,
+      alternates: { canonical: canonicalPath },
+      openGraph: {
+        type: "website",
+        title: category.title,
+        description,
+        url: canonicalPath,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: category.title,
+        description,
+      },
+    };
+  }
+
   const product = await fetchProduct(slug);
-  if (!product) return { title: "Товар не найден" };
 
-  const description = product.description ?? product.shortDescription ?? "";
-  const canonicalPath = `/products/${product.slug}`;
+  if (product) {
+    const description = product.description ?? product.shortDescription ?? "";
+    const canonicalPath = `/products/${product.slug}`;
 
-  return {
-    title: `${product.title} — купить онлайн`,
-    description: description.slice(0, 160),
-    alternates: { canonical: canonicalPath },
-    openGraph: {
-      type: "website",
-      title: product.title,
-      description,
-      url: canonicalPath,
-      images: product.gallery.length ? [{ url: product.gallery[0] }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: product.title,
-      description,
-      images: product.gallery.length ? [product.gallery[0]] : undefined,
-    },
-  };
+    return {
+      title: `${product.title} — купить онлайн`,
+      description: description.slice(0, 160),
+      alternates: { canonical: canonicalPath },
+      openGraph: {
+        type: "website",
+        title: product.title,
+        description,
+        url: canonicalPath,
+        images: product.gallery.length ? [{ url: product.gallery[0] }] : undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: product.title,
+        description,
+        images: product.gallery.length ? [product.gallery[0]] : undefined,
+      },
+    };
+  }
+
+  return { title: "Товар не найден" };
 }
 
-export default async function ProductPage(
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await params;                // ← и тут тоже
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve({}),
+  ]);
+
+  const category = await fetchCatalogCategoryBySlug(slug);
+
+  if (category) {
+    return renderCategoryListing(category, resolvedSearchParams ?? {});
+  }
+
   const product = await fetchProduct(slug);
+
   if (!product) return notFound();
 
   const status = (product.status ?? "").toLowerCase();
@@ -144,8 +194,8 @@ export default async function ProductPage(
       <main className="mx-auto max-w-screen-xl space-y-12 px-6 py-10 sm:px-8 lg:px-10">
         <ProductView
           product={product}
-          // если ProductView ждёт href — адаптируем локально:
-          breadcrumbs={breadcrumbs.map(b => ({ name: b.name, href: b.url }))}
+          // ProductView ожидает href — адаптируем ссылки
+          breadcrumbs={breadcrumbs.map((b) => ({ name: b.name, href: b.url }))}
           admin={{ isAdmin, clicks: adminMetrics.clicks, impressions: adminMetrics.impressions }}
           similar={similar}
         />
@@ -153,3 +203,75 @@ export default async function ProductPage(
     </div>
   );
 }
+
+async function renderCategoryListing(
+  category: CatalogCategory,
+  rawSearchParams: Record<string, string | string[] | undefined>,
+) {
+  const filters = resolveFilterParams(rawSearchParams);
+  const listing = await loadProductsData({
+    query: filters.query,
+    dataset: filters.dataset,
+    priceMin: filters.priceMin,
+    priceMax: filters.priceMax,
+    minRating: filters.minRating,
+    sort: filters.sort,
+    category: category.slug,
+  });
+
+  if (listing.fetchError && !listing.products.length) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <h1 className="text-2xl font-semibold">{category.title}</h1>
+        <p className="mt-4 text-red-500">
+          Не удалось загрузить товары: {String((listing.fetchError as any)?.message ?? listing.fetchError)}
+        </p>
+        <Link href="/products" className="mt-6 inline-flex items-center text-sm text-blue-400 hover:text-blue-300">
+          Вернуться в общий каталог
+        </Link>
+      </div>
+    );
+  }
+
+  const description =
+    category.description ??
+    `Подборка «${category.title}»: используйте фильтры, чтобы сравнить бренды, цены и популярность, а затем оформите заказ без переходов по меню.`;
+
+  return (
+    <div className="bg-background">
+      {listing.structuredData ? (
+        <script
+          type="application/ld+json"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(listing.structuredData) }}
+        />
+      ) : null}
+      <section>
+        <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
+          <header className="flex flex-col gap-3 text-center sm:text-left">
+            <span className="text-sm font-medium text-muted">Категория каталога</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{category.title}</h1>
+            <p className="text-base text-muted sm:max-w-3xl">{description}</p>
+            {typeof listing.totalCount === "number" ? (
+              <span className="text-sm text-muted">Всего позиций: {listing.totalCount}</span>
+            ) : null}
+          </header>
+        </div>
+        <ProductsClient
+          products={listing.products}
+          categories={listing.categories}
+          catalogName={category.title}
+          initialQuery={filters.query}
+          initialCategory={category.slug}
+          initialDataset={filters.dataset}
+          initialSort={filters.sort}
+          initialPriceMin={filters.priceMin}
+          initialPriceMax={filters.priceMax}
+          initialMinRating={filters.minRating}
+          totalAvailable={listing.totalCount}
+        />
+      </section>
+    </div>
+  );
+}
+
