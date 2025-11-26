@@ -16,6 +16,7 @@ type ProductGridProps = {
   addLabel?: string;
   containerClassName?: string;
   wrapWithContainer?: boolean;
+  gridId?: string;
 };
 
 export const PRODUCT_GRID_CONTAINER = gridStyles.vcContainer;
@@ -34,6 +35,7 @@ export function ProductGrid({
   addLabel,
   containerClassName,
   wrapWithContainer = true,
+  gridId = "default",
 }: ProductGridProps) {
   const t = useT();
   const translate = (key: string, fallback: string) => {
@@ -45,9 +47,27 @@ export function ProductGrid({
 
   const gridLayout = PRODUCT_GRID_LAYOUTS[layout] ?? PRODUCT_GRID_LAYOUTS.grid;
   const grid = (
-    <div className={cn(gridStyles.vcGridBase, gridLayout)} role="list">
-      {items.map((product, index) => (
-        <div key={product.slug || product.id} className={gridStyles.vcGridItem} role="listitem">
+    <div
+      className={cn(gridStyles.vcGridBase, gridLayout)}
+      role="list"
+      data-product-grid={gridId}
+    >
+      {items.map((product, index) => {
+        const recMeta = product.recMeta;
+        return (
+          <div
+            key={product.slug || product.id}
+            className={gridStyles.vcGridItem}
+            role="listitem"
+            data-product-id={product.id}
+            data-product-slug={product.slug}
+            data-product-rank={index + 1}
+            data-rec-treatment={recMeta?.treatment ?? undefined}
+            data-rec-rank={recMeta?.rank ?? undefined}
+            data-rec-reason={recMeta?.reason ?? undefined}
+            data-rec-source={recMeta?.source ?? undefined}
+            data-rec-placement={recMeta?.placement ?? undefined}
+          >
           <ProductCard
             product={product}
             index={index}
@@ -57,8 +77,9 @@ export function ProductGrid({
             noImageLabel={noImageLabel}
             translate={translate}
           />
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 

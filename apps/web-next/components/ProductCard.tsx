@@ -9,6 +9,18 @@ import { cn } from "@shared/lib/cn";
 import WishlistHeart from "./WishlistHeart";
 import styles from "./ProductCard/ProductCard.module.css";
 
+export type RecMeta = {
+  treatment?: string | null;
+  rank?: number | null;
+  reason?: string | null;
+  score?: number | null;
+  adjusted_score?: number | null;
+  bandit_from?: number | null;
+  rollout?: number | null;
+  placement?: string | null;
+  source?: string | null;
+};
+
 export type ProductGridItem = {
   id: string;
   slug: string;
@@ -19,6 +31,7 @@ export type ProductGridItem = {
   meta?: string | null;
   badge?: string | null;
   image?: string | null;
+  recMeta?: RecMeta;
 };
 
 type ProductCardProps = {

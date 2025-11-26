@@ -11,6 +11,7 @@ import { ProductGrid, ProductSkeleton, PRODUCT_GRID_LAYOUTS } from "@/components
 import type { Product } from "./types";
 import type { CategorySummary } from "./data";
 import { formatPrice } from "./utils";
+import { logRecEvent } from "@/lib/recs-events";
 const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
 const LayoutPicker = dynamic(() => import("./filters/LayoutPicker"), { ssr: false });
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@ui/components/common/sheet";
@@ -148,6 +149,7 @@ export default function ProductsClient({
   const [hydrated] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
+  const impressionLogged = useRef<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -192,6 +194,36 @@ export default function ProductsClient({
     }
     return map;
   }, [categoryOptions]);
+
+  const productById = useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const product of products) {
+      map.set(product.id, product);
+    }
+    return map;
+  }, [products]);
+
+  const recMetaById = useMemo(() => {
+    const map = new Map<string, Product["recMeta"]>();
+    for (const product of products) {
+      if (product.recMeta) {
+        map.set(product.id, product.recMeta);
+      }
+    }
+    return map;
+  }, [products]);
+
+  const resolvePriceCents = useCallback(
+    (productId: string | undefined) => {
+      if (!productId) return undefined;
+      const product = productById.get(productId);
+      if (!product) return undefined;
+      if (typeof product.priceCents === "number" && Number.isFinite(product.priceCents)) return product.priceCents;
+      if (typeof product.price === "number" && Number.isFinite(product.price)) return Math.round(product.price * 100);
+      return undefined;
+    },
+    [productById],
+  );
 
   const topCategoryLinks = useMemo(() => categories.slice(0, 3), [categories]);
 
@@ -531,10 +563,102 @@ export default function ProductsClient({
           originalPrice,
           badge,
           meta,
+          recMeta: product.recMeta,
         };
       }),
     [availabilityLabelMap, displayed, numberFormatter],
   );
+
+  useEffect(() => {
+    const gridEl = document.querySelector("[data-product-grid=\"catalog\"]");
+    if (!gridEl || !recMetaById.size) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const target = entry.target as HTMLElement;
+          const productId = target.dataset.productId;
+          if (!productId) {
+            observer.unobserve(target);
+            return;
+          }
+          const meta = recMetaById.get(productId);
+          if (!meta) {
+            observer.unobserve(target);
+            return;
+          }
+          const key = `${productId}:${meta.treatment ?? "control"}:${meta.rank ?? "na"}`;
+          if (impressionLogged.current.has(key)) {
+            observer.unobserve(target);
+            return;
+          }
+          impressionLogged.current.add(key);
+          const product = productById.get(productId);
+          void logRecEvent({
+            event: "impression",
+            productId,
+            category: product?.categorySlug ?? undefined,
+            priceCents: resolvePriceCents(productId),
+            metadata: {
+              placement: "catalog",
+              source: "catalog_mix",
+              treatment: meta.treatment ?? "control",
+              rank: meta.rank ?? null,
+              reason: meta.reason ?? null,
+              adjusted_score: meta.adjusted_score ?? null,
+              bandit_from: meta.bandit_from ?? null,
+              rollout: meta.rollout ?? null,
+            },
+          });
+        });
+      },
+      { rootMargin: "120px 0px 120px 0px", threshold: 0.35 },
+    );
+
+    const elements = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-product-id]"));
+    elements.forEach((el) => {
+      const productId = el.dataset.productId;
+      if (productId && recMetaById.has(productId)) {
+        observer.observe(el);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [displayed, productById, recMetaById, resolvePriceCents]);
+
+  useEffect(() => {
+    const gridEl = document.querySelector("[data-product-grid=\"catalog\"]");
+    if (!gridEl || !recMetaById.size) return;
+
+    const handleClick = (event: Event) => {
+      const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-product-id]");
+      if (!target) return;
+      const productId = target.dataset.productId;
+      if (!productId) return;
+      const meta = recMetaById.get(productId);
+      if (!meta) return;
+      const product = productById.get(productId);
+      void logRecEvent({
+        event: "click",
+        productId,
+        category: product?.categorySlug ?? undefined,
+        priceCents: resolvePriceCents(productId),
+        metadata: {
+          placement: "catalog",
+          source: "catalog_mix",
+          treatment: meta.treatment ?? "control",
+          rank: meta.rank ?? null,
+          reason: meta.reason ?? null,
+          adjusted_score: meta.adjusted_score ?? null,
+          bandit_from: meta.bandit_from ?? null,
+          rollout: meta.rollout ?? null,
+        },
+      });
+    };
+
+    gridEl.addEventListener("click", handleClick, true);
+    return () => gridEl.removeEventListener("click", handleClick, true);
+  }, [productById, recMetaById, resolvePriceCents]);
 
   const showSkeleton = isPending;
   const skeletonCount = showSkeleton ? Math.max(displayed.length, 8) : 0;
@@ -681,7 +805,13 @@ export default function ProductsClient({
                     ))}
                   </div>
                 ) : displayed.length > 0 ? (
-                  <ProductGrid items={gridItems} layout={layoutMode} showAddToCart wrapWithContainer={false} />
+                  <ProductGrid
+                    items={gridItems}
+                    layout={layoutMode}
+                    showAddToCart
+                    wrapWithContainer={false}
+                    gridId="catalog"
+                  />
                 ) : (
                   <EmptyState onReset={resetFilters} />
                 )}
