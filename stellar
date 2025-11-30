@@ -1,0 +1,1 @@
+Есть Next.js страница /products и готовый макет в stellar-den/client/pages/Index.tsx. Нужно перенести layout (header + sidebar + grid) из Index в Products, оставив всю текущую бизнес‑логику фильтров и загрузки товаров. Работать в файлах apps/web-next/app/products/page.tsx, apps/web-next/app/products/products-client.tsx, apps/web-next/components/ProductGrid/ProductCard
