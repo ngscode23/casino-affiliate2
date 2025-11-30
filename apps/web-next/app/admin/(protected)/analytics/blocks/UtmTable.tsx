@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark } from "@/styles/classnames";
 
 import VirtualList from "./VirtualList";
 import { AnalyticsTile as Tile } from "../tiles";
@@ -22,7 +23,7 @@ export default function UtmTable({
   return (
     <Tile tone="muted" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">UTM source / campaign</h2>
+        <h2 className={headingLgOnDark}>UTM source / campaign</h2>
         {onExportCSVAction ? (
           <button
             type="button"
@@ -33,7 +34,6 @@ export default function UtmTable({
           </button>
         ) : null}
       </div>
-
       {showVirtual ? (
         <VirtualList
           items={data}

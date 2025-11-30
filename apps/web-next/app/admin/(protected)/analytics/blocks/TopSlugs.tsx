@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark } from "@/styles/classnames";
 
 import VirtualList from "./VirtualList";
 import { AnalyticsTile as Tile } from "../tiles";
@@ -38,7 +39,7 @@ export default function TopSlugs({
   return (
     <Tile tone="muted" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">Top slugs</h2>
+        <h2 className={headingLgOnDark}>Top slugs</h2>
         <div className="flex gap-2">
           {onExportCSVAction ? (
             <button
@@ -60,7 +61,6 @@ export default function TopSlugs({
           ) : null}
         </div>
       </div>
-
       {showVirtual ? (
         <VirtualList
           items={data}

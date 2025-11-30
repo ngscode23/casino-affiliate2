@@ -1,5 +1,6 @@
 
-"use client";
+"use client";;
+import { mutedTextSm, mutedTextXs } from "@/styles/classnames";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -278,7 +279,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           </Button>
         </div>
       </div>
-
       {loading ? (
         <div className="space-y-3">
           <Skeleton className="h-6 w-1/3" />
@@ -294,23 +294,23 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           <Card className="p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <div className="text-sm text-muted-foreground">Order ID</div>
+                <div className={mutedTextSm}>Order ID</div>
                 <div className="font-mono text-sm">{order.id}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Created</div>
+                <div className={mutedTextSm}>Created</div>
                 <div>{new Date(order.created_at).toLocaleString()}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Status</div>
+                <div className={mutedTextSm}>Status</div>
                 <StatusBadge status={order.status} />
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Payment status</div>
+                <div className={mutedTextSm}>Payment status</div>
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <StatusBadge status={order.payment_status ?? "unknown"} />
                   {refundAmountLabel ? (
-                    <span className="text-xs text-muted-foreground">Refunded: {refundAmountLabel}</span>
+                    <span className={mutedTextXs}>Refunded: {refundAmountLabel}</span>
                   ) : null}
                 </div>
                 {order.payment_status === "requires_action" ? (
@@ -320,11 +320,11 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 ) : null}
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Customer</div>
+                <div className={mutedTextSm}>Customer</div>
                 <div className="text-sm">{order.user_id || "-"}</div>
               </div>
               <div className="md:col-span-2">
-                <div className="text-sm text-muted-foreground">Stripe sync</div>
+                <div className={mutedTextSm}>Stripe sync</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                   <Button
                     variant="soft"
@@ -360,7 +360,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           <Card className="p-4">
             <h2 className="mb-3 text-base font-semibold">Items</h2>
             {items.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No items recorded.</div>
+              <div className={mutedTextSm}>No items recorded.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-sm">
@@ -417,7 +417,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     <li key={payment.id} className="rounded-lg border border-border/40 p-3">
                       <div className="flex items-center justify-between">
                         <span className="font-mono text-xs">{payment.id}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className={mutedTextXs}>
                           {new Date(payment.created_at).toLocaleString()}
                         </span>
                       </div>
@@ -441,7 +441,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Refunds</h2>
               {refunds.length > 0 ? (
-                <span className="text-xs text-muted-foreground">Total: {refundAmountLabel ?? "-"}</span>
+                <span className={mutedTextXs}>Total: {refundAmountLabel ?? "-"}</span>
               ) : null}
             </div>
             {refunds.length === 0 ? (
@@ -452,7 +452,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   <li key={refund.refund_id} className="rounded-lg border border-border/40 p-3">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs">{refund.refund_id}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className={mutedTextXs}>
                         {new Date(refund.created_at).toLocaleString()}
                       </span>
                     </div>
@@ -476,7 +476,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     <li key={row.id} className="rounded-lg border border-border/40 p-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className={mutedTextXs}>
                             {new Date(row.created_at).toLocaleString()}
                           </div>
                           <div className="flex items-center gap-1">
@@ -486,7 +486,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                           </div>
                         </div>
                         {row.changed_by ? (
-                          <span className="text-xs text-muted-foreground">{row.changed_by}</span>
+                          <span className={mutedTextXs}>{row.changed_by}</span>
                         ) : null}
                       </div>
                       {row.reason ? (

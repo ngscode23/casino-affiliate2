@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark, overlineLight } from "@/styles/classnames";
 
 import type { AnalyticsDayPoint } from "@/lib/admin/analytics";
 import { AnalyticsTile as Tile } from "../tiles";
@@ -8,8 +9,8 @@ export default function ClicksByDay({ data, label }: { data: AnalyticsDayPoint[]
   return (
     <Tile tone="muted" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">Clicks by day</h2>
-        <span className="text-xs uppercase tracking-[0.3em] text-slate-500">{label}</span>
+        <h2 className={headingLgOnDark}>Clicks by day</h2>
+        <span className={overlineLight}>{label}</span>
       </div>
       <Spark data={data} />
       <div className="grid grid-cols-2 gap-2 text-xs text-slate-200">

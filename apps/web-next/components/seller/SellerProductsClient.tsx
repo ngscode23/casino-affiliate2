@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { overlineDark } from "@/styles/classnames";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -173,7 +174,6 @@ export default function SellerProductsClient({
           </button>
         </div>
       </header>
-
       {error ? (
         <p className="rounded-xl border border-red-400/30 bg-red-500/15 p-3 text-sm text-red-100">{error}</p>
       ) : null}
@@ -182,14 +182,13 @@ export default function SellerProductsClient({
           {successMessage}
         </p>
       ) : null}
-
       {showForm ? (
         <form
           onSubmit={handleSubmit}
           className="space-y-4 rounded-2xl border border-white/10 bg-neutral-900/70 p-4 shadow-lg"
         >
           <div>
-            <label className="text-xs uppercase tracking-widest text-white/40">Название</label>
+            <label className={overlineDark}>Название</label>
             <input
               className="mt-1 w-full rounded-lg border border-white/15 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
               value={title}
@@ -201,7 +200,7 @@ export default function SellerProductsClient({
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="text-xs uppercase tracking-widest text-white/40">Slug</label>
+              <label className={overlineDark}>Slug</label>
               <input
                 className="mt-1 w-full rounded-lg border border-white/15 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
                 value={slug}
@@ -211,7 +210,7 @@ export default function SellerProductsClient({
               <p className="mt-1 text-xs text-white/40">Оставьте пустым — slug создадим автоматически.</p>
             </div>
             <div>
-              <label className="text-xs uppercase tracking-widest text-white/40">Статус</label>
+              <label className={overlineDark}>Статус</label>
               <select
                 className="mt-1 w-full rounded-lg border border-white/15 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
                 value={status}
@@ -224,7 +223,7 @@ export default function SellerProductsClient({
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="text-xs uppercase tracking-widest text-white/40">Цена</label>
+              <label className={overlineDark}>Цена</label>
               <input
                 type="number"
                 min="0"
@@ -236,7 +235,7 @@ export default function SellerProductsClient({
               />
             </div>
             <div>
-              <label className="text-xs uppercase tracking-widest text-white/40">Валюта</label>
+              <label className={overlineDark}>Валюта</label>
               <select
                 className="mt-1 w-full rounded-lg border border-white/15 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
                 value={currency}
@@ -249,7 +248,7 @@ export default function SellerProductsClient({
             </div>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-widest text-white/40">Изображения (по одному в строке)</label>
+            <label className={overlineDark}>Изображения (по одному в строке)</label>
             <textarea
               className="mt-1 h-28 w-full rounded-lg border border-white/15 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
               value={images}
@@ -275,7 +274,6 @@ export default function SellerProductsClient({
           </div>
         </form>
       ) : null}
-
       <section className="rounded-2xl border border-white/10 bg-neutral-900/60">
         <div className="border-b border-white/5 px-4 py-3 text-xs uppercase tracking-[0.3em] text-white/60">
           Список товаров

@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { overlineDark } from "@/styles/classnames";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -64,12 +65,10 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
       <p className="mt-2 text-sm text-white/60">
         Создадим профиль продавца и откроем доступ к кабинету. Вы сможете управлять товарами, остатками и заказами.
       </p>
-
       {error ? <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-100">{error}</p> : null}
-
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="text-xs uppercase tracking-widest text-white/40">Название магазина</label>
+          <label className={overlineDark}>Название магазина</label>
           <input
             className="mt-1 w-full rounded-xl border border-white/15 bg-neutral-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
             value={displayName}
@@ -80,7 +79,7 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
           />
         </div>
         <div>
-          <label className="text-xs uppercase tracking-widest text-white/40">Slug</label>
+          <label className={overlineDark}>Slug</label>
           <input
             className="mt-1 w-full rounded-xl border border-white/15 bg-neutral-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
             value={slug}
@@ -93,7 +92,7 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
           </p>
         </div>
         <div>
-          <label className="text-xs uppercase tracking-widest text-white/40">Контактный email</label>
+          <label className={overlineDark}>Контактный email</label>
           <input
             type="email"
             className="mt-1 w-full rounded-xl border border-white/15 bg-neutral-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"

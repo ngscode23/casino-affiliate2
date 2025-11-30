@@ -1,10 +1,10 @@
-
 "use client";
+import { mutedTextXs } from "@/styles/classnames";
 
 import { useRef, useState } from "react";
 import Image from "next/image";
 
-import { UploadCloud, Trash2, Star, Link as LinkIcon, Loader2 } from "lucide-react";
+import { UploadCloud, Trash2, Star, Link as LinkIcon, Loader2, MoveVertical } from "lucide-react";
 
 import Button from "@ui/components/common/button";
 import Input from "@ui/components/common/input";
@@ -37,7 +37,7 @@ async function recordImageVersion(params: {
         Object.entries({
           "content-type": "application/json",
           Authorization: params.accessToken ? `Bearer ${params.accessToken}` : undefined,
-        }).filter(([, v]) => v != null)
+        }).filter(([, v]) => v != null),
       ) as HeadersInit,
       body: JSON.stringify({
         op: "record",
@@ -69,77 +69,76 @@ export function ProductImagesField({
   onVersionCreated,
 }: ProductImagesFieldProps) {
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const dragIndex = useRef<number | null>(null);
   const [manualUrl, setManualUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [brokenKeys, setBrokenKeys] = useState<Record<string, boolean>>({});
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleFiles = async (fileList: FileList | null) => {
-    if (!fileList?.length) return;
-    if (!productId) {
-      setError("Save the product before uploading images.");
-      if (fileInput.current) fileInput.current.value = "";
-      return;
+  const uploadSingleFile = async (file: File) => {
+    const accessToken = await getValidAccessToken().catch(() => null);
+    const normalizedSku = normalizeSku(sku ?? undefined, slug ?? productId ?? undefined);
+    if (!normalizedSku) throw new Error("Нужно сохранить SKU/slug, чтобы загрузить изображение");
+    const ext = file.name.split(".").pop() ?? "webp";
+
+    const uploadResponse = await fetch("/api/admin-get-upload-url", {
+      method: "POST",
+      headers: Object.fromEntries(
+        Object.entries({
+          "content-type": "application/json",
+          Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
+        }).filter(([, v]) => v != null),
+      ) as HeadersInit,
+      body: JSON.stringify({
+        productId,
+        sku: normalizedSku,
+        slug: slug || null,
+        ext,
+      }),
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(await uploadResponse.text());
     }
 
-    const file = fileList[0];
-    if (!file) return;
+    const uploadJson = await uploadResponse.json();
+    const uploadUrl = uploadJson?.uploadUrl as string | undefined;
+    const publicUrl = uploadJson?.publicUrl as string | undefined;
+    const storagePath = uploadJson?.path as string | undefined;
+    const uploadToken = uploadJson?.token as string | undefined;
 
-    setUploading(true);
-    setError(null);
-    try {
-      const accessToken = await getValidAccessToken().catch(() => null);
+    if (!uploadUrl || !publicUrl || !storagePath || !uploadToken) {
+      throw new Error("Upload URL response missing fields");
+    }
 
-      const normalizedSku = normalizeSku(sku ?? undefined, slug ?? productId ?? undefined);
-      if (!normalizedSku) throw new Error("Cannot derive SKU for upload");
-
-      const ext = file.name.split(".").pop() ?? "webp";
-      const uploadResponse = await fetch("/api/admin-get-upload-url", {
-        method: "POST",
+    const putOnce = async (withAuth: boolean) =>
+      fetch(uploadUrl, {
+        method: "PUT",
         headers: Object.fromEntries(
           Object.entries({
-            "content-type": "application/json",
-            Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
-          }).filter(([, v]) => v != null)
+            "content-type": file.type || "application/octet-stream",
+            "x-upsert": "true",
+            "cache-control": "no-cache",
+            Authorization: withAuth ? `Bearer ${uploadToken}` : undefined,
+          }).filter(([, v]) => v != null),
         ) as HeadersInit,
-        body: JSON.stringify({
-          productId,
-          sku: normalizedSku,
-          slug: slug || null,
-          ext,
-        }),
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(await uploadResponse.text());
-      }
-
-      const uploadJson = await uploadResponse.json();
-      const uploadUrl = uploadJson?.uploadUrl as string | undefined;
-      const publicUrl = uploadJson?.publicUrl as string | undefined;
-      const storagePath = uploadJson?.path as string | undefined;
-      const uploadToken = uploadJson?.token as string | undefined;
-
-      if (!uploadUrl || !publicUrl || !storagePath || !uploadToken) {
-        throw new Error("Upload URL response missing fields");
-      }
-
-      const putResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "content-type": file.type || "application/octet-stream",
-          Authorization: `Bearer ${uploadToken}`,
-          "x-upsert": "true",
-          "cache-control": "no-cache",
-        },
         body: file,
       });
-      if (!putResponse.ok) {
-        throw new Error(`Upload failed: ${putResponse.status}`);
-      }
 
-      const nextImages = [publicUrl, ...images.filter((url) => url !== publicUrl)];
-      onChange(nextImages);
+    let putResponse = await putOnce(false);
+    if (!putResponse.ok) {
+      putResponse = await putOnce(true);
+    }
+    if (!putResponse.ok) {
+      const text = await putResponse.text().catch(() => "");
+      throw new Error(`Upload failed: ${putResponse.status} ${text || ""}`.trim());
+    }
 
+    const nextImages = [publicUrl, ...images.filter((url) => url !== publicUrl)];
+    onChange(nextImages);
+
+    if (productId) {
       await recordImageVersion({
         productId,
         sku: normalizedSku,
@@ -148,13 +147,31 @@ export function ProductImagesField({
         accessToken,
         onVersionCreated,
       });
+    }
+  };
 
-      toast("Image uploaded", { variant: "success" });
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    if (!productId && !slug && !sku) {
+      setError("Сначала сохраните SKU (нужен slug/SKU), после чего станет доступна загрузка.");
+      if (fileInput.current) fileInput.current.value = "";
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const files = Array.from(fileList);
+      for (const file of files) {
+        // sequential upload to preserve order
+        await uploadSingleFile(file);
+      }
+      toast("Изображения загружены", { variant: "success" });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = "";
+      setIsDragOver(false);
     }
   };
 
@@ -162,11 +179,11 @@ export function ProductImagesField({
     onChange(images.filter((_, idx) => idx !== index));
   };
 
-  const promoteImage = (index: number) => {
-    if (index <= 0) return;
+  const moveImage = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) return;
     const next = [...images];
-    const [selected] = next.splice(index, 1);
-    next.unshift(selected);
+    const [selected] = next.splice(from, 1);
+    next.splice(to, 0, selected);
     onChange(next);
   };
 
@@ -188,54 +205,98 @@ export function ProductImagesField({
           </span>
         )}
       </div>
-
-      <div className="flex flex-wrap gap-3">
-        {images.map((url, index) => (
-          <div key={`${url}-${index}`} className="relative h-28 w-28 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <Image
-              src={url || "/og.svg"}
-              alt={`Product ${index + 1}`}
-              fill
-              sizes="112px"
-              className="object-cover"
-              onError={(event) => {
-                event.currentTarget.src = "/og.svg";
+      <div
+        className={`flex flex-wrap gap-3 rounded-xl border border-dashed ${
+          isDragOver ? "border-indigo-400 bg-indigo-50/60" : "border-border"
+        } p-2 transition`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+      >
+        {images.map((url, index) => {
+          const key = `${url ?? "empty"}-${index}`;
+          const isBroken = !url || brokenKeys[key];
+          return (
+            <div
+              key={key}
+              className="relative h-28 w-28 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+              draggable
+              onDragStart={() => {
+                dragIndex.current = index;
               }}
-              unoptimized
-            />
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/60 px-2 py-1 text-[11px] text-white">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1"
-                onClick={() => promoteImage(index)}
-                disabled={index === 0}
-              >
-                <Star className={`h-3 w-3 ${index === 0 ? "text-yellow-300" : "text-white/80"}`} />
-                {index === 0 ? "Primary" : "Promote"}
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1"
-                onClick={() => removeImage(index)}
-              >
-                <Trash2 className="h-3 w-3" />
-                Remove
-              </button>
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                const from = dragIndex.current;
+                dragIndex.current = null;
+                if (from == null) return;
+                moveImage(from, index);
+              }}
+            >
+              {isBroken ? (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] text-muted-foreground">
+                  <span>Нет фото</span>
+                  <span className="text-[10px]">Проверьте источник</span>
+                </div>
+              ) : (
+                <Image
+                  src={url}
+                  alt={`Product ${index + 1}`}
+                  fill
+                  sizes="112px"
+                  className="object-cover"
+                  onError={() =>
+                    setBrokenKeys((prev) => {
+                      if (prev[key]) return prev;
+                      return { ...prev, [key]: true };
+                    })
+                  }
+                  unoptimized
+                />
+              )}
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/60 px-2 py-1 text-[11px] text-white">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1"
+                  onClick={() => moveImage(index, 0)}
+                  disabled={index === 0}
+                >
+                  <Star className={`h-3 w-3 ${index === 0 ? "text-yellow-300" : "text-white/80"}`} />
+                  {index === 0 ? "Primary" : "Promote"}
+                </button>
+                <div className="flex items-center gap-2">
+                  <button type="button" className="inline-flex items-center gap-1" onClick={() => moveImage(index, Math.max(0, index - 1))} disabled={index === 0}>
+                    <MoveVertical className="h-3 w-3 rotate-180" />
+                  </button>
+                  <button type="button" className="inline-flex items-center gap-1" onClick={() => moveImage(index, Math.min(images.length - 1, index + 1))} disabled={index === images.length - 1}>
+                    <MoveVertical className="h-3 w-3" />
+                  </button>
+                  <button type="button" className="inline-flex items-center gap-1" onClick={() => removeImage(index)}>
+                    <Trash2 className="h-3 w-3" />
+                    Remove
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
           className="flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background text-xs text-muted-foreground transition hover:border-border/80"
-          disabled={uploading || !productId}
+          disabled={uploading || (!productId && !slug && !sku)}
         >
           <UploadCloud className="h-6 w-6" />
           Upload
         </button>
       </div>
-
       <input
         ref={fileInput}
         className="hidden"
@@ -244,7 +305,6 @@ export function ProductImagesField({
         multiple
         onChange={(event) => handleFiles(event.currentTarget.files)}
       />
-
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           type="url"
@@ -253,14 +313,17 @@ export function ProductImagesField({
           onChange={(event) => setManualUrl(event.currentTarget.value)}
         />
         <Button type="button" variant="secondary" onClick={addManualImage} disabled={!manualUrl.trim()} className="sm:w-auto">
-          <LinkIcon className="mr-2 h-4 w-4" />Add by URL
+          <LinkIcon className="mr-2 h-4 w-4" />
+          Add by URL
         </Button>
       </div>
-
       {error ? <div className="text-sm text-rose-500">{error}</div> : null}
-      <p className="text-xs text-muted-foreground">
-        Images are stored in Supabase Storage. The first image is treated as the primary preview.
-      </p>
+      {!productId ? (
+        <p className={mutedTextXs}>
+          После первого сохранения товара появится история версий и продвинутое управление изображениями.
+        </p>
+      ) : null}
+      <p className={mutedTextXs}>Images are stored in Supabase Storage. Drag & drop несколько файлов, перетаскивайте карточки для изменения порядка. Первая картинка — основная.</p>
     </div>
   );
 }

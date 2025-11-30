@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark, overlineLight } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -271,32 +272,32 @@ export function AdminAnalyticsClient() {
     return (
       <Tile tone="muted" className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Funnel</h2>
-          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          <h2 className={headingLgOnDark}>Funnel</h2>
+          <span className={overlineLight}>
             CTR {formatPct(ctr)} · CR {formatPct(cr)}
           </span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Impressions</div>
+            <div className={overlineLight}>Impressions</div>
             <div className="mt-2 text-2xl font-semibold text-white">{step1.toLocaleString()}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Clicks</div>
+            <div className={overlineLight}>Clicks</div>
             <div className="mt-2 text-2xl font-semibold text-white">
               {step2.toLocaleString()}
               <span className="ml-2 text-xs font-medium text-sky-300">{formatPct(ctr)}</span>
             </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Payment attempts</div>
+            <div className={overlineLight}>Payment attempts</div>
             <div className="mt-2 text-2xl font-semibold text-white">
               {step3.toLocaleString()}
               <span className="ml-2 text-xs font-medium text-sky-300">{formatPct(pa)}</span>
             </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100 shadow-[0_16px_35px_rgba(8,12,32,0.35)]">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Paid</div>
+            <div className={overlineLight}>Paid</div>
             <div className="mt-2 text-2xl font-semibold text-white">
               {step4.toLocaleString()}
               <span className="ml-2 text-xs font-medium text-emerald-300">{formatPct(cr)}</span>
@@ -337,8 +338,8 @@ export function AdminAnalyticsClient() {
     return (
       <Tile tone="muted" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">Compare with previous period</h2>
-          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Baseline {prevLabel}</span>
+          <h2 className={headingLgOnDark}>Compare with previous period</h2>
+          <span className={overlineLight}>Baseline {prevLabel}</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm text-slate-200">
           <CompareRow label="Clicks" abs={diffAbs.clicks ?? 0} pct={diffPct.clicks ?? 0} />
@@ -348,7 +349,7 @@ export function AdminAnalyticsClient() {
           <CompareRow label="AOV" abs={diffAbs.aov ?? 0} pct={diffPct.aov ?? 0} absStyle="decimal" />
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 shadow-[0_14px_30px_rgba(8,12,32,0.35)]">
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Revenue delta</div>
+          <div className={overlineLight}>Revenue delta</div>
           <div className="mt-2 text-white">{formatRevenueDiff(diffAbs.revenue, diffPct.revenue)}</div>
         </div>
       </Tile>
@@ -438,7 +439,7 @@ export function AdminAnalyticsClient() {
               Overview of impressions, clicks, conversions, and UTM performance.
             </p>
           </div>
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          <div className={overlineLight}>
             {lastUpdated ? `Updated ${lastUpdated.toLocaleString()}` : "Awaiting data"}
           </div>
         </div>
@@ -451,10 +452,9 @@ export function AdminAnalyticsClient() {
           </div>
         ) : null}
       </Tile>
-
       <Tile tone="base" className="space-y-4">
         <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
-          <label htmlFor="analytics-range" className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          <label htmlFor="analytics-range" className={overlineLight}>
             Range
           </label>
           <select
@@ -569,7 +569,6 @@ export function AdminAnalyticsClient() {
           </div>
         ) : null}
       </Tile>
-
       {loading ? (
         <Tile tone="muted" className="space-y-3">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -629,7 +628,7 @@ export function AdminAnalyticsClient() {
           <UtmTableBlock data={snapshot.utm} onExportCSVAction={handleExportUtmCSV} useVirtualization={virt.utm} />
 
           <Tile tone="muted" className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Impressions by device</h2>
+            <h2 className={headingLgOnDark}>Impressions by device</h2>
             <div className="space-y-2 text-sm text-slate-200">
               {snapshot.devices.map((entry) => (
                 <div key={entry.device} className="flex items-center justify-between gap-3">
@@ -641,7 +640,7 @@ export function AdminAnalyticsClient() {
           </Tile>
 
           <Tile tone="muted" className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Impressions by language</h2>
+            <h2 className={headingLgOnDark}>Impressions by language</h2>
             <div className="space-y-2 text-sm text-slate-200">
               {snapshot.languages.map((entry) => (
                 <div key={entry.lang} className="flex items-center justify-between gap-3">
@@ -655,7 +654,6 @@ export function AdminAnalyticsClient() {
       ) : (
         <Tile tone="muted" className="text-sm text-slate-300">Select range to load analytics.</Tile>
       )}
-
     </Section>
   );
 }

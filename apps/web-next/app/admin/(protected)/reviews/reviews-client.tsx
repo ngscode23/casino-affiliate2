@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark } from "@/styles/classnames";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -105,16 +106,15 @@ export function ApprovedReviewsClient() {
           ????????
         </button>
       </header>
-
       <section className="rounded-xl border border-white/10 bg-white/[0.05] p-4 shadow-lg">
         <dl className="grid gap-4 text-xs sm:grid-cols-3">
           <div>
             <dt className="text-white/50">?????</dt>
-            <dd className="text-lg font-semibold text-white">{total}</dd>
+            <dd className={headingLgOnDark}>{total}</dd>
           </div>
           <div>
             <dt className="text-white/50">?????? ??????????</dt>
-            <dd className="text-lg font-semibold text-white">
+            <dd className={headingLgOnDark}>
               {state === "loading" ? "????????." : new Date().toLocaleTimeString("ru-RU")}
             </dd>
           </div>
@@ -124,13 +124,10 @@ export function ApprovedReviewsClient() {
           </div>
         </dl>
       </section>
-
       {state === "error" ? (
         <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
       ) : null}
-
       {state !== "error" && (state === "loading" || reviews.length === 0) ? <EmptyState state={state} /> : null}
-
       {state === "ready" && reviews.length > 0 ? (
         <div
           ref={scrollParentRef}

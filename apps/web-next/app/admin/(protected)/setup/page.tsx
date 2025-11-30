@@ -1,4 +1,5 @@
-'use client';
+'use client';;
+import { headingLgOnDark, overlineLight } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState, type ReactNode, type ReactElement } from "react";
 import Link from "next/link";
@@ -221,7 +222,7 @@ function SectionCard({ icon, title, description, children }: { icon: ReactNode; 
     <Tile tone="muted" className="space-y-5">
       <div className="flex items-center gap-3">
         {icon}
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
+        <h2 className={headingLgOnDark}>{title}</h2>
       </div>
       {description ? <p className="text-sm text-slate-200">{description}</p> : null}
       {children}
@@ -425,7 +426,6 @@ export default function AdminSetupPage() {
           </Link>
         </div>
       </Tile>
-
       <Tile tone="base" className="space-y-6">
         <div className="space-y-2">
           <div className={KPI_LABEL_CLASS}>Checklist</div>
@@ -459,7 +459,6 @@ export default function AdminSetupPage() {
           </span>
         </div>
       </Tile>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           icon={<Brush size={18} className="text-sky-300" aria-hidden />}
@@ -468,7 +467,7 @@ export default function AdminSetupPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Brand name</span>
+              <span className={overlineLight}>Brand name</span>
               <input
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                 placeholder="Lucky Dice Media"
@@ -482,7 +481,7 @@ export default function AdminSetupPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Contact email</span>
+              <span className={overlineLight}>Contact email</span>
               <input
                 type="email"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -497,7 +496,7 @@ export default function AdminSetupPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Logo (light)</span>
+              <span className={overlineLight}>Logo (light)</span>
               <input
                 type="url"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -512,7 +511,7 @@ export default function AdminSetupPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Logo (dark)</span>
+              <span className={overlineLight}>Logo (dark)</span>
               <input
                 type="url"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -536,7 +535,7 @@ export default function AdminSetupPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Provider</span>
+              <span className={overlineLight}>Provider</span>
               <select
                 className="h-11 w-full rounded-2xl border border-white/10 bg-[#0b1524]/80 px-3 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                 value={settings.payoutProvider}
@@ -555,7 +554,7 @@ export default function AdminSetupPage() {
               </select>
             </label>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Default currency</span>
+              <span className={overlineLight}>Default currency</span>
               <select
                 className="h-11 w-full rounded-2xl border border-white/10 bg-[#0b1524]/80 px-3 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                 value={settings.payoutCurrency}
@@ -576,7 +575,7 @@ export default function AdminSetupPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Payout threshold</span>
+              <span className={overlineLight}>Payout threshold</span>
               <input
                 type="number"
                 min={0}
@@ -587,7 +586,7 @@ export default function AdminSetupPage() {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Webhook URL</span>
+              <span className={overlineLight}>Webhook URL</span>
               <input
                 type="url"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -610,7 +609,7 @@ export default function AdminSetupPage() {
         >
           <div className="space-y-3">
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Tracking token</span>
+              <span className={overlineLight}>Tracking token</span>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -660,7 +659,7 @@ export default function AdminSetupPage() {
               </div>
             </div>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Postback URL</span>
+              <span className={overlineLight}>Postback URL</span>
               <input
                 type="url"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -702,7 +701,7 @@ export default function AdminSetupPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             {COMPLIANCE_FIELDS.map((field) => (
               <label key={field.key} className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-slate-500">{field.label}</span>
+                <span className={overlineLight}>{field.label}</span>
                 <input
                   type="url"
                   className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -822,7 +821,7 @@ export default function AdminSetupPage() {
               </span>
             </button>
             <label className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Slack webhook URL</span>
+              <span className={overlineLight}>Slack webhook URL</span>
               <input
                 type="url"
                 className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -854,7 +853,7 @@ export default function AdminSetupPage() {
                 <div key={step.id} className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex items-start gap-3">
                     <label className="flex-1 space-y-2">
-                      <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Title</span>
+                      <span className={overlineLight}>Title</span>
                       <input
                         className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                         placeholder={`Custom milestone ${index + 1}`}
@@ -872,7 +871,7 @@ export default function AdminSetupPage() {
                     </button>
                   </div>
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Description</span>
+                    <span className={overlineLight}>Description</span>
                     <textarea
                       rows={3}
                       className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
@@ -882,7 +881,7 @@ export default function AdminSetupPage() {
                     />
                   </label>
                   <label className="block space-y-2 sm:w-60">
-                    <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Status</span>
+                    <span className={overlineLight}>Status</span>
                     <select
                       className="h-11 w-full rounded-2xl border border-white/10 bg-[#0b1524]/80 px-3 text-sm text-slate-100 focus:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
                       value={step.status}
@@ -918,7 +917,7 @@ export default function AdminSetupPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className={KPI_LABEL_CLASS}>Resources</div>
-            <h2 className="text-lg font-semibold text-white">Need a hand with launch?</h2>
+            <h2 className={headingLgOnDark}>Need a hand with launch?</h2>
           </div>
           <Link
             href="https://partner-playbook.example/setup"

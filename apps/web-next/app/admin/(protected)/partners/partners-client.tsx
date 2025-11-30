@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { labelTextSm } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -232,7 +233,6 @@ export function PartnersClient() {
           Checkout cancelled.
         </div>
       ) : null}
-
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold">Partners</h1>
@@ -287,20 +287,19 @@ export function PartnersClient() {
           <div className="text-sm text-[var(--text-dim)]">No partners found.</div>
         )}
       </Card>
-
       <Card className="p-6">
         <h2 className="mb-3 font-semibold">Create Checkout</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm">Name</label>
+            <label className={labelTextSm}>Name</label>
             <Input className="h-11 w-full" value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm">Email</label>
+            <label className={labelTextSm}>Email</label>
             <Input className="h-11 w-full" value={email} onChange={(event) => setEmail(event.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm">Plan</label>
+            <label className={labelTextSm}>Plan</label>
             <Select className="w-full" value={plan} onChange={(event) => setPlan(event.target.value)}>
               <option value="BASIC">BASIC</option>
               <option value="FEATURED">FEATURED</option>
@@ -308,7 +307,7 @@ export function PartnersClient() {
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-sm">Duration (days)</label>
+            <label className={labelTextSm}>Duration (days)</label>
             <Select
               className="w-full"
               value={String(days)}
@@ -322,7 +321,7 @@ export function PartnersClient() {
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm">Offer slugs (comma separated)</label>
+            <label className={labelTextSm}>Offer slugs (comma separated)</label>
             <Input
               className="h-11 w-full"
               value={offerSlugs}
@@ -335,7 +334,6 @@ export function PartnersClient() {
           Create Checkout
         </Button>
       </Card>
-
       <Card className="p-6">
         <h2 className="mb-3 font-semibold">Subscriptions</h2>
         <p className="mb-3 text-sm text-[var(--text-dim)]">
@@ -343,7 +341,7 @@ export function PartnersClient() {
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm">Partner email</label>
+            <label className={labelTextSm}>Partner email</label>
             <Input
               className="h-11 w-full"
               value={email}
@@ -352,7 +350,7 @@ export function PartnersClient() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm">Coupon / Promo code (optional)</label>
+            <label className={labelTextSm}>Coupon / Promo code (optional)</label>
             <Input
               className="h-11 w-full"
               value={coupon}
@@ -382,7 +380,6 @@ export function PartnersClient() {
           </Button>
         </div>
       </Card>
-
       <Card className="p-6">
         <h2 className="mb-3 font-semibold">Manual pin/unpin</h2>
         <p className="mb-3 text-sm text-[var(--text-dim)]">
@@ -390,7 +387,7 @@ export function PartnersClient() {
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm">Partner email</label>
+            <label className={labelTextSm}>Partner email</label>
             <Input
               className="h-11 w-full"
               value={email}
@@ -399,7 +396,7 @@ export function PartnersClient() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm">Plan</label>
+            <label className={labelTextSm}>Plan</label>
             <Select className="w-full" value={plan} onChange={(event) => setPlan(event.target.value)}>
               <option value="BASIC">BASIC</option>
               <option value="FEATURED">FEATURED</option>
@@ -407,7 +404,7 @@ export function PartnersClient() {
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm">Offer slugs (comma separated)</label>
+            <label className={labelTextSm}>Offer slugs (comma separated)</label>
             <Input
               className="h-11 w-full"
               value={offerSlugs}
@@ -425,7 +422,6 @@ export function PartnersClient() {
           </Button>
         </div>
       </Card>
-
       <WebhookLogsCard />
     </Section>
   );

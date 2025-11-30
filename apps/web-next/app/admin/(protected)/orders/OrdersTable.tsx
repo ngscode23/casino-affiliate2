@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextXs } from "@/styles/classnames";
 
 import Link from "next/link";
 import Button from "@ui/components/common/button";
@@ -83,7 +84,7 @@ export default function OrdersTable({
                   <td className="py-3 pr-4 text-sm">
                     <StatusBadge status={order.status} />
                     {order.payment_status ? (
-                      <div className="text-xs text-muted-foreground">Платёж: {order.payment_status}</div>
+                      <div className={mutedTextXs}>Платёж: {order.payment_status}</div>
                     ) : null}
                   </td>
                   <td className="py-3 pr-4 text-sm">{formattedTotal}</td>
@@ -91,13 +92,13 @@ export default function OrdersTable({
                     <div className="space-y-1">
                       {payment ? (
                         <>
-                          <div className="text-xs text-muted-foreground">ID платежа: {payment.id}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className={mutedTextXs}>ID платежа: {payment.id}</div>
+                          <div className={mutedTextXs}>
                             Сумма: {payment.amount} {payment.currency}
                           </div>
                         </>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className={mutedTextXs}>—</span>
                       )}
                     </div>
                   </td>

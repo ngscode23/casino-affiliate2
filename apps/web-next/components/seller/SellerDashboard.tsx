@@ -1,3 +1,4 @@
+import { overlineDark } from "@/styles/classnames";
 import Link from "next/link";
 
 type SellerRecord = {
@@ -77,7 +78,7 @@ export default function SellerDashboard({ seller, products, summary, orders }: S
     <div className="space-y-6 text-white">
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-xs uppercase tracking-widest text-white/40">Продавец</div>
+          <div className={overlineDark}>Продавец</div>
           <div className="mt-2 text-lg font-semibold text-white">{seller?.display_name ?? "—"}</div>
           <div className="mt-2 text-sm text-white/60">
             Статус:{" "}
@@ -99,7 +100,7 @@ export default function SellerDashboard({ seller, products, summary, orders }: S
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-xs uppercase tracking-widest text-white/40">Активные товары</div>
+          <div className={overlineDark}>Активные товары</div>
           <div className="mt-2 text-3xl font-semibold text-white">{activeProducts.length}</div>
           <div className="mt-1 text-xs text-white/50">
             Всего товаров: <span className="text-white/70">{products.length}</span>
@@ -113,7 +114,7 @@ export default function SellerDashboard({ seller, products, summary, orders }: S
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-xs uppercase tracking-widest text-white/40">Продажи</div>
+          <div className={overlineDark}>Продажи</div>
           <div className="mt-2 text-3xl font-semibold text-white">
             {formatCurrency(totalRevenue, primaryCurrency ?? "EUR")}
           </div>
@@ -129,7 +130,6 @@ export default function SellerDashboard({ seller, products, summary, orders }: S
           </Link>
         </div>
       </section>
-
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-neutral-900/60 p-4">
           <div className="flex items-center justify-between">

@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark, overlineLight } from "@/styles/classnames";
 
 import type { AnalyticsDayPoint } from "@/lib/admin/analytics";
 import { AnalyticsTile as Tile } from "../tiles";
@@ -8,12 +9,12 @@ export default function SlugSparklines({ items }: { items: Array<{ slug: string;
   return (
     <Tile tone="muted" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Slug sparklines</h2>
-        <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Top {items.length}</span>
+        <h2 className={headingLgOnDark}>Slug sparklines</h2>
+        <span className={overlineLight}>Top {items.length}</span>
       </div>
       <div className="space-y-3 text-sm text-slate-200">
         {items.length === 0 ? (
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-500">No data</div>
+          <div className={overlineLight}>No data</div>
         ) : (
           items.map((entry) => (
             <div key={entry.slug} className="flex items-center justify-between gap-3">

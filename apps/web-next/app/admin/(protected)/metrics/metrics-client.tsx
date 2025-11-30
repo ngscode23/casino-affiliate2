@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextSm, mutedTextXs } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +16,20 @@ type MetricsResponse = {
   generatedAt: string;
 };
 
+type RecsMetricRow = {
+  treatment: string;
+  impressions: number;
+  clicks: number;
+  add_to_cart: number;
+  purchases: number;
+  gmv_cents: number;
+  ctr: number;
+  atc_rate: number;
+  conv_rate: number;
+  revenue_per_click: number;
+  revenue_per_impression: number;
+};
+
 function normalizeDays(value: string | null): number {
   const parsed = Number(value);
   if (!value || Number.isNaN(parsed) || !Number.isFinite(parsed)) return 14;
@@ -27,6 +42,23 @@ function buildChart(rows: { date: string; count: number }[]): { max: number; bar
   const max = rows.reduce((acc, row) => Math.max(acc, row.count || 0), 0);
   const bars = rows.map((row) => ({ label: row.date, value: row.count || 0 }));
   return { max, bars };
+}
+
+function formatRate(value: number): string {
+  if (value == null || Number.isNaN(value)) return "0.0%";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatMoneyFromCents(cents: number): string {
+  if (cents == null || Number.isNaN(cents)) return "$0.00";
+  const value = Number(cents) / 100;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(
+      value,
+    );
+  } catch {
+    return `$${value.toFixed(2)}`;
+  }
 }
 
 function PeriodToggle({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -54,7 +86,7 @@ function PeriodToggle({ value, onChange }: { value: number; onChange: (v: number
 
 function BarChart({ data, max }: { data: Bar[]; max: number }) {
   if (!data.length) {
-    return <div className="text-sm text-muted-foreground">No data for selected period.</div>;
+    return <div className={mutedTextSm}>No data for selected period.</div>;
   }
 
   return (
@@ -88,6 +120,8 @@ export function MetricsClient() {
   const [data, setData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [recsMetrics, setRecsMetrics] = useState<RecsMetricRow[] | null>(null);
+  const [recsError, setRecsError] = useState<string | null>(null);
 
   useEffect(() => {
     const nextValue = normalizeDays(searchParams?.get("days"));
@@ -110,14 +144,28 @@ export function MetricsClient() {
         setLoading(true);
         setError(null);
         setData(null);
+        setRecsMetrics(null);
+        setRecsError(null);
 
-        const res = await adminFetch(`/api/metrics?days=${days}`);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `${res.status} ${res.statusText}`);
+        const [coreRes, recsRes] = await Promise.all([
+          adminFetch(`/api/metrics?days=${days}`),
+          adminFetch(`/api/admin/recs-metrics?days=${days}`),
+        ]);
+
+        if (!coreRes.ok) {
+          const text = await coreRes.text();
+          throw new Error(text || `${coreRes.status} ${coreRes.statusText}`);
         }
-        const json = (await res.json()) as MetricsResponse;
+        const json = (await coreRes.json()) as MetricsResponse;
         if (!cancelled) setData(json);
+
+        if (recsRes.ok) {
+          const recJson = (await recsRes.json()) as { metrics?: RecsMetricRow[] };
+          if (!cancelled) setRecsMetrics(recJson.metrics ?? []);
+        } else {
+          const text = await recsRes.text();
+          if (!cancelled) setRecsError(text || `${recsRes.status} ${recsRes.statusText}`);
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -138,11 +186,10 @@ export function MetricsClient() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Admin Metrics</h1>
-          <p className="text-sm text-muted-foreground">Clicks and top offers for the selected period.</p>
+          <p className={mutedTextSm}>Clicks and top offers for the selected period.</p>
         </div>
         <PeriodToggle value={days} onChange={setDays} />
       </div>
-
       {loading ? (
         <Card className="p-4 text-sm text-muted-foreground">Loading…</Card>
       ) : error ? (
@@ -182,6 +229,53 @@ export function MetricsClient() {
               <div className="text-right">{totalClicks}</div>
               <div className="text-right">{totalClicks > 0 ? "100.0%" : "0.0%"}</div>
             </div>
+          </Card>
+
+          <Card className="space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-muted-foreground">Recommendations funnel</h2>
+              {recsMetrics?.length ? (
+                <span className={mutedTextXs}>{recsMetrics.length} variants</span>
+              ) : null}
+            </div>
+            {recsError ? (
+              <div className="text-sm text-rose-500">{recsError}</div>
+            ) : recsMetrics ? (
+              recsMetrics.length ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="border-b border-border/40 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="py-2 pr-3">Treatment</th>
+                        <th className="py-2 pr-3 text-right">Impr</th>
+                        <th className="py-2 pr-3 text-right">CTR</th>
+                        <th className="py-2 pr-3 text-right">ATC rate</th>
+                        <th className="py-2 pr-3 text-right">Purch</th>
+                        <th className="py-2 pr-3 text-right">GMV</th>
+                        <th className="py-2 pr-3 text-right">Rev/Click</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {recsMetrics.map((row) => (
+                        <tr key={row.treatment} className="text-foreground">
+                          <td className="py-2 pr-3 font-medium capitalize">{row.treatment}</td>
+                          <td className="py-2 pr-3 text-right">{row.impressions}</td>
+                          <td className="py-2 pr-3 text-right">{formatRate(row.ctr)}</td>
+                          <td className="py-2 pr-3 text-right">{formatRate(row.atc_rate)}</td>
+                          <td className="py-2 pr-3 text-right">{row.purchases}</td>
+                          <td className="py-2 pr-3 text-right">{formatMoneyFromCents(row.gmv_cents)}</td>
+                          <td className="py-2 pr-3 text-right">{formatMoneyFromCents(row.revenue_per_click)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className={mutedTextSm}>No recommendation events yet.</div>
+              )
+            ) : (
+              <div className={mutedTextSm}>Loading recommendation metrics…</div>
+            )}
           </Card>
         </div>
       ) : (

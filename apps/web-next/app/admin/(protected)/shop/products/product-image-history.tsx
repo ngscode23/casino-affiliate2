@@ -1,5 +1,6 @@
 
-"use client";
+"use client";;
+import { mutedTextXs, iconSm } from "@/styles/classnames";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -131,10 +132,10 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Image history</h3>
-        {loading ? <span className="text-xs text-muted-foreground">Loading...</span> : null}
+        {loading ? <span className={mutedTextXs}>Loading...</span> : null}
       </div>
       {versions.length === 0 ? (
-        <div className="text-xs text-muted-foreground">No previous versions yet.</div>
+        <div className={mutedTextXs}>No previous versions yet.</div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {versions.map((version) => (
@@ -174,7 +175,7 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
                         }
                       }}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className={iconSm} />
                     </Button>
                   ) : null}
                 </div>

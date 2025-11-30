@@ -1,7 +1,10 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseFetchLogger } from "./fetch-logger";
 
-let adminClient: SupabaseClient | null = null;
+type AnySchemaClient = SupabaseClient<any, string, any, any, any>;
+
+let adminClient: AnySchemaClient | null = null;
+const adminClientsBySchema = new Map<string, AnySchemaClient>();
 const adminFetch = createSupabaseFetchLogger("admin");
 
 function resolveConfig() {
@@ -22,17 +25,31 @@ function resolveConfig() {
   return { url, key };
 }
 
-export function getAdminClient(): SupabaseClient {
-  if (!adminClient) {
-    const { url, key } = resolveConfig();
-    adminClient = createClient(url, key, {
-      auth: {
-        persistSession: false,
-      },
-      global: {
-        fetch: adminFetch,
-      },
-    });
+type ClientSchema = string | undefined | null;
+
+function createAdminClient(schema?: string): AnySchemaClient {
+  const { url, key } = resolveConfig();
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+    },
+    global: {
+      fetch: adminFetch,
+    },
+    ...(schema ? { db: { schema } } : null),
+  });
+}
+
+export function getAdminClient(schema?: ClientSchema): AnySchemaClient {
+  const normalizedSchema = schema && schema !== "public" ? schema : null;
+  if (!normalizedSchema) {
+    if (!adminClient) {
+      adminClient = createAdminClient();
+    }
+    return adminClient;
   }
-  return adminClient;
+  if (!adminClientsBySchema.has(normalizedSchema)) {
+    adminClientsBySchema.set(normalizedSchema, createAdminClient(normalizedSchema));
+  }
+  return adminClientsBySchema.get(normalizedSchema)!;
 }

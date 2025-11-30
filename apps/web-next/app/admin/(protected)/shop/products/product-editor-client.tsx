@@ -63,11 +63,47 @@ function snapshotState(state: {
   tags: string;
   images: string[];
   specs: Record<string, unknown>;
+  catalogBrandId: string;
+  catalogProductId: string;
 }) {
   return JSON.stringify({
     ...state,
     images: [...state.images],
   });
+}
+
+type CatalogBrandRecord = {
+  id: string;
+  name: string;
+  slug: string;
+  status?: string | null;
+  is_active?: boolean | null;
+};
+
+type CatalogProductRecord = {
+  id: string;
+  title: string;
+  slug: string;
+  brand_id: string | null;
+  status?: string | null;
+};
+
+type CatalogApiListResponse<T> = {
+  ok?: boolean;
+  items?: T[];
+  error?: string;
+  message?: string;
+};
+
+function constraintHint(message: string): string | null {
+  const normalized = (message || "").toLowerCase();
+  if (normalized.includes("ecom_products_catalog_product_fk") || normalized.includes("catalog_product_id")) {
+    return "Выбранная модель каталога не найдена или удалена. Обновите выбор модели и попробуйте снова.";
+  }
+  if (normalized.includes("ecom_products_category_slug_fk") || normalized.includes("category_slug")) {
+    return "Категория больше не существует. Выберите актуальную категорию и повторите сохранение.";
+  }
+  return null;
 }
 
 export function ProductEditorClient({ productId }: EditorProps) {
@@ -89,6 +125,13 @@ export function ProductEditorClient({ productId }: EditorProps) {
   const [specsJson, setSpecsJson] = useState("{}");
   const [specsError, setSpecsError] = useState<string | null>(null);
 
+  const [catalogBrands, setCatalogBrands] = useState<CatalogBrandRecord[]>([]);
+  const [catalogModels, setCatalogModels] = useState<CatalogProductRecord[]>([]);
+  const [catalogBrandId, setCatalogBrandId] = useState("");
+  const [catalogProductId, setCatalogProductId] = useState("");
+  const [catalogBrandsLoading, setCatalogBrandsLoading] = useState(false);
+  const [catalogModelsLoading, setCatalogModelsLoading] = useState(false);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,6 +140,28 @@ export function ProductEditorClient({ productId }: EditorProps) {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [originalSnapshot, setOriginalSnapshot] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+
+  const selectedBrand = useMemo(
+    () => catalogBrands.find((brand) => brand.id === catalogBrandId) ?? null,
+    [catalogBrands, catalogBrandId],
+  );
+  const selectedModel = useMemo(
+    () => catalogModels.find((model) => model.id === catalogProductId) ?? null,
+    [catalogModels, catalogProductId],
+  );
+  const catalogPublishBlockedReason = useMemo(() => {
+    const brandStatus = selectedBrand?.status?.toLowerCase();
+    const modelStatus = selectedModel?.status?.toLowerCase();
+    const brandInactive =
+      brandStatus === "archived" ||
+      brandStatus === "inactive" ||
+      brandStatus === "disabled" ||
+      selectedBrand?.is_active === false;
+    const modelInactive = modelStatus === "archived";
+    if (modelInactive) return "Модель в архиве: публикация SKU недоступна.";
+    if (brandInactive) return "Бренд неактивен: публикация SKU недоступна.";
+    return null;
+  }, [selectedBrand, selectedModel]);
 
   useEffect(() => {
     setCurrentId(productId ?? null);
@@ -122,7 +187,26 @@ export function ProductEditorClient({ productId }: EditorProps) {
           setCategories(categoriesJson.items as Category[]);
         }
 
+        // preload brands
+        const brandsUrl =
+          origin && typeof window !== "undefined"
+            ? new URL("/api/admin/catalog/brands", origin).toString()
+            : "/api/admin/catalog/brands";
+        try {
+          setCatalogBrandsLoading(true);
+          const brandRes = await authorizedFetch(brandsUrl, { cache: "no-store" });
+          const brandPayload = (await brandRes.json().catch(() => ({}))) as CatalogApiListResponse<CatalogBrandRecord>;
+          if (brandRes.ok && brandPayload?.ok && Array.isArray(brandPayload.items)) {
+            setCatalogBrands(brandPayload.items);
+          }
+        } finally {
+          setCatalogBrandsLoading(false);
+        }
+
         if (!currentId) {
+          setCatalogBrandId("");
+          setCatalogProductId("");
+          setCatalogModels([]);
           setOriginalSnapshot(null);
           setIsDirty(false);
           setLoading(false);
@@ -192,6 +276,34 @@ export function ProductEditorClient({ productId }: EditorProps) {
           setImages(nextImages);
           setSpecsJson(specsJsonString);
 
+          // resolve catalog product / brand
+          let resolvedBrandId = "";
+          let resolvedCatalogId = "";
+          const catalogId =
+            product.catalog_product_id != null && String(product.catalog_product_id).trim()
+              ? String(product.catalog_product_id).trim()
+              : "";
+          setCatalogProductId(catalogId);
+          if (catalogId) {
+            try {
+              const catalogUrl =
+                origin && typeof window !== "undefined"
+                  ? new URL("/api/admin/catalog/products", origin).toString()
+                  : "/api/admin/catalog/products";
+              const catalogRes = await authorizedFetch(`${catalogUrl}?id=${catalogId}&status=all`, { cache: "no-store" });
+              const catalogPayload = (await catalogRes.json().catch(() => ({}))) as CatalogApiListResponse<CatalogProductRecord>;
+              const record = Array.isArray(catalogPayload?.items) ? catalogPayload.items[0] : null;
+              if (record?.brand_id) {
+                resolvedBrandId = String(record.brand_id);
+                resolvedCatalogId = String(record.id);
+                setCatalogBrandId(resolvedBrandId);
+                setCatalogProductId(resolvedCatalogId || catalogId);
+              }
+            } catch {
+              // ignore, we still allow manual re-selection
+            }
+          }
+
           const snapshot = snapshotState({
             title: nextTitle,
             slug: nextSlug,
@@ -204,6 +316,8 @@ export function ProductEditorClient({ productId }: EditorProps) {
             tags: nextTags,
             images: nextImages,
             specs: nextSpecsObject,
+            catalogBrandId: resolvedBrandId,
+            catalogProductId: resolvedCatalogId,
           });
           setOriginalSnapshot(snapshot);
           setIsDirty(false);
@@ -252,9 +366,26 @@ export function ProductEditorClient({ productId }: EditorProps) {
       tags,
       images,
       specs: specsObject,
+      catalogBrandId,
+      catalogProductId,
     });
     setIsDirty(originalSnapshot !== null && snapshot !== originalSnapshot);
-  }, [title, slug, sku, price, category, status, rating, shortDesc, tags, images, specsJson, originalSnapshot]);
+  }, [
+    title,
+    slug,
+    sku,
+    price,
+    category,
+    status,
+    rating,
+    shortDesc,
+    tags,
+    images,
+    specsJson,
+    catalogBrandId,
+    catalogProductId,
+    originalSnapshot,
+  ]);
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -274,6 +405,72 @@ export function ProductEditorClient({ productId }: EditorProps) {
   const handleUseImage = useCallback((url: string) => {
     setImages((prev) => [url, ...prev.filter((item) => item !== url)]);
   }, []);
+
+  const handleCategoryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.currentTarget.value || null;
+    setCategory(value);
+    setCatalogBrandId("");
+    setCatalogProductId("");
+    setCatalogModels([]);
+  };
+
+  const handleCatalogBrandChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.currentTarget.value;
+    setCatalogBrandId(value);
+    setCatalogProductId("");
+  };
+
+  const handleCatalogProductChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setCatalogProductId(event.currentTarget.value);
+  };
+
+  const fetchCatalogModelsByBrand = useCallback(
+    async (brandId: string): Promise<CatalogProductRecord[]> => {
+      if (!brandId) return [];
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const url = origin ? new URL("/api/admin/catalog/products", origin) : new URL("/api/admin/catalog/products", "http://localhost");
+      url.searchParams.set("brand_id", brandId);
+      url.searchParams.set("status", "all");
+      const res = await authorizedFetch(url.toString(), { cache: "no-store" });
+      const payload = (await res.json().catch(() => ({}))) as CatalogApiListResponse<CatalogProductRecord>;
+      if (!res.ok || !payload?.ok) {
+        const message = payload?.message || payload?.error || "Не удалось загрузить модели";
+        throw new Error(message);
+      }
+      return Array.isArray(payload.items) ? payload.items : [];
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!catalogBrandId) {
+      setCatalogModels([]);
+      setCatalogProductId("");
+      return;
+    }
+    setCatalogModelsLoading(true);
+    fetchCatalogModelsByBrand(catalogBrandId)
+      .then((items) => {
+        if (cancelled) return;
+        setCatalogModels(items);
+        if (items.every((m) => m.id !== catalogProductId)) {
+          setCatalogProductId("");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        toast(err instanceof Error ? err.message : "Не удалось загрузить модели", { variant: "error" });
+        setCatalogModels([]);
+        setCatalogProductId("");
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogBrandId, catalogProductId, fetchCatalogModelsByBrand]);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -303,6 +500,23 @@ export function ProductEditorClient({ productId }: EditorProps) {
         .map((tag) => tag.trim())
         .filter(Boolean);
 
+      if (!category) {
+        throw new Error("Выберите категорию каталога");
+      }
+      if (!catalogBrandId) {
+        throw new Error("Выберите бренд каталога");
+      }
+      if (!catalogProductId) {
+        throw new Error("Выберите модель каталога");
+      }
+      const modelRecord = catalogModels.find((model) => model.id === catalogProductId);
+      if (modelRecord?.brand_id && String(modelRecord.brand_id) !== String(catalogBrandId)) {
+        throw new Error("Выбранная модель принадлежит другому бренду. Проверьте связку.");
+      }
+      if (status === "published" && catalogPublishBlockedReason) {
+        throw new Error(catalogPublishBlockedReason);
+      }
+
       const payload: Record<string, unknown> = {
         id: currentId ?? undefined,
         title: title.trim(),
@@ -316,6 +530,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
         tags: tagsArray,
         images,
         specs: specsData,
+        catalog_product_id: catalogProductId,
       };
 
       const accessToken = await getValidAccessToken().catch(() => null);
@@ -332,7 +547,9 @@ export function ProductEditorClient({ productId }: EditorProps) {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const rawText = await response.text();
+        const friendly = constraintHint(rawText);
+        throw new Error(friendly ?? rawText ?? "Не удалось сохранить товар");
       }
 
       const json = await response.json();
@@ -355,6 +572,8 @@ export function ProductEditorClient({ productId }: EditorProps) {
         tags: tagsArray.join(", "),
         images,
         specs: specsData,
+        catalogBrandId,
+        catalogProductId,
       });
       setOriginalSnapshot(snapshot);
       setIsDirty(false);
@@ -447,6 +666,10 @@ export function ProductEditorClient({ productId }: EditorProps) {
           ) : (
             <form id={formId} className="space-y-6" onSubmit={handleSave}>
               <AdminStack gap="lg">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Новые бренды и модели добавляются в разделе <strong>Catalog → Brands / Products</strong>. Здесь вы только привязываете SKU к готовым моделям.
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-admin-text">Название</label>
@@ -512,7 +735,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
                     <select
                       className="h-10 w-full rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
                       value={category ?? ""}
-                      onChange={(event) => setCategory(event.currentTarget.value || null)}
+                      onChange={handleCategoryChange}
                     >
                       {categoryOptions.map((option) => (
                         <option key={option.slug || "none"} value={option.slug}>
@@ -529,9 +752,76 @@ export function ProductEditorClient({ productId }: EditorProps) {
                       onChange={(event) => setStatus(event.currentTarget.value)}
                     >
                       <option value="draft">Черновик</option>
-                      <option value="published">Опубликован</option>
+                      <option value="published" disabled={Boolean(catalogPublishBlockedReason)}>
+                        Опубликован
+                      </option>
                       <option value="archived">Архив</option>
                     </select>
+                    {catalogPublishBlockedReason ? (
+                      <p className="text-xs text-amber-600">{catalogPublishBlockedReason}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Бренд каталога</label>
+                    <select
+                      className="h-10 w-full rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
+                      value={catalogBrandId}
+                      onChange={handleCatalogBrandChange}
+                      disabled={catalogBrandsLoading || catalogBrands.length === 0}
+                    >
+                      <option value="">{catalogBrandsLoading ? "Загрузка..." : "Не выбран"}</option>
+                      {catalogBrands.map((brand) => (
+                        <option key={brand.id} value={brand.id}>
+                          {brand.name}
+                          {brand.status && brand.status !== "published" ? ` (${brand.status})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-admin-text">Модель каталога</label>
+                    <select
+                      className="h-10 w-full rounded-md border border-admin-border bg-admin-surface px-3 text-sm"
+                      value={catalogProductId}
+                      onChange={handleCatalogProductChange}
+                      disabled={!catalogBrandId || catalogModelsLoading || catalogModels.length === 0}
+                    >
+                      <option value="">
+                        {catalogBrandId ? (catalogModelsLoading ? "Загрузка..." : "Не выбрана") : "Сначала выберите бренд"}
+                      </option>
+                      {catalogModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.title}
+                          {model.status && model.status !== "published" ? ` (${model.status})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedModel ? (
+                      <div className="rounded-lg border border-admin-border bg-admin-surfaceMuted px-3 py-2 text-xs text-admin-text">
+                        <div className="flex items-center justify-between gap-3">
+                          <span>
+                            Бренд: {selectedBrand?.name ?? "—"} ({selectedBrand?.slug ?? "—"})
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 font-semibold capitalize ${
+                              selectedModel.status === "published"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : selectedModel.status === "archived"
+                                  ? "bg-slate-200 text-slate-700"
+                                  : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {selectedModel.status ?? "unknown"}
+                          </span>
+                        </div>
+                        {catalogPublishBlockedReason ? (
+                          <p className="mt-1 text-[11px] text-amber-700">{catalogPublishBlockedReason}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

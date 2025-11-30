@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { adminFieldLabel } from "@/styles/classnames";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -289,13 +290,12 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           </AdminStack>
         </AdminSurface>
       ) : null}
-
       <AdminSurface padded="lg">
         <AdminStack gap="lg">
           <AdminSectionHeading title="Основные параметры" description="Название, тип и базовые ограничения скидки." />
           <div className="grid gap-6 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Название</span>
+              <span className={adminFieldLabel}>Название</span>
               <Input
                 value={state.name}
                 required
@@ -303,7 +303,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Тип</span>
+              <span className={adminFieldLabel}>Тип</span>
               <select
                 value={state.type}
                 onChange={(event) => handleChange("type", event.currentTarget.value as FormState["type"])}
@@ -318,7 +318,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
             </label>
           </div>
           <label className="space-y-2">
-            <span className="text-sm font-medium text-admin-text">Описание</span>
+            <span className={adminFieldLabel}>Описание</span>
             <textarea
               value={state.description}
               onChange={(event) => handleChange("description", event.currentTarget.value)}
@@ -329,7 +329,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           <div className="grid gap-6 md:grid-cols-3">
             {showPercent ? (
               <label className="space-y-2">
-                <span className="text-sm font-medium text-admin-text">Процент</span>
+                <span className={adminFieldLabel}>Процент</span>
                 <Input
                   type="number"
                   min={0}
@@ -343,7 +343,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
             ) : null}
             {showCurrency ? (
               <label className="space-y-2">
-                <span className="text-sm font-medium text-admin-text">Сумма (в центах)</span>
+                <span className={adminFieldLabel}>Сумма (в центах)</span>
                 <Input
                   type="number"
                   min={0}
@@ -356,7 +356,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
             ) : null}
             {showCurrency ? (
               <label className="space-y-2">
-                <span className="text-sm font-medium text-admin-text">Валюта</span>
+                <span className={adminFieldLabel}>Валюта</span>
                 <Input
                   value={state.currency}
                   onChange={(event) => handleChange("currency", event.currentTarget.value)}
@@ -366,7 +366,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
             ) : null}
             {showBogo ? (
               <label className="space-y-2">
-                <span className="text-sm font-medium text-admin-text">Купить X</span>
+                <span className={adminFieldLabel}>Купить X</span>
                 <Input
                   type="number"
                   min={1}
@@ -378,7 +378,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
             ) : null}
             {showBogo ? (
               <label className="space-y-2">
-                <span className="text-sm font-medium text-admin-text">Получить Y</span>
+                <span className={adminFieldLabel}>Получить Y</span>
                 <Input
                   type="number"
                   min={1}
@@ -391,13 +391,12 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           </div>
         </AdminStack>
       </AdminSurface>
-
       <AdminSurface padded="lg">
         <AdminStack gap="lg">
           <AdminSectionHeading title="Правила и ограничения" description="Период действия, приоритет и лимиты." />
           <div className="grid gap-6 md:grid-cols-3">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Приоритет</span>
+              <span className={adminFieldLabel}>Приоритет</span>
               <Input
                 type="number"
                 value={state.priority}
@@ -407,7 +406,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Минимальная сумма (¢)</span>
+              <span className={adminFieldLabel}>Минимальная сумма (¢)</span>
               <Input
                 type="number"
                 min={0}
@@ -416,7 +415,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Минимальное количество</span>
+              <span className={adminFieldLabel}>Минимальное количество</span>
               <Input
                 type="number"
                 min={0}
@@ -427,7 +426,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Старт</span>
+              <span className={adminFieldLabel}>Старт</span>
               <Input
                 type="datetime-local"
                 value={state.startAt}
@@ -435,7 +434,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Окончание</span>
+              <span className={adminFieldLabel}>Окончание</span>
               <Input
                 type="datetime-local"
                 value={state.endAt}
@@ -443,7 +442,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Канал</span>
+              <span className={adminFieldLabel}>Канал</span>
               <Input
                 value={state.channel}
                 onChange={(event) => handleChange("channel", event.currentTarget.value)}
@@ -453,7 +452,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Лимит по всем использованиям</span>
+              <span className={adminFieldLabel}>Лимит по всем использованиям</span>
               <Input
                 type="number"
                 min={0}
@@ -462,7 +461,7 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-admin-text">Лимит на пользователя</span>
+              <span className={adminFieldLabel}>Лимит на пользователя</span>
               <Input
                 type="number"
                 min={0}
@@ -493,28 +492,24 @@ export function DiscountForm({ mode, discountId, initial }: DiscountFormProps) {
           </div>
         </AdminStack>
       </AdminSurface>
-
       <RelationEditor
         title="Назначения"
         description="Выберите сущности, для которых действует скидка."
         rows={state.assignments}
         onChange={(rows) => handleChange("assignments", rows)}
       />
-
       <RelationEditor
         title="Исключения"
         description="Сущности, для которых скидка не применяется."
         rows={state.exclusions}
         onChange={(rows) => handleChange("exclusions", rows)}
       />
-
       {state.type === "coupon" ? (
         <CouponsEditor
           rows={state.coupons}
           onChange={(rows) => handleChange("coupons", rows)}
         />
       ) : null}
-
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={submitting}>
           {submitting ? "Сохранение..." : mode === "create" ? "Создать скидку" : "Сохранить изменения"}

@@ -80,7 +80,6 @@ const withBundleAnalyzer =
     try {
       // Optional: only active when ANALYZE=1 and when the package is installed
       // (keeps CI/dev flowing even if @next/bundle-analyzer is absent)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       return require("@next/bundle-analyzer")({
         enabled: process.env.ANALYZE === "1" || process.env.ANALYZE === "true",
       });

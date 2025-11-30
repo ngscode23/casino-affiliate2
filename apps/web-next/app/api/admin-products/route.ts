@@ -24,6 +24,7 @@ const PRODUCT_COLUMNS: ReadonlySet<string> = new Set([
   "currency",
   "status",
   "category_slug",
+  "catalog_product_id",
   "tags",
   "images",
   "image_path",
@@ -78,6 +79,59 @@ function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | n
     .map(encodeURIComponent)
     .join("/");
   return `${baseUrl.replace(/\/$/, "")}/storage/v1/object/public/${encodeURIComponent(bucket)}/${objectPath}`;
+}
+
+function extractFileName(path: string | null | undefined): string | null {
+  if (!path || typeof path !== "string") return null;
+  const cleaned = path.split(/[?#]/)[0];
+  const parts = cleaned.split("/").filter(Boolean);
+  if (!parts.length) return null;
+  return parts[parts.length - 1];
+}
+
+function toStoragePath(raw: string | null | undefined, bucket: string): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Public URL -> extract object path
+  try {
+    const url = new URL(trimmed);
+    const match = url.pathname.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
+    if (match) {
+      const [, bucketName, objectPath] = match;
+      if (decodeURIComponent(bucketName) !== bucket) return null;
+      return decodeURIComponent(objectPath);
+    }
+  } catch {
+    // not a URL, continue
+  }
+
+  // Already a storage path
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return normalizePath(trimmed, bucket);
+  }
+
+  return null;
+}
+
+async function copyImageIfNeeded(
+  supabase: ReturnType<typeof getAdminClient>,
+  fromPath: string | null,
+  toPath: string | null,
+) {
+  if (!fromPath || !toPath || fromPath === toPath) return;
+  const normalizedFrom = toStoragePath(fromPath, DEFAULT_BUCKET) ?? fromPath;
+  const normalizedTo = toStoragePath(toPath, DEFAULT_BUCKET) ?? toPath;
+  if (!normalizedFrom || !normalizedTo) return;
+  try {
+    const { error } = await supabase.storage.from(DEFAULT_BUCKET).copy(normalizedFrom, normalizedTo);
+    if (error) {
+      console.warn("admin-products: storage copy failed", { fromPath: normalizedFrom, toPath: normalizedTo, error });
+    }
+  } catch (err) {
+    console.warn("admin-products: storage copy threw", { fromPath: normalizedFrom, toPath: normalizedTo, err });
+  }
 }
 
 async function syncCatalog(supabase: ReturnType<typeof getAdminClient>, ids: string[]) {
@@ -208,6 +262,20 @@ async function slugExists(
   return false;
 }
 
+async function skuExists(supabase: ReturnType<typeof getAdminClient>, sku: string): Promise<boolean> {
+  try {
+    const { count, error } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("sku", sku);
+    if (error) {
+      console.warn("admin-products: sku lookup failed", error);
+      return true;
+    }
+    return (count ?? 0) > 0;
+  } catch (lookupError) {
+    console.warn("admin-products: sku lookup threw", lookupError);
+    return true;
+  }
+}
+
 async function generateUniqueSlug(
   supabase: ReturnType<typeof getAdminClient>,
   base: string,
@@ -233,6 +301,35 @@ async function generateUniqueSlug(
   }
 
   throw new Error("failed_to_generate_unique_slug");
+}
+
+async function generateUniqueSku(
+  supabase: ReturnType<typeof getAdminClient>,
+  base: string,
+  taken: Set<string>,
+): Promise<string> {
+  const normalizedBase = normalizeSku(base, base);
+  const seeds: string[] = [
+    `${normalizedBase}-COPY`,
+    `${normalizedBase}-COPY-${Date.now().toString(36).toUpperCase()}`,
+    `${normalizedBase}-COPY-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+  ];
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const seed =
+      attempt < seeds.length
+        ? seeds[attempt]
+        : `${normalizedBase}-COPY-${(Date.now() + attempt).toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const candidate = normalizeSku(seed, normalizedBase);
+    if (!candidate || taken.has(candidate)) continue;
+    if (await skuExists(supabase, candidate)) continue;
+    taken.add(candidate);
+    return candidate;
+  }
+
+  const fallback = normalizeSku(`${normalizedBase}-${Date.now().toString(36)}`, normalizedBase);
+  taken.add(fallback);
+  return fallback;
 }
 
 export async function POST(request: Request) {
@@ -283,14 +380,32 @@ export async function POST(request: Request) {
       const normalizedSku = normalizeSku(product.sku as string | undefined, title);
       const normalizedSlug = slugifyTitle((product.slug as string | undefined) ?? title, normalizedSku);
 
-    const upsertPayload = {
-      ...product,
-      title,
-      sku: normalizedSku,
-      slug: normalizedSlug,
-    };
+      const upsertPayload = {
+        ...product,
+        title,
+        sku: normalizedSku,
+        slug: normalizedSlug,
+      };
 
       const sanitizedPayload = filterProductPayload(upsertPayload);
+      const sanitizedRecord = sanitizedPayload as Record<string, unknown>;
+      const catalogFieldProvided =
+        Object.prototype.hasOwnProperty.call(product, "catalog_product_id") ||
+        Object.prototype.hasOwnProperty.call(sanitizedRecord, "catalog_product_id");
+      let catalogProductId: string | null = null;
+      if (catalogFieldProvided) {
+        const catalogProductRaw =
+          (product as Record<string, unknown>).catalog_product_id ??
+          sanitizedRecord.catalog_product_id ??
+          null;
+        catalogProductId =
+          typeof catalogProductRaw === "string" && catalogProductRaw.trim()
+            ? catalogProductRaw.trim()
+            : catalogProductRaw != null
+              ? String(catalogProductRaw)
+              : null;
+        sanitizedRecord.catalog_product_id = catalogProductId;
+      }
 
       const { data, error } = await supabase.rpc("admin_upsert_product", {
         p: sanitizedPayload,
@@ -312,7 +427,9 @@ export async function POST(request: Request) {
         } else if (directId != null) {
           productId = String(directId);
         } else {
-          const nestedId = (inserted as Record<string, unknown>).product_id ?? (inserted as Record<string, unknown>).admin_upsert_product;
+          const nestedId =
+            (inserted as Record<string, unknown>).product_id ??
+            (inserted as Record<string, unknown>).admin_upsert_product;
           if (typeof nestedId === "string") {
             productId = nestedId;
           } else if (nestedId != null) {
@@ -323,6 +440,44 @@ export async function POST(request: Request) {
 
       if (!productId) {
         return json({ ok: false, error: "missing_product_id" }, 500);
+      }
+
+      if (catalogFieldProvided && productId) {
+        try {
+          const { error: productCatalogError } = await supabase
+            .from("products")
+            .update({ catalog_product_id: catalogProductId })
+            .eq("id", productId);
+          if (productCatalogError) {
+            console.warn("admin-products: failed to sync products.catalog_product_id", productCatalogError);
+          }
+        } catch (syncErr) {
+          console.warn("admin-products: products catalog sync threw", syncErr);
+        }
+      }
+
+      // Best-effort sync of catalog_product_id into ecom_products for brand/model filters.
+      if (catalogFieldProvided) {
+        try {
+          const identifiers: Array<{ column: "id" | "slug" | "sku"; value: string }> = [];
+          if (productId) identifiers.push({ column: "id", value: productId });
+          if (normalizedSlug) identifiers.push({ column: "slug", value: normalizedSlug });
+          if (normalizedSku) identifiers.push({ column: "sku", value: normalizedSku });
+
+          for (const { column, value } of identifiers) {
+            const { error: syncError, data: updated } = await supabase
+              .from("ecom_products")
+              .update({ catalog_product_id: catalogProductId })
+              .eq(column, value)
+              .select("id")
+              .limit(1);
+            if (!syncError && Array.isArray(updated) && updated.length > 0) {
+              break;
+            }
+          }
+        } catch (syncErr) {
+          console.warn("admin-products: failed to sync ecom_products.catalog_product_id", syncErr);
+        }
       }
 
       await syncCatalog(supabase, [productId]);
@@ -457,9 +612,14 @@ export async function POST(request: Request) {
       }
 
       const takenSlugs = new Set<string>();
+      const takenSkus = new Set<string>(
+        sourceRows
+          .map((row) => (typeof row?.sku === "string" ? row.sku.trim().toUpperCase() : ""))
+          .filter(Boolean),
+      );
       const supabaseUrl = pickSupabaseUrl();
       const nowIso = new Date().toISOString();
-      const clones: Array<{
+const clones: Array<{
         originalId: string;
         row: {
           id: string;
@@ -479,6 +639,8 @@ export async function POST(request: Request) {
           image_path: string | null;
           [key: string]: unknown;
         };
+        original_image_path: string | null;
+        source_image_path: string | null;
       }> = [];
 
       for (const row of sourceRows) {
@@ -493,7 +655,21 @@ export async function POST(request: Request) {
         const base = String(row.slug || row.title || originalId || "product");
         const uniqueSlug = await generateUniqueSlug(supabase, base, takenSlugs);
         const sourceSku = String(row.sku || row.slug || originalId || uniqueSlug);
-        const sku = normalizeSku(`${sourceSku}-copy`, sourceSku);
+        const sku = await generateUniqueSku(supabase, sourceSku, takenSkus);
+        const imagePath = (() => {
+          const original = row.image_path && typeof row.image_path === "string" ? row.image_path : null;
+          const file = extractFileName(original) ?? "image.jpg";
+          return `${sku}/${file}`;
+        })();
+        const originalImagePath = (() => {
+          const original = row.image_path && typeof row.image_path === "string" ? row.image_path : null;
+          return toStoragePath(original, DEFAULT_BUCKET);
+        })();
+        const versions = imageVersionsByProduct.get(originalId) ?? [];
+        const versionSourcePath =
+          versions.find((version) => version?.is_current && version.path)?.path ??
+          versions.find((version) => version?.path)?.path ??
+          null;
         clones.push({
           originalId,
           row: {
@@ -511,8 +687,10 @@ export async function POST(request: Request) {
             sku,
             currency: row.currency ?? null,
             seller_id: row.seller_id ?? null,
-            image_path: row.image_path ?? null,
+            image_path: imagePath,
           },
+          original_image_path: originalImagePath,
+          source_image_path: originalImagePath ?? versionSourcePath ?? null,
         });
       }
 
@@ -528,9 +706,19 @@ export async function POST(request: Request) {
           : Array.isArray(legacy?.images)
             ? (legacy?.images as unknown[]).map((value) => String(value)).filter(Boolean)
             : [];
+        const imagePath = (() => {
+          const original =
+            (entry.row.image_path && String(entry.row.image_path)) ||
+            (legacy?.image_path && String(legacy.image_path)) ||
+            (imagesArray[0] ?? null);
+          const file = extractFileName(original) ?? "image.jpg";
+          return `${entry.row.sku}/${file}`;
+        })();
+        entry.row.image_path = imagePath;
+
         const mainImageUrl =
           (legacy?.main_image_url && String(legacy.main_image_url)) ||
-          toPublicUrl(supabaseUrl, DEFAULT_BUCKET, entry.row.image_path) ||
+          (imagePath ? toPublicUrl(supabaseUrl, DEFAULT_BUCKET, imagePath) : null) ||
           (imagesArray[0] ?? null);
         const priceCandidate =
           Number.isFinite(entry.row.price) && typeof entry.row.price === "number"
@@ -543,6 +731,18 @@ export async function POST(request: Request) {
           typeof legacy?.price_cents === "number" && Number.isFinite(legacy.price_cents)
             ? legacy.price_cents
             : Math.round(price * 100);
+
+        const resolvedSourcePath =
+          entry.source_image_path ||
+          toStoragePath(
+            legacy?.image_path ||
+              (Array.isArray(legacy?.images) ? String(legacy.images[0] ?? "") : null) ||
+              (imagesArray[0] ?? null) ||
+              legacy?.main_image_url ||
+              null,
+            DEFAULT_BUCKET,
+          );
+        entry.source_image_path = resolvedSourcePath ?? entry.source_image_path ?? null;
 
         legacyInserts.push(filterProductPayload({
           id: entry.row.id,
@@ -558,7 +758,7 @@ export async function POST(request: Request) {
           category_slug: entry.row.category_slug ?? legacy?.category_slug ?? null,
           tags: legacy?.tags ?? entry.row.tags ?? null,
           images: legacy?.images ?? entry.row.images ?? null,
-          image_path: entry.row.image_path ?? legacy?.image_path ?? null,
+          image_path: imagePath,
           main_image_url: mainImageUrl,
           seller_id: entry.row.seller_id ?? legacy?.seller_id ?? null,
           rating: legacy?.rating ?? entry.row.rating ?? null,
@@ -571,6 +771,7 @@ export async function POST(request: Request) {
         .insert(legacyInserts.length ? legacyInserts : rows)
         .select("id");
       if (insertError) return json({ ok: false, error: insertError.message || "db" }, 500);
+
       const insertedIds = (insertedData || []).map((row) => String(row.id));
 
       const imageVersionInserts: Array<{
@@ -582,21 +783,34 @@ export async function POST(request: Request) {
         metadata: unknown;
         is_current: boolean;
       }> = [];
+      const versionCopyTargets: Array<{ from: string | null; to: string | null }> = [];
       for (const entry of clones) {
         const versions = imageVersionsByProduct.get(entry.originalId);
         if (!versions || !versions.length) continue;
-        for (const version of versions) {
-          if (!version.path) continue;
+        versions.forEach((version, versionIndex) => {
+          if (!version.path && !version.source_url) return;
+          const normalizedSource =
+            toStoragePath(version.path, DEFAULT_BUCKET) ??
+            toStoragePath(version.source_url, DEFAULT_BUCKET) ??
+            entry.source_image_path ??
+            entry.original_image_path ??
+            null;
+          const baseFile =
+            extractFileName(
+              normalizedSource ?? version.path ?? version.source_url ?? entry.row.image_path ?? "",
+            ) ?? `image-${versionIndex + 1}.jpg`;
+          const targetPath = `${entry.row.sku}/versions/${versionIndex + 1}-${baseFile}`;
           imageVersionInserts.push({
             id: randomUUID(),
             product_id: entry.row.id,
             sku: entry.row.sku,
-            path: version.path,
+            path: targetPath,
             source_url: version.source_url,
             metadata: version.metadata ?? null,
             is_current: version.is_current ?? false,
           });
-        }
+          versionCopyTargets.push({ from: normalizedSource, to: targetPath });
+        });
       }
       if (imageVersionInserts.length) {
         try {
@@ -609,6 +823,16 @@ export async function POST(request: Request) {
         } catch (copyErr) {
           console.warn("admin-products: image versions copy threw", copyErr);
         }
+      }
+
+      // Copy primary image blobs into new paths (best-effort).
+      for (const entry of clones) {
+        const fromPath = entry.source_image_path ?? entry.original_image_path;
+        const toPath = toStoragePath(entry.row.image_path, DEFAULT_BUCKET) ?? entry.row.image_path;
+        await copyImageIfNeeded(supabase, fromPath, toPath);
+      }
+      for (const copy of versionCopyTargets) {
+        await copyImageIfNeeded(supabase, copy.from, copy.to);
       }
 
       await syncCatalog(supabase, insertedIds);

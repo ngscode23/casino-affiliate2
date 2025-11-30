@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextXs } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
@@ -290,7 +291,7 @@ export function HeroAdminClient() {
                   >
                     <div>
                       <div className="font-semibold">{item.title}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className={mutedTextXs}>
                         {item.published ? "Опубликовано" : "Черновик"} · приоритет {item.priority ?? 0}
                       </div>
                     </div>

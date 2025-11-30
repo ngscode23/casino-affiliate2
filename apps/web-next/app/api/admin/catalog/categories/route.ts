@@ -69,6 +69,7 @@ export async function GET(request: Request) {
   const includeInactive = normalizeBoolean(url.searchParams.get("include_inactive"), true);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.floor(limitParam), 1), 200) : 200;
 
+  // Admin UI uses the public `categories` view exposed via REST.
   const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
   let query = supabase
     .from("categories")
