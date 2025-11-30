@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { applyPromotionsToOrder } from "@/lib/promotions/apply";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type OrderItemInput = { id?: string; qty?: number };
 
@@ -69,6 +70,59 @@ function normalizeCurrency3(value: unknown): string | undefined {
   const code = value.trim().slice(0, 3).toUpperCase();
   if (!/^[A-Z]{3}$/.test(code)) return undefined;
   return code;
+}
+
+async function logPurchaseEvents(
+  supabase: SupabaseClient,
+  userId: string | null,
+  orderId: string | null,
+) {
+  if (!userId || !orderId) return;
+  try {
+    const { data: items, error } = await supabase
+      .from("order_items")
+      .select("product_id, qty, unit_price, total, meta")
+      .eq("order_id", orderId);
+    if (error) {
+      console.warn("orders-create purchase log: fetch items failed", error);
+      return;
+    }
+    if (!items?.length) return;
+
+    const events = items
+      .filter((item) => item && typeof item.product_id === "string")
+      .map((item) => {
+        const qty = typeof item.qty === "number" && Number.isFinite(item.qty) ? Math.max(1, Math.round(item.qty)) : 1;
+        const total = Number(item.total ?? 0);
+        const unit = Number(item.unit_price ?? 0);
+        const priceCents = Number.isFinite(total) && total > 0
+          ? Math.round(total * 100)
+          : Number.isFinite(unit)
+            ? Math.round(unit * 100 * qty)
+            : null;
+        return {
+          anon_id: userId,
+          event: "purchase" as const,
+          product_id: item.product_id as string,
+          weight: qty,
+          price_cents: priceCents,
+          metadata: {
+            order_id: orderId,
+            ...(item.meta && typeof item.meta === "object" ? { item_meta: item.meta } : {}),
+          },
+        };
+      })
+      .filter((row) => row.product_id);
+
+    if (events.length) {
+      const { error: insertError } = await supabase.from("user_events").insert(events);
+      if (insertError) {
+        console.warn("orders-create purchase log insert failed", insertError);
+      }
+    }
+  } catch (err) {
+    console.warn("orders-create purchase log unexpected error", err);
+  }
 }
 
 function extractCheckout(raw: unknown): CheckoutPayload | null {
@@ -194,11 +248,11 @@ export async function POST(request: Request) {
 
     const orderId = typeof rpcResponse.data === "string" && rpcResponse.data ? rpcResponse.data : null;
 
-    if (orderId) {
-      if (checkoutMeta) {
-        const { error } = await supabase
-          .from("orders")
-          .update({ checkout_metadata: checkoutMeta })
+      if (orderId) {
+        if (checkoutMeta) {
+          const { error } = await supabase
+            .from("orders")
+            .update({ checkout_metadata: checkoutMeta })
           .eq("id", orderId);
         if (error) {
           console.warn("orders-create checkout metadata", error);
@@ -215,6 +269,8 @@ export async function POST(request: Request) {
           console.warn("orders-create apply promotions failed", applyError);
         }
       }
+
+      await logPurchaseEvents(supabase, userId, orderId);
     }
 
     return json({ ok: true, order_id: orderId || rpcResponse.data }, 200);

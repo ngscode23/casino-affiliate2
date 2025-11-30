@@ -1,4 +1,5 @@
-'use client'
+'use client';
+import { mutedTextSmLegacy } from "@/styles/classnames";
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { type User } from '@supabase/supabase-js'
@@ -91,12 +92,11 @@ export default function AccountForm({ user }: { user: User | null }) {
                 <div className="space-y-1">
                     <p className="text-sm font-medium uppercase tracking-[0.32em] text-muted/80">Account</p>
                     <h2 className="text-2xl font-semibold text-fg">Profile preferences</h2>
-                    <p className="text-sm text-muted">
+                    <p className={mutedTextSmLegacy}>
                         Update your public information and avatar. Changes are saved instantly after upload.
                     </p>
                 </div>
             </div>
-
             <div className="grid gap-5">
                 <label className="grid gap-2" htmlFor="email">
                     <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Email</span>
@@ -142,7 +142,6 @@ export default function AccountForm({ user }: { user: User | null }) {
                     />
                 </label>
             </div>
-
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <button
                     className="inline-flex items-center justify-center rounded-full border border-primary/60 bg-primary px-6 py-3 text-sm font-semibold text-primaryfg shadow-[0_24px_60px_-32px_rgba(252,50,114,0.7)] transition hover:-translate-y-[1px] hover:shadow-[0_32px_72px_-34px_rgba(252,50,114,0.82)]"
@@ -162,5 +161,5 @@ export default function AccountForm({ user }: { user: User | null }) {
                 </form>
             </div>
         </div>
-    )
+    );
 }

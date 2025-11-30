@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm } from "@/styles/classnames";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -48,7 +49,7 @@ export default function LayoutPicker<T extends string>({
                     : "border-white/20 bg-white/10 text-muted group-hover:border-primary/40 group-hover:text-primary",
                 ].join(" ")}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={iconSm} />
               </span>
               <span>{option.label}</span>
             </button>

@@ -1,8 +1,9 @@
-"use client";
+"use client";;
+import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import type { Product } from "@/app/products/types";
 import { ProductGrid, PRODUCT_GRID_CONTAINER } from "@/components/ProductGrid";
-import { formatPrice } from "@/app/products/data";
+import { formatPrice } from "@/app/products/price-format";
 const LS_KEY = "ecom:wishlist";
 function readIds(): string[] {
   if (typeof window === "undefined") return [];
@@ -82,7 +83,7 @@ export default function WishlistClient({ products }: { products: Product[] }) {
         {" "}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
           {" "}
-          <h2 className="text-xl font-semibold text-fg">
+          <h2 className={sectionTitle}>
             Your wishlist is empty
           </h2>{" "}
           <p className="mt-2 text-sm text-muted">
@@ -99,7 +100,7 @@ export default function WishlistClient({ products }: { products: Product[] }) {
         className={`${PRODUCT_GRID_CONTAINER} mb-4 flex items-center justify-between gap-3`}
       >
         {" "}
-        <p className="text-sm text-muted">
+        <p className={mutedTextSmLegacy}>
           Saved items:{" "}
           <span className="font-semibold text-fg">{items.length}</span>
         </p>{" "}

@@ -30,6 +30,7 @@ type SiteLayoutClientProps = {
 export function SiteLayoutClient({ children, navItems, catalogCategories }: SiteLayoutClientProps) {
   const pathname = usePathname();
   const isAdminRoute = typeof pathname === "string" && pathname.startsWith("/admin");
+  const isProductsCatalogRoute = pathname === "/products";
 
   useEffect(() => {
     ensureSession().catch(() => undefined);
@@ -49,12 +50,21 @@ export function SiteLayoutClient({ children, navItems, catalogCategories }: Site
             <div className="flex min-h-screen flex-col bg-bg text-fg">
               <SiteHeader navItems={navItems} catalogCategories={catalogCategories} />
               <div className="flex-1">
-                <div className="mx-auto w-full max-w-screen-xl px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
-                  <main key={pathname ?? "site-root"} className="pb-16 lg:pb-20 animate-page-fade">
-                    {children}
-                  </main>
-                  <SiteFooter />
-                </div>
+                {isProductsCatalogRoute ? (
+                  <>
+                    <main key={pathname ?? "site-root"} className="pb-16 lg:pb-20 animate-page-fade">
+                      {children}
+                    </main>
+                    <SiteFooter />
+                  </>
+                ) : (
+                  <div className="mx-auto w-full max-w-screen-xl px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
+                    <main key={pathname ?? "site-root"} className="pb-16 lg:pb-20 animate-page-fade">
+                      {children}
+                    </main>
+                    <SiteFooter />
+                  </div>
+                )}
               </div>
             </div>
             <ToastContainer />

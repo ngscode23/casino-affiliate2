@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bell, Heart, Home, Menu, Search, ShoppingBag, User } from "lucide-react";
+import { Bell, Heart, Home, Menu, Search, ShoppingBag, User, X, ChevronRight } from "lucide-react";
 import { createPortal } from "react-dom";
 
 import { useCart } from "@shared/ecom/lib/cart";
@@ -11,6 +11,7 @@ import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
 import { cn } from "@shared/lib/cn";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
+import { logRecEvent } from "@/lib/recs-events";
 import styles from "./SiteHeader.module.css";
 
 export type NavItem = {
@@ -426,6 +427,14 @@ export function SiteHeaderClient({
     const qs = params.toString();
     setSearchOpen(false);
     router.push(qs ? `${pathPart}?${qs}` : pathPart);
+    if (trimmed) {
+      setTimeout(() => {
+        void logRecEvent({
+          event: "search",
+          metadata: { query: trimmed, source: "header_search" },
+        });
+      }, 0);
+    }
   };
 
   const buildPanel = (href: string, label: string): HoverPanel => {
@@ -564,74 +573,100 @@ export function SiteHeaderClient({
     </nav>
   );
 
-  const mobileOverlayMenu = isPortalReady
-    ? createPortal(
+const mobileOverlayMenu = isPortalReady
+  ? createPortal(
+      <div className={cn(styles.mobileSheetOverlay, mobileMenuOpen && styles.mobileSheetOverlayOpen)}>
+        <div className={styles.mobileSheetBackdrop} onClick={closeMobileMenu} />
         <div
-          className={cn(
-            "fixed inset-x-0 top-[var(--vh-header-height,72px)] bottom-0 z-[80] md:hidden transition-opacity duration-200",
-            mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-          )}
-          aria-hidden={!mobileMenuOpen}
-          onClick={closeMobileMenu}
+          role="dialog"
+          aria-modal="true"
+          aria-label={primaryLabel}
+          id={mobileMenuId}
+          className={cn(styles.mobileSheet, mobileMenuOpen ? styles.mobileSheetOpen : styles.mobileSheetClosed)}
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={primaryLabel}
-            id={mobileMenuId}
-            className={cn(
-              "absolute inset-0",
-              "bg-[rgba(18,18,20,0.96)] rounded-b-3xl shadow-2xl",
-              "px-4 pt-4 pb-6 overflow-y-auto flex flex-col gap-4",
-              "transition-transform duration-250 ease-out",
-              mobileMenuOpen ? "translate-y-0" : "-translate-y-3",
-            )}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{primaryLabel}</div>
-
-            <nav aria-label={primaryLabel}>
-              <ul className="mt-2 space-y-2.5">
-                {nav.map((item) => {
-                  const label = item.labelKey
-                    ? translate(item.labelKey, item.label ?? item.href)
-                    : item.label ?? item.href;
-                  const href = withLang(item.href, lang);
-                  const active = isActive(item.href);
-
-                  return (
-                    <li key={`mobile-${item.href}`}>
-                      <Link
-                        href={href}
-                        className={cn(
-                          "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold tracking-tight",
-                          "bg-white/5 text-slate-50 border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.6)]",
-                          active && "bg-white/10 border-white/40",
-                        )}
-                        onClick={closeMobileMenu}
-                      >
-                        <span>{label}</span>
-                        {active ? (
-                          <span className="text-xs text-emerald-400" aria-hidden>
-                            •
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-
-            {tagline ? (
-              <p className="mt-4 text-[11px] text-slate-400 leading-relaxed">{tagline}</p>
-            ) : null}
+          <div className={styles.mobileSheetHeader}>
+            <div className={styles.mobileSheetBrand}>
+              <span className={styles.mobileSheetMark}>{brandInitials}</span>
+              <div className={styles.mobileSheetText}>
+                <span className={styles.mobileSheetName}>{brandName}</span>
+                {tagline ? <span className={styles.mobileSheetTagline}>{tagline}</span> : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              className={styles.mobileSheetClose}
+              onClick={closeMobileMenu}
+              aria-label={translate("nav.close", "Close menu")}
+            >
+              <X size={18} aria-hidden />
+            </button>
           </div>
-        </div>,
-        document.body,
-      )
-    : null;
+
+          <form
+            className={styles.mobileSearch}
+            onSubmit={(event) => {
+              onSearchSubmit(event);
+              closeMobileMenu();
+            }}
+          >
+            <Search size={18} aria-hidden />
+            <input
+              type="search"
+              name="q"
+              placeholder={translate("header.searchPlaceholder", "Search products")}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+            />
+            <button type="submit">{searchLabel}</button>
+          </form>
+
+          <nav aria-label={primaryLabel} className={styles.mobileNav}>
+            <ul>
+              {nav.map((item) => {
+                const label = item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href;
+                const href = withLang(item.href, lang);
+                const active = isActive(item.href);
+
+                return (
+                  <li key={`mobile-${item.href}`}>
+                    <Link
+                      href={href}
+                      className={cn(styles.mobileNavLink, active && styles.mobileNavLinkActive)}
+                      onClick={closeMobileMenu}
+                    >
+                      <span>{label}</span>
+                      <ChevronRight size={18} aria-hidden />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div className={styles.mobileQuick}>
+            <div className={styles.mobileQuickHeader}>{translate("nav.quick", "Quick actions")}</div>
+            <div className={styles.mobileQuickGrid}>
+              {[
+                { key: "wishlist", label: wishlistLabel, href: withLang("/wishlist", lang), icon: <Heart size={18} aria-hidden /> },
+                { key: "cart", label: cartLabel, href: withLang("/cart", lang), icon: <ShoppingBag size={18} aria-hidden />, badge: totalQty },
+                { key: "account", label: accountLabel, href: withLang("/account", lang), icon: <User size={18} aria-hidden /> },
+                { key: "contact", label: notificationLabel, href: withLang("/contact", lang), icon: <Bell size={18} aria-hidden /> },
+              ].map((item) => (
+                <Link key={item.key} href={item.href} className={styles.mobileQuickItem} onClick={closeMobileMenu}>
+                  <span className={styles.mobileQuickIcon}>
+                    {item.icon}
+                    {item.badge ? <span className={styles.mobileQuickBadge}>{item.badge}</span> : null}
+                  </span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+  : null;
 
   const bottomNavPortal = isPortalReady ? createPortal(bottomNav, document.body) : null;
 

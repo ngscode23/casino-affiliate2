@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { headingLgOnDark } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -127,12 +128,11 @@ export function OrderDetailClient({ orderId }: Props) {
   return (
     <Section className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-white">Order #{orderId}</h1>
+        <h1 className={headingLgOnDark}>Order #{orderId}</h1>
         <Link href="/account/orders" className="text-sm text-white/70 hover:underline">
           Back to orders
         </Link>
       </div>
-
       {loading ? (
         <div className="space-y-3">
           <Skeleton className="h-8 w-1/3" />

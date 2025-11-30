@@ -1,3 +1,4 @@
+import { mutedTextSmLegacy } from "@/styles/classnames";
 // app/products/[slug]/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -253,7 +254,7 @@ async function renderCategoryListing(
             <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{category.title}</h1>
             <p className="text-base text-muted sm:max-w-3xl">{description}</p>
             {typeof listing.totalCount === "number" ? (
-              <span className="text-sm text-muted">Всего позиций: {listing.totalCount}</span>
+              <span className={mutedTextSmLegacy}>Всего позиций: {listing.totalCount}</span>
             ) : null}
           </header>
         </div>

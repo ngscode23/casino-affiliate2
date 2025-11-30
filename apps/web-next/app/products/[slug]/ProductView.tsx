@@ -1,4 +1,5 @@
-'use client';
+'use client';;
+import { mutedTextSm, mutedTextXs, sectionTitle } from "@/styles/classnames";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -8,11 +9,14 @@ import TrackClickButton from "@/app/products/components/TrackClickButton";
 import ProductGallery from "@/components/ProductGallery";
 import ProductSpecs from "@/components/ProductSpecs";
 import { ProductGrid } from "@/components/ProductGrid";
+import { RecommendationsWidget } from "@/components/RecommendationsWidget";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
 import { formatCurrency } from "../currency";
 import { track } from "@shared/lib/analytics";
 import { cn } from "@shared/lib/cn";
+import { logRecEvent } from "@/lib/recs-events";
+import ProductTechBlock from "./ProductTechBlock";
 
 type AdminStats = {
   isAdmin: boolean;
@@ -266,6 +270,13 @@ function ProductClientEffects({ product }: { product: ProductData }) {
       } catch {
         /* noop */
       }
+      void logRecEvent({
+        event: "view",
+        productId: product.id,
+        category: product.category?.slug ?? undefined,
+        priceCents: product.priceCents ?? Math.round((product.price || 0) * 100),
+        metadata: { source: "product_page", dataset: product.dataset },
+      });
       pushRecent(product.slug);
       recordRecentView(product.id);
     });
@@ -518,8 +529,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         category={product.category?.slug}
         priceBucket={priceBucket}
       />
-
-      <nav aria-label="Хлебные крошки" className="text-sm text-muted-foreground">
+      <nav aria-label="Хлебные крошки" className={mutedTextSm}>
         <ol className="flex flex-wrap items-center gap-2">
           <li className="flex items-center gap-2">
             <Link href="/" className="transition hover:text-primary hover:underline">
@@ -542,7 +552,6 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
           </li>
         </ol>
       </nav>
-
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] max-[923px]:-mx-6 max-[923px]:flex max-[923px]:snap-x max-[923px]:space-x-6 max-[923px]:overflow-x-auto max-[923px]:px-6">
         <div className="max-[923px]:min-w-[calc(100vw-3rem)] max-[923px]:snap-center">
           <ProductGallery
@@ -584,7 +593,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
                   {reviewAverageLabel}
                   <span className="text-xs font-medium text-muted-foreground">/ 5</span>
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className={mutedTextXs}>
                   На основе <span className="font-semibold text-fg">{reviewCount}</span> отзывов
                 </div>
               </div>
@@ -664,54 +673,58 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               </div>
             ) : null}
 
-            <ProductActionPanel
-              productId={product.id}
-              title={product.title}
-              formattedPrice={formattedPrice}
-              compareAtPrice={compareAtPrice}
-              finalPrice={finalPrice}
-              dataset={product.dataset}
-              variantLabel={variantLabel}
-              onAddAction={onAdd}
-              analyticsParams={{
-                product_id: product.id,
-                slug: product.slug,
-                variant: variantLabel ?? undefined,
-                dataset: product.dataset,
-              }}
-              isAdmin={admin.isAdmin}
-              paymentMethods={PAYMENT_METHODS}
-            />
+          <ProductActionPanel
+            productId={product.id}
+            title={product.title}
+            formattedPrice={formattedPrice}
+            compareAtPrice={compareAtPrice}
+            finalPrice={finalPrice}
+            priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
+            dataset={product.dataset}
+            category={product.category?.slug}
+            variantLabel={variantLabel}
+            onAddAction={onAdd}
+            analyticsParams={{
+              product_id: product.id,
+              slug: product.slug,
+              variant: variantLabel ?? undefined,
+              dataset: product.dataset,
+            }}
+            isAdmin={admin.isAdmin}
+            paymentMethods={PAYMENT_METHODS}
+          />
           </div>
 
           <TrustPanel isAdmin={admin.isAdmin} clicks={admin.clicks} impressions={admin.impressions} />
         </aside>
       </div>
-
       <ProductSpecs specs={product.specs} description={product.description} />
-
+      {product.techSpecs?.sections?.length ? (
+        <ProductTechBlock data={product.techSpecs} defaultCollapsed />
+      ) : null}
       <ProductReviews
         productId={product.id}
         slug={product.slug}
         initialAverage={product.reviewSummary.average}
         initialCount={product.reviewSummary.count}
       />
-
       {similar.length ? (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-fg">Похожие товары</h2>
+          <h2 className={sectionTitle}>Похожие товары</h2>
           <ProductGrid items={similar} wrapWithContainer={false} />
         </section>
       ) : null}
-
+      <RecommendationsWidget limit={8} />
       <RecentProducts currentSlug={product.slug} />
-
       <ProductStickyCTA
         productId={product.id}
         title={product.title}
         price={formattedPrice}
         dataset={product.dataset}
         selectedVariantLabel={variantLabel}
+        priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
+        category={product.category?.slug}
+        recMetadata={{ source: "sticky_cta" }}
         secondaryAction={
           admin.isAdmin ? (
             <TrackClickButton productId={product.id} dataset={product.dataset} category={product.category?.slug} />

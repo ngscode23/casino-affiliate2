@@ -1,3 +1,4 @@
+import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
 import type { Metadata } from "next";
 import SectionCard from "@ui/components/ui/SectionCard";
 import Tagline from "@/components/tagline";
@@ -21,7 +22,6 @@ export default function CookiesPage() {
           We keep cookies to a minimum. The table below lists what we set, why we set it, and how long it stays.
         </p>
       </div>
-
       <SectionCard contentClassName="space-y-4">
         <div className="overflow-hidden rounded-xl border border-border/40">
           <table className="w-full text-left text-sm text-muted">
@@ -53,8 +53,8 @@ export default function CookiesPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Managing cookies</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Managing cookies</h2>
+          <p className={mutedTextSmLegacy}>
             You can clear cookies at any time from your browser settings. Optional analytics starts disabled until
             you accept it in the consent banner. Revoking consent removes the analytics cookie immediately.
           </p>

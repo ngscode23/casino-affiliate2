@@ -1,9 +1,11 @@
 "use client";
+import { sectionTitle } from "@/styles/classnames";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ProductGrid } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
+import ProductCard from "@/components/ProductCard";
 
 type RecentProductsProps = {
   currentSlug: string;
@@ -61,6 +63,7 @@ async function fetchRecommendations(currentSlug: string, signal: AbortSignal) {
 }
 
 export default function RecentProducts({ currentSlug }: RecentProductsProps) {
+  const railRef = useRef<HTMLDivElement | null>(null);
   const [{ loading, recent, recommended }, setState] = useState<RecentProductsState>({
     loading: true,
     recent: [],
@@ -113,19 +116,68 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
     return () => controller.abort();
   }, [currentSlug]);
 
+  const scrollBy = (delta: number) => {
+    const el = railRef.current;
+    if (!el) return;
+    el.scrollBy({ left: delta, behavior: "smooth" });
+  };
+
   if (loading || (recent.length === 0 && recommended.length === 0)) return null;
 
   return (
     <section className="space-y-6">
       {recent.length > 0 ? (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-fg">Recently viewed</h2>
-          <ProductGrid items={recent} wrapWithContainer={false} />
+          <div className="flex items-center justify-between gap-3">
+            <h2 className={sectionTitle}>Recently viewed</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollBy(-320)}
+                className="hidden h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card text-muted transition hover:border-border hover:text-fg sm:inline-flex"
+                aria-label="Scroll left"
+              >
+                <span aria-hidden>‹</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBy(320)}
+                className="hidden h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card text-muted transition hover:border-border hover:text-fg sm:inline-flex"
+                aria-label="Scroll right"
+              >
+                <span aria-hidden>›</span>
+              </button>
+            </div>
+          </div>
+          <div className="overflow-hidden">
+            <div
+              ref={railRef}
+              className="flex gap-4 overflow-x-auto pb-2 pr-2"
+              style={{ scrollSnapType: "x mandatory" }}
+            >
+              {recent.map((product, index) => (
+                <div
+                  key={product.slug || product.id}
+                  className="w-[260px] flex-none scroll-snap-align-start"
+                >
+                  <ProductCard
+                    product={product}
+                    index={index}
+                    href={`/products/${product.slug}`}
+                    showAddToCart={false}
+                    addLabel="Add to cart"
+                    noImageLabel="No image"
+                    translate={(_, fallback) => fallback}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
       {recommended.length > 0 ? (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-fg">Inspired by your browsing</h2>
+          <h2 className={sectionTitle}>Inspired by your browsing</h2>
           <ProductGrid items={recommended} wrapWithContainer={false} />
         </div>
       ) : null}

@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm, sectionTitle } from "@/styles/classnames";
 
 import Image from "next/image";
 import { Heart } from "lucide-react";
@@ -54,10 +55,9 @@ export function ShowcaseCard({
           aria-label="Add to wishlist"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-fg"
         >
-          <Heart className="h-4 w-4" />
+          <Heart className={iconSm} />
         </button>
       </header>
-
       <div className="mt-6 overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-background to-accent/60 relative aspect-square">
         <Image
           src={image.src}
@@ -68,13 +68,12 @@ export function ShowcaseCard({
           loading="lazy"
         />
       </div>
-
       <div className="mt-6 flex-1">
         <h2 className="text-xl font-semibold tracking-tight text-fg">
           {title}
         </h2>
         <div className="mt-3 flex items-baseline gap-3">
-          <span className="text-xl font-semibold text-fg">{price}</span>
+          <span className={sectionTitle}>{price}</span>
           {originalPrice ? (
             <span className="text-sm text-muted-foreground line-through">
               {originalPrice}
@@ -82,7 +81,6 @@ export function ShowcaseCard({
           ) : null}
         </div>
       </div>
-
       <button
         type="button"
         className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-secondary px-6 py-3 text-sm font-medium text-fg transition-colors hover:bg-secondary/80"

@@ -1,5 +1,8 @@
+import "server-only";
 import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
 import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
@@ -17,11 +20,55 @@ const NEW_WINDOW_MS = 1000 * 60 * 60 * 24 * 14;
 const TOP_LIMIT = 6;
 const DEFAULT_LIST_LIMIT = 240;
 const DEFAULT_CURRENCY = "EUR";
+const SUPABASE_IN_FILTER_CHUNK = 40;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type CatalogProductMeta = {
+  id: string;
+  slug: string | null;
+  title: string | null;
+  brandId: string | null;
+};
+
+type CatalogBrandMeta = {
+  id: string;
+  slug: string | null;
+  name: string | null;
+};
+
+type VariantMeta = {
+  id: string | null;
+  slug: string | null;
+  sku: string | null;
+  catalogProductId: string | null;
+};
+
+let catalogPool: Pool | null = null;
+
+function shouldUseDbPool(): boolean {
+  return typeof process.env.DATABASE_URL === "string" && process.env.DATABASE_URL.trim().length > 0;
+}
+
+function getCatalogPool(): Pool | null {
+  if (!shouldUseDbPool()) return null;
+  if (!catalogPool) {
+    const connectionString = process.env.DATABASE_URL!.trim();
+    const sslRequired = /sslmode=(require|verify-full|verify-ca)/i.test(connectionString);
+    const sanitizedConnection = connectionString.replace(/([?&])sslmode=[^&]*/gi, "");
+    catalogPool = new Pool({
+      connectionString: sanitizedConnection,
+      ssl: sslRequired ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+  return catalogPool;
+}
 
 export type ProductFilters = {
   query?: string;
   category?: string;
   dataset?: "all" | "shop" | "legacy";
+  brand?: string;
+  model?: string;
   priceMin?: number | null;
   priceMax?: number | null;
   minRating?: number | null;
@@ -47,6 +94,312 @@ function humanizeSlug(value: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function splitSlugSegments(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return String(value)
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function chunkValues<T>(values: T[], chunkSize: number): T[][] {
+  if (!values.length) return [];
+  const normalizedSize = Math.max(1, Math.floor(chunkSize));
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += normalizedSize) {
+    chunks.push(values.slice(index, index + normalizedSize));
+  }
+  return chunks;
+}
+
+function looksLikeUuid(value: string | null | undefined): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return UUID_PATTERN.test(trimmed);
+}
+
+async function fetchCatalogMeta(
+  supabase: SupabaseClient,
+  catalogProductIds: string[],
+): Promise<{
+  productById: Map<string, CatalogProductMeta>;
+  brandById: Map<string, CatalogBrandMeta>;
+}> {
+  const productById = new Map<string, CatalogProductMeta>();
+  const brandById = new Map<string, CatalogBrandMeta>();
+
+  if (!catalogProductIds.length) {
+    return { productById, brandById };
+  }
+
+  const uniqueIds = Array.from(new Set(catalogProductIds));
+  const dbPool = getCatalogPool();
+
+  if (dbPool) {
+    const { rows } = await dbPool.query<{
+      id: string | null;
+      slug: string | null;
+      title: string | null;
+      brand_id: string | null;
+      brand_slug: string | null;
+      brand_name: string | null;
+    }>(
+      `
+      select
+        p.id,
+        p.slug,
+        p.title,
+        p.brand_id,
+        b.slug as brand_slug,
+        b.name as brand_name
+      from catalog.products p
+      left join catalog.brands b on b.id = p.brand_id
+      where p.id = any($1::uuid[])
+    `,
+      [uniqueIds],
+    );
+
+    for (const row of rows) {
+      const id = typeof row.id === "string" ? row.id : null;
+      if (!id) continue;
+      const brandId = typeof row.brand_id === "string" ? row.brand_id : null;
+      productById.set(id, {
+        id,
+        slug: typeof row.slug === "string" ? row.slug : null,
+        title: typeof row.title === "string" ? row.title : null,
+        brandId,
+      });
+      if (brandId && !brandById.has(brandId)) {
+        brandById.set(brandId, {
+          id: brandId,
+          slug: typeof row.brand_slug === "string" ? row.brand_slug : null,
+          name: typeof row.brand_name === "string" ? row.brand_name : null,
+        });
+      }
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[catalog-meta] fetched via pg", {
+        requestedProducts: uniqueIds.length,
+        resolvedProducts: productById.size,
+        resolvedBrands: brandById.size,
+      });
+    }
+
+    return { productById, brandById };
+  }
+
+  const catalogSupabase = getAdminClient();
+  for (const chunk of chunkValues(uniqueIds, SUPABASE_IN_FILTER_CHUNK)) {
+    const { data, error } = await catalogSupabase
+      .from("catalog_product_meta")
+      .select("id, slug, title, brand_id, brand_slug, brand_name")
+      .in("id", chunk);
+    if (error && process.env.NODE_ENV !== "production") {
+      const pgError = error as PostgrestError | null;
+      console.error("[catalog-meta] products error", {
+        chunkSize: chunk.length,
+        message: error.message,
+        details: pgError?.details,
+        hint: pgError?.hint,
+      });
+    }
+    if (!Array.isArray(data)) continue;
+    for (const row of data) {
+      const id = typeof row?.id === "string" ? row.id : null;
+      if (!id) continue;
+      const brandId = typeof row?.brand_id === "string" ? row.brand_id : null;
+      productById.set(id, {
+        id,
+        slug: typeof row?.slug === "string" ? row.slug : null,
+        title: typeof row?.title === "string" ? row.title : null,
+        brandId,
+      });
+      if (brandId && !brandById.has(brandId)) {
+        brandById.set(brandId, {
+          id: brandId,
+          slug: typeof row?.brand_slug === "string" ? row.brand_slug : null,
+          name: typeof row?.brand_name === "string" ? row.brand_name : null,
+        });
+      }
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      console.log("[catalog-meta]", {
+        requestedProducts: catalogProductIds.length,
+        resolvedProducts: productById.size,
+        resolvedBrands: brandById.size,
+      });
+    } catch {
+      // ignore logging issues
+    }
+  }
+
+  return { productById, brandById };
+}
+
+async function fetchVariantMeta(
+  supabase: SupabaseClient,
+  variantIds: string[],
+  variantSlugs: string[],
+  variantSkus: string[],
+): Promise<Map<string, VariantMeta>> {
+  const variantByKey = new Map<string, VariantMeta>();
+  const enableProductsFallback = process.env.SUPABASE_ENABLE_PRODUCTS_FALLBACK === "true";
+
+  const fetchChunk = async (
+    source: "ecom_products" | "products",
+    column: "id" | "slug" | "sku",
+    values: string[],
+  ) => {
+    const { data, error } = await supabase
+      .from(source)
+      .select("id, slug, sku, catalog_product_id")
+      .in(column, values);
+    if (error) {
+      if (process.env.NODE_ENV !== "production") {
+        const pgError = error as PostgrestError | null;
+        console.error("[catalog-meta] variant lookup error", {
+          source,
+          column,
+          chunkSize: values.length,
+          message: error.message,
+          details: pgError?.details,
+          hint: pgError?.hint,
+        });
+      }
+
+      const fallbackRows: Array<Record<string, unknown>> = [];
+      for (const value of values) {
+        const { data: single, error: singleError } = await supabase
+          .from(source)
+          .select("id, slug, sku, catalog_product_id")
+          .eq(column, value)
+          .maybeSingle();
+        if (singleError) {
+          if (process.env.NODE_ENV !== "production") {
+            const pgError = singleError as PostgrestError | null;
+            console.error("[catalog-meta] variant fallback error", {
+              source,
+              column,
+              value,
+              message: singleError.message,
+              details: pgError?.details,
+              hint: pgError?.hint,
+            });
+          }
+          continue;
+        }
+        if (single) {
+          fallbackRows.push(single as Record<string, unknown>);
+        }
+      }
+      return fallbackRows;
+    }
+    if (!Array.isArray(data)) return [];
+    return data as Array<Record<string, unknown>>;
+  };
+
+  const loadByColumn = async (column: "id" | "slug" | "sku", values: string[]) => {
+    if (!values.length) return;
+    const sanitizedValues =
+      column === "id"
+        ? values
+            .map((value) => (typeof value === "string" ? value.trim() : value))
+            .filter((value): value is string => looksLikeUuid(value))
+        : values
+            .map((value) => (typeof value === "string" ? value.trim() : value))
+            .filter((value): value is string => typeof value === "string" && value.length > 0);
+    if (!sanitizedValues.length) return;
+
+    for (const chunk of chunkValues(sanitizedValues, SUPABASE_IN_FILTER_CHUNK)) {
+      const rows = await fetchChunk("ecom_products", column, chunk);
+      if (!rows.length) continue;
+      for (const row of rows) {
+        const id = typeof row?.id === "string" ? row.id : null;
+        const slug = typeof row?.slug === "string" ? row.slug : null;
+        const sku = typeof row?.sku === "string" ? row.sku : null;
+        const catalogProductRaw = (row as Record<string, unknown>)?.catalog_product_id ?? null;
+        const catalogProductId =
+          typeof catalogProductRaw === "string" && catalogProductRaw.trim()
+            ? catalogProductRaw.trim()
+            : typeof catalogProductRaw === "number"
+              ? String(catalogProductRaw)
+              : null;
+        const meta: VariantMeta = { id, slug, sku, catalogProductId };
+        if (id) variantByKey.set(id, meta);
+        if (slug) variantByKey.set(slug, meta);
+        if (sku) variantByKey.set(sku, meta);
+      }
+    }
+  };
+
+  const loadByColumnFromProducts = async (column: "id" | "slug" | "sku", values: string[]) => {
+    if (!values.length) return;
+    const sanitizedValues =
+      column === "id"
+        ? values
+            .map((value) => (typeof value === "string" ? value.trim() : value))
+            .filter((value): value is string => looksLikeUuid(value))
+        : values
+            .map((value) => (typeof value === "string" ? value.trim() : value))
+            .filter((value): value is string => typeof value === "string" && value.length > 0);
+    if (!sanitizedValues.length) return;
+
+    for (const chunk of chunkValues(sanitizedValues, SUPABASE_IN_FILTER_CHUNK)) {
+      const rows = await fetchChunk("products", column, chunk);
+      if (!rows.length) continue;
+      for (const row of rows) {
+        const id = typeof row?.id === "string" ? row.id : null;
+        const slug = typeof row?.slug === "string" ? row.slug : null;
+        const sku = typeof row?.sku === "string" ? row.sku : null;
+        const catalogProductRaw = (row as Record<string, unknown>)?.catalog_product_id ?? null;
+        const catalogProductId =
+          typeof catalogProductRaw === "string" && catalogProductRaw.trim()
+            ? catalogProductRaw.trim()
+            : typeof catalogProductRaw === "number"
+              ? String(catalogProductRaw)
+              : null;
+        const meta: VariantMeta = { id, slug, sku, catalogProductId };
+
+        const upsertIfMissingCatalog = (key: string | null) => {
+          if (!key) return;
+          const existing = variantByKey.get(key);
+          if (!existing || !existing.catalogProductId) {
+            variantByKey.set(key, meta);
+          }
+        };
+
+        upsertIfMissingCatalog(id);
+        upsertIfMissingCatalog(slug);
+        upsertIfMissingCatalog(sku);
+      }
+    }
+  };
+
+  await loadByColumn("id", variantIds);
+  const unresolvedSlugs: string[] = variantSlugs.filter((slug) => !variantByKey.has(slug));
+  if (unresolvedSlugs.length) {
+    await loadByColumn("slug", unresolvedSlugs);
+  }
+  const unresolvedSkus: string[] = variantSkus.filter((sku) => !variantByKey.has(sku));
+  if (unresolvedSkus.length) {
+    await loadByColumn("sku", unresolvedSkus);
+  }
+
+  // Optional fallback: resolve missing catalog_product_id from legacy "products" table.
+  if (enableProductsFallback) {
+    await loadByColumnFromProducts("id", variantIds);
+    await loadByColumnFromProducts("slug", variantSlugs);
+    await loadByColumnFromProducts("sku", variantSkus);
+  }
+
+  return variantByKey;
 }
 
 function buildStructuredData(products: Product[]) {
@@ -215,11 +568,67 @@ async function loadProductsDataInternal(
     };
   }
 
+  const variantIds = Array.from(
+    new Set(
+      data
+        .map((row: any) => {
+          const raw = row?.id ?? null;
+          if (typeof raw === "string" && raw.trim()) return raw.trim();
+          if (typeof raw === "number") return String(raw);
+          return null;
+        })
+        .filter(Boolean) as string[],
+    ),
+  );
+
+  const variantSlugs = Array.from(
+    new Set(
+      data
+        .map((row: any) => {
+          const raw = row?.slug ?? null;
+          if (typeof raw === "string" && raw.trim()) return raw.trim();
+          return null;
+        })
+        .filter(Boolean) as string[],
+    ),
+  );
+
+  const variantSkus = Array.from(
+    new Set(
+      data
+        .map((row: any) => {
+          const raw = row?.sku ?? null;
+          if (typeof raw === "string" && raw.trim()) return raw.trim();
+          return null;
+        })
+        .filter(Boolean) as string[],
+    ),
+  );
+
+  const variantMetaById = await fetchVariantMeta(supabase, variantIds, variantSlugs, variantSkus);
+  const catalogProductIds = Array.from(
+    new Set(
+      Array.from(variantMetaById.values())
+        .map((meta) => meta.catalogProductId)
+        .filter((value): value is string => looksLikeUuid(value)),
+    ),
+  );
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[catalog-meta] requested product IDs", catalogProductIds);
+  }
+
+  const { productById: catalogProductById, brandById: catalogBrandById } = await fetchCatalogMeta(
+    supabase,
+    catalogProductIds,
+  );
+
   const now = Date.now();
 
   const products: Product[] = data.map((row: any, index) => {
     const id = row?.id != null ? String(row.id) : "";
     const slug = row?.slug != null ? String(row.slug) : "";
+    const sku = typeof row?.sku === "string" ? row.sku : null;
     const titleSource = row?.title ?? row?.name ?? "";
     const title = titleSource != null ? String(titleSource) : "";
     const createdAtRaw = row?.created_at ?? row?.createdAt ?? null;
@@ -265,11 +674,32 @@ async function loadProductsDataInternal(
       return null;
     })();
 
-    return {
-      id,
-      slug,
+    const variantMeta =
+      (id ? variantMetaById.get(id) : null) ??
+      (slug ? variantMetaById.get(slug) : null) ??
+      (sku ? variantMetaById.get(sku) : null);
+    const catalogProductId = variantMeta?.catalogProductId ?? null;
+    const catalogProductMeta = catalogProductId ? catalogProductById.get(catalogProductId) : undefined;
+    const catalogBrandMeta = catalogProductMeta?.brandId ? catalogBrandById.get(catalogProductMeta.brandId) : undefined;
+    const brandSlug = catalogBrandMeta?.slug ?? null;
+    const brandName = catalogBrandMeta?.name ?? null;
+    const modelSlug = catalogProductMeta?.slug ?? null;
+    const modelTitle = catalogProductMeta?.title ?? (typeof row?.name === "string" ? row.name : null);
+
+      return {
+        id,
+        slug,
+        sku,
       title,
       description: typeof row?.description === "string" ? row.description : null,
+      category: categorySlug,
+      brand: brandSlug ?? null,
+      brandSlug: brandSlug ?? null,
+      brandName,
+      model: modelSlug ?? null,
+      modelSlug: modelSlug ?? null,
+      modelTitle,
+      catalogProductId,
       price: normalizedPrice,
       priceCents: normalizedPriceCents,
       originalPrice: priceDetails.originalPrice,

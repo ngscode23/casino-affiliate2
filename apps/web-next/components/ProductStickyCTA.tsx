@@ -12,6 +12,9 @@ type ProductStickyCTAProps = {
   dataset?: "shop" | "legacy";
   selectedVariantLabel?: string | null;
   quantity?: number;
+  priceCents?: number | null;
+  category?: string | null;
+  recMetadata?: Record<string, unknown>;
   addLabel?: string;
   className?: string;
   secondaryAction?: ReactNode;
@@ -27,6 +30,9 @@ export default function ProductStickyCTA({
   dataset,
   selectedVariantLabel,
   quantity = 1,
+  priceCents = null,
+  category = null,
+  recMetadata,
   addLabel = "В корзину",
   className,
   secondaryAction,
@@ -104,6 +110,9 @@ export default function ProductStickyCTA({
               variant="solid"
               quantity={quantity}
               analyticsParams={analyticsPayload}
+              priceCents={priceCents ?? undefined}
+              category={category}
+              recMetadata={recMetadata}
             />
             {secondaryAction ? (
               <div className="order-2 sm:order-1 sm:flex-shrink-0">{secondaryAction}</div>

@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm } from "@/styles/classnames";
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
@@ -81,7 +82,7 @@ function OffersTable({ offers, labels }: { offers: Array<Partial<NormalizedOffer
                   className="inline-flex items-center gap-2 px-3 py-2 text-xs"
                   aria-label={`${labels.viewOffer} ${(offer as any).name || "offer"}`}
                 >
-                  {labels.viewOffer} <ExternalLink className="h-4 w-4" />
+                  {labels.viewOffer} <ExternalLink className={iconSm} />
                 </LinkButton>
               </td>
             </tr>

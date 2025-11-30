@@ -1,3 +1,4 @@
+import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
 import type { Metadata } from "next";
 import SectionCard from "@ui/components/ui/SectionCard";
 import Tagline from "@/components/tagline";
@@ -18,11 +19,10 @@ export default function TermsPage() {
           before creating an account or following our affiliate links.
         </p>
       </div>
-
       <SectionCard contentClassName="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Using the site</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Using the site</h2>
+          <p className={mutedTextSmLegacy}>
             You agree to use Neon Shop for lawful purposes and in compliance with your local regulations.
             Content is provided as-is for research and comparison. Offers listed on the site may change or
             expire at any time.
@@ -30,32 +30,32 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Accounts</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Accounts</h2>
+          <p className={mutedTextSmLegacy}>
             If you create an account you are responsible for keeping your credentials safe. We may suspend
             or remove accounts that abuse the platform or attempt to manipulate tracking data.
           </p>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Affiliate relationships</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Affiliate relationships</h2>
+          <p className={mutedTextSmLegacy}>
             Some links are affiliate links. We may receive a commission if you sign up through them. Our
             reviews remain independent and paid placements are labelled.
           </p>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Liability</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Liability</h2>
+          <p className={mutedTextSmLegacy}>
             Neon Shop is provided without warranties. We are not responsible for losses that result from
             decisions you make after reading our content or using partner sites.
           </p>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Updates</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Updates</h2>
+          <p className={mutedTextSmLegacy}>
             We may update these terms from time to time. If changes are material we will notify registered
             users by email and update the timestamp on this page.
           </p>

@@ -11,17 +11,13 @@
 .vcGridBase {
   display: grid;
   width: 100%;
-  justify-content: center;
-  gap: var(--vc-grid-row-gap, 36px) var(--vc-grid-column-gap, 24px);
-  max-width: var(--vc-grid-max-width, 1110px);
-  min-height: var(--vc-grid-min-height, 996px);
-  margin-left: auto;
-  margin-right: auto;
+  justify-content: stretch;
+  align-items: start;
+  column-gap: var(--vc-grid-column-gap, clamp(16px, 2vw, 32px));
+  row-gap: var(--vc-grid-row-gap, clamp(20px, 2.5vw, 40px));
+  grid-auto-rows: max-content;
   padding: 0;
   list-style: none;
-  content-visibility: auto;
-  contain: layout paint style;
-  contain-intrinsic-size: var(--vc-grid-min-height, 996px);
 }
 
 .vcGridItem {
@@ -29,76 +25,56 @@
   justify-content: center;
 }
 
+.vcReveal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .vcLayoutGrid {
-  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
-}
-
-@media (min-width: 768px) {
-  .vcLayoutGrid {
-    grid-template-columns: repeat(2, minmax(0, var(--vc-card-width, 353.33px)));
-  }
-}
-
-@media (min-width: 1200px) {
-  .vcLayoutGrid {
-    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
-  }
-}
-
-@media (min-width: 1350px) {
-  .vcGridBase {
-    max-width: 1260px;
-    -moz-column-gap: 15px;
-    column-gap: 15px;
-    row-gap: 20px;
-    padding-top: var(--vc-padding-top-desktop, 15px);
-  }
-
-  .vcLayoutGrid,
-  .vcLayoutMasonry {
-    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
-  }
-}
-
-@media (min-width: 1260px) {
-  .vcGridBase {
-    --vc-padding-top-desktop: 20px;
-  }
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(
+      clamp(var(--vc-card-min-width, 240px), 24vw, var(--vc-card-width, 360px)),
+      1fr
+    )
+  );
 }
 
 .vcLayoutSingle {
-  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
-  gap: var(--vc-grid-row-gap, 36px);
+  grid-template-columns: minmax(min(100%, var(--vc-card-width, 320px)), 1fr);
+  gap: 32px;
 }
 
 .vcLayoutMasonry {
-  grid-template-columns: minmax(min(100%, var(--vc-card-width, 353.33px)), 1fr);
-  grid-auto-rows: minmax(calc(var(--vc-card-height, 452px) * 0.6), auto);
+  grid-template-columns: minmax(min(100%, var(--vc-card-width, 320px)), 1fr);
+  grid-auto-rows: max-content;
   align-items: start;
 }
 
 @media (min-width: 768px) {
   .vcLayoutMasonry {
-    grid-template-columns: repeat(2, minmax(0, var(--vc-card-width, 353.33px)));
+    grid-template-columns: repeat(2, minmax(0, var(--vc-card-width, 320px)));
   }
 }
 
 @media (min-width: 1200px) {
   .vcLayoutMasonry {
-    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 353.33px)));
+    grid-template-columns: repeat(3, minmax(0, var(--vc-card-width, 320px)));
   }
 }
 
 .vcSkeletonCard {
   width: 100%;
-  max-width: var(--vc-card-width, 353.33px);
-  min-height: var(--vc-card-height, 452px);
+  max-width: var(--vc-card-width, 320px);
+  min-height: var(--vc-card-height, 420px);
   display: flex;
   flex-direction: column;
   padding: var(--vc-card-frame-padding, 7px);
   border-radius: var(--vc-card-radius, 25px);
   background: var(--vc-card-bg, #fff);
-  box-shadow: var(--vc-card-shadow, 0 24px 48px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--vc-card-shadow, 0 24px 48px rgba(0, 0, 0, 0.08));
   gap: var(--vc-card-frame-gap, 8px);
 }
 

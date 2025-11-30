@@ -19,10 +19,11 @@ export async function GET(request: Request) {
     const includeInactive = url.searchParams.get("include_inactive") !== "false";
     const includeChildren = url.searchParams.get("include_children") === "true";
 
+    // Use the public view `public.categories`, which Supabase REST exposes by default.
     const supabase = getAdminClient();
     let query = supabase
       .from("categories")
-      .select("slug,title,description,parent_id,sort_order,is_active")
+      .select("id,slug,title,description,parent_id,sort_order,is_active")
       .order("sort_order", { ascending: true, nullsFirst: false })
       .order("title", { ascending: true });
 
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
 
     const items = Array.isArray(data)
       ? data.map((item) => ({
+          id: typeof item.id === "string" ? item.id : null,
           slug: item.slug,
           name: item.title ?? item.slug,
           title: item.title ?? item.slug,

@@ -12,11 +12,11 @@
   padding: 0 0.25rem;
 }
 
-.banner-slider__swiper .swiper-pagination {
+.banner-slider__swiper :where(.swiper-pagination) {
   bottom: 1rem;
 }
 
-.banner-slider__swiper .swiper-pagination-bullet {
+.banner-slider__swiper :where(.swiper-pagination-bullet) {
   width: 0.75rem;
   height: 0.75rem;
   background: rgba(255, 255, 255, 0.6);
@@ -24,8 +24,7 @@
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.banner-slider__swiper .swiper-pagination-bullet-active {
+.banner-slider__swiper :where(.swiper-pagination-bullet-active) {
   background: rgba(255, 255, 255, 0.95);
   transform: scale(1.1);
 }
-

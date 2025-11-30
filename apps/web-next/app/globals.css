@@ -1,6 +1,10 @@
 /* Tailwind base directives */
 @import "tailwindcss";
-
+  /* *,
+  *::before,
+  *::after {
+    border-radius: 0 !important;
+  } */
 /* Theme tokens (Tailwind v4 friendly) */
 :root {
   --sidebar-width: clamp(16.5rem, 19vw, 19.5rem);
@@ -10,9 +14,9 @@
   --radius: 1.5rem;
   scroll-behavior: smooth;
 
-  --bg-rgb: 250 246 235;
-  --card-rgb: 255 251 244;
-  --fg-rgb: 58 47 38;
+  --bg-rgb: 255 255 255;
+  --card-rgb: 255 255 255;
+  --fg-rgb: 38 38 38;
   --muted-rgb: 232 224 213;
   --mutedfg-rgb: 116 102 88;
   --secondary-rgb: 245 236 222;
@@ -34,6 +38,10 @@
   --text-dim: rgb(var(--mutedfg-rgb));
   --accent: rgb(var(--accent-rgb));
   --ui-accent-20: rgb(var(--accent-rgb) / 0.2);
+  --transition-fast: 180ms ease;
+  --transition-medium: 260ms ease;
+  --transition-slow: 360ms ease;
+  --page-transition-duration: 420ms;
 }
 
 .dark {
@@ -90,6 +98,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 200ms ease, color 200ms ease;
+  animation: page-fade-in var(--page-transition-duration) var(--transition-medium) both;
 }
 
 :focus-visible {
@@ -194,25 +203,40 @@ body {
   .tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
   .break-inside-avoid { break-inside: avoid; }
 
+  /* Global scrollbar */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-rgb) / 0.6) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgb(var(--border-rgb) / 0.7), rgb(var(--primary-rgb) / 0.8));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(var(--border-rgb) / 0.9), rgb(var(--primary-rgb) / 1));
+  }
+
+  /* Opt-in slimmer glass scrolls */
   .glass-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgb(var(--border-rgb) / 0.4) transparent;
+    scrollbar-color: rgb(var(--border-rgb) / 0.5) transparent;
   }
   .glass-scroll::-webkit-scrollbar { width: 8px; }
   .glass-scroll::-webkit-scrollbar-thumb {
-    background-color: rgb(var(--border-rgb) / 0.32);
+    background: linear-gradient(180deg, rgb(var(--border-rgb) / 0.55), rgb(var(--primary-rgb) / 0.7));
     border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
   .glass-scroll::-webkit-scrollbar-track { background: transparent; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    scroll-behavior: auto;
-  }
-  .animate-page-fade {
-    animation: none !important;
-  }
 }
 
 @keyframes page-fade-in {
@@ -228,4 +252,16 @@ body {
 
 .animate-page-fade {
   animation: page-fade-in 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+  .animate-page-fade {
+    animation: none;
+  }
+  body {
+    animation: none;
+  }
 }

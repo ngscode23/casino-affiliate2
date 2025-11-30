@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextSm } from "@/styles/classnames";
 
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -34,9 +35,8 @@ export default function ProductSpecs({ specs, description }: ProductSpecsProps) 
     <section className="space-y-6 rounded-3xl border border-border/40 bg-card/60 p-6">
       <header className="space-y-2">
         <h2 className="text-2xl font-semibold text-fg">О товаре</h2>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        {description ? <p className={mutedTextSm}>{description}</p> : null}
       </header>
-
       {hasHighlights ? (
         <div className="space-y-3 rounded-2xl border border-border/30 bg-card/75 p-4">
           <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-muted">Кратко</h3>
@@ -50,7 +50,6 @@ export default function ProductSpecs({ specs, description }: ProductSpecsProps) 
           </ul>
         </div>
       ) : null}
-
       {hasAttributes ? (
         <div className="rounded-2xl border border-border/30 bg-card/75">
           <button
@@ -61,7 +60,7 @@ export default function ProductSpecs({ specs, description }: ProductSpecsProps) 
           >
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-muted">Характеристики</h3>
-              <p className="text-sm text-muted-foreground">Технические детали и основные параметры</p>
+              <p className={mutedTextSm}>Технические детали и основные параметры</p>
             </div>
             <ChevronDown
               className={cn(
@@ -96,7 +95,6 @@ export default function ProductSpecs({ specs, description }: ProductSpecsProps) 
           </div>
         </div>
       ) : null}
-
       {specs.cards.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {specs.cards.map((card, idx) => (

@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextXs } from "@/styles/classnames";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -523,9 +524,9 @@ export function OrdersClient() {
                           <tr className="border-b border-border/20 bg-card/75">
                             <td colSpan={5} className="px-5 py-5">
                               {!detail ? (
-                                <div className="text-xs text-muted-foreground">Loading order details...</div>
+                                <div className={mutedTextXs}>Loading order details...</div>
                               ) : detail.items.length === 0 ? (
-                                <div className="text-xs text-muted-foreground">No items were recorded for this order.</div>
+                                <div className={mutedTextXs}>No items were recorded for this order.</div>
                               ) : (
                                 <div className="space-y-4">
                                   <div className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
@@ -554,7 +555,7 @@ export function OrdersClient() {
                                             ) : (
                                               <span className="font-semibold text-fg">{item.title || productId || "Item"}</span>
                                             )}
-                                            <div className="text-xs text-muted-foreground">
+                                            <div className={mutedTextXs}>
                                               Quantity: {quantity} × {unit}
                                             </div>
                                           </div>

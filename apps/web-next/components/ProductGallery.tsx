@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm } from "@/styles/classnames";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -131,11 +132,10 @@ export default function ProductGallery({
             onClick={openLightbox}
             aria-label="Открыть в предпросмотре"
           >
-            <Maximize2 className="h-4 w-4" aria-hidden />
+            <Maximize2 className={iconSm} aria-hidden />
           </button>
         ) : null}
       </div>
-
       {list.length > 1 ? (
         <div className="flex gap-3 overflow-x-auto pb-1">
           {list.map((image, idx) => (
@@ -168,7 +168,6 @@ export default function ProductGallery({
           ))}
         </div>
       ) : null}
-
       {Lightbox ? (
         <Lightbox
           title={title}

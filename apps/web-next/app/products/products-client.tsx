@@ -1,53 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { AlignJustify, ChevronDown, Grid3X3, LayoutGrid, Search, Shirt, Smartphone, Sparkles, Filter } from "lucide-react";
-import dynamic from "next/dynamic";
-import type { LucideIcon } from "lucide-react";
+import { ChevronDown, Search, Settings, Sun, Moon, X } from "lucide-react";
 
 import { ProductGrid, ProductSkeleton, PRODUCT_GRID_LAYOUTS } from "@/components/ProductGrid";
+import type { ProductGridItem } from "@/components/ProductGrid";
 import type { Product } from "./types";
 import type { CategorySummary } from "./data";
 import { formatPrice } from "./utils";
 import { logRecEvent } from "@/lib/recs-events";
-const DatasetPicker = dynamic(() => import("./filters/DatasetPicker"), { ssr: false });
-const LayoutPicker = dynamic(() => import("./filters/LayoutPicker"), { ssr: false });
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@ui/components/common/sheet";
+import FilterSidebar, { type FilterSidebarProps, type TaxonomyOption } from "./FilterSidebar";
+import { DATASET_LABELS, DATASET_OPTIONS, DatasetType, SORT_OPTIONS, SortMode } from "./filter-config";
+import RevealOnScroll from "@/components/animation/RevealOnScroll";
+import CatalogProductCarousel from "@/components/CatalogProductCarousel";
 
 type LayoutMode = "grid" | "single" | "masonry";
-
-type FiltersState = {
-  query: string;
-  dataset: "all" | "shop" | "legacy";
-  sort: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
-  layout: LayoutMode;
-  category: string;
-  priceMin: number | null;
-  priceMax: number | null;
-  minRating: number | null;
-};
-
 const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
-type ProductGridStyle = CSSProperties & { "--vc-grid-max-width"?: string };
-const GRID_SURFACE_CLASS =
-  "rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10";
-const GRID_STYLE: ProductGridStyle = { "--vc-grid-max-width": "1100px" };
-const FULL_BLEED_CLASS = "relative left-1/2 right-1/2 w-screen -translate-x-1/2";
-const LAYOUT_CONTAINER_CLASS =
-  "mx-auto w-full max-w-[1500px] px-6 pt-0 pb-12 sm:px-8 sm:pb-14 lg:px-12 lg:pb-16";
-
-const DATASET_DESCRIPTORS: Record<FiltersState["dataset"], { label: string; icon: LucideIcon }> = {
-  all: { label: "All products", icon: Sparkles },
-  shop: { label: "Neon shop", icon: Shirt },
-  legacy: { label: "Archive", icon: Smartphone },
+const CAROUSEL_MAX_ITEMS = 16;
+type ProductGridStyle = CSSProperties & {
+  "--vc-grid-max-width"?: string;
+  "--vc-grid-max-width-desktop"?: string;
+  "--vc-card-min-width"?: string;
+  "--vc-card-width"?: string;
+  "--vc-grid-row-gap"?: string;
+  "--vc-grid-column-gap"?: string;
 };
-
-const LAYOUT_DESCRIPTORS: Record<LayoutMode, { label: string; icon: LucideIcon }> = {
-  masonry: { label: "Gallery masonry", icon: LayoutGrid },
-  grid: { label: "Balanced grid", icon: Grid3X3 },
-  single: { label: "Single column", icon: AlignJustify },
+const GRID_SURFACE_CLASS_LIGHT =
+  "w-full min-w-0 rounded-[32px] border border-gray-200/80 bg-white/95 px-4 py-6 shadow-[0_32px_80px_-48px_rgba(15,23,42,0.35)] sm:px-8 sm:py-10";
+const GRID_SURFACE_CLASS_DARK =
+  "w-full min-w-0 rounded-[32px] border border-white/12 bg-white/5 px-4 py-6 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:px-8 sm:py-10";
+const GRID_STYLE: ProductGridStyle = {
+  "--vc-grid-max-width": "1480px",
+  "--vc-grid-max-width-desktop": "1480px",
+  "--vc-card-min-width": "260px",
+  "--vc-card-width": "360px",
+  "--vc-grid-row-gap": "36px",
+  "--vc-grid-column-gap": "24px",
 };
 
 function priceValue(product: Product): number {
@@ -60,7 +50,7 @@ function priceValue(product: Product): number {
   return 0;
 }
 
-const sortComparators: Record<FiltersState["sort"], (a: Product, b: Product) => number> = {
+const sortComparators: Record<SortMode, (a: Product, b: Product) => number> = {
   recent: (a, b) => a.order - b.order,
   popular: (a, b) => (b.clicks || 0) - (a.clicks || 0) || (b.impressions || 0) - (a.impressions || 0),
   "price-asc": (a, b) => priceValue(a) - priceValue(b),
@@ -68,9 +58,9 @@ const sortComparators: Record<FiltersState["sort"], (a: Product, b: Product) => 
   impressions: (a, b) => (b.impressions || 0) - (a.impressions || 0),
 };
 
-function datasetLabel(dataset: FiltersState["dataset"] | Product["dataset"]): string {
-  if (dataset in DATASET_DESCRIPTORS) {
-    return DATASET_DESCRIPTORS[dataset as FiltersState["dataset"]].label;
+function datasetLabel(dataset: DatasetType | Product["dataset"]): string {
+  if (dataset && dataset in DATASET_LABELS) {
+    return DATASET_LABELS[dataset as DatasetType];
   }
   return "All products";
 }
@@ -99,6 +89,8 @@ export default function ProductsClient({
   initialPriceMin = null,
   initialPriceMax = null,
   initialMinRating = null,
+  initialBrand = "all",
+  initialModel = "all",
   totalAvailable,
 }: {
   products: Product[];
@@ -107,11 +99,13 @@ export default function ProductsClient({
   initialLayout?: LayoutMode;
   initialQuery?: string;
   initialCategory?: string;
-  initialDataset?: FiltersState["dataset"];
-  initialSort?: FiltersState["sort"];
+  initialDataset?: DatasetType;
+  initialSort?: SortMode;
   initialPriceMin?: number | null;
   initialPriceMax?: number | null;
   initialMinRating?: number | null;
+  initialBrand?: string;
+  initialModel?: string;
   totalAvailable?: number | null;
 }) {
   const normalizedInitialQuery = (initialQuery ?? "").trim();
@@ -119,6 +113,14 @@ export default function ProductsClient({
     if (!initialCategory) return "all";
     return categories.some((category) => category.slug === initialCategory) ? initialCategory : "all";
   }, [categories, initialCategory]);
+  const normalizedInitialBrand = useMemo(() => {
+    if (!initialBrand) return "all";
+    return initialBrand.trim().toLowerCase() || "all";
+  }, [initialBrand]);
+  const normalizedInitialModel = useMemo(() => {
+    if (!initialModel) return "all";
+    return initialModel.trim().toLowerCase() || "all";
+  }, [initialModel]);
 
   const availabilityLabelMap = useMemo(
     () =>
@@ -130,70 +132,31 @@ export default function ProductsClient({
     [],
   );
 
-  const [filters, setFilters] = useState<FiltersState>({
-    query: normalizedInitialQuery,
-    dataset: initialDataset,
-    sort: initialSort,
-    layout: initialLayout,
-    category: normalizedInitialCategory,
-    priceMin: typeof initialPriceMin === "number" && Number.isFinite(initialPriceMin) && initialPriceMin >= 0 ? Number(initialPriceMin) : null,
-    priceMax: typeof initialPriceMax === "number" && Number.isFinite(initialPriceMax) && initialPriceMax >= 0 ? Number(initialPriceMax) : null,
-    minRating:
-      typeof initialMinRating === "number" && Number.isFinite(initialMinRating) && initialMinRating > 0
-        ? Number(initialMinRating)
-        : null,
-  });
-  const [queryInput, setQueryInput] = useState(normalizedInitialQuery);
+  const normalizedPriceMin =
+    typeof initialPriceMin === "number" && Number.isFinite(initialPriceMin) && initialPriceMin >= 0 ? Number(initialPriceMin) : null;
+  const normalizedPriceMax =
+    typeof initialPriceMax === "number" && Number.isFinite(initialPriceMax) && initialPriceMax >= 0 ? Number(initialPriceMax) : null;
+  const normalizedMinRating =
+    typeof initialMinRating === "number" && Number.isFinite(initialMinRating) && initialMinRating > 0 ? Number(initialMinRating) : null;
+  const [activeDataset, setActiveDataset] = useState<DatasetType>(initialDataset);
+  const [activeSort, setActiveSort] = useState<SortMode>(initialSort);
+  const [activeCategory, setActiveCategory] = useState(normalizedInitialCategory);
+  const [activeQuery, setActiveQuery] = useState(normalizedInitialQuery);
+  const [priceMin, setPriceMin] = useState<number | null>(normalizedPriceMin);
+  const [priceMax, setPriceMax] = useState<number | null>(normalizedPriceMax);
+  const [minRating, setMinRating] = useState<number | null>(normalizedMinRating);
+  const [activeBrand, setActiveBrand] = useState<string>(normalizedInitialBrand);
+  const [activeModel, setActiveModel] = useState<string>(normalizedInitialModel);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   const [visible, setVisible] = useState(CHUNK_SIZE);
-  // Render real grid on SSR; skeleton only during transitions
-  const [hydrated] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const topRef = useRef<HTMLDivElement | null>(null);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const impressionLogged = useRef<Set<string>>(new Set());
-  const [isPending, startTransition] = useTransition();
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
-
-  const datasetValues = useMemo<FiltersState["dataset"][]>(() => {
-    const values = new Set<FiltersState["dataset"]>(["all"]);
-    let hasShop = false;
-    let hasLegacy = false;
-    for (const product of products) {
-      if (product.dataset === "shop") hasShop = true;
-      if (product.dataset === "legacy") hasLegacy = true;
-    }
-    if (hasShop) values.add("shop");
-    if (hasLegacy) values.add("legacy");
-    return Array.from(values.values());
-  }, [products]);
-
-  const datasetOptions = useMemo(
-    () =>
-      datasetValues.map((value) => ({
-        value,
-        label: DATASET_DESCRIPTORS[value]?.label ?? datasetLabel(value),
-        icon: DATASET_DESCRIPTORS[value]?.icon ?? Sparkles,
-      })),
-    [datasetValues],
-  );
-
-  const categoryOptions = useMemo(() => {
-    const options = categories.map((category) => ({
-      value: category.slug,
-      label: `${category.label} (${category.count})`,
-      display: category.label,
-    }));
-    return [{ value: "all", label: "All categories", display: "All categories" }, ...options];
-  }, [categories]);
-
-  const categoryLabelMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const option of categoryOptions) {
-      map.set(option.value, option.display);
-    }
-    return map;
-  }, [categoryOptions]);
 
   const productById = useMemo(() => {
     const map = new Map<string, Product>();
@@ -226,120 +189,237 @@ export default function ProductsClient({
   );
 
   const topCategoryLinks = useMemo(() => categories.slice(0, 3), [categories]);
+  const datasetLabelText = activeDataset === "all" ? "All products" : datasetLabel(activeDataset);
 
-  const layoutOptions = useMemo(
-    () =>
-      (Object.entries(LAYOUT_DESCRIPTORS) as [LayoutMode, { label: string; icon: LucideIcon }][]).map(([value, descriptor]) => ({
-        value,
-        label: descriptor.label,
-        icon: descriptor.icon,
-      })),
-    [],
+  const priceRange = useMemo(() => {
+    const min = typeof priceMin === "number" && Number.isFinite(priceMin) && priceMin >= 0 ? priceMin : null;
+    const rawMax = typeof priceMax === "number" && Number.isFinite(priceMax) && priceMax >= 0 ? priceMax : null;
+    const max = rawMax != null && min != null && rawMax < min ? min : rawMax;
+    return { min, max };
+  }, [priceMax, priceMin]);
+
+  const normalizedRating = useMemo(() => {
+    if (typeof minRating !== "number" || !Number.isFinite(minRating) || minRating <= 0) return null;
+    if (minRating >= 4.5) return 4.5;
+    if (minRating >= 4) return 4;
+    if (minRating >= 3) return 3;
+    return null;
+  }, [minRating]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (activeQuery.trim()) count += 1;
+    if (activeDataset !== "all") count += 1;
+    if (activeCategory !== "all") count += 1;
+    if (activeBrand !== "all") count += 1;
+    if (activeModel !== "all") count += 1;
+    if (priceRange.min != null) count += 1;
+    if (priceRange.max != null) count += 1;
+    if (normalizedRating != null) count += 1;
+    if (activeSort !== "recent") count += 1;
+    return count;
+  }, [
+    activeBrand,
+    activeCategory,
+    activeDataset,
+    activeModel,
+    activeQuery,
+    activeSort,
+    normalizedRating,
+    priceRange.max,
+    priceRange.min,
+  ]);
+
+  const resetVisibleToFirstChunk = useCallback(() => {
+    setVisible(CHUNK_SIZE);
+  }, []);
+
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      setActiveQuery(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
   );
 
-  const sortOptions = useMemo<{ value: FiltersState["sort"]; label: string }[]>(
-    () => [
-      { value: "recent", label: "Newest first" },
-      { value: "popular", label: "Most popular" },
-      { value: "price-asc", label: "Price: low to high" },
-      { value: "price-desc", label: "Price: high to low" },
-      { value: "impressions", label: "Most impressions" },
-    ],
-    [],
+  const handleDatasetChange = useCallback(
+    (value: DatasetType) => {
+      setActiveDataset(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
   );
+
+  const handleCategoryChange = useCallback(
+    (value: string) => {
+      setActiveCategory(value);
+      setActiveBrand("all");
+      setActiveModel("all");
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handleBrandChange = useCallback(
+    (value: string) => {
+      setActiveBrand(value);
+      setActiveModel("all");
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handleModelChange = useCallback(
+    (value: string) => {
+      setActiveModel(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handleSortChange = useCallback(
+    (value: SortMode) => {
+      setActiveSort(value);
+      resetVisibleToFirstChunk();
+      setIsSortMenuOpen(false);
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handlePriceMinChange = useCallback(
+    (value: number | null) => {
+      setPriceMin(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handlePriceMaxChange = useCallback(
+    (value: number | null) => {
+      setPriceMax(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handleRatingChange = useCallback(
+    (value: number | null) => {
+      setMinRating(value);
+      resetVisibleToFirstChunk();
+    },
+    [resetVisibleToFirstChunk],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setActiveQuery(normalizedInitialQuery);
+    setActiveDataset(initialDataset);
+    setActiveCategory(normalizedInitialCategory);
+    setActiveBrand(normalizedInitialBrand);
+    setActiveModel(normalizedInitialModel);
+    setActiveSort(initialSort);
+    setPriceMin(normalizedPriceMin);
+    setPriceMax(normalizedPriceMax);
+    setMinRating(normalizedMinRating);
+    resetVisibleToFirstChunk();
+  }, [
+    initialDataset,
+    initialSort,
+    normalizedInitialCategory,
+    normalizedInitialBrand,
+    normalizedInitialModel,
+    normalizedInitialQuery,
+    normalizedMinRating,
+    normalizedPriceMax,
+    normalizedPriceMin,
+    resetVisibleToFirstChunk,
+  ]);
 
   const filtered = useMemo(() => {
-    const query = filters.query.trim().toLowerCase();
+    const query = activeQuery.trim().toLowerCase();
     let result = products;
 
     if (query) {
       result = result.filter((product) => (product.title + " " + (product.description || "")).toLowerCase().includes(query));
     }
 
-    if (filters.dataset !== "all") {
-      result = result.filter((product) => product.dataset === filters.dataset);
+    if (activeDataset !== "all") {
+      result = result.filter((product) => product.dataset === activeDataset);
     }
 
-    if (filters.category !== "all") {
-      result = result.filter((product) => product.categorySlug === filters.category);
+    if (activeCategory !== "all") {
+      result = result.filter((product) => product.categorySlug === activeCategory);
     }
 
-    if (filters.priceMin != null) {
+    if (priceRange.min != null) {
       result = result.filter((product) => {
         const price = typeof product.price === "number" ? product.price : product.priceCents ? product.priceCents / 100 : 0;
-        return price >= filters.priceMin!;
+        return price >= priceRange.min!;
       });
     }
 
-    if (filters.priceMax != null) {
+    if (priceRange.max != null) {
       result = result.filter((product) => {
         const price = typeof product.price === "number" ? product.price : product.priceCents ? product.priceCents / 100 : 0;
-        return price <= filters.priceMax!;
+        return price <= priceRange.max!;
       });
     }
 
-    if (filters.minRating != null) {
+    if (normalizedRating != null) {
       result = result.filter((product) => {
         const rating = typeof product.rating === "number" ? product.rating : 0;
-        return rating >= filters.minRating!;
+        return rating >= normalizedRating;
       });
     }
 
-    return [...result].sort(sortComparators[filters.sort]);
-  }, [filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, filters.query, filters.sort, products]);
-
-  const totals = useMemo(() => {
-    let clicks = 0;
-    let impressions = 0;
-    for (const product of products) {
-      clicks += product.clicks || 0;
-      impressions += product.impressions || 0;
+    if (activeBrand !== "all") {
+      result = result.filter((product) => matchesBrand(product, activeBrand));
     }
-    return { clicks, impressions };
-  }, [products]);
+
+    if (activeModel !== "all") {
+      result = result.filter((product) => matchesModel(product, activeModel));
+    }
+
+    return [...result].sort(sortComparators[activeSort]);
+  }, [
+    activeBrand,
+    activeCategory,
+    activeDataset,
+    activeQuery,
+    activeModel,
+    activeSort,
+    normalizedRating,
+    priceRange.max,
+    priceRange.min,
+    products,
+  ]);
 
   const displayed = useMemo(() => filtered.slice(0, visible), [filtered, visible]);
   const hasMore = useMemo(() => visible < filtered.length, [filtered.length, visible]);
 
-  const summary = useMemo(() => {
-    const visibleCount = displayed.length;
-    const totalProducts = typeof totalAvailable === "number" ? totalAvailable : products.length;
-    const parts = [visibleCount + " of " + totalProducts + " products"];
-    if (filters.category !== "all") {
-      parts.push(categoryLabelMap.get(filters.category) ?? "Selected category");
-    }
-    if (filters.priceMin != null || filters.priceMax != null) {
-      const priceLabel = `${filters.priceMin != null ? "≥ " + filters.priceMin : "Any"} – ${filters.priceMax != null ? filters.priceMax : "Any"}`;
-      parts.push(`Price ${priceLabel}`);
-    }
-    if (filters.minRating != null) {
-      parts.push(`Rating ≥ ${filters.minRating}`);
-    }
-    if (totals.clicks > 0) {
-      parts.push(numberFormatter.format(totals.clicks) + " clicks");
-    }
-    if (totals.impressions > 0) {
-      parts.push(numberFormatter.format(totals.impressions) + " views");
-    }
-    return parts.join(" | ");
-  }, [categoryLabelMap, displayed.length, filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, numberFormatter, products.length, totalAvailable, totals.clicks, totals.impressions]);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
-    setQueryInput(normalizedInitialQuery);
-    setFilters((prev) => {
-      if (prev.query === normalizedInitialQuery) return prev;
-      return { ...prev, query: normalizedInitialQuery };
-    });
-  }, [normalizedInitialQuery]);
-
-  useEffect(() => {
-    setFilters((prev) => {
-      if (prev.category === normalizedInitialCategory) return prev;
-      return { ...prev, category: normalizedInitialCategory };
-    });
-  }, [normalizedInitialCategory]);
-
-  // no-op; hydrated starts as true to avoid SSR skeleton
+    if (!isSortMenuOpen) return;
+    const handlePointer = (event: MouseEvent) => {
+      if (!sortMenuRef.current) return;
+      if (!sortMenuRef.current.contains(event.target as Node)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSortMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isSortMenuOpen]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -348,12 +428,11 @@ export default function ProductsClient({
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible((prev) => {
-              if (prev >= filtered.length) return prev;
-              return Math.min(filtered.length, prev + CHUNK_SIZE);
-            });
-          }
+          if (!entry.isIntersecting) return;
+          setVisible((prev) => {
+            if (prev >= filtered.length) return prev;
+            return Math.min(filtered.length, prev + CHUNK_SIZE);
+          });
         });
       },
       { rootMargin: "160px" },
@@ -363,211 +442,167 @@ export default function ProductsClient({
     return () => observer.disconnect();
   }, [filtered.length]);
 
-  const updateFilters = useCallback(
-    (updater: (prev: FiltersState) => FiltersState, options?: { immediate?: boolean }) => {
-      if (options?.immediate) {
-        setFilters((prev) => updater(prev));
-        return;
+  const mapProductToGridItem = useCallback(
+    (product: Product): ProductGridItem => {
+      const priceValue = Number(product.price ?? 0);
+      const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
+      const rawDiscountPercent =
+        typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
+      const discountPercent =
+        rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
+      let originalPrice: string | null = null;
+      if (rawDiscountPercent && rawDiscountPercent > 0 && rawDiscountPercent < 100 && priceValue > 0) {
+        const base = priceValue / (1 - rawDiscountPercent / 100);
+        if (Number.isFinite(base) && base > priceValue) {
+          originalPrice = formatPrice(base, product.currency);
+        }
       }
-      startTransition(() => {
-        setFilters((prev) => updater(prev));
-      });
+      if (!originalPrice) {
+        const rawOriginal = typeof product.originalPrice === "number" ? product.originalPrice : null;
+        if (typeof rawOriginal === "number" && rawOriginal > priceValue) {
+          originalPrice = formatPrice(rawOriginal, product.currency);
+        }
+        const rawOriginalCents = typeof product.originalPriceCents === "number" ? product.originalPriceCents : null;
+        if (!originalPrice && typeof rawOriginalCents === "number" && rawOriginalCents > priceValue * 100) {
+          originalPrice = formatPrice(rawOriginalCents / 100, product.currency);
+        }
+      }
+      const availabilityLabel = availabilityLabelMap.get(product.availability) ?? null;
+      const statsLabel =
+        product.clicks || product.impressions
+          ? numberFormatter.format(product.clicks || 0) + " clicks • " + numberFormatter.format(product.impressions || 0) + " views"
+          : null;
+      const categoryLabel = product.categorySlug ? humanize(product.categorySlug) : null;
+      const metaParts = [availabilityLabel, categoryLabel, statsLabel].filter(Boolean);
+      const meta = metaParts.length ? metaParts.join(" • ") : null;
+      return {
+        id: product.id,
+        slug: product.slug,
+        title: product.title,
+        subtitle: product.description,
+        image: product.mainImage,
+        price: priceValue > 0 ? formatPrice(priceValue, product.currency) : null,
+        originalPrice,
+        badge,
+        meta,
+        recMeta: product.recMeta,
+      };
     },
-    [startTransition],
+    [availabilityLabelMap, numberFormatter],
   );
 
-  const scrollToTop = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const target = topRef.current;
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+  const gridItems = useMemo(() => displayed.map(mapProductToGridItem), [displayed, mapProductToGridItem]);
+
+  const carouselItems = useMemo(
+    () => filtered.slice(0, CAROUSEL_MAX_ITEMS).map(mapProductToGridItem),
+    [filtered, mapProductToGridItem],
+  );
+
+  const carouselCaption = useMemo(() => {
+    const total = filtered.length;
+    if (!total) return null;
+    return `${total} ${total === 1 ? "product" : "products"} in this selection`;
+  }, [filtered.length]);
+
+  const carouselHeading = useMemo(
+    () => (filtered.length > 1 ? "Browse this selection" : "Selected product"),
+    [filtered.length],
+  );
+
+  const carouselEyebrow = useMemo(
+    () => (activeCategory !== "all" ? humanize(activeCategory) : datasetLabelText),
+    [activeCategory, datasetLabelText],
+  );
+
+  const hasCatalogLinks = useMemo(() => products.some((p) => Boolean(p.catalogProductId)), [products]);
+
+  const brandOptions = useMemo<TaxonomyOption[]>(() => {
+    const counts = new Map<string, { count: number; label: string }>();
+    for (const product of products) {
+      if (!productMatchesCategory(product, activeCategory)) continue;
+      const key = normalizeTaxonomyValue(product.brandSlug ?? product.brand ?? product.brandName);
+      if (!key) continue;
+      const label = product.brandName?.trim() || taxonomyLabelFromValue(key);
+      const existing = counts.get(key);
+      counts.set(key, {
+        count: (existing?.count ?? 0) + 1,
+        label: existing?.label ?? label,
+      });
     }
-  }, []);
+    return Array.from(counts.entries())
+      .map(([value, entry]) => ({
+        value,
+        count: entry.count,
+        label: entry.label || taxonomyLabelFromValue(value),
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [activeCategory, products]);
 
-  useEffect(() => {
-    if (queryInput === filters.query) return;
-    const timeout = window.setTimeout(() => {
-      updateFilters((prev) => {
-        if (prev.query === queryInput) return prev;
-        return { ...prev, query: queryInput };
+  const modelOptions = useMemo<TaxonomyOption[]>(() => {
+    if (activeBrand === "all") return [];
+    const counts = new Map<string, { count: number; label: string }>();
+    for (const product of products) {
+      if (!productMatchesCategory(product, activeCategory)) continue;
+      if (!matchesBrand(product, activeBrand)) continue;
+      const key = normalizeTaxonomyValue(product.modelSlug ?? product.model ?? product.modelTitle);
+      if (!key) continue;
+      const label = product.modelTitle?.trim() || taxonomyLabelFromValue(key);
+      const existing = counts.get(key);
+      counts.set(key, {
+        count: (existing?.count ?? 0) + 1,
+        label: existing?.label ?? label,
       });
-    }, 180);
-    return () => window.clearTimeout(timeout);
-  }, [filters.query, queryInput, updateFilters]);
+    }
+    return Array.from(counts.entries())
+      .map(([value, entry]) => ({
+        value,
+        count: entry.count,
+        label: entry.label || taxonomyLabelFromValue(value),
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [activeBrand, activeCategory, products]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const setParam = (key: string, value: string | null) => {
-      if (value && value.trim()) {
-        params.set(key, value.trim());
-      } else {
-        params.delete(key);
-      }
-    };
-
-    setParam("q", filters.query);
-    setParam("category", filters.category !== "all" ? filters.category : null);
-    setParam("dataset", filters.dataset !== "all" ? filters.dataset : null);
-    setParam("price_min", filters.priceMin != null ? String(filters.priceMin) : null);
-    setParam("price_max", filters.priceMax != null ? String(filters.priceMax) : null);
-    setParam("rating_min", filters.minRating != null ? String(filters.minRating) : null);
-    setParam("sort", filters.sort !== "recent" ? filters.sort : null);
-
-    const hash = window.location.hash;
-    const search = params.toString();
-    const nextUrl = `${window.location.pathname}${search ? "?" + search : ""}${hash}`;
-    window.history.replaceState(null, "", nextUrl);
-  }, [filters]);
-
-  const handleQueryChange = useCallback((value: string) => {
-    setQueryInput(value);
-  }, []);
-
-  const handleDatasetChange = useCallback(
-    (value: FiltersState["dataset"]) => {
-      scrollToTop();
-      updateFilters((prev) => ({ ...prev, dataset: value }));
-    },
-    [scrollToTop, updateFilters],
-  );
-
-  const handleSortChange = useCallback(
-    (value: FiltersState["sort"]) => {
-      scrollToTop();
-      updateFilters((prev) => ({ ...prev, sort: value }));
-    },
-    [scrollToTop, updateFilters],
-  );
-
-  const handlePriceMinChange = useCallback(
-    (value: string) => {
-      const trimmed = value.trim();
-      const parsed = Number(trimmed);
-      const next = trimmed === "" || !Number.isFinite(parsed) || parsed < 0 ? null : Math.round(parsed * 100) / 100;
-      updateFilters(
-        (prev) => {
-          const adjustedMax = prev.priceMax != null && next != null && prev.priceMax < next ? null : prev.priceMax;
-          return { ...prev, priceMin: next, priceMax: adjustedMax };
-        },
-        { immediate: true },
-      );
-    },
-    [updateFilters],
-  );
-
-  const handlePriceMaxChange = useCallback(
-    (value: string) => {
-      const trimmed = value.trim();
-      const parsed = Number(trimmed);
-      const next = trimmed === "" || !Number.isFinite(parsed) || parsed < 0 ? null : Math.round(parsed * 100) / 100;
-      updateFilters(
-        (prev) => {
-          let adjusted = next;
-          if (adjusted != null && prev.priceMin != null && adjusted < prev.priceMin) {
-            adjusted = prev.priceMin;
+    if (process.env.NODE_ENV === "production") return;
+    console.log("[filters-debug]", {
+      activeCategory,
+      activeBrand,
+      activeModel,
+      brandOptionsCount: brandOptions.length,
+      modelOptionsCount: modelOptions.length,
+      brandSample: brandOptions.slice(0, 3),
+      modelSample: modelOptions.slice(0, 3),
+      firstProduct: products[0]
+        ? {
+            id: products[0].id,
+            brand: products[0].brand,
+            brandSlug: products[0].brandSlug,
+            brandName: products[0].brandName,
+            model: products[0].model,
+            modelSlug: products[0].modelSlug,
+            modelTitle: products[0].modelTitle,
+            catalogProductId: products[0].catalogProductId,
           }
-          return { ...prev, priceMax: adjusted };
-        },
-        { immediate: true },
-      );
-    },
-    [updateFilters],
-  );
+        : null,
+    });
+  }, [activeBrand, activeCategory, activeModel, brandOptions, modelOptions, products]);
 
-  const handleMinRatingChange = useCallback(
-    (value: string) => {
-      const trimmed = value.trim();
-      const parsed = Number(trimmed);
-      const next = trimmed === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
-      updateFilters((prev) => ({ ...prev, minRating: next }));
-    },
-    [updateFilters],
-  );
+  useEffect(() => {
+    if (activeBrand === "all") return;
+    const exists = brandOptions.some((option) => option.value === activeBrand);
+    if (!exists) {
+      setActiveBrand("all");
+      setActiveModel("all");
+    }
+  }, [activeBrand, brandOptions]);
 
-  const handleLayoutChange = useCallback(
-    (value: LayoutMode) => {
-      scrollToTop();
-      updateFilters((prev) => ({ ...prev, layout: value }));
-    },
-    [scrollToTop, updateFilters],
-  );
-
-  const handleCategoryChange = useCallback(
-    (value: string) => {
-      scrollToTop();
-      updateFilters((prev) => ({ ...prev, category: value }));
-    },
-    [scrollToTop, updateFilters],
-  );
-
-  const resetFilters = useCallback(() => {
-    scrollToTop();
-    setQueryInput("");
-    updateFilters(() => ({
-      query: "",
-      dataset: "all",
-      sort: "recent",
-      layout: initialLayout,
-      category: "all",
-      priceMin: null,
-      priceMax: null,
-      minRating: null,
-    }));
-  }, [initialLayout, scrollToTop, updateFilters]);
-
-  const gridItems = useMemo(
-    () =>
-      displayed.map((product) => {
-        const priceValue = Number(product.price ?? 0);
-        const badge = product.isNew ? "New" : product.isTop ? "Popular" : null;
-        const rawDiscountPercent =
-          typeof product.discountPercent === "number" && product.discountPercent > 0 ? product.discountPercent : null;
-        const discountPercent =
-          rawDiscountPercent != null && rawDiscountPercent > 0 ? Math.round(rawDiscountPercent) : null;
-        let originalPrice: string | null = null;
-        if (rawDiscountPercent && rawDiscountPercent > 0 && rawDiscountPercent < 100 && priceValue > 0) {
-          const base = priceValue / (1 - rawDiscountPercent / 100);
-          if (Number.isFinite(base) && base > priceValue) {
-            originalPrice = formatPrice(base, product.currency);
-          }
-        }
-        if (!originalPrice) {
-          const rawOriginal = typeof product.originalPrice === "number" ? product.originalPrice : null;
-          if (typeof rawOriginal === "number" && rawOriginal > priceValue) {
-            originalPrice = formatPrice(rawOriginal, product.currency);
-          }
-          const rawOriginalCents =
-            typeof product.originalPriceCents === "number" ? product.originalPriceCents : null;
-          if (!originalPrice && typeof rawOriginalCents === "number" && rawOriginalCents > priceValue * 100) {
-            originalPrice = formatPrice(rawOriginalCents / 100, product.currency);
-          }
-        }
-        const availabilityLabel = availabilityLabelMap.get(product.availability) ?? null;
-        const statsLabel =
-          product.clicks || product.impressions
-            ? numberFormatter.format(product.clicks || 0) + " clicks • " + numberFormatter.format(product.impressions || 0) + " views"
-            : null;
-        const categoryLabel = product.categorySlug ? humanize(product.categorySlug) : null;
-        const metaParts = [availabilityLabel, categoryLabel, statsLabel].filter(Boolean);
-        const meta = metaParts.length ? metaParts.join(" • ") : null;
-        return {
-          id: product.id,
-          slug: product.slug,
-          title: product.title,
-          subtitle: product.description,
-          image: product.mainImage,
-          price: priceValue > 0 ? formatPrice(priceValue, product.currency) : null,
-          originalPrice,
-          badge,
-          meta,
-          recMeta: product.recMeta,
-        };
-      }),
-    [availabilityLabelMap, displayed, numberFormatter],
-  );
+  useEffect(() => {
+    if (activeModel === "all") return;
+    const exists = modelOptions.some((option) => option.value === activeModel);
+    if (!exists) {
+      setActiveModel("all");
+    }
+  }, [activeModel, modelOptions]);
 
   useEffect(() => {
     const gridEl = document.querySelector("[data-product-grid=\"catalog\"]");
@@ -660,188 +695,512 @@ export default function ProductsClient({
     return () => gridEl.removeEventListener("click", handleClick, true);
   }, [productById, recMetaById, resolvePriceCents]);
 
-  const showSkeleton = isPending;
+  const showSkeleton = !hydrated;
   const skeletonCount = showSkeleton ? Math.max(displayed.length, 8) : 0;
-  const layoutMode: LayoutMode = filters.layout;
-  const datasetLabelText = filters.dataset === "all" ? "All products" : datasetLabel(filters.dataset);
+  const layoutMode: LayoutMode = initialLayout;
   const visibleCount = displayed.length;
   const totalCount = typeof totalAvailable === "number" ? totalAvailable : products.length;
-  const activeCategoryLabel = categoryLabelMap.get(filters.category) ?? "All categories";
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (filters.dataset !== "all") count++;
-    if (filters.category !== "all") count++;
-    if (filters.query.trim()) count++;
-     if (filters.priceMin != null) count++;
-     if (filters.priceMax != null) count++;
-     if (filters.minRating != null) count++;
-    return count;
-  }, [filters.category, filters.dataset, filters.minRating, filters.priceMax, filters.priceMin, filters.query]);
+  const activeSortLabel = SORT_OPTIONS.find((option) => option.value === activeSort)?.label ?? "Newest first";
+
+  type ThemeMode = "light" | "dark";
+  const [theme, setTheme] = useState<ThemeMode>("dark");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("catalog-theme");
+      if (stored === "light" || stored === "dark") {
+        setTheme(stored);
+        return;
+      }
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setTheme(prefersDark ? "dark" : "light");
+    } catch {
+      setTheme("dark");
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next: ThemeMode = prev === "dark" ? "light" : "dark";
+      try {
+        window.localStorage.setItem("catalog-theme", next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const gridSurfaceClass = theme === "dark" ? GRID_SURFACE_CLASS_DARK : GRID_SURFACE_CLASS_LIGHT;
+
+  const filterSidebarProps: FilterSidebarProps = {
+    isOpen: isFilterOpen,
+    onCloseAction: () => setIsFilterOpen(false),
+    activeQuery,
+    onQueryChangeAction: handleQueryChange,
+    activeCategory,
+    categories,
+    onCategoryChangeAction: handleCategoryChange,
+    brandOptions,
+    modelOptions,
+    activeBrand,
+    onBrandChangeAction: handleBrandChange,
+    activeModel,
+    onModelChangeAction: handleModelChange,
+    brandEmptyMessage: hasCatalogLinks
+      ? "Выберите категорию, чтобы увидеть бренды."
+      : "Для этих товаров не настроена связь с каталогом. Задайте модель в админке, чтобы включить фильтр по бренду и моделям.",
+    modelEmptyMessage: hasCatalogLinks
+      ? "Для выбранного бренда нет моделей."
+      : "Сначала свяжите SKU с моделью каталога, затем фильтр станет доступен.",
+    activeDataset,
+    onDatasetChangeAction: handleDatasetChange,
+    activeSort,
+    onSortChangeAction: handleSortChange,
+    priceMin,
+    priceMax,
+    onPriceMinChangeAction: handlePriceMinChange,
+    onPriceMaxChangeAction: handlePriceMaxChange,
+    minRating,
+    onRatingChangeAction: handleRatingChange,
+    onResetAction: handleResetFilters,
+  };
 
   return (
-    <div className={FULL_BLEED_CLASS}>
-      <div ref={topRef} className={LAYOUT_CONTAINER_CLASS}>
-        {/* Mobile filters launcher */}
-        <div className="mb-6 flex items-center justify-between lg:hidden">
-          <span className="text-sm text-muted">
-            <span className="font-medium text-fg">{visibleCount}</span> of {totalCount} products
-          </span>
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <Filter className="h-4 w-4" aria-hidden />
-                Filters{activeFiltersCount ? ` (${activeFiltersCount})` : ""}
-              </button>
-            </SheetTrigger>
-            <SheetContent side="bottom" aria-label="Filters" className="max-h-[85vh] overflow-auto rounded-t-3xl">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Filters</SheetTitle>
-              </SheetHeader>
-              <div className="p-4">
-                <FiltersForm
-                  queryInput={queryInput}
-                  isPending={isPending}
-                  filters={filters}
-                  datasetOptions={datasetOptions}
-                  layoutOptions={layoutOptions}
-                  categoryOptions={categoryOptions}
-                  handleQueryChange={handleQueryChange}
-                  handleDatasetChange={handleDatasetChange}
-                  handleLayoutChange={handleLayoutChange}
-                  handleCategoryChange={handleCategoryChange}
-                  handleSortChange={handleSortChange}
-                  handlePriceMinChange={handlePriceMinChange}
-                  handlePriceMaxChange={handlePriceMaxChange}
-                  handleMinRatingChange={handleMinRatingChange}
-                  resetFilters={() => {
-                    resetFilters();
-                    setFiltersOpen(false);
-                  }}
-                />
-              </div>
-              <SheetFooter className="pt-0">
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen(false)}
-                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+    <div
+      data-theme={theme}
+      className={
+        theme === "dark"
+          ? "relative min-h-screen bg-gradient-to-br from-[#0b0f19] via-[#0f1324] to-[#0b101a] text-slate-100"
+          : "relative min-h-screen bg-white text-gray-900"
+      }
+    >
+      {theme === "dark" ? (
+        <div className="pointer-events-none absolute inset-0 -z-10 opacity-70 [background:radial-gradient(circle_at_20%_20%,rgba(80,200,255,0.14),transparent_32%),radial-gradient(circle_at_82%_12%,rgba(140,122,255,0.18),transparent_30%),radial-gradient(circle_at_35%_70%,rgba(93,247,185,0.12),transparent_28%)]" />
+      ) : null}
+      <div
+        className={
+          theme === "dark"
+            ? "sticky top-0 z-40 border-b border-white/10 bg-[#0d111b]/80 backdrop-blur-xl"
+            : "sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur"
+        }
+      >
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 px-4 py-5 sm:px-8 lg:px-10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <button
+              type="button"
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className={
+                theme === "dark"
+                  ? "inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.35)] transition hover:-translate-y-0.5 hover:border-white/35"
+                  : "inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-900"
+              }
+            >
+              <Settings className={theme === "dark" ? "h-4 w-4 text-slate-300" : "h-4 w-4 text-gray-500"} />
+              <span>Filters</span>
+              {activeFiltersCount ? (
+                <span
+                  className={
+                    theme === "dark"
+                      ? "flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-2 text-xs font-semibold text-black"
+                      : "flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-900 px-2 text-xs font-semibold text-white"
+                  }
                 >
-                  Close
-                </button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
-        </div>
+                  {activeFiltersCount}
+                </span>
+              ) : null}
+            </button>
 
-        <div className="grid items-start gap-12 lg:grid-cols-[minmax(260px,320px)_1fr]">
-          <aside className="hidden lg:flex flex-col gap-8 rounded-3xl bg-surface/5 p-6 shadow-md ring-1 ring-white/10 backdrop-blur self-start">
-            <header className="space-y-1 text-fg">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">Neon Shop</span>
-              <h2 className="text-2xl font-semibold">Filters</h2>
-              <p className="text-sm text-muted">Refine the catalog to match what you need.</p>
-            </header>
-            <FiltersForm
-              queryInput={queryInput}
-              isPending={isPending}
-              filters={filters}
-              datasetOptions={datasetOptions}
-              layoutOptions={layoutOptions}
-              categoryOptions={categoryOptions}
-              handleQueryChange={handleQueryChange}
-              handleDatasetChange={handleDatasetChange}
-              handleLayoutChange={handleLayoutChange}
-              handleCategoryChange={handleCategoryChange}
-              handleSortChange={handleSortChange}
-              handlePriceMinChange={handlePriceMinChange}
-              handlePriceMaxChange={handlePriceMaxChange}
-              handleMinRatingChange={handleMinRatingChange}
-              resetFilters={resetFilters}
-              activeCategoryLabel={activeCategoryLabel}
-              summary={summary}
-              visibleCount={visibleCount}
-              totalCount={totalCount}
-            />
-          </aside>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={
+                theme === "dark"
+                  ? "inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/30"
+                  : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:border-gray-300"
+              }
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span className="hidden sm:inline">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+            </button>
 
-          <div className="space-y-8">
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted">{datasetLabelText}</p>
-                <h2 className="text-3xl font-semibold text-fg sm:text-4xl">{catalogName}</h2>
+            <div className="w-full flex-1">
+              <div className="relative">
+                <Search
+                  className={
+                    theme === "dark"
+                      ? "pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                      : "pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                  }
+                />
+                <input
+                  type="search"
+                  value={activeQuery}
+                  onChange={(event) => handleQueryChange(event.target.value)}
+                  placeholder="Search the catalog..."
+                  className={
+                    theme === "dark"
+                      ? "h-12 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-11 text-sm font-medium text-slate-100 placeholder:text-slate-500 transition focus:border-emerald-400/70 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-300/30"
+                      : "h-12 w-full rounded-full border border-gray-300 bg-gray-50 pl-11 pr-11 text-sm font-medium text-gray-900 placeholder:text-gray-500 transition focus:border-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
+                  }
+                />
+                {activeQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => handleQueryChange("")}
+                    className={
+                      theme === "dark"
+                        ? "absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white"
+                        : "absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 transition hover:text-gray-900"
+                    }
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
               </div>
-              <span className="inline-flex items-center rounded-full bg-surface/10 px-4 py-2 text-sm font-medium text-muted">
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {DATASET_OPTIONS.map((option) => {
+                const isActive = activeDataset === option.value;
+                const activeClass =
+                  theme === "dark"
+                    ? "border-emerald-300/70 bg-emerald-400/10 text-emerald-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+                    : "border-gray-900 bg-white text-gray-900 shadow-sm";
+                const idleClass =
+                  theme === "dark"
+                    ? "border-white/10 text-slate-300 hover:border-white/30 hover:text-white"
+                    : "border-gray-200 text-gray-700 hover:border-gray-300 hover:text-gray-900";
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleDatasetChange(option.value)}
+                    className={`h-9 rounded-full border px-4 text-sm font-medium transition ${isActive ? activeClass : idleClass}`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={
+                  theme === "dark"
+                    ? "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 shadow-inner shadow-black/20"
+                    : "inline-flex items-center rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700"
+                }
+              >
                 {visibleCount} of {totalCount} products
               </span>
-            </header>
-
-            {topCategoryLinks.length ? (
-              <nav aria-label="Popular categories">
-                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                  <span className="font-semibold text-fg/80">Popular categories:</span>
-                  {topCategoryLinks.map((category) => (
-                    <Link
-                      key={category.slug}
-                      href={`/products?category=${encodeURIComponent(category.slug)}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-medium text-muted transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                    >
-                      {category.label}
-                      <span className="text-xs text-muted">({category.count})</span>
-                    </Link>
-                  ))}
-                </div>
-              </nav>
-            ) : null}
-
-            <div className="space-y-6">
-              <div className={GRID_SURFACE_CLASS} style={GRID_STYLE}>
-                {showSkeleton ? (
-                  <div className={skeletonLayoutClass[layoutMode]}>
-                    {Array.from({ length: skeletonCount }).map((_, index) => (
-                      <div key={`skeleton-${index}`} className={skeletonItemWrapperClass[layoutMode]}>
-                        <ProductSkeleton />
-                      </div>
+              <div className="relative" ref={sortMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsSortMenuOpen((prev) => !prev)}
+                  className={
+                    theme === "dark"
+                      ? "inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/35"
+                      : "inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:border-gray-900"
+                  }
+                  aria-haspopup="menu"
+                  aria-expanded={isSortMenuOpen}
+                >
+                  <svg
+                    width="20"
+                    height="14"
+                    viewBox="0 0 20 14"
+                    fill="currentColor"
+                    className={theme === "dark" ? "text-slate-400" : "text-gray-500"}
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M1.098.36A.66.66 0 0 0 .64.713a.66.66 0 0 0 .002.527.61.61 0 0 0 .48.36c.18.028 17.578.028 17.758-.001a.62.62 0 0 0 .478-.359.5.5 0 0 0 .051-.27c0-.134-.009-.177-.054-.264a.68.68 0 0 0-.315-.304L18.93.35 10.06.347C5.181.346 1.149.352 1.098.36M2.91 4.388a.64.64 0 0 0-.393.332c-.066.127-.068.43-.003.551a.8.8 0 0 0 .302.293l.094.046h14.18l.095-.046a.62.62 0 0 0 .352-.604.62.62 0 0 0-.365-.544l-.102-.046-7.04-.004c-5.638-.003-7.056.002-7.12.022M4.734 8.42a.6.6 0 0 0-.304.247.622.622 0 0 0 .268.91l.112.053h10.38l.112-.052a.623.623 0 0 0 .268-.911.6.6 0 0 0-.31-.248c-.098-.038-.213-.039-5.265-.038-5.005.001-5.168.002-5.261.039m2.605 3.98a.63.63 0 0 0-.518.735c.029.142.06.204.153.307.097.107.211.17.355.197.167.03 5.178.03 5.342 0a.53.53 0 0 0 .311-.153c.166-.15.24-.37.197-.58a.62.62 0 0 0-.369-.46l-.12-.056-2.63-.003c-1.447-.001-2.671.004-2.721.013"
+                    />
+                  </svg>
+                  <span>{activeSortLabel}</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition ${
+                      isSortMenuOpen ? "rotate-180" : ""
+                    } ${theme === "dark" ? "text-slate-400" : "text-gray-500"}`}
+                  />
+                </button>
+                {isSortMenuOpen ? (
+                  <div
+                    className={
+                      theme === "dark"
+                        ? "absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-white/15 bg-[#0f131d] p-1 shadow-2xl shadow-black/40 backdrop-blur-lg"
+                        : "absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-gray-200 bg-white p-1 shadow-2xl"
+                    }
+                    role="menu"
+                  >
+                    {SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSortChange(option.value)}
+                        className={`flex w-full items-center justify-between rounded-xl px-4 py-2 text-sm font-medium transition ${
+                          activeSort === option.value
+                            ? theme === "dark"
+                              ? "bg-emerald-400/20 text-emerald-50"
+                              : "bg-gray-900 text-white"
+                            : theme === "dark"
+                              ? "text-slate-200 hover:bg-white/5"
+                              : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                        role="menuitemradio"
+                        aria-checked={activeSort === option.value}
+                      >
+                        <span>{option.label}</span>
+                        {activeSort === option.value ? (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            />
+                          </svg>
+                        ) : null}
+                      </button>
                     ))}
                   </div>
-                ) : displayed.length > 0 ? (
-                  <ProductGrid
-                    items={gridItems}
-                    layout={layoutMode}
-                    showAddToCart
-                    wrapWithContainer={false}
-                    gridId="catalog"
-                  />
-                ) : (
-                  <EmptyState onReset={resetFilters} />
-                )}
+                ) : null}
               </div>
-
-              <div ref={sentinelRef} aria-hidden />
-              {hasMore && !showSkeleton ? (
-                <p className="py-6 text-center text-sm text-muted" role="status">
-                  Loading more products...
-                </p>
-              ) : null}
             </div>
           </div>
         </div>
       </div>
+
+      <div className="mx-auto flex w-full gap-6 px-4 py-10 sm:px-8 lg:px-12">
+        {isFilterOpen ? (
+          <div className="hidden lg:block lg:w-[280px] lg:flex-none">
+            <FilterSidebar {...filterSidebarProps} />
+          </div>
+        ) : null}
+
+        <section className="flex-1 min-w-0 space-y-10">
+          <RevealOnScroll
+            className={
+              theme === "dark"
+                ? "w-full min-w-0 relative overflow-hidden rounded-[36px] border border-white/12 bg-white/5 px-6 py-10 text-center shadow-[0_30px_110px_-60px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:px-10 lg:py-12 lg:text-left"
+                : "w-full min-w-0 rounded-[36px] border border-gray-200 bg-gray-50/80 px-6 py-10 text-center shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)] lg:px-10 lg:py-12 lg:text-left"
+            }
+            startY={32}
+            startOpacity={0}
+            threshold={0.2}
+          >
+            {theme === "dark" ? (
+              <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_15%_20%,rgba(94,234,212,0.14),transparent_32%),radial-gradient(circle_at_85%_10%,rgba(129,140,248,0.2),transparent_30%)]" />
+            ) : null}
+            <div className={theme === "dark" ? "relative" : ""}>
+              <p
+                className={
+                  theme === "dark"
+                    ? "text-sm font-semibold uppercase tracking-wide text-emerald-200/80"
+                    : "text-sm font-semibold uppercase tracking-wide text-gray-500"
+                }
+              >
+                Product catalog
+              </p>
+              <h2
+                className={
+                  theme === "dark"
+                    ? "mt-3 text-3xl font-semibold text-white sm:text-4xl"
+                    : "mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl"
+                }
+              >
+                {catalogName}
+              </h2>
+              <p
+                className={
+                  theme === "dark"
+                    ? "mt-4 text-base text-slate-200/80 lg:max-w-3xl"
+                    : "mt-4 text-base text-gray-600 lg:max-w-3xl"
+                }
+              >
+                Browse featured drops, compare performance stats, and blend Neon Shop with archived datasets to find the perfect fit for your workflow.
+              </p>
+              <div
+                className={
+                  theme === "dark"
+                    ? "mt-6 flex flex-wrap gap-3 text-sm text-slate-200/90"
+                    : "mt-6 flex flex-wrap gap-3 text-sm text-gray-700"
+                }
+              >
+                <span
+                  className={
+                    theme === "dark"
+                      ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
+                      : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
+                  }
+                >
+                  <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-emerald-400" : "h-2 w-2 rounded-full bg-green-500"} />
+                  Live catalog · {totalCount} items
+                </span>
+                <span
+                  className={
+                    theme === "dark"
+                      ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
+                      : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
+                  }
+                >
+                  <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-sky-400" : "h-2 w-2 rounded-full bg-blue-500"} />
+                  {datasetLabelText}
+                </span>
+                {activeFiltersCount ? (
+                  <span
+                    className={
+                      theme === "dark"
+                        ? "inline-flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-400/10 px-4 py-2 text-amber-100"
+                        : "inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-700"
+                    }
+                  >
+                    <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-amber-300" : "h-2 w-2 rounded-full bg-amber-500"} />
+                    {activeFiltersCount} filter{activeFiltersCount > 1 ? "s" : ""} applied
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </RevealOnScroll>
+
+          {topCategoryLinks.length ? (
+            <RevealOnScroll
+              startY={18}
+              startOpacity={0}
+              duration={0.5}
+              threshold={0.15}
+            >
+              <nav
+                aria-label="Popular categories"
+                className={
+                  theme === "dark"
+                    ? "flex flex-wrap items-center gap-2 text-sm text-slate-200/80"
+                    : "flex flex-wrap items-center gap-2 text-sm text-gray-600"
+                }
+              >
+                <span className={theme === "dark" ? "font-semibold text-white" : "font-semibold text-gray-800"}>
+                  Popular categories:
+                </span>
+                {topCategoryLinks.map((category) => (
+                  <Link
+                    key={category.slug}
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
+                    className={
+                      theme === "dark"
+                        ? "inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10"
+                        : "inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
+                    }
+                  >
+                    {category.label}
+                    <span className={theme === "dark" ? "text-xs text-slate-400" : "text-xs text-gray-500"}>
+                      ({category.count})
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+            </RevealOnScroll>
+          ) : null}
+
+          {carouselItems.length ? (
+            <RevealOnScroll
+              className="mt-6 w-full min-w-0"
+              startY={18}
+              startOpacity={0}
+              duration={0.45}
+              threshold={0.12}
+            >
+              <CatalogProductCarousel
+                heading={carouselHeading}
+                eyebrow={carouselEyebrow}
+                caption={carouselCaption}
+                products={carouselItems}
+              />
+            </RevealOnScroll>
+          ) : null}
+
+          <RevealOnScroll
+            className={gridSurfaceClass}
+            style={GRID_STYLE}
+            startY={24}
+            startOpacity={0}
+            threshold={0.12}
+          >
+            {showSkeleton ? (
+              <div className={skeletonLayoutClass[layoutMode]}>
+                {Array.from({ length: skeletonCount }).map((_, index) => (
+                  <div key={`skeleton-${index}`} className={skeletonItemWrapperClass[layoutMode]}>
+                    <ProductSkeleton />
+                  </div>
+                ))}
+              </div>
+            ) : displayed.length > 0 ? (
+              <ProductGrid
+                items={gridItems}
+                layout={layoutMode}
+                showAddToCart
+                wrapWithContainer={false}
+                gridId="catalog"
+              />
+            ) : (
+              <EmptyState theme={theme} />
+            )}
+          </RevealOnScroll>
+
+          <div ref={sentinelRef} aria-hidden />
+          {hasMore && !showSkeleton ? (
+            <RevealOnScroll
+              startY={10}
+              startOpacity={0}
+              duration={0.4}
+            >
+              <p className="py-6 text-center text-sm text-gray-500" role="status">
+                Loading more products...
+              </p>
+            </RevealOnScroll>
+          ) : null}
+        </section>
+      </div>
+
+      {isFilterOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-sm lg:hidden"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="h-full w-[85vw] max-w-xs bg-white shadow-2xl">
+            <FilterSidebar {...filterSidebarProps} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFilterOpen(false)}
+            className="h-full flex-1"
+            aria-label="Close filters"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function EmptyState({ onReset }: { onReset: () => void }) {
+function EmptyState({ theme }: { theme: "light" | "dark" }) {
+  const wrapperClass =
+    theme === "dark"
+      ? "flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-12 text-center shadow-md"
+      : "flex flex-col items-center justify-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-12 text-center shadow-md";
+  const textClass = theme === "dark" ? "text-sm text-slate-200/80" : "text-sm text-gray-600";
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/20 bg-surface/10 p-12 text-center shadow-md">
-      <p className="text-sm text-muted">No products match the current filters.</p>
-      <button
-        type="button"
-        onClick={onReset}
-        className="inline-flex items-center gap-2 rounded-full bg-surface/20 px-4 py-2 text-sm font-medium text-muted transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-      >
-        Reset filters
-      </button>
+    <div className={wrapperClass}>
+      <p className={textClass}>Products are unavailable right now. Please check back later.</p>
     </div>
   );
 }
@@ -854,243 +1213,52 @@ function humanize(input: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-type FiltersFormProps = {
-  queryInput: string;
-  isPending: boolean;
-  filters: FiltersState;
-  datasetOptions: { value: FiltersState["dataset"]; label: string; icon: any }[];
-  layoutOptions: { value: LayoutMode; label: string; icon: any }[];
-  categoryOptions: { value: string; label: string; display: string }[];
-  handleQueryChange: (v: string) => void;
-  handleDatasetChange: (v: FiltersState["dataset"]) => void;
-  handleLayoutChange: (v: LayoutMode) => void;
-  handleCategoryChange: (v: string) => void;
-  handleSortChange: (v: FiltersState["sort"]) => void;
-  handlePriceMinChange: (value: string) => void;
-  handlePriceMaxChange: (value: string) => void;
-  handleMinRatingChange: (value: string) => void;
-  resetFilters: () => void;
-  // optional summary blocks for desktop sidebar
-  activeCategoryLabel?: string;
-  summary?: string;
-  visibleCount?: number;
-  totalCount?: number;
-};
-
-function FiltersForm(props: FiltersFormProps) {
-  const {
-    queryInput,
-    isPending,
-    filters,
-    datasetOptions,
-    layoutOptions,
-    categoryOptions,
-    handleQueryChange,
-    handleDatasetChange,
-    handleLayoutChange,
-    handleCategoryChange,
-    handleSortChange,
-    handlePriceMinChange,
-    handlePriceMaxChange,
-    handleMinRatingChange,
-    resetFilters,
-    activeCategoryLabel,
-    summary,
-    visibleCount,
-    totalCount,
-  } = props;
-
-  const sortOptions: { value: FiltersState["sort"]; label: string }[] = [
-    { value: "recent", label: "Newest first" },
-    { value: "popular", label: "Most popular" },
-    { value: "price-asc", label: "Price: low to high" },
-    { value: "price-desc", label: "Price: high to low" },
-    { value: "impressions", label: "Most impressions" },
-  ];
-
-  return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <label htmlFor="products-query" className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Search
-        </label>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            id="products-query"
-            value={queryInput}
-            onChange={(event) => handleQueryChange(event.currentTarget.value)}
-            placeholder="Search products"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-            disabled={isPending}
-          />
-        </div>
-      </section>
-
-      <DatasetPicker
-        value={filters.dataset}
-        options={datasetOptions}
-        onChange={(v) => handleDatasetChange(v as FiltersState["dataset"])}
-        isPending={isPending}
-      />
-
-      <LayoutPicker
-        value={filters.layout}
-        options={layoutOptions}
-        onChange={(v) => handleLayoutChange(v as LayoutMode)}
-        isPending={isPending}
-      />
-
-      {categoryOptions.length > 1 ? (
-        <section className="flex flex-col gap-2">
-          <label htmlFor="products-category" className="text-sm font-semibold text-fg">
-            Category
-          </label>
-          <div className="relative">
-            <select
-              id="products-category"
-              value={filters.category}
-              onChange={(event) => handleCategoryChange(event.currentTarget.value)}
-              disabled={isPending}
-              className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-            >
-              {categoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          </div>
-        </section>
-      ) : null}
-
-      <section className="flex flex-col gap-3">
-        <span id="products-sort-label" className="text-sm font-semibold text-fg">
-          Sort by
-        </span>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-2 shadow-sm">
-          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="products-sort-label">
-            {sortOptions.map((option) => {
-              const active = filters.sort === option.value;
-              const baseClasses =
-                "group inline-flex min-w-[140px] flex-1 items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-60";
-              const activeClasses = "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
-              const inactiveClasses = "border-white/10 bg-transparent text-muted hover:border-primary/30 hover:text-primary";
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  disabled={isPending}
-                  onClick={() => {
-                    if (!active) handleSortChange(option.value);
-                  }}
-                  className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
-                >
-                  <span>{option.label}</span>
-                  <span className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-white/30 group-hover:bg-primary/70"}`} aria-hidden />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <span className="text-sm font-semibold text-fg">Price range</span>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="flex-1">
-            <label htmlFor="products-price-min" className="text-xs font-medium uppercase tracking-wide text-muted">
-              Min
-            </label>
-            <input
-              id="products-price-min"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={1}
-              value={filters.priceMin ?? ""}
-              onChange={(event) => handlePriceMinChange(event.currentTarget.value)}
-              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-              placeholder="0"
-              disabled={isPending}
-            />
-          </div>
-          <div className="flex-1">
-            <label htmlFor="products-price-max" className="text-xs font-medium uppercase tracking-wide text-muted">
-              Max
-            </label>
-            <input
-              id="products-price-max"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={1}
-              value={filters.priceMax ?? ""}
-              onChange={(event) => handlePriceMaxChange(event.currentTarget.value)}
-              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-fg placeholder:text-muted shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-              placeholder="Any"
-              disabled={isPending}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <label htmlFor="products-rating" className="text-sm font-semibold text-fg">
-          Minimum rating
-        </label>
-        <div className="relative">
-          <select
-            id="products-rating"
-            value={filters.minRating != null ? String(filters.minRating) : ""}
-            onChange={(event) => handleMinRatingChange(event.currentTarget.value)}
-            disabled={isPending}
-            className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/5 px-4 pr-10 text-sm font-medium text-fg shadow-sm transition focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:opacity-60"
-          >
-            <option value="">Any rating</option>
-            <option value="3">3★ and up</option>
-            <option value="4">4★ and up</option>
-            <option value="4.5">4.5★ and up</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        </div>
-      </section>
-
-      {(typeof visibleCount === "number" && typeof totalCount === "number") || summary ? (
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
-          {(activeCategoryLabel || (typeof visibleCount === "number" && typeof totalCount === "number")) && (
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary/70">
-              <span>{activeCategoryLabel ?? "Selected"}</span>
-              {typeof visibleCount === "number" && typeof totalCount === "number" ? (
-                <span>
-                  {visibleCount} / {totalCount}
-                </span>
-              ) : null}
-            </div>
-          )}
-          {summary ? <p className="mt-3 text-sm text-muted">{summary}</p> : null}
-        </section>
-      ) : null}
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <button
-          type="button"
-          onClick={resetFilters}
-          disabled={isPending}
-          className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 disabled:opacity-60"
-        >
-          Reset filters
-        </button>
-        <button
-          type="button"
-          onClick={() => window?.scrollTo?.({ top: 0, behavior: "smooth" })}
-          className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-fg/90 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-        >
-          Back to top
-        </button>
-      </div>
-    </div>
-  );
+function normalizeTaxonomyValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
 }
+
+function taxonomyLabelFromValue(value: string | null | undefined): string {
+  if (!value) return "Unknown";
+  return humanize(value.replace(/\//g, " "));
+}
+
+function productMatchesCategory(product: Product, category: string): boolean {
+  if (!category || category === "all") return true;
+  if (product.categorySlug && product.categorySlug === category) return true;
+  const normalizedCategory = normalizeTaxonomyValue(category);
+  const productCategory = normalizeTaxonomyValue(product.category);
+  return productCategory === normalizedCategory;
+}
+
+function matchesBrand(product: Product, selection: string): boolean {
+  if (!selection || selection === "all") return true;
+  const normalizedSelection = normalizeTaxonomyValue(selection);
+  if (!normalizedSelection) return true;
+  const candidates = [
+    product.brand,
+    product.brandSlug,
+    product.brandName,
+  ]
+    .map((value) => normalizeTaxonomyValue(value))
+    .filter(Boolean);
+  return candidates.includes(normalizedSelection);
+}
+
+function matchesModel(product: Product, selection: string): boolean {
+  if (!selection || selection === "all") return true;
+  const normalizedSelection = normalizeTaxonomyValue(selection);
+  if (!normalizedSelection) return true;
+  const candidates = [
+    product.model,
+    product.modelSlug,
+    product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
+  ]
+    .map((value) => normalizeTaxonomyValue(value))
+    .filter(Boolean);
+  if (candidates.includes(normalizedSelection)) return true;
+  if (product.catalogProductId && product.catalogProductId === selection) return true;
+  return false;
+}
+

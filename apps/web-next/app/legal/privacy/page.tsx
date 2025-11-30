@@ -1,3 +1,4 @@
+import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
 import type { Metadata } from "next";
 import SectionCard from "@ui/components/ui/SectionCard";
 import Tagline from "@/components/tagline";
@@ -22,10 +23,9 @@ export default function PrivacyPolicyPage() {
           and reply to the messages you send us. The rest stays on your device.
         </p>
       </div>
-
       <SectionCard contentClassName="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">What we collect</h2>
+          <h2 className={sectionTitle}>What we collect</h2>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
             <li>Anonymous product analytics after you accept optional cookies.</li>
             <li>Contact details you submit through forms so we can answer your request.</li>
@@ -34,8 +34,8 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">How we use data</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>How we use data</h2>
+          <p className={mutedTextSmLegacy}>
             Usage metrics help us understand which product guides are useful and where users get stuck.
             Contact information is only used to reply and is deleted within 90 days unless you become a customer.
             We never sell or rent personal information.
@@ -43,7 +43,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Your choices</h2>
+          <h2 className={sectionTitle}>Your choices</h2>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
             <li>Decline analytics cookies - the site keeps working.</li>
             <li>Request a copy or deletion of your data by emailing <a className="underline" href="mailto:privacy@neonshop.dev">privacy@neonshop.dev</a>.</li>
@@ -52,8 +52,8 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-fg">Data processors</h2>
-          <p className="text-sm text-muted">
+          <h2 className={sectionTitle}>Data processors</h2>
+          <p className={mutedTextSmLegacy}>
             Neon Shop runs on Supabase (authentication, database, storage) and Vercel (hosting). Both are GDPR-compliant
             and store data in the EU when available.
           </p>

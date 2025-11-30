@@ -1,3 +1,4 @@
+import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
 import { Suspense } from "react";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
@@ -6,9 +7,11 @@ import { headers } from "next/headers";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ProductGrid, type ProductGridItem } from "@/components/ProductGrid";
+import { type ProductGridItem } from "@/components/ProductGrid";
 import { HeroSection, HeroSectionSkeleton } from "@/components/HeroSection";
 import { FeaturedSkeleton } from "@/components/product-grid/FeaturedSkeleton";
+import { HydratedProductGrid } from "@/components/ProductGrid/HydratedProductGrid";
+import { RecommendationsWidget } from "@/components/RecommendationsWidget";
 import { serializeJsonLd, makeOrganizationLD } from "@shared/lib/jsonld";
 import { createClient } from "@/utils/supabase/server";
 import { loadProductsData } from "./products/data";
@@ -81,7 +84,6 @@ export default async function HomePage() {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
         />
       ) : null}
-
       {/* Structured data: organization */}
       {orgLd ? (
         <script
@@ -90,20 +92,24 @@ export default async function HomePage() {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(orgLd) }}
         />
       ) : null}
-
       <Suspense fallback={<HeroSectionSkeleton />}>
         <HeroSection />
       </Suspense>
-
       <Suspense fallback={<FeaturedSkeleton />}>
         <FeaturedProducts products={featuredProducts} totalProducts={products.length} />
       </Suspense>
-
+      {/* Персональные рекомендации на главной */}
+      <section className="relative overflow-hidden rounded-[28px] border border-border/40 bg-card/70 px-4 py-8 shadow-card sm:px-8 sm:py-12">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className={sectionTitle}>Recommended for you</h2>
+        </div>
+        <RecommendationsWidget limit={12} />
+      </section>
       <section className="relative overflow-hidden rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/60 px-6 py-16 text-center shadow-card sm:px-10 sm:py-20 lg:flex lg:items-center lg:justify-between lg:text-left">
         <div className="flex-1 space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Admin toolkit</p>
           <h3 className="text-2xl font-semibold text-fg lg:text-3xl">Command centre for partners &amp; payouts</h3>
-          <p className="text-sm text-muted">
+          <p className={mutedTextSmLegacy}>
             Manage catalogue metadata, click &amp; conversion events, and partner compliance from one responsive
             dashboard. Extend APIs with Edge Functions when you need bespoke workflows.
           </p>
@@ -142,7 +148,7 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
         <div className="mx-auto max-w-xl space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Catalog</p>
           <h2 className="text-2xl font-semibold text-fg">Products will appear here soon</h2>
-          <p className="text-sm text-muted">
+          <p className={mutedTextSmLegacy}>
             Sync items from Supabase or seed the demo catalog to preview storefront components instantly.
           </p>
           <div className="flex justify-center">
@@ -209,7 +215,7 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
           <h2 id="featured-products-heading" className="text-3xl font-semibold text-fg sm:text-4xl">
             Fresh arrivals and the latest additions.
           </h2>
-          <p className="text-sm text-muted">Browse {formattedTotal} items curated for high-converting storefronts.</p>
+          <p className={mutedTextSmLegacy}>Browse {formattedTotal} items curated for high-converting storefronts.</p>
         </div>
         <Link
           href="/products"
@@ -218,12 +224,17 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
           Browse all &rarr;
         </Link>
       </div>
-
       <div
         className="mx-auto w-full max-w-[1260px] rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10"
         style={FEATURED_GRID_STYLE}
       >
-        <ProductGrid items={items} layout="grid" showAddToCart wrapWithContainer={false} />
+        <HydratedProductGrid
+          items={items}
+          layout="grid"
+          showAddToCart
+          wrapWithContainer={false}
+          skeletonCount={4}
+        />
       </div>
     </section>
   );

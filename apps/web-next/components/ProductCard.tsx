@@ -49,15 +49,18 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
   const badgeClass = getBadgeClass(badgeLabel);
   const originalPrice =
     product.originalPrice && product.originalPrice !== product.price ? product.originalPrice : null;
+  const metaItems = product.meta
+    ? product.meta
+        .split("\u0007")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : null;
+  const description = product.subtitle ?? metaItems?.[0] ?? null;
+  const supportingMeta = description && metaItems ? metaItems.slice(1) : metaItems;
 
   return (
     <article aria-label={product.title} className={styles.vcCard}>
-      <Link
-        href={href}
-        prefetch={false}
-        aria-label={product.title}
-        className={styles.vcLink}
-      >
+      <Link href={href} prefetch={false} aria-label={product.title} className={styles.vcLink}>
         <div className={styles.vcMedia}>
           {product.image ? (
             <Image
@@ -65,35 +68,41 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
               alt={product.title ?? ""}
               fill
               loading={index === 0 ? "eager" : "lazy"}
-              sizes="(max-width: 768px) 90vw, (max-width: 1199px) 45vw, 353px"
-              quality={55}
+              sizes="(max-width: 768px) 90vw, (max-width: 1199px) 45vw, 320px"
+              quality={60}
               className={styles.vcImage}
+              style={{ borderRadius: "var(--vc-card-image-radius, 11px)" }}
               placeholder={product.image.startsWith("data:") ? "blur" : "empty"}
               blurDataURL={product.image.startsWith("data:") ? product.image : undefined}
             />
           ) : (
             <div className={styles.vcMediaPlaceholder}>{noImageLabel}</div>
           )}
-          {badgeLabel ? (
-            <span
-              className={cn(styles.vcBadge, badgeClass)}
-            >
-              {badgeLabel}
-            </span>
-          ) : null}
+          {badgeLabel ? <span className={cn(styles.vcBadge, badgeClass)}>{badgeLabel}</span> : null}
           <WishlistHeart productId={product.id} className={styles.vcWishlist} />
         </div>
 
         <div className={styles.vcBody}>
           <h3 className={styles.vcTitle}>{product.title}</h3>
+          {description ? <p className={styles.vcDescription}>{description}</p> : null}
+
           {product.price ? (
             <div className={styles.vcPriceRow}>
               {originalPrice ? <span className={styles.vcPriceOriginal}>{originalPrice}</span> : null}
               <span className={styles.vcPriceCurrent}>{product.price}</span>
             </div>
           ) : null}
-          {product.meta ? <p className={styles.vcMeta}>{product.meta}</p> : null}
-          {product.subtitle ? <p className={styles.vcSubtitle}>{product.subtitle}</p> : null}
+
+          {supportingMeta && supportingMeta.length ? (
+            <ul className={styles.vcMetaList}>
+              {supportingMeta.map((item, metaIndex) => (
+                <li key={`${product.id}-${metaIndex}`} className={styles.vcMetaItem}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
         </div>
       </Link>
 

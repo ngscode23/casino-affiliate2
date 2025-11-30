@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextXs, mutedTextSm } from "@/styles/classnames";
 
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { Star, ThumbsDown, ThumbsUp } from "lucide-react";
@@ -667,7 +668,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
       return (
         <li key={node.message.id} className={cn("space-y-2", depth > 0 ? "mt-2 border-l pl-3 border-border/30" : undefined)}>
           <div className="text-sm text-fg/90">
-            <div className="text-xs text-muted-foreground">
+            <div className={mutedTextXs}>
               {(node.message.author_role || "user").toUpperCase()} • {createdLabel}
             </div>
             <div className="whitespace-pre-line [overflow-wrap:anywhere]">
@@ -777,7 +778,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-fg">Отзывы покупателей</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className={mutedTextSm}>
             Средняя оценка: <span className="font-semibold text-fg">{summaryAverageLabel}</span> на основе{" "}
             <span className="font-semibold text-fg">{summary.count}</span> отзывов
           </p>
@@ -818,7 +819,6 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
           </div>
         </div>
       </header>
-
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <aside className="min-w-0 space-y-4 rounded-2xl border border-border/30 bg-card/70 p-4">
           <h3 className="text-sm font-semibold uppercase tracking-[0.24em] text-muted">Распределение</h3>
@@ -858,7 +858,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
           <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border/30 bg-card/70 p-4">
             <h3 className="text-lg font-semibold text-fg">{isEditing ? "Редактировать отзыв" : "Оставить отзыв"}</h3>
             <div>
-              <p className="text-sm text-muted-foreground">Оценка товара</p>
+              <p className={mutedTextSm}>Оценка товара</p>
               <div className="mt-2 flex items-center gap-1">
                 {STAR_INDEXES.map((idx) => {
                   const value = idx + 1;
@@ -938,7 +938,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
             ) : null}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <span className="text-xs text-muted-foreground">Минимум {MIN_BODY_LENGTH} символов</span>
+              <span className={mutedTextXs}>Минимум {MIN_BODY_LENGTH} символов</span>
               <button
                 type="submit"
                 disabled={!canSubmit || submitting}
@@ -994,7 +994,7 @@ const summaryAverageLabel = summary.count > 0 ? summary.average.toFixed(1) : "�
                       <p className="mt-2 [overflow-wrap:anywhere] text-sm leading-relaxed text-fg/90">{sanitize(review.body)}</p>
                       {review.reply ? (
                         <div className="mt-3 rounded-xl border border-border/30 bg-card/60 p-3 text-sm leading-relaxed text-fg">
-                          <div className="text-xs text-muted-foreground">
+                          <div className={mutedTextXs}>
                             Ответ магазина • {formatReviewDate(review.reply.created_at) || review.reply.created_at || "-"}
                           </div>
                           <div className="mt-1 whitespace-pre-line">{sanitize(review.reply.body)}</div>

@@ -1,6 +1,8 @@
 import { unstable_cache } from "next/cache";
 import { getAdminClient } from "@/utils/supabase/admin";
 import type { ProductGridItem } from "@/components/ProductGrid";
+import type { ProductTechSpecs } from "@/lib/catalog/product-tech-specs";
+import { normalizeProductTechSpecs } from "@/lib/catalog/product-tech-specs";
 import { getFallbackImageByKey } from "../fallback-images";
 import { formatCurrency } from "../currency";
 import { resolveCurrency, resolvePriceDetails } from "../price-utils";
@@ -82,9 +84,11 @@ export type ProductData = {
   dataset: "shop" | "legacy";
   status: string;
   sku?: string | null;
+  catalogProductId: string | null;
   category: { slug: string | null; name: string | null };
   tags: string[];
   specs: ProductSpecsData;
+  techSpecs: ProductTechSpecs | null;
   variants: ProductVariantGroup[];
   shippingEstimate: string | null;
   availabilityLabel: string;
@@ -377,6 +381,12 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
 
   const dataset = (castString(row.dataset ?? row.source_dataset).toLowerCase() === "legacy" ? "legacy" : "shop") as "shop" | "legacy";
   const status = castString(row.status ?? row.product_status ?? payload.status ?? "active").trim() || "active";
+  const catalogProductRaw =
+    row.catalog_product_id ??
+    (payload.product as Record<string, unknown> | undefined)?.catalog_product_id ??
+    payload.catalog_product_id ??
+    null;
+  const catalogProductId = castString(catalogProductRaw).trim() || null;
 
   const priceInfo = resolvePriceDetails(row);
   const price = priceInfo.price;
@@ -461,6 +471,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     category: { slug: categorySlug, name: categoryName },
     tags,
     specs: parsed.specs,
+    techSpecs: null,
     variants: parsed.variants,
     shippingEstimate,
     availabilityLabel: resolveAvailabilityLabel(status, shippingEstimate),
@@ -468,6 +479,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     recentReviews,
     productUid: castString(payload.product_uid ?? row.product_uid ?? payload.uid ?? null) || null,
     brand,
+    catalogProductId,
     clicks,
     impressions,
   };
@@ -504,11 +516,44 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
   if (!product) return null;
   try {
     const admin = getAdminClient();
-    const { data: pricedRow, error: priceError } = await admin
+
+    let catalogProductId = product.catalogProductId;
+    try {
+      const { data: metaRow } = await admin
+        .from("ecom_products")
+        .select("catalog_product_id")
+        .eq("slug", product.slug)
+        .maybeSingle();
+      const rawCatalogId = (metaRow as Record<string, unknown> | null | undefined)?.catalog_product_id ?? null;
+      const normalizedId = castString(rawCatalogId).trim() || null;
+      if (normalizedId) {
+        catalogProductId = normalizedId;
+        product.catalogProductId = normalizedId;
+      }
+    } catch (metaError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[catalog] failed to load variant meta from ecom_products (catalog_product_id)", metaError);
+      }
+    }
+
+    const pricePromise = admin
       .from("product_with_discount_public")
       .select("*")
       .eq("id", product.id)
       .maybeSingle();
+    const catalogPromise = catalogProductId
+      ? admin
+          .from("catalog_products")
+          .select("id, specs")
+          .eq("id", catalogProductId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null });
+    const [priceResult, catalogResult] = await Promise.all([pricePromise, catalogPromise]);
+    const { data: pricedRow, error: priceError } = priceResult;
+    const { data: catalogRow, error: catalogError } = catalogResult as {
+      data: { specs?: unknown } | null;
+      error: { message?: string } | null;
+    };
 
     if (!priceError && pricedRow) {
       const pricing = resolvePriceDetails(pricedRow as Record<string, unknown>);
@@ -525,6 +570,10 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
       product.formattedPrice = formatCurrency(product.price, product.currency);
     } else if (product.priceCents == null) {
       product.priceCents = Math.round(product.price * 100);
+    }
+    if (!catalogError) {
+      const normalizedSpecs = normalizeProductTechSpecs((catalogRow ?? undefined)?.specs ?? null);
+      product.techSpecs = normalizedSpecs;
     }
   } catch (error) {
     console.error("[catalog] failed to load product discount view", error);

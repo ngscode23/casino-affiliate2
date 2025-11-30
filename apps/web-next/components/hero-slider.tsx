@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm } from "@/styles/classnames";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -145,7 +146,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 aria-label={isPaused ? "Resume autoplay" : "Pause slides"}
               >
-                {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                {isPaused ? <Play className={iconSm} /> : <Pause className={iconSm} />}
               </button>
               <button
                 type="button"
@@ -153,7 +154,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 aria-label="Previous slide"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className={iconSm} />
               </button>
               <button
                 type="button"
@@ -161,7 +162,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 aria-label="Next slide"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className={iconSm} />
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -280,7 +281,7 @@ function CheckoutVisual() {
           Pay securely
         </button>
         <p className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
-          <CreditCard className="h-4 w-4" /> Cards / Apple Pay / Google Pay
+          <CreditCard className={iconSm} /> Cards / Apple Pay / Google Pay
         </p>
       </div>
     </div>
@@ -300,7 +301,7 @@ function DeliveryVisual() {
         {perks.map(({ icon: Icon, title, detail }) => (
           <div key={title} className="flex items-start gap-3 rounded-2xl bg-white/8 p-4">
             <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
-              <Icon className="h-4 w-4" />
+              <Icon className={iconSm} />
             </span>
             <div>
               <div className="text-sm font-semibold text-white">{title}</div>
@@ -324,7 +325,7 @@ function PromoVisual() {
           Launch flash sales and coupons from the admin panel. The storefront updates instantly across all channels.
         </p>
         <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1 text-xs font-semibold uppercase text-slate-900">
-          <Tag className="h-4 w-4" /> FREESHIP
+          <Tag className={iconSm} /> FREESHIP
         </div>
       </div>
     </div>

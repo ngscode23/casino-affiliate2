@@ -19,6 +19,7 @@ const DEFAULT_LIMIT =
 
 const fetchTopLevelCategoriesCached = unstable_cache(
   async (limit: number): Promise<CatalogCategory[]> => {
+    // Read from the public `categories` view so we don't rely on non-whitelisted schemas.
     const supabase = getAdminClient();
     const effectiveLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_LIMIT;
     const { data, error } = await supabase

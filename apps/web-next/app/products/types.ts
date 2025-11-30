@@ -13,8 +13,28 @@ export type RecMeta = {
 export type Product = {
   id: string;
   slug: string;
+  sku: string | null;
   title: string;
   description: string | null;
+  category: string | null;
+  /**
+   * Brand slug used for filtering (catalog.brands.slug).
+   * Keep the legacy `brand` field for backwards compatibility.
+   */
+  brand: string | null;
+  brandSlug?: string | null;
+  brandName?: string | null;
+  /**
+   * Model slug used for filtering (catalog.products.slug).
+   * Keep the legacy `model` field for backwards compatibility.
+   */
+  model: string | null;
+  modelSlug?: string | null;
+  modelTitle?: string | null;
+  /**
+   * Foreign key to catalog.products.id that links a SKU to its model.
+   */
+  catalogProductId?: string | null;
   price: number;
   priceCents?: number | null;
   originalPrice?: number | null;

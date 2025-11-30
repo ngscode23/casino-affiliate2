@@ -92,7 +92,11 @@ export function WishlistHeart({
         className,
       )}
     >
-      <Heart className="h-4 w-4" style={{ width: size, height: size }} aria-hidden fill={active ? "currentColor" : "none"} />
+      <Heart
+        style={{ width: size, height: size }}
+        aria-hidden
+        fill={active ? "currentColor" : "none"}
+      />
     </button>
   );
 }

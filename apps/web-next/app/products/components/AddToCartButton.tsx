@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { iconSm } from "@/styles/classnames";
 
 import { useState, useCallback } from "react";
 import type { MouseEvent } from "react";
@@ -8,6 +9,7 @@ import { useCart } from "@shared/ecom/lib/cart";
 import { track } from "@shared/lib/analytics";
 import { toast } from "@ui/components/common/toast";
 import cn from "@shared/lib/cn";
+import { logRecEvent } from "@/lib/recs-events";
 
 type Variant = "solid" | "overlay" | "soft";
 
@@ -33,6 +35,9 @@ type AddToCartButtonProps = {
   quantity?: number;
   analyticsEventName?: string;
   analyticsParams?: Record<string, unknown>;
+  priceCents?: number | null;
+  category?: string | null;
+  recMetadata?: Record<string, unknown>;
 };
 
 export default function AddToCartButton({
@@ -45,6 +50,9 @@ export default function AddToCartButton({
   quantity = 1,
   analyticsEventName = "add_to_cart",
   analyticsParams,
+  priceCents = null,
+  category = null,
+  recMetadata,
 }: AddToCartButtonProps) {
   const { add } = useCart();
   const [pending, setPending] = useState(false);
@@ -71,12 +79,34 @@ export default function AddToCartButton({
       } catch {
         /* noop */
       }
+        scheduleIdle(() => {
+          void logRecEvent({
+            event: "add_to_cart",
+            productId,
+            category: category ?? undefined,
+            priceCents: priceCents ?? undefined,
+            weight: quantity,
+            metadata: recMetadata,
+          });
+        });
         onAddAction?.();
       } finally {
         setTimeout(() => setPending(false), 400);
       }
     },
-    [add, analyticsEventName, analyticsParams, onAddAction, pending, productId, quantity, title],
+    [
+      add,
+      analyticsEventName,
+      analyticsParams,
+      category,
+      onAddAction,
+      pending,
+      priceCents,
+      productId,
+      quantity,
+      recMetadata,
+      title,
+    ],
   );
 
   const baseClass =
@@ -99,7 +129,7 @@ export default function AddToCartButton({
       disabled={pending}
       aria-label={label}
     >
-      <ShoppingCart className="h-4 w-4" aria-hidden />
+      <ShoppingCart className={iconSm} aria-hidden />
       <span>{label}</span>
     </button>
   );

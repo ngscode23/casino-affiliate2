@@ -1,3 +1,4 @@
+import { mutedTextSmLegacy } from "@/styles/classnames";
 import type { Metadata } from "next";
 import PageShell from "@ui/components/ui/PageShell";
 import SectionCard from "@ui/components/ui/SectionCard";
@@ -95,19 +96,19 @@ export default async function ContactPage({ searchParams }: { searchParams?: Pro
         <SectionCard title="Direct contacts" contentClassName="gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-border/40 bg-card/60 p-4">
-              <div className="text-sm text-muted">Email</div>
+              <div className={mutedTextSmLegacy}>Email</div>
               <a className="mt-1 block text-base" href={`mailto:${footer.email}`}>
                 {footer.email}
               </a>
             </div>
             <div className="rounded-2xl border border-border/40 bg-card/60 p-4">
-              <div className="text-sm text-muted">Phone</div>
+              <div className={mutedTextSmLegacy}>Phone</div>
               <a className="mt-1 block text-base" href={`tel:${footer.phone.replace(/[^0-9+]/g, "")}`}>
                 {footer.phone}
               </a>
             </div>
             <div className="rounded-2xl border border-border/40 bg-card/60 p-4 sm:col-span-2">
-              <div className="text-sm text-muted">Office</div>
+              <div className={mutedTextSmLegacy}>Office</div>
               <p className="mt-1 text-base text-fg">{footer.address}</p>
             </div>
           </div>

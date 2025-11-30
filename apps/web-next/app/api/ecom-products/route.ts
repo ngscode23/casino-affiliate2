@@ -71,6 +71,142 @@ export async function GET(request: Request) {
     const idsCsv = (params.get("ids") || "").trim();
     const ids = idsCsv ? idsCsv.split(",").map((s) => s.trim()).filter(Boolean) : [];
     const idsOrder = new Map(ids.map((id, index) => [id, index]));
+    const catalogProductIdFilter = sanitizeSearchParam(params.get("catalog_product_id"));
+
+    const supabaseUrl = pickSupabaseUrl();
+    const bucket = DEFAULT_BUCKET;
+
+    // Special case: admin editor requests precise IDs (no other filters) -> need full rows with SKU, category, etc.
+    if (
+      ids.length &&
+      !category &&
+      !q &&
+      !min &&
+      !max &&
+      !minRating &&
+      !statusFilterParam &&
+      !catalogProductIdFilter
+    ) {
+      const fallbackColumns =
+        "id, slug, sku, title, price, rating, images, short_desc, category_slug, tags, status, currency, catalog_product_id, specs, created_at, main_image_url, image_path";
+
+      const fetchDirectRows = async (table: "products" | "ecom_products", idList: string[]) => {
+        if (!idList.length) return [];
+        const { data, error } = await supabase.from(table).select(fallbackColumns).in("id", idList);
+        if (error) {
+          console.warn("ecom-products: direct lookup failed", { table, error, ids: idList });
+          return [];
+        }
+        if (!Array.isArray(data) || !data.length) return [];
+        return data as Array<Record<string, unknown>>;
+      };
+
+      const rowsById = new Map<string, Record<string, unknown>>();
+      const pushRows = (rows: Array<Record<string, unknown>>) => {
+        for (const row of rows) {
+          const rawId = (row as Record<string, unknown>)?.id;
+          const id = typeof rawId === "string" ? rawId : rawId != null ? String(rawId) : "";
+          if (!id) continue;
+          if (!rowsById.has(id)) {
+            rowsById.set(id, row);
+          }
+        }
+      };
+
+      const productRows = await fetchDirectRows("products", ids);
+      pushRows(productRows);
+
+      const missingIds = ids.filter((id) => !rowsById.has(id));
+      if (missingIds.length) {
+        const legacyRows = await fetchDirectRows("ecom_products", missingIds);
+        pushRows(legacyRows);
+      }
+
+      if (!rowsById.size) {
+        console.warn("ecom-products: fallback lookup failed for ids", ids);
+        return json({ items: [], page: 1, limit: ids.length, total: 0 });
+      }
+
+      const orderedRows = ids
+        .map((id) => rowsById.get(id))
+        .filter((row): row is Record<string, unknown> => Boolean(row));
+      const fallbackRows = orderedRows.length ? orderedRows : Array.from(rowsById.values());
+
+      const items = fallbackRows.map((row) => {
+        const id = String(row.id ?? "");
+        const slug = typeof row.slug === "string" ? row.slug : "";
+        const title = typeof row.title === "string" ? row.title : "";
+        const priceValue =
+          typeof row.price === "number"
+            ? row.price
+            : Number(row.price ?? row.price_cents ?? 0);
+        const price = Number.isFinite(priceValue) ? priceValue : 0;
+        const ratingValue =
+          typeof row.rating === "number"
+            ? row.rating
+            : row.rating != null
+              ? Number(row.rating)
+              : null;
+        const rating = Number.isFinite(ratingValue ?? NaN) ? Number(ratingValue) : null;
+        const imagesArray = Array.isArray(row.images)
+          ? (row.images as (string | null | undefined)[])
+              .map((value) => (value ? String(value) : ""))
+              .filter(Boolean)
+          : [];
+        const rawImage =
+          imagesArray[0] ??
+          (typeof row.main_image_url === "string" ? row.main_image_url : null) ??
+          null;
+        const fallbackImage =
+          rawImage ??
+          (typeof row.image_path === "string"
+            ? toPublicUrl(supabaseUrl, bucket, row.image_path)
+            : null);
+
+        const tagsArray = Array.isArray(row.tags)
+          ? (row.tags as (string | null | undefined)[])
+              .map((value) => (value ? String(value) : ""))
+              .filter(Boolean)
+          : [];
+
+        return {
+          id,
+          slug,
+          title,
+          price,
+          rating,
+          created_at: row.created_at ?? null,
+          thumbnail_path: null,
+          category_slug: row.category_slug ?? null,
+          status: row.status ?? null,
+          currency: (row.currency ?? DEFAULT_CURRENCY).toUpperCase(),
+          short_desc: row.short_desc ?? null,
+          catalog_product_id: row.catalog_product_id ?? null,
+          image_url: fallbackImage,
+          images: imagesArray.length ? imagesArray : fallbackImage ? [fallbackImage] : [],
+          sku: typeof row.sku === "string" ? row.sku : null,
+          tags: tagsArray,
+          specs: row.specs ?? null,
+        };
+      });
+
+      items.sort((a, b) => {
+        const ai = idsOrder.get(String(a.id)) ?? 0;
+        const bi = idsOrder.get(String(b.id)) ?? 0;
+        return ai - bi;
+      });
+
+      return json(
+        {
+          items,
+          page: 1,
+          limit: items.length,
+          total: items.length,
+        },
+        200,
+        "no-store",
+      );
+    }
 
     const desiredCount = Math.max(limit * page, limit, ids.length);
     const fetchLimit = Math.min(Math.max(desiredCount, limit), MAX_FETCH_LIMIT);
@@ -87,9 +223,6 @@ export async function GET(request: Request) {
     }
 
     const baseRows: Array<Record<string, unknown>> = Array.isArray(data) ? (data as any[]) : [];
-    const supabaseUrl = pickSupabaseUrl();
-    const bucket = DEFAULT_BUCKET;
-
     const baseIds = baseRows
       .map((row) => (row?.id != null ? String(row.id) : ""))
       .filter((value) => value.length > 0);
@@ -99,7 +232,7 @@ export async function GET(request: Request) {
       try {
         const { data: metaData, error: metaError } = await supabase
           .from("products")
-          .select("id, status, category_slug, short_desc, currency")
+          .select("id, status, category_slug, short_desc, currency, catalog_product_id")
           .in("id", baseIds);
         if (!metaError && Array.isArray(metaData)) {
           metadataRows = metaData as Array<Record<string, unknown>>;
@@ -141,6 +274,10 @@ export async function GET(request: Request) {
       const meta = metaById.get(id) ?? null;
       const statusValue =
         typeof meta?.status === "string" && meta.status.trim() ? meta.status.trim() : null;
+      const catalogProductId =
+        typeof meta?.catalog_product_id === "string" && meta.catalog_product_id.trim()
+          ? meta.catalog_product_id.trim()
+          : null;
       const currencySource =
         typeof row?.currency === "string" && row.currency.trim()
           ? String(row.currency).trim()
@@ -171,12 +308,17 @@ export async function GET(request: Request) {
         status: statusValue,
         currency: currencyValue,
         short_desc: shortDesc,
+        catalog_product_id: catalogProductId,
         image_url: imageUrl,
         images: imageUrl ? [imageUrl] : [],
       };
     });
 
     let filtered = normalized.filter((item) => item.id);
+
+    if (catalogProductIdFilter) {
+      filtered = filtered.filter((item) => item.catalog_product_id === catalogProductIdFilter);
+    }
 
     if (ids.length) {
       const idsSet = new Set(ids);

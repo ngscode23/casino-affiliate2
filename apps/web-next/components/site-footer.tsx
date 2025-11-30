@@ -1,4 +1,5 @@
-"use client";
+"use client";;
+import { mutedTextSmLegacy } from "@/styles/classnames";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -85,8 +86,8 @@ export function SiteFooter() {
 
           <div className="space-y-1.5 text-sm text-muted">
             <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{contactLabel}</h3>
-            {siteConfig.footer.address ? <div className="text-sm text-muted">{siteConfig.footer.address}</div> : null}
-            {siteConfig.footer.phone ? <div className="text-sm text-muted">{siteConfig.footer.phone}</div> : null}
+            {siteConfig.footer.address ? <div className={mutedTextSmLegacy}>{siteConfig.footer.address}</div> : null}
+            {siteConfig.footer.phone ? <div className={mutedTextSmLegacy}>{siteConfig.footer.phone}</div> : null}
             {siteConfig.footer.email ? (
               <a href={`mailto:${siteConfig.footer.email}`} className="block text-sm text-muted transition hover:text-primary">
                 {siteConfig.footer.email}

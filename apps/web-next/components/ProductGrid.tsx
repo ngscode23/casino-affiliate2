@@ -4,6 +4,7 @@ import { cn } from "@shared/lib/cn";
 import { useT } from "@shared/lib/useT";
 import ProductCard, { type ProductGridItem } from "./ProductCard";
 import gridStyles from "./ProductGrid/ProductGrid.module.css";
+import RevealOnScroll from "./animation/RevealOnScroll";
 
 export type { ProductGridItem } from "./ProductCard";
 
@@ -52,13 +53,13 @@ export function ProductGrid({
       role="list"
       data-product-grid={gridId}
     >
-      {items.map((product, index) => {
-        const recMeta = product.recMeta;
-        return (
-          <div
-            key={product.slug || product.id}
-            className={gridStyles.vcGridItem}
-            role="listitem"
+        {items.map((product, index) => {
+          const recMeta = product.recMeta;
+          return (
+            <div
+              key={product.slug || product.id}
+              className={gridStyles.vcGridItem}
+              role="listitem"
             data-product-id={product.id}
             data-product-slug={product.slug}
             data-product-rank={index + 1}
@@ -68,15 +69,21 @@ export function ProductGrid({
             data-rec-source={recMeta?.source ?? undefined}
             data-rec-placement={recMeta?.placement ?? undefined}
           >
-          <ProductCard
-            product={product}
-            index={index}
-            href={`/products/${product.slug}`}
-            showAddToCart={showAddToCart}
-            addLabel={resolvedAddLabel}
-            noImageLabel={noImageLabel}
-            translate={translate}
-          />
+            <RevealOnScroll
+              className={gridStyles.vcReveal}
+              delay={Math.min(index * 0.04, 0.4)}
+              threshold={0.15}
+            >
+              <ProductCard
+                product={product}
+                index={index}
+                href={`/products/${product.slug}`}
+                showAddToCart={showAddToCart}
+                addLabel={resolvedAddLabel}
+                noImageLabel={noImageLabel}
+                translate={translate}
+              />
+            </RevealOnScroll>
           </div>
         );
       })}

@@ -9,6 +9,8 @@ export type ResolvedFilterParams = {
   sort: SortOption;
   query: string;
   category: string;
+  brand: string;
+  model: string;
   priceMin: number | null;
   priceMax: number | null;
   minRating: number | null;
@@ -21,6 +23,8 @@ export function resolveFilterParams(
   const sort = parseSort(searchParams);
   const query = parseQuery(searchParams);
   const category = parseCategory(searchParams);
+  const brand = parseBrand(searchParams);
+  const model = parseModel(searchParams);
   const priceMin = parseNumberParam(searchParams?.price_min);
   const priceMax = parseNumberParam(searchParams?.price_max);
   const minRating = normalizeRating(parseNumberParam(searchParams?.rating_min));
@@ -30,6 +34,8 @@ export function resolveFilterParams(
     sort,
     query,
     category,
+    brand,
+    model,
     priceMin,
     priceMax,
     minRating,
@@ -59,6 +65,16 @@ function parseQuery(searchParams?: Record<string, string | string[] | undefined>
 
 function parseCategory(searchParams?: Record<string, string | string[] | undefined>): string {
   const slug = toSingleValue(searchParams?.category)?.trim() ?? "";
+  return slug || "all";
+}
+
+function parseBrand(searchParams?: Record<string, string | string[] | undefined>): string {
+  const slug = toSingleValue(searchParams?.brand)?.trim()?.toLowerCase() ?? "";
+  return slug || "all";
+}
+
+function parseModel(searchParams?: Record<string, string | string[] | undefined>): string {
+  const slug = toSingleValue(searchParams?.model)?.trim()?.toLowerCase() ?? "";
   return slug || "all";
 }
 

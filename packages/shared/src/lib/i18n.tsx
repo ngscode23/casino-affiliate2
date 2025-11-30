@@ -2,8 +2,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { hydrateLangFromStorage, setLang as setLangInStore, type Lang } from "@shared/lib/t";
 
-type Ctx = { lang: Lang; setLang: (l: Lang) => void };
-const I18nContext = createContext<Ctx | undefined>(undefined);
+export type I18nContextValue = { lang: Lang; setLang: (l: Lang) => void };
+const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 type I18nProviderProps = {
   children: React.ReactNode;
@@ -58,4 +58,8 @@ export function useI18n() {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error("useI18n must be used within <I18nProvider>");
   return ctx;
+}
+
+export function useMaybeI18n() {
+  return useContext(I18nContext);
 }
