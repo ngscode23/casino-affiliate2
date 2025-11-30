@@ -1,7 +1,6 @@
--- Personalization data layer: user events & profiles + retention
+-- Minimal personalization schema for local testing
 set check_function_bodies = off;
 
--- Ensure required extensions are available (Supabase keeps them in the extensions schema)
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists "uuid-ossp" with schema public;
 
@@ -17,7 +16,6 @@ create table if not exists public.user_events (
   referrer text null,
   experiment_variant text null,
   ts timestamptz not null default now()
-  -- FK intentionally omitted: public.products is a view in this project
 );
 
 create index if not exists user_events_anon_ts_idx on public.user_events (anon_id, ts desc);
@@ -45,7 +43,6 @@ create index if not exists user_profiles_last_seen_idx on public.user_profiles (
 alter table public.user_events enable row level security;
 alter table public.user_profiles enable row level security;
 
--- TTL cleanup for events older than 30 days.
 do $$
 begin
   if not exists (select 1 from cron.job where jobname = 'user_events_ttl_30d') then
@@ -58,6 +55,3 @@ begin
     );
   end if;
 end$$;
-
-comment on table public.user_events is 'Raw, non-PII event stream keyed by anon_id for personalization';
-comment on table public.user_profiles is 'Aggregated personalization profiles (service-key only)';

@@ -1,31 +1,21 @@
-# push.ps1
-$ErrorActionPreference = "Stop"
 
-# === Проект ===
-$PROJECT_REF = "wsqhgnxmotswjantxopb"
-$REGION      = "eu-central-1"
-$DB_PASSWORD = "jUIIACyqpypRNGue"   # убери в секреты потом
+$URL = "https://wsqhgnxmotswjantxopb.supabase.co/rest/v1/user_events"
+$ANON = "sb_publishable_PemABWwYtVQnmoqmsOxSMA_nujVdFbD"
 
-# === DSN (кодируем пароль!) ===
-$ENC_PASS = [System.Uri]::EscapeDataString($DB_PASSWORD)
-$DB_URL   = "postgres://postgres.${PROJECT_REF}:${DB_PASSWORD}@aws-1-${REGION}.pooler.supabase.com:5432/postgres?sslmode=require"
+$headers = @{
+  apikey        = $ANON
+  Authorization = "Bearer $ANON"
+  Prefer        = "return=representation"
+}
 
-Write-Host "Dumping schema..."
-supabase db dump --db-url "$DB_URL" --schema public --schema discounts -f schema.sql
+$body = @{
+  anon_id    = "6ad5a25e-21ee-49c7-b732-f3f100aeb10e"
+  event      = "view"
+  product_id = "4cad420c-b824-4c87-972b-3c329bf29f9d"
+  category   = "shop"
+  ts         = (Get-Date).ToUniversalTime().ToString("o")
+  weight     = 1
+} | ConvertTo-Json
 
-Write-Host "Dumping data..."
-$env:PGPASSWORD = $DB_PASSWORD
-$pgDumpArgs = @(
-  "-h","aws-1-$REGION.pooler.supabase.com","-p","5432",
-  "-U","postgres.$PROJECT_REF","-d","postgres",
-  "--schema=public","--schema=discounts",
-  "--data-only",
-  # "--disable-triggers",   # включай только если точно работает в твоём проекте
-  "--no-owner","--no-privileges",
-  "-f","data.sql"
-)
-& pg_dump @pgDumpArgs
-if ($LASTEXITCODE -ne 0) { throw "pg_dump failed: $LASTEXITCODE" }
-if (!(Test-Path data.sql) -or (Get-Item data.sql).Length -lt 1024) { throw "data.sql пустой или подозрительно мал" }
-
-Write-Host "OK: schema.sql + data.sql готовы."
+Invoke-RestMethod -Method Post -Uri $URL -Headers $headers `
+  -ContentType 'application/json' -Body $body

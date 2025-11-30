@@ -839,6 +839,7 @@ export type Database = {
       }
       ecom_products: {
         Row: {
+          catalog_product_id: string | null
           category_slug: string | null
           created_at: string
           currency: string | null
@@ -863,6 +864,7 @@ export type Database = {
           to_delete: boolean | null
         }
         Insert: {
+          catalog_product_id?: string | null
           category_slug?: string | null
           created_at?: string
           currency?: string | null
@@ -887,6 +889,7 @@ export type Database = {
           to_delete?: boolean | null
         }
         Update: {
+          catalog_product_id?: string | null
           category_slug?: string | null
           created_at?: string
           currency?: string | null
@@ -911,6 +914,20 @@ export type Database = {
           to_delete?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
             columns: ["category_slug"]
@@ -1043,6 +1060,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      feature_flags: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          key: string
+          metadata: Json | null
+          rollout: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          key: string
+          metadata?: Json | null
+          rollout?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          metadata?: Json | null
+          rollout?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       feature_toggles: {
         Row: {
@@ -1217,6 +1264,30 @@ export type Database = {
           tracking_id?: string | null
           updated_at?: string | null
           variant?: string | null
+        }
+        Relationships: []
+      }
+      item_item_similarities: {
+        Row: {
+          co_events: number
+          product_a: string
+          product_b: string
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          co_events?: number
+          product_a: string
+          product_b: string
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          co_events?: number
+          product_a?: string
+          product_b?: string
+          score?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4187,10 +4258,13 @@ export type Database = {
           event: string
           experiment_variant: string | null
           id: number
+          metadata: Json | null
           price_bucket: string | null
+          price_cents: number | null
           product_id: string | null
           referrer: string | null
           ts: string
+          weight: number
         }
         Insert: {
           anon_id: string
@@ -4200,10 +4274,13 @@ export type Database = {
           event: string
           experiment_variant?: string | null
           id?: number
+          metadata?: Json | null
           price_bucket?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
+          weight?: number
         }
         Update: {
           anon_id?: string
@@ -4213,10 +4290,13 @@ export type Database = {
           event?: string
           experiment_variant?: string | null
           id?: number
+          metadata?: Json | null
           price_bucket?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
+          weight?: number
         }
         Relationships: []
       }
@@ -4321,6 +4401,33 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_brands: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          name: string | null
+          slug: string | null
+          website: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          website?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       catalog_mv: {
         Row: {
           category_slug: string | null
@@ -4348,6 +4455,62 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      catalog_product_meta: {
+        Row: {
+          brand_id: string | null
+          brand_name: string | null
+          brand_slug: string | null
+          id: string | null
+          slug: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      catalog_products: {
+        Row: {
+          brand_id: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          price: number | null
+          slug: string | null
+          specs: Json | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          price?: number | null
+          slug?: string | null
+          specs?: Json | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          id?: string | null
+          price?: number | null
+          slug?: string | null
+          specs?: Json | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       categories: {
         Row: {
@@ -5733,6 +5896,15 @@ export type Database = {
         }
         Relationships: []
       }
+      user_interest_scores: {
+        Row: {
+          anon_id: string | null
+          category: string | null
+          last_event: string | null
+          score: number | null
+        }
+        Relationships: []
+      }
       v_catalog: {
         Row: {
           category_slug: string | null
@@ -6078,6 +6250,7 @@ export type Database = {
         Returns: undefined
       }
       admin_upsert_product: { Args: { p: Json }; Returns: string }
+      anon_from_session: { Args: { session_id: string }; Returns: string }
       api_catalog_list: {
         Args: { _category?: string; _limit?: number; _offset?: number }
         Returns: {
@@ -6413,6 +6586,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_recs: {
+        Args: { p_actor: string; p_limit?: number }
+        Returns: {
+          product_id: string
+          reason: string
+          score: number
+        }[]
+      }
       insert_product_impression: {
         Args: {
           p_ip?: unknown
@@ -6605,14 +6786,35 @@ export type Database = {
         Args: { _product_id: string; _weight?: number }
         Returns: undefined
       }
+      recs_metrics: {
+        Args: { p_days?: number }
+        Returns: {
+          add_to_cart: number
+          atc_rate: number
+          clicks: number
+          conv_rate: number
+          ctr: number
+          gmv_cents: number
+          impressions: number
+          purchases: number
+          revenue_per_click: number
+          revenue_per_impression: number
+          treatment: string
+        }[]
+      }
       refresh_analytics_mviews: { Args: never; Returns: undefined }
       refresh_analytics_mvs: { Args: never; Returns: undefined }
       refresh_co_viewed_mv: { Args: never; Returns: undefined }
       refresh_conversions_mviews: { Args: never; Returns: undefined }
+      refresh_item_item_similarities: {
+        Args: { p_window_days?: number }
+        Returns: undefined
+      }
       refresh_product_rating_stats:
         | { Args: { p_product_id: string }; Returns: undefined }
         | { Args: never; Returns: undefined }
       refresh_stripe_products_cache: { Args: never; Returns: undefined }
+      refresh_user_interest_scores: { Args: never; Returns: undefined }
       refund_order_apply: {
         Args: {
           p_amount_cents: number
