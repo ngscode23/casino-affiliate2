@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import Button from "@ui/components/common/button";
@@ -21,6 +21,7 @@ import {
 
 import { ProductImagesField } from "./product-images-field";
 import { ProductImageHistory } from "./product-image-history";
+import type { CatalogBrandRecord, CatalogProductRecord } from "../../catalog/catalog-types";
 
 interface Category {
   slug: string;
@@ -51,6 +52,26 @@ function generateSku() {
   return `${base}-${stamp}-${random}`;
 }
 
+function normalizePriceInput(raw: string): string {
+  if (!raw) return "";
+  const filtered = raw.replace(/[^0-9.,]/g, "");
+  const firstSeparator = filtered.search(/[.,]/);
+  if (firstSeparator === -1) {
+    return filtered;
+  }
+  const separator = filtered[firstSeparator];
+  const integerPart = filtered.slice(0, firstSeparator);
+  const decimals = filtered.slice(firstSeparator + 1).replace(/[.,]/g, "");
+  return `${integerPart}${separator}${decimals}`;
+}
+
+function resolveLoadedTitle(record: Record<string, unknown> | null): string {
+  if (!record) return "";
+  const titleValue = typeof record.title === "string" ? record.title.trim() : "";
+  if (titleValue) return titleValue;
+  return typeof record.name === "string" ? record.name.trim() : "";
+}
+
 function snapshotState(state: {
   title: string;
   slug: string;
@@ -71,22 +92,6 @@ function snapshotState(state: {
     images: [...state.images],
   });
 }
-
-type CatalogBrandRecord = {
-  id: string;
-  name: string;
-  slug: string;
-  status?: string | null;
-  is_active?: boolean | null;
-};
-
-type CatalogProductRecord = {
-  id: string;
-  title: string;
-  slug: string;
-  brand_id: string | null;
-  status?: string | null;
-};
 
 type CatalogApiListResponse<T> = {
   ok?: boolean;
@@ -230,7 +235,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
             : null;
 
         if (product && !cancelled) {
-          const nextTitle = String(product.title ?? "");
+          const nextTitle = resolveLoadedTitle(product);
           const nextSlug = String(product.slug ?? "");
           const nextSku = product.sku != null ? String(product.sku) : "";
           const nextPrice = product.price != null ? String(product.price) : "0";
@@ -267,7 +272,7 @@ export function ProductEditorClient({ productId }: EditorProps) {
           setTitle(nextTitle);
           setSlug(nextSlug);
           setSku(nextSku);
-          setPrice(nextPrice);
+          setPrice(normalizePriceInput(nextPrice));
           setCategory(nextCategory);
           setStatus(nextStatus);
           setRating(nextRating);
@@ -472,7 +477,11 @@ export function ProductEditorClient({ productId }: EditorProps) {
     };
   }, [catalogBrandId, catalogProductId, fetchCatalogModelsByBrand]);
 
-  const handleSave = async (event: React.FormEvent) => {
+  const handlePriceChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+  setPrice(normalizePriceInput(event.currentTarget.value));
+}, []);
+
+const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
       setSaving(true);
@@ -695,11 +704,11 @@ export function ProductEditorClient({ productId }: EditorProps) {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-admin-text">Цена</label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={price}
-                      onChange={(event) => setPrice(event.currentTarget.value)}
+                      onChange={handlePriceChange}
+                      placeholder="0"
                       required
                     />
                   </div>

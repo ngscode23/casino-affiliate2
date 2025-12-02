@@ -1,13 +1,21 @@
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { createAuthenticatedClient } from "@/utils/supabase/authenticated";
-import { sanitizeProductTechSpecs } from "@/lib/catalog/product-tech-specs";
+import {
+  createEmptyProductTechSpecs,
+  sanitizeProductTechSpecs,
+} from "@/lib/catalog/product-tech-specs";
+import type { ProductTechSpecs } from "@/lib/catalog/product-tech-specs";
 
 const PRODUCT_FIELDS =
   "id, slug, title, description, price, currency, status, brand_id, created_at, specs";
 
 const PRODUCT_STATUSES = ["draft", "published", "archived"] as const;
 type CatalogProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 type ProductPayload = {
   id?: string;
@@ -144,7 +152,7 @@ export async function GET(request: Request) {
   let items = data ?? [];
 
   if ((includeSkuCount || hasSkuFilter) && items.length) {
-    const ids = items.map((item) => item.id).filter(Boolean);
+    const ids = items.map((item) => item.id).filter(isNonEmptyString);
     const { data: skuRows, error: skuError } = await createAuthenticatedClient(auth.accessToken, "catalog-admin")
       .from("ecom_products")
       .select("catalog_product_id")
@@ -157,10 +165,14 @@ export async function GET(request: Request) {
         counts.set(pid, (counts.get(pid) ?? 0) + 1);
       }
       items = items
-        .map((item) => ({
-          ...item,
-          sku_count: counts.get(item.id) ?? 0,
-        }))
+        .map((item) => {
+          const productId = typeof item.id === "string" ? item.id : null;
+          const skuCount = productId ? counts.get(productId) ?? 0 : 0;
+          return {
+            ...item,
+            sku_count: skuCount,
+          };
+        })
         .filter((item) => (hasSkuFilter ? (item as any).sku_count > 0 : true));
     }
   }
@@ -197,9 +209,16 @@ export async function POST(request: Request) {
   const status = normalizeStatus(payload.status, "draft");
   const description = normalizeDescription(payload.description);
   const price = normalizePrice(payload.price);
+  if (price == null || price < 0) {
+    return json({ ok: false, error: "price_required" }, 400);
+  }
   const currency = normalizeCurrency(payload.currency);
+  if (!currency) {
+    return json({ ok: false, error: "currency_required" }, 400);
+  }
   const id = normalizeString(payload.id) || undefined;
-  const specs = sanitizeProductTechSpecs(payload.specs ?? null);
+  const specsInput = (payload.specs ?? null) as ProductTechSpecs | null;
+  const specs = sanitizeProductTechSpecs(specsInput) ?? createEmptyProductTechSpecs();
 
   const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
   const record = {

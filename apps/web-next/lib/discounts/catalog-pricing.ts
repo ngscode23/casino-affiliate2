@@ -403,8 +403,7 @@ export async function getCatalogDiscountSnapshot(
         const current = currentPriceLookup.get(id);
         if (!current) continue;
 
-        const basePriceCents =
-          typeof row?.price_cents === "number" && Number.isFinite(row.price_cents) ? row.price_cents : null;
+        const basePriceCents = coerceNumber(row?.price_cents);
         const basePrice =
           basePriceCents != null
             ? basePriceCents / 100

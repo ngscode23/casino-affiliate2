@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { fetchProductListingPage, type ProductListFilters } from "@/lib/catalog/product-source";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 const SORT_WHITELIST = new Set(["rating", "price", "title", "created_at"]);
@@ -7,6 +8,8 @@ const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET || "product-images";
 const MAX_FETCH_LIMIT = 500;
 const CACHE_CONTROL = "s-maxage=300, stale-while-revalidate=600";
 const DEFAULT_CURRENCY = "EUR";
+const PRODUCT_SELECT_COLUMNS =
+  "id, slug, name, basePriceCents, effectivePriceCents, priceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail_path, thumbnail, dataset";
 
 function toInt(value: string | null, def: number, min: number, max: number) {
   const num = Number(value);
@@ -51,6 +54,37 @@ function toPublicUrl(baseUrl: string, bucket: string, path: unknown): string | n
   return `${baseUrl.replace(/\/$/, "")}/storage/v1/object/public/${encodeURIComponent(bucket)}/${objectPath}`;
 }
 
+function parsePriceBound(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(Math.max(0, parsed) * 100);
+}
+
+function resolveListSort(column: string, direction: "asc" | "desc"): ProductListFilters["sort"] {
+  switch (column) {
+    case "price":
+      return direction === "asc" ? "price-asc" : "price-desc";
+    case "created_at":
+      return "recent";
+    case "rating":
+      return "popular";
+    case "title":
+      return "recent";
+    default:
+      return "popular";
+  }
+}
+
+function parseCents(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = getAdminClient();
@@ -65,8 +99,9 @@ export async function GET(request: Request) {
     const sortRaw = params.get("sort") || "rating";
     const dir = params.get("dir") === "asc" ? "asc" : "desc";
     const page = toInt(params.get("page"), 1, 1, 1000);
-    const limit = toInt(params.get("limit"), 24, 1, 200);
+    const limit = toInt(params.get("limit"), 24, 1, MAX_FETCH_LIMIT);
     const statusFilterParam = (params.get("status") || "").trim().toLowerCase();
+    const datasetParam = (params.get("dataset") || "").trim().toLowerCase();
     const minRating = params.get("min_rating");
     const idsCsv = (params.get("ids") || "").trim();
     const ids = idsCsv ? idsCsv.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -132,7 +167,7 @@ export async function GET(request: Request) {
         .filter((row): row is Record<string, unknown> => Boolean(row));
       const fallbackRows = orderedRows.length ? orderedRows : Array.from(rowsById.values());
 
-      const items = fallbackRows.map((row) => {
+      const items = fallbackRows.map((row: any) => {
         const id = String(row.id ?? "");
         const slug = typeof row.slug === "string" ? row.slug : "";
         const title = typeof row.title === "string" ? row.title : "";
@@ -141,12 +176,12 @@ export async function GET(request: Request) {
             ? row.price
             : Number(row.price ?? row.price_cents ?? 0);
         const price = Number.isFinite(priceValue) ? priceValue : 0;
-        const ratingValue =
-          typeof row.rating === "number"
-            ? row.rating
-            : row.rating != null
-              ? Number(row.rating)
-              : null;
+          const ratingValue =
+            typeof row.rating === "number"
+              ? row.rating
+              : row.rating != null
+                ? Number(row.rating)
+                : null;
         const rating = Number.isFinite(ratingValue ?? NaN) ? Number(ratingValue) : null;
         const imagesArray = Array.isArray(row.images)
           ? (row.images as (string | null | undefined)[])
@@ -157,11 +192,12 @@ export async function GET(request: Request) {
           imagesArray[0] ??
           (typeof row.main_image_url === "string" ? row.main_image_url : null) ??
           null;
-        const fallbackImage =
-          rawImage ??
-          (typeof row.image_path === "string"
-            ? toPublicUrl(supabaseUrl, bucket, row.image_path)
-            : null);
+          const fallbackImage =
+            rawImage ??
+            (typeof row.image_path === "string"
+              ? toPublicUrl(supabaseUrl, bucket, row.image_path)
+              : null);
+        const currencyValue = String(row.currency || DEFAULT_CURRENCY).toUpperCase();
 
         const tagsArray = Array.isArray(row.tags)
           ? (row.tags as (string | null | undefined)[])
@@ -179,7 +215,7 @@ export async function GET(request: Request) {
           thumbnail_path: null,
           category_slug: row.category_slug ?? null,
           status: row.status ?? null,
-          currency: (row.currency ?? DEFAULT_CURRENCY).toUpperCase(),
+          currency: currencyValue,
           short_desc: row.short_desc ?? null,
           catalog_product_id: row.catalog_product_id ?? null,
           image_url: fallbackImage,
@@ -208,21 +244,53 @@ export async function GET(request: Request) {
       );
     }
 
-    const desiredCount = Math.max(limit * page, limit, ids.length);
-    const fetchLimit = Math.min(Math.max(desiredCount, limit), MAX_FETCH_LIMIT);
+    const priceMinCents = parsePriceBound(min);
+    const priceMaxCents = parsePriceBound(max);
+    const minRatingValue = (() => {
+      if (minRating == null || minRating === "") return null;
+      const parsed = Number(minRating);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    })();
 
-    const { data, error } = await supabase.rpc("api_catalog_list", {
-      _category: category,
-      _limit: fetchLimit,
-      _offset: 0,
+    const sortColumn = SORT_WHITELIST.has(sortRaw) ? sortRaw : "rating";
+    const direction = dir === "asc" ? "asc" : "desc";
+    const requiresPostFilter =
+      Boolean(catalogProductIdFilter) || (statusFilterParam && statusFilterParam !== "all");
+
+    const listFilters: ProductListFilters = {
+      search: q ?? undefined,
+      category: category ?? undefined,
+      dataset:
+        datasetParam === "shop" || datasetParam === "legacy"
+          ? (datasetParam as ProductListFilters["dataset"])
+          : "all",
+      priceMinCents,
+      priceMaxCents,
+      minRating: minRatingValue,
+      sort: resolveListSort(sortColumn, direction),
+    };
+
+    const queryOffset = requiresPostFilter ? 0 : (page - 1) * limit;
+    const queryLimit = requiresPostFilter ? MAX_FETCH_LIMIT : limit;
+
+    const {
+      rows: baseRows,
+      count,
+      error,
+    } = await fetchProductListingPage({
+      supabase,
+      select: PRODUCT_SELECT_COLUMNS,
+      filters: listFilters,
+      limit: queryLimit,
+      offset: queryOffset,
+      withCount: !requiresPostFilter,
     });
 
     if (error) {
-      console.warn("ecom-products: rpc failed", error);
+      console.error("ecom-products: query failed", error);
       return json({ error: "db" }, 500);
     }
 
-    const baseRows: Array<Record<string, unknown>> = Array.isArray(data) ? (data as any[]) : [];
     const baseIds = baseRows
       .map((row) => (row?.id != null ? String(row.id) : ""))
       .filter((value) => value.length > 0);
@@ -261,9 +329,20 @@ export async function GET(request: Request) {
     const normalized = baseRows.map((row) => {
       const id = row?.id != null ? String(row.id) : "";
       const slug = row?.slug != null ? String(row.slug) : "";
-      const title = row?.title != null ? String(row.title) : "";
-      const priceRaw = typeof row?.price === "number" ? row.price : Number(row?.price ?? 0);
-      const price = Number.isFinite(priceRaw) ? Math.max(priceRaw, 0) : 0;
+      const titleSource = row?.title ?? row?.name ?? "";
+      const title = typeof titleSource === "string" ? titleSource : "";
+      const priceCentsValue =
+        parseCents((row as Record<string, unknown>)?.effectivePriceCents) ??
+        parseCents((row as Record<string, unknown>)?.priceCents) ??
+        null;
+      const price =
+        priceCentsValue != null
+          ? Math.max(priceCentsValue, 0) / 100
+          : typeof row?.price === "number" && Number.isFinite(row.price)
+            ? Math.max(row.price, 0)
+            : Number.isFinite(Number(row?.price))
+              ? Math.max(Number(row?.price), 0)
+              : 0;
       const rating =
         typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
       const createdAt = typeof row?.created_at === "string" ? row.created_at : null;
@@ -284,7 +363,7 @@ export async function GET(request: Request) {
           : typeof meta?.currency === "string" && meta.currency.trim()
             ? meta.currency.trim()
             : DEFAULT_CURRENCY;
-      const currencyValue = currencySource.toUpperCase();
+      const currencyValue = String(currencySource || DEFAULT_CURRENCY).toUpperCase();
       const categorySlug =
         typeof row?.category_slug === "string" && row.category_slug.trim()
           ? row.category_slug.trim()
@@ -320,71 +399,26 @@ export async function GET(request: Request) {
       filtered = filtered.filter((item) => item.catalog_product_id === catalogProductIdFilter);
     }
 
-    if (ids.length) {
-      const idsSet = new Set(ids);
-      filtered = filtered.filter((item) => idsSet.has(item.id));
-      filtered.sort((a, b) => {
-        const ai = idsOrder.get(a.id) ?? 0;
-        const bi = idsOrder.get(b.id) ?? 0;
-        return ai - bi;
-      });
+    if (statusFilterParam && statusFilterParam !== "all") {
+      const statusFilter = statusFilterParam.toLowerCase();
+      filtered = filtered.filter((item) => (item.status?.toLowerCase() ?? "") === statusFilter);
     }
 
-    if (q) {
-      const query = q.toLowerCase();
-      filtered = filtered.filter((item) => item.title.toLowerCase().includes(query));
+    if (requiresPostFilter) {
+      const start = Math.max(0, (page - 1) * limit);
+      const end = start + limit;
+      const total = filtered.length;
+      const items = filtered.slice(start, end);
+      return json({ items, page, limit, total }, 200, CACHE_CONTROL);
     }
 
-    const minVal = Number(min);
-    if (!Number.isNaN(minVal) && min !== null && min !== "") {
-      filtered = filtered.filter((item) => item.price >= minVal);
+    if (sortColumn === "title") {
+      const directionFactor = direction === "asc" ? 1 : -1;
+      filtered.sort((a, b) => directionFactor * a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
     }
 
-    const maxVal = Number(max);
-    if (!Number.isNaN(maxVal) && max !== null && max !== "") {
-      filtered = filtered.filter((item) => item.price <= maxVal);
-    }
-
-    const minRatingVal = Number(minRating);
-    if (!Number.isNaN(minRatingVal) && minRating !== null && minRating !== "") {
-      filtered = filtered.filter((item) => (item.rating ?? 0) >= minRatingVal);
-    }
-
-    const statusFilter =
-      statusFilterParam && statusFilterParam !== "all" ? statusFilterParam : null;
-    if (statusFilter) {
-      filtered = filtered.filter(
-        (item) => (item.status?.toLowerCase() ?? "") === statusFilter,
-      );
-    }
-
-    const sortField = SORT_WHITELIST.has(sortRaw) ? sortRaw : "rating";
-    filtered.sort((a, b) => {
-      const direction = dir === "asc" ? 1 : -1;
-      if (sortField === "title") {
-        return direction * a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
-      }
-      if (sortField === "created_at") {
-        const aTime = a.created_at ? Date.parse(a.created_at) || 0 : 0;
-        const bTime = b.created_at ? Date.parse(b.created_at) || 0 : 0;
-        return direction * (aTime - bTime);
-      }
-      if (sortField === "price") {
-        return direction * (a.price - b.price);
-      }
-      const aRating =
-        typeof a.rating === "number" && Number.isFinite(a.rating) ? a.rating : -Infinity;
-      const bRating =
-        typeof b.rating === "number" && Number.isFinite(b.rating) ? b.rating : -Infinity;
-      return direction * (aRating - bRating);
-    });
-
-    const total = filtered.length;
-    const start = Math.max(0, (page - 1) * limit);
-    const end = start + limit;
-    const items = filtered.slice(start, end);
-
-    return json({ items, page, limit, total }, 200, CACHE_CONTROL);
+    const total = typeof count === "number" ? count : filtered.length + queryOffset;
+    return json({ items: filtered, page, limit, total }, 200, CACHE_CONTROL);
   } catch (error) {
     console.error("ecom-products: unexpected error", error);
     return json({ error: "internal" }, 500);

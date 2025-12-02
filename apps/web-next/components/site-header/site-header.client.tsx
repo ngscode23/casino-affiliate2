@@ -670,11 +670,25 @@ const mobileOverlayMenu = isPortalReady
 
   const bottomNavPortal = isPortalReady ? createPortal(bottomNav, document.body) : null;
 
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleScroll = () => {
+      const y = window.scrollY || window.pageYOffset || 0;
+      setScrolled(y > 8);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <>
       <header
         className={cn(
           styles.vhHeader,
+          scrolled && styles.vhHeaderScrolled,
           mobileMenuOpen && styles.vhHeaderExpanded,
         )}
       >

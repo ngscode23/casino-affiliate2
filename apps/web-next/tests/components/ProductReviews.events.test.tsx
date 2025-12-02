@@ -24,6 +24,34 @@ const createResponse = (body: ReviewsResponse) =>
   });
 
 const flushEffects = () => new Promise((resolve) => setTimeout(resolve, 0));
+const waitForEffects = () =>
+  act(async () => {
+    await flushEffects();
+  });
+
+const addFilterChangeListener = (handler: (event: Event) => void) => {
+  act(() => {
+    window.addEventListener(REVIEW_FILTER_CHANGE_EVENT, handler);
+  });
+};
+
+const removeFilterChangeListener = (handler: (event: Event) => void) => {
+  act(() => {
+    window.removeEventListener(REVIEW_FILTER_CHANGE_EVENT, handler);
+  });
+};
+
+const dispatchSetFilterEvent = async (rating: number) => {
+  await act(async () => {
+    window.dispatchEvent(
+      new CustomEvent(REVIEW_SET_FILTER_EVENT, {
+        detail: { rating },
+      }),
+    );
+    await flushEffects();
+  });
+  await waitForEffects();
+};
 
 describe("ProductReviews events bridge", () => {
   let originalFetch: typeof global.fetch;
@@ -58,7 +86,9 @@ describe("ProductReviews events bridge", () => {
   });
 
   afterEach(() => {
-    root?.unmount();
+    act(() => {
+      root?.unmount();
+    });
     container?.remove();
     global.fetch = originalFetch;
     vi.restoreAllMocks();
@@ -87,7 +117,7 @@ describe("ProductReviews events bridge", () => {
     );
 
     const filterChangeHandler = vi.fn();
-    window.addEventListener(REVIEW_FILTER_CHANGE_EVENT, filterChangeHandler);
+    addFilterChangeListener(filterChangeHandler);
 
     await act(async () => {
       root.render(
@@ -100,25 +130,12 @@ describe("ProductReviews events bridge", () => {
       );
     });
 
-    await act(async () => {
-      await flushEffects();
-    });
+    await waitForEffects();
 
     expect(requests.length).toBe(1);
     expect(requests[0].searchParams.get("rating")).toBeNull();
 
-    await act(async () => {
-      window.dispatchEvent(
-        new CustomEvent(REVIEW_SET_FILTER_EVENT, {
-          detail: { rating: 4 },
-        }),
-      );
-      await flushEffects();
-    });
-
-    await act(async () => {
-      await flushEffects();
-    });
+    await dispatchSetFilterEvent(4);
 
     expect(requests.length).toBeGreaterThanOrEqual(2);
     const latestRequest = requests[requests.length - 1];
@@ -128,6 +145,6 @@ describe("ProductReviews events bridge", () => {
     expect(lastCall).toBeInstanceOf(CustomEvent);
     expect(lastCall?.detail).toEqual({ rating: 4 });
 
-    window.removeEventListener(REVIEW_FILTER_CHANGE_EVENT, filterChangeHandler);
+    removeFilterChangeListener(filterChangeHandler);
   });
 });

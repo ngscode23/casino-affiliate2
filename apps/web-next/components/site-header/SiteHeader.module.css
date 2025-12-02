@@ -9,11 +9,17 @@
   --header-surface: rgba(18, 18, 20, 0.58);
   --vh-header-height: 88px;
   transition:
-    background-color 200ms ease,
-    box-shadow 200ms ease,
-    backdrop-filter 200ms ease;
+    background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    backdrop-filter 220ms cubic-bezier(0.16, 1, 0.3, 1);
   overflow: visible;
   isolation: isolate;
+}
+
+.vhHeaderScrolled {
+  background: rgba(6, 7, 10, 0.86);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(22px) saturate(130%);
 }
 
 .vhCurtainOverlay {
@@ -27,7 +33,7 @@
     radial-gradient(circle at 82% 8%, rgba(255, 255, 255, 0.04), transparent 26%),
     linear-gradient(180deg, rgba(6, 7, 10, 0.78) 0%, rgba(6, 7, 10, 0.68) 35%, rgba(6, 7, 10, 0.55) 100%);
   backdrop-filter: blur(14px) saturate(115%);
-  transition: opacity 280ms ease;
+  transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .vhInner {
@@ -48,8 +54,19 @@
   transition:
     border-radius 320ms cubic-bezier(0.33, 1, 0.68, 1),
     padding 220ms ease,
-    box-shadow 220ms ease,
-    background-color 220ms ease;
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vhHeaderScrolled .vhInner {
+  --header-surface: rgba(10, 11, 16, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.52),
+    0 28px 70px rgba(0, 0, 0, 0.85);
+}
+
+.vhHeaderScrolled .vhCurtainOverlay {
+  opacity: 1;
 }
 
 .vhBrandLink {
@@ -123,6 +140,8 @@
   border-radius: 999px;
   text-decoration: none;
   color: rgba(255, 255, 255, 0.92);
+   position: relative;
+  transform: translateY(0);
   transition:
     color var(--transition-fast, 180ms ease),
     background-color var(--transition-fast, 180ms ease),
@@ -130,16 +149,56 @@
     transform var(--transition-fast, 180ms ease);
 }
 
+.vhNavLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateX(-50%) scaleX(0.2);
+  opacity: 0;
+  transform-origin: center;
+  transition:
+    transform var(--transition-fast, 180ms ease),
+    opacity var(--transition-fast, 180ms ease),
+    background-color var(--transition-fast, 180ms ease);
+  pointer-events: none;
+}
+
 .vhNavLink:hover,
 .vhNavLink:focus-visible {
   color: #fff;
   background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.vhNavLink:hover::after,
+.vhNavLink:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
 }
 
 .vhNavLinkActive {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
   box-shadow: 0 20px 45px rgba(5, 5, 10, 0.45);
+  transform: translateY(-1px);
+}
+
+.vhNavLinkActive::after {
+  opacity: 1;
+  background: #fff;
+  transform: translateX(-50%) scaleX(1);
+}
+
+.vhNavLink:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.95),
+    0 0 0 4px rgba(15, 23, 42, 0.75);
 }
 
 .vhNavPanel {
@@ -244,6 +303,7 @@
   align-items: center;
   justify-content: center;
   color: #fff;
+  transform: translateY(0) scale(1);
   transition:
     background-color var(--transition-fast, 180ms ease),
     transform var(--transition-fast, 180ms ease),
@@ -253,10 +313,20 @@
 
 .vhActionButton:hover,
 .vhActionButton:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 40px rgba(2, 2, 6, 0.45);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 18px 40px rgba(2, 2, 6, 0.6);
   background: rgba(255, 255, 255, 0.24);
   color: #fff;
+}
+
+.vhActionButton:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 10px 26px rgba(0, 0, 0, 0.75);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .vhCartButton {

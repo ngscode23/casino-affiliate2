@@ -12,21 +12,21 @@ export async function HeroSection() {
   if (!hero) return null;
 
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-border/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 px-6 py-14 text-white shadow-[0_40px_140px_-70px_rgba(0,0,0,0.7)] sm:px-10 sm:py-16 lg:py-18">
-      <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
-        <div className="space-y-4">
+    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 text-white shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] sm:px-10 lg:py-20">
+      <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_minmax(0,0.9fr)]">
+        <div className="space-y-6">
           {hero.eyebrow ? (
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">{hero.eyebrow}</p>
           ) : null}
-          <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+          <h1 className="text-balance text-5xl font-semibold leading-[1.02] sm:text-6xl">
             {hero.title}
           </h1>
-          {hero.body ? <p className="max-w-2xl text-lg text-white/80">{hero.body}</p> : null}
-          <div className="flex flex-wrap gap-3">
+          {hero.body ? <p className="max-w-xl text-lg text-white/80">{hero.body}</p> : null}
+          <div className="flex flex-wrap items-center gap-4">
             {hero.primaryCta ? (
               <Link
                 href={hero.primaryCta.href}
-                className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primaryfg shadow-[0_28px_68px_-32px_rgba(252,50,114,0.65)] transition hover:-translate-y-[1px]"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-slate-900 shadow-sm transition-transform duration-160 ease-out hover:-translate-y-[1px] hover:shadow-lg active:translate-y-0 active:scale-[0.97]"
               >
                 {hero.primaryCta.label}
               </Link>
@@ -34,7 +34,7 @@ export async function HeroSection() {
             {hero.secondaryCta ? (
               <Link
                 href={hero.secondaryCta.href}
-                className="inline-flex items-center justify-center rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:border-white/60"
+                className="inline-flex items-center text-sm font-semibold text-white/80 underline-offset-4 transition-colors hover:text-white hover:underline"
               >
                 {hero.secondaryCta.label}
               </Link>
@@ -43,15 +43,14 @@ export async function HeroSection() {
         </div>
 
         {hero.imageUrl ? (
-          <div className="relative isolate">
-            <div className="absolute -left-10 -top-10 h-64 w-64 rounded-full bg-primary/30 blur-3xl" aria-hidden />
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.75)]">
+          <div className="relative isolate flex justify-end">
+            <div className="relative aspect-[4/3] w-full max-w-md overflow-hidden rounded-[26px] border border-white/12 bg-white/5 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.85)]">
               <Image
                 src={hero.imageUrl}
                 alt={hero.imageAlt || hero.title}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1280px) 60vw, 640px"
-                className="object-cover"
+                className="object-contain"
                 priority
               />
             </div>
@@ -64,7 +63,7 @@ export async function HeroSection() {
 
 export function HeroSectionSkeleton() {
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-border/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 px-6 py-14 sm:px-10 sm:py-16 lg:py-18">
+    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 sm:px-10 sm:py-16 lg:py-20">
       <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
         <div className="space-y-4">
           <div className="h-3 w-24 rounded-full bg-white/20 animate-pulse" />

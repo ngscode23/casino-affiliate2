@@ -32,9 +32,17 @@ import {
 
 interface ProductRow {
   id: string;
-  title: string;
+  title?: string | null;
+  name?: string | null;
   slug: string;
-  price: number;
+  price?: number | null;
+  priceCents?: number | null;
+  basePriceCents?: number | null;
+  effectivePriceCents?: number | null;
+  price_cents?: number | string | null;
+  base_price_cents?: number | string | null;
+  effective_price_cents?: number | string | null;
+  currency?: string | null;
   category_slug: string | null;
   status: string | null;
   rating: number | null;
@@ -63,6 +71,48 @@ interface FetchParams {
   sort?: string;
   dir?: "asc" | "desc";
   limit?: number;
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveProductName(row?: Pick<ProductRow, "title" | "name"> | null): string {
+  if (!row) return "";
+  return normalizeText(row.title) || normalizeText(row.name) || "";
+}
+
+function parseCentsValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function resolvePriceValue(row?: ProductRow | null): number | null {
+  if (!row) return null;
+  if (typeof row.price === "number" && Number.isFinite(row.price)) {
+    return Math.max(row.price, 0);
+  }
+  const centsCandidates: Array<unknown> = [
+    row.effectivePriceCents,
+    row.priceCents,
+    row.basePriceCents,
+    row.price_cents,
+    row.effective_price_cents,
+    row.base_price_cents,
+  ];
+  for (const candidate of centsCandidates) {
+    const cents = parseCentsValue(candidate);
+    if (cents != null) {
+      return Math.max(cents, 0) / 100;
+    }
+  }
+  return null;
 }
 
 async function authorizedFetch(input: string, init?: RequestInit) {
@@ -255,10 +305,10 @@ export function ProductsClient() {
       editing.status === "published" || editing.status === "archived" ? editing.status : "draft";
     return {
       id: editing.id,
-      title: editing.title,
+      title: resolveProductName(editing),
       slug: editing.slug,
       sku: editing.sku ?? undefined,
-      price: editing.price ?? 0,
+      price: resolvePriceValue(editing) ?? 0,
       category_slug: editing.category_slug ?? null,
       status: draftStatus,
       rating: editing.rating ?? undefined,
@@ -333,7 +383,7 @@ export function ProductsClient() {
 
   const handleDelete = useCallback(
     async (product: ProductRow) => {
-      const productTitle = (product.title ?? "").trim();
+      const productTitle = resolveProductName(product);
       const confirmed = window.confirm(
         productTitle
           ? `Удалить «${productTitle}»? Это действие нельзя отменить.`
@@ -982,6 +1032,8 @@ function ProductsTable({
         <tbody>
           {items.map((product) => {
             const isSelected = selectedIds.has(product.id);
+            const displayName = resolveProductName(product) || "—";
+            const resolvedPrice = resolvePriceValue(product);
             return (
               <tr
                 key={product.id}
@@ -995,18 +1047,18 @@ function ProductsTable({
                     className="h-4 w-4 rounded border-admin-border"
                   />
                 </td>
-                <td className="px-4 py-3 align-top">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-admin-text">{product.title}</span>
-                    <span className="text-xs text-admin-textSubtle">{product.slug}</span>
-                  </div>
-                </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-admin-text">{displayName}</span>
+                        <span className="text-xs text-admin-textSubtle">{product.slug}</span>
+                      </div>
+                    </td>
                 {visibleColumns.has("sku") ? (
                   <td className="px-4 py-3 align-top text-admin-textSubtle">{product.sku ?? "-"}</td>
                 ) : null}
-                {visibleColumns.has("price") ? (
-                  <td className="px-4 py-3 align-top text-admin-text">{formatCurrency(product.price)}</td>
-                ) : null}
+                    {visibleColumns.has("price") ? (
+                      <td className="px-4 py-3 align-top text-admin-text">{formatCurrency(resolvedPrice)}</td>
+                    ) : null}
                 {visibleColumns.has("category") ? (
                   <td className="px-4 py-3 align-top">
                     <span className="inline-flex items-center gap-2 rounded-full border border-admin-border bg-admin-surface px-3 py-1 text-xs text-admin-text">

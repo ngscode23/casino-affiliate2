@@ -727,10 +727,14 @@ const clones: Array<{
               ? Number(legacy?.price)
               : 0;
         const price = priceCandidate >= 0 ? priceCandidate : 0;
+        const legacyPriceCents =
+          typeof legacy?.price_cents === "string"
+            ? Number(legacy.price_cents)
+            : typeof legacy?.price_cents === "number"
+              ? legacy.price_cents
+              : null;
         const priceCents =
-          typeof legacy?.price_cents === "number" && Number.isFinite(legacy.price_cents)
-            ? legacy.price_cents
-            : Math.round(price * 100);
+          legacyPriceCents != null && Number.isFinite(legacyPriceCents) ? legacyPriceCents : Math.round(price * 100);
 
         const resolvedSourcePath =
           entry.source_image_path ||

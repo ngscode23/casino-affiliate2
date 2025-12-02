@@ -132,13 +132,17 @@ type FeaturedGridStyle = CSSProperties & {
   "--vc-grid-column-gap"?: string;
   "--vc-grid-row-gap"?: string;
   "--vc-padding-top-desktop"?: string;
+  "--vc-card-width"?: string;
+  "--vc-card-min-width"?: string;
 };
 
 const FEATURED_GRID_STYLE: FeaturedGridStyle = {
   "--vc-grid-max-width": "1260px",
-  "--vc-grid-column-gap": "15px",
-  "--vc-grid-row-gap": "20px",
+  "--vc-grid-column-gap": "32px",
+  "--vc-grid-row-gap": "28px",
   "--vc-padding-top-desktop": "20px",
+  "--vc-card-width": "520px",
+  "--vc-card-min-width": "320px",
 };
 
 function FeaturedProducts({ products, totalProducts }: { products: Product[]; totalProducts: number }) {
@@ -225,7 +229,7 @@ function FeaturedProducts({ products, totalProducts }: { products: Product[]; to
         </Link>
       </div>
       <div
-        className="mx-auto w-full max-w-[1260px] rounded-[30px] border border-border/30 bg-card/85 px-6 py-8 shadow-[0_24px_80px_-52px_rgba(16,24,40,0.45)] sm:px-8 sm:py-10"
+        className="mx-auto w-full max-w-[1260px] rounded-[30px] bg-card/85 px-6 py-8 shadow-soft sm:px-8 sm:py-10"
         style={FEATURED_GRID_STYLE}
       >
         <HydratedProductGrid
@@ -268,3 +272,4 @@ function pickFeaturedProducts(products: Product[], desired = 4): Product[] {
 }
 
 // no custom card here; featured uses the canonical ProductGrid
+

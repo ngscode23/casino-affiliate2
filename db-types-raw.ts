@@ -850,7 +850,7 @@ export type Database = {
           images: Json
           main_image_url: string | null
           price: number
-          price_cents: string | null
+          price_cents: number | null
           rating: number
           seller_id: string | null
           short_desc: string | null
@@ -875,7 +875,7 @@ export type Database = {
           images?: Json
           main_image_url?: string | null
           price: number
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number
           seller_id?: string | null
           short_desc?: string | null
@@ -900,7 +900,7 @@ export type Database = {
           images?: Json
           main_image_url?: string | null
           price?: number
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number
           seller_id?: string | null
           short_desc?: string | null
@@ -1837,7 +1837,7 @@ export type Database = {
       }
       orders: {
         Row: {
-          amount_cents: string | null
+          amount_cents: number | null
           applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
@@ -1858,7 +1858,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
@@ -1879,7 +1879,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
@@ -1911,7 +1911,7 @@ export type Database = {
       }
       orders_archive: {
         Row: {
-          amount_cents: string | null
+          amount_cents: number | null
           archive_run_id: string
           archived_at: string
           archived_payload: Json
@@ -1933,7 +1933,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           archive_run_id: string
           archived_at?: string
           archived_payload?: Json
@@ -1955,7 +1955,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           archive_run_id?: string
           archived_at?: string
           archived_payload?: Json
@@ -4111,7 +4111,7 @@ export type Database = {
           api_version: string | null
           created_utc: string
           data: Json
-          expected_amount_cents: string | null
+          expected_amount_cents: number | null
           expected_currency: string | null
           id: string
           inserted_at: string | null
@@ -4126,7 +4126,7 @@ export type Database = {
           processing_error: string | null
           processing_state: string | null
           raw: Json | null
-          stripe_amount_cents: string | null
+          stripe_amount_cents: number | null
           stripe_currency: string | null
           type: string
         }
@@ -4134,7 +4134,7 @@ export type Database = {
           api_version?: string | null
           created_utc: string
           data: Json
-          expected_amount_cents?: string | null
+          expected_amount_cents?: number | null
           expected_currency?: string | null
           id: string
           inserted_at?: string | null
@@ -4149,7 +4149,7 @@ export type Database = {
           processing_error?: string | null
           processing_state?: string | null
           raw?: Json | null
-          stripe_amount_cents?: string | null
+          stripe_amount_cents?: number | null
           stripe_currency?: string | null
           type: string
         }
@@ -4157,7 +4157,7 @@ export type Database = {
           api_version?: string | null
           created_utc?: string
           data?: Json
-          expected_amount_cents?: string | null
+          expected_amount_cents?: number | null
           expected_currency?: string | null
           id?: string
           inserted_at?: string | null
@@ -4172,7 +4172,7 @@ export type Database = {
           processing_error?: string | null
           processing_state?: string | null
           raw?: Json | null
-          stripe_amount_cents?: string | null
+          stripe_amount_cents?: number | null
           stripe_currency?: string | null
           type?: string
         }
@@ -4288,7 +4288,7 @@ export type Database = {
           id: number
           metadata: Json | null
           price_bucket: string | null
-          price_cents: string | null
+          price_cents: number | null
           product_id: string | null
           referrer: string | null
           ts: string
@@ -4304,7 +4304,7 @@ export type Database = {
           id?: number
           metadata?: Json | null
           price_bucket?: string | null
-          price_cents?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
@@ -4320,7 +4320,7 @@ export type Database = {
           id?: number
           metadata?: Json | null
           price_bucket?: string | null
-          price_cents?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
@@ -4771,7 +4771,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           short_desc: string | null
           sku: string | null
@@ -4791,7 +4791,7 @@ export type Database = {
           images?: Json | null
           main_image_url?: never
           price?: number | null
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number | null
           short_desc?: string | null
           sku?: string | null
@@ -4811,7 +4811,7 @@ export type Database = {
           images?: Json | null
           main_image_url?: never
           price?: number | null
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number | null
           short_desc?: string | null
           sku?: string | null
@@ -5224,7 +5224,7 @@ export type Database = {
           currency: string | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           sku: string | null
           updatedAt: string | null
         }
@@ -5466,13 +5466,13 @@ export type Database = {
       product_with_discount: {
         Row: {
           amountOffCts: number | null
-          base_cents: string | null
+          base_cents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
           discount_id: string | null
           discount_name: string | null
-          effective_price_cents: string | null
+          effective_price_cents: number | null
           id: string | null
           percentOff: number | null
           sku: string | null
@@ -5519,15 +5519,15 @@ export type Database = {
       }
       product_with_discount_public: {
         Row: {
-          basePriceCents: string | null
+          basePriceCents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
-          effectivePriceCents: string | null
+          effectivePriceCents: number | null
           hasDiscount: boolean | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
@@ -5567,16 +5567,16 @@ export type Database = {
       }
       product_with_discount_with_dataset: {
         Row: {
-          basePriceCents: string | null
+          basePriceCents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
           dataset: string | null
-          effectivePriceCents: string | null
+          effectivePriceCents: number | null
           hasDiscount: boolean | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
@@ -5596,7 +5596,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -5650,7 +5650,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           slug: string | null
           source: string | null
           status: string | null
@@ -5664,7 +5664,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
@@ -6241,7 +6241,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6352,7 +6352,7 @@ export type Database = {
       _best_discount_for_product: {
         Args: { p_category: string; p_id: string }
         Returns: {
-          amount_off_cents: string
+          amount_off_cents: number
           percent_off: number
         }[]
       }
@@ -6559,7 +6559,7 @@ export type Database = {
       create_or_get_pending_order: {
         Args: { p_user_id: string }
         Returns: {
-          amount_cents: string | null
+          amount_cents: number | null
           applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
@@ -6719,7 +6719,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6756,7 +6756,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6982,7 +6982,7 @@ export type Database = {
           clicks: number
           conv_rate: number
           ctr: number
-          gmv_cents: string
+          gmv_cents: number
           impressions: number
           purchases: number
           revenue_per_click: number
@@ -7005,7 +7005,7 @@ export type Database = {
       refresh_user_interest_scores: { Args: never; Returns: undefined }
       refund_order_apply: {
         Args: {
-          p_amount_cents: string
+          p_amount_cents: number
           p_currency: string
           p_order_id: string
           p_reason?: string
@@ -7030,7 +7030,7 @@ export type Database = {
               currency: string | null
               id: string | null
               price_amount: number | null
-              price_cents: string | null
+              price_cents: number | null
               slug: string | null
               source: string | null
               status: string | null
@@ -7083,7 +7083,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           slug: string | null
           source: string | null
           status: string | null

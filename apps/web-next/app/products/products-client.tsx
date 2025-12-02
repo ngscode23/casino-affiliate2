@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { ChevronDown, Search, Settings, Sun, Moon, X } from "lucide-react";
@@ -121,6 +122,10 @@ export default function ProductsClient({
     if (!initialModel) return "all";
     return initialModel.trim().toLowerCase() || "all";
   }, [initialModel]);
+  const normalizedInitialDataset: DatasetType = useMemo(() => {
+    if (initialDataset === "shop") return "shop";
+    return "all";
+  }, [initialDataset]);
 
   const availabilityLabelMap = useMemo(
     () =>
@@ -138,7 +143,9 @@ export default function ProductsClient({
     typeof initialPriceMax === "number" && Number.isFinite(initialPriceMax) && initialPriceMax >= 0 ? Number(initialPriceMax) : null;
   const normalizedMinRating =
     typeof initialMinRating === "number" && Number.isFinite(initialMinRating) && initialMinRating > 0 ? Number(initialMinRating) : null;
-  const [activeDataset, setActiveDataset] = useState<DatasetType>(initialDataset);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeDataset, setActiveDataset] = useState<DatasetType>(normalizedInitialDataset);
   const [activeSort, setActiveSort] = useState<SortMode>(initialSort);
   const [activeCategory, setActiveCategory] = useState(normalizedInitialCategory);
   const [activeQuery, setActiveQuery] = useState(normalizedInitialQuery);
@@ -147,6 +154,17 @@ export default function ProductsClient({
   const [minRating, setMinRating] = useState<number | null>(normalizedMinRating);
   const [activeBrand, setActiveBrand] = useState<string>(normalizedInitialBrand);
   const [activeModel, setActiveModel] = useState<string>(normalizedInitialModel);
+  const filterDefaultsRef = useRef({
+    query: normalizedInitialQuery,
+    dataset: normalizedInitialDataset,
+    category: normalizedInitialCategory,
+    brand: normalizedInitialBrand,
+    model: normalizedInitialModel,
+    sort: initialSort,
+    priceMin: normalizedPriceMin,
+    priceMax: normalizedPriceMax,
+    minRating: normalizedMinRating,
+  });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const [visible, setVisible] = useState(CHUNK_SIZE);
@@ -244,10 +262,25 @@ export default function ProductsClient({
 
   const handleDatasetChange = useCallback(
     (value: DatasetType) => {
+      if (value === activeDataset) return;
       setActiveDataset(value);
       resetVisibleToFirstChunk();
+
+      try {
+        const current = searchParams ? new URLSearchParams(searchParams.toString()) : new URLSearchParams();
+        if (value === "all") {
+          current.delete("dataset");
+        } else {
+          current.set("dataset", value);
+        }
+        const queryString = current.toString();
+        const href = queryString ? `/products?${queryString}` : "/products";
+        router.push(href, { scroll: false });
+      } catch {
+        // In environments without router/searchParams just fall back to local state.
+      }
     },
-    [resetVisibleToFirstChunk],
+    [activeDataset, resetVisibleToFirstChunk, router, searchParams],
   );
 
   const handleCategoryChange = useCallback(
@@ -311,28 +344,18 @@ export default function ProductsClient({
   );
 
   const handleResetFilters = useCallback(() => {
-    setActiveQuery(normalizedInitialQuery);
-    setActiveDataset(initialDataset);
-    setActiveCategory(normalizedInitialCategory);
-    setActiveBrand(normalizedInitialBrand);
-    setActiveModel(normalizedInitialModel);
-    setActiveSort(initialSort);
-    setPriceMin(normalizedPriceMin);
-    setPriceMax(normalizedPriceMax);
-    setMinRating(normalizedMinRating);
+    const defaults = filterDefaultsRef.current;
+    setActiveQuery(defaults.query);
+    setActiveDataset(defaults.dataset);
+    setActiveCategory(defaults.category);
+    setActiveBrand(defaults.brand);
+    setActiveModel(defaults.model);
+    setActiveSort(defaults.sort);
+    setPriceMin(defaults.priceMin);
+    setPriceMax(defaults.priceMax);
+    setMinRating(defaults.minRating);
     resetVisibleToFirstChunk();
-  }, [
-    initialDataset,
-    initialSort,
-    normalizedInitialCategory,
-    normalizedInitialBrand,
-    normalizedInitialModel,
-    normalizedInitialQuery,
-    normalizedMinRating,
-    normalizedPriceMax,
-    normalizedPriceMin,
-    resetVisibleToFirstChunk,
-  ]);
+  }, [resetVisibleToFirstChunk]);
 
   const filtered = useMemo(() => {
     const query = activeQuery.trim().toLowerCase();
@@ -869,18 +892,18 @@ export default function ProductsClient({
                 const isActive = activeDataset === option.value;
                 const activeClass =
                   theme === "dark"
-                    ? "border-emerald-300/70 bg-emerald-400/10 text-emerald-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
-                    : "border-gray-900 bg-white text-gray-900 shadow-sm";
+                    ? "border-emerald-300/70 bg-emerald-400/10 text-emerald-100 shadow-[0_16px_40px_rgba(0,0,0,0.45)]"
+                    : "border-gray-900 bg-white text-gray-900 shadow-[0_14px_34px_rgba(15,23,42,0.22)]";
                 const idleClass =
                   theme === "dark"
-                    ? "border-white/10 text-slate-300 hover:border-white/30 hover:text-white"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300 hover:text-gray-900";
+                    ? "border-white/10 text-slate-300 hover:border-white/30 hover:text-white hover:shadow-[0_10px_26px_rgba(0,0,0,0.4)]"
+                    : "border-gray-200 text-gray-700 hover:border-gray-300 hover:text-gray-900 hover:shadow-[0_10px_26px_rgba(15,23,42,0.18)]";
                 return (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => handleDatasetChange(option.value)}
-                    className={`h-9 rounded-full border px-4 text-sm font-medium transition ${isActive ? activeClass : idleClass}`}
+                    className={`h-9 rounded-full border px-4 text-sm font-medium transform-gpu transition duration-170 ease-out hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${isActive ? activeClass : idleClass}`}
                   >
                     {option.label}
                   </button>
@@ -904,8 +927,8 @@ export default function ProductsClient({
                   onClick={() => setIsSortMenuOpen((prev) => !prev)}
                   className={
                     theme === "dark"
-                      ? "inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/35"
-                      : "inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:border-gray-900"
+                      ? "inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transform-gpu transition duration-170 ease-out hover:border-white/35 hover:-translate-y-[1px] hover:shadow-[0_16px_40px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050816]"
+                      : "inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transform-gpu transition duration-170 ease-out hover:border-gray-900 hover:-translate-y-[1px] hover:shadow-[0_16px_40px_rgba(15,23,42,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   }
                   aria-haspopup="menu"
                   aria-expanded={isSortMenuOpen}
@@ -944,11 +967,11 @@ export default function ProductsClient({
                         key={option.value}
                         type="button"
                         onClick={() => handleSortChange(option.value)}
-                        className={`flex w-full items-center justify-between rounded-xl px-4 py-2 text-sm font-medium transition ${
+                        className={`flex w-full items-center justify-between rounded-xl px-4 py-2 text-sm font-medium transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] ${
                           activeSort === option.value
                             ? theme === "dark"
-                              ? "bg-emerald-400/20 text-emerald-50"
-                              : "bg-gray-900 text-white"
+                              ? "bg-emerald-400/20 text-emerald-50 shadow-[0_14px_32px_rgba(0,0,0,0.6)]"
+                              : "bg-gray-900 text-white shadow-[0_14px_32px_rgba(15,23,42,0.32)]"
                             : theme === "dark"
                               ? "text-slate-200 hover:bg-white/5"
                               : "text-gray-700 hover:bg-gray-50"
@@ -1156,7 +1179,7 @@ export default function ProductsClient({
             )}
           </RevealOnScroll>
 
-          <div ref={sentinelRef} aria-hidden />
+          <div ref={sentinelRef} aria-hidden data-testid="catalog-sentinel" />
           {hasMore && !showSkeleton ? (
             <RevealOnScroll
               startY={10}

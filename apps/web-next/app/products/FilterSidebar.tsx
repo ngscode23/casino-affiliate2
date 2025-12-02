@@ -103,7 +103,7 @@ export default function FilterSidebar({
 
   return (
     <aside
-      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-4xl border border-border/30 bg-white/90 px-4 py-5 shadow-[0_25px_65px_rgba(15,23,42,0.15)] backdrop-blur-3xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] dark:border-white/10 dark:bg-white/5 dark:shadow-[0_24px_70px_-48px_rgba(0,0,0,0.6)] ${
+      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-4xl border border-border/30 bg-white/90 px-4 py-5 shadow-[0_25px_65px_rgba(15,23,42,0.15)] backdrop-blur-3xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 dark:bg-white/5 dark:shadow-[0_24px_70px_-48px_rgba(0,0,0,0.6)] ${
         hasEntered ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
       }`}
       aria-label="Product filters"
@@ -454,12 +454,12 @@ function FilterSection({ id, title, icon, isOpen, onToggle, children }: FilterSe
   return (
     <section
       aria-labelledby={`${id}-label`}
-      className="rounded-2xl border border-border/30 bg-white/60 p-3 shadow-[0_20px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm transition hover:border-border/60"
+      className="rounded-2xl border border-border/30 bg-white/60 p-3 shadow-[0_20px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm transition duration-150 ease-out hover:border-border/60 hover:-translate-y-[1px]"
     >
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-1 py-2 text-sm font-semibold text-gray-700 transition"
+        className="flex w-full items-center justify-between gap-3 px-1 py-2 text-sm font-semibold text-gray-700 transition duration-150 ease-out hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         aria-expanded={isOpen}
         aria-controls={`${id}-panel`}
       >
@@ -496,10 +496,10 @@ function FilterPill({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+      className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-semibold transform-gpu transition duration-170 ease-out hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
         active
-          ? "border-primary/60 bg-linear-to-r from-primary/10 to-primary/5 text-primary shadow-lg shadow-primary/20"
-          : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900"
+          ? "border-primary/70 bg-linear-to-r from-primary/10 to-primary/5 text-primary shadow-[0_16px_40px_rgba(15,23,42,0.26)]"
+          : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900 hover:shadow-[0_10px_26px_rgba(15,23,42,0.16)]"
       }`}
     >
       <span className="truncate text-left">{label}</span>

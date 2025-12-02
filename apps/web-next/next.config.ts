@@ -29,6 +29,7 @@ if (storageHostname) {
 remotePatterns.push({ protocol: "https", hostname: "via.placeholder.com" });
 remotePatterns.push({ protocol: "https", hostname: "images.pexels.com" });
 remotePatterns.push({ protocol: "https", hostname: "images.unsplash.com" });
+remotePatterns.push({ protocol: "https", hostname: "picsum.photos" });
 remotePatterns.push({ protocol: "https", hostname: "cdn.example.com" });
 
 // ────────────── SECURITY HEADERS (CSP SAFE DEFAULTS) ──────────────
@@ -40,6 +41,7 @@ const imgHosts = [
   "images.unsplash.com",
   "images.pexels.com",
   "via.placeholder.com",
+  "picsum.photos",
 ].concat(storageHostname ? [storageHostname] : []);
 
 const csp = [

@@ -50,7 +50,7 @@ export function I18nProvider({ children, initialLang = "en" }: I18nProviderProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value = useMemo<Ctx>(() => ({ lang, setLang }), [lang]);
+  const value = useMemo<I18nContextValue>(() => ({ lang, setLang }), [lang]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

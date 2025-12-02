@@ -40,6 +40,18 @@ const EMPTY_FORM: FormState = {
   website: "",
 };
 
+function LoadingMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 py-6 text-sm text-admin-textSoft">
+      <span
+        className="h-3 w-3 animate-spin rounded-full border-2 border-admin-border border-t-transparent"
+        aria-hidden="true"
+      />
+      {children}
+    </p>
+  );
+}
+
 function slugify(value: string): string {
   return value
     .normalize("NFKD")
@@ -58,7 +70,12 @@ async function fetchBrands(): Promise<CatalogBrandRecord[]> {
   });
   const payload = (await response.json().catch(() => ({}))) as ApiListResponse;
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || payload.error || "Failed to load brands");
+    const code = payload.error;
+    let message = payload.message || payload.error || "Не удалось загрузить бренды.";
+    if (code === "fetch_failed") {
+      message = "Не удалось загрузить бренды. Попробуйте обновить страницу.";
+    }
+    throw new Error(message);
   }
   return Array.isArray(payload.items) ? payload.items : [];
 }
@@ -72,7 +89,18 @@ async function saveBrand(payload: Partial<CatalogBrandRecord>) {
   });
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse;
   if (!response.ok || !result.ok || !result.item) {
-    throw new Error(result.message || result.error || "Failed to save brand");
+    const code = result.error;
+    let message = result.message || result.error || "Не удалось сохранить бренд.";
+    if (code === "name_required") {
+      message = "Введите название бренда.";
+    } else if (code === "slug_required") {
+      message = "Введите слаг бренда.";
+    } else if (code === "duplicate_slug") {
+      message = "Бренд с таким слагом уже существует.";
+    } else if (code === "bad_json") {
+      message = "Неверный формат данных запроса.";
+    }
+    throw new Error(message);
   }
   return result.item;
 }
@@ -86,7 +114,16 @@ async function deleteBrand(id: string) {
   });
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse;
   if (!response.ok || !result.ok) {
-    throw new Error(result.message || result.error || "Failed to delete brand");
+    const code = result.error;
+    let message = result.message || result.error || "Не удалось удалить бренд.";
+    if (code === "id_required") {
+      message = "Не удалось удалить бренд: не передан идентификатор.";
+    } else if (code === "has_sku") {
+      message = "У бренда есть связанные SKU. Сначала отвяжите их от бренда.";
+    } else if (code === "delete_failed") {
+      message = "Ошибка при удалении бренда.";
+    }
+    throw new Error(message);
   }
 }
 
@@ -135,7 +172,7 @@ export function BrandsClient() {
       setBrands(data);
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to load brands", { variant: "error" });
+      toast(error?.message || "Не удалось загрузить бренды.", { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -150,12 +187,12 @@ export function BrandsClient() {
     if (saving) return;
     const name = form.name.trim();
     if (!name) {
-      toast("Name is required", { variant: "error" });
+      toast("Введите название бренда.", { variant: "error" });
       return;
     }
     const slug = form.slug.trim() || slugify(name);
     if (!slug) {
-      toast("Slug is required", { variant: "error" });
+      toast("Введите слаг бренда.", { variant: "error" });
       return;
     }
     setSaving(true);
@@ -173,11 +210,11 @@ export function BrandsClient() {
         next.push(saved);
         return next;
       });
-      toast(editMode ? "Brand updated" : "Brand created", { variant: "success" });
+      toast(editMode ? "Бренд обновлён." : "Бренд создан.", { variant: "success" });
       resetForm();
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to save brand", { variant: "error" });
+      toast(error?.message || "Не удалось сохранить бренд.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -200,10 +237,10 @@ export function BrandsClient() {
       if (form.id === record.id) {
         resetForm();
       }
-      toast("Brand deleted", { variant: "success" });
+      toast("Бренд удалён.", { variant: "success" });
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to delete brand", { variant: "error" });
+      toast(error?.message || "Не удалось удалить бренд.", { variant: "error" });
     } finally {
       setDeletingId(null);
     }
@@ -246,7 +283,7 @@ export function BrandsClient() {
                 placeholder="acme"
               />
               <Button type="button" variant="neutral" onClick={handleGenerateSlug}>
-                Generate
+                Сгенерировать
               </Button>
             </div>
           </div>
@@ -275,10 +312,10 @@ export function BrandsClient() {
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : editMode ? "Save changes" : "Create brand"}
+              {saving ? "Сохранение..." : editMode ? "Сохранить изменения" : "Создать бренд"}
             </Button>
             <Button type="button" variant="soft" onClick={resetForm} disabled={saving}>
-              {editMode ? "Cancel editing" : "Reset"}
+              {editMode ? "Отменить редактирование" : "Сбросить"}
             </Button>
           </div>
         </form>
@@ -287,28 +324,28 @@ export function BrandsClient() {
       <AdminSurface>
         <div className="flex items-center justify-between gap-4 border-b border-admin-border pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-admin-text">Brands</h2>
-            <p className="text-sm text-admin-textSoft">Total: {brands.length}</p>
+            <h2 className="text-lg font-semibold text-admin-text">Бренды</h2>
+            <p className="text-sm text-admin-textSoft">Всего: {brands.length}</p>
           </div>
           <Button variant="neutral" onClick={load} disabled={loading}>
-            Refresh
+            Обновить
           </Button>
         </div>
 
         {loading ? (
-          <p className="py-6 text-sm text-admin-textSoft">Loading...</p>
+          <LoadingMessage>Загрузка брендов...</LoadingMessage>
         ) : sortedBrands.length === 0 ? (
-          <p className="py-6 text-sm text-admin-textSoft">No brands yet.</p>
+          <p className="py-6 text-sm text-admin-textSoft">Бренды пока не добавлены.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="mt-4 w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Slug</th>
-                  <th className="px-3 py-2">Website</th>
-                  <th className="px-3 py-2">Created</th>
-                  <th className="px-3 py-2 text-right">Actions</th>
+                  <th className="px-3 py-2">Название</th>
+                  <th className="px-3 py-2">Слаг</th>
+                  <th className="px-3 py-2">Сайт</th>
+                  <th className="px-3 py-2">Создан</th>
+                  <th className="px-3 py-2 text-right">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -345,7 +382,7 @@ export function BrandsClient() {
                           onClick={() => startEdit(brand)}
                           className="min-h-[36px] px-3 py-2 text-sm"
                         >
-                          Edit
+                          Редактировать
                         </Button>
                         <Button
                           variant="soft"
@@ -356,7 +393,7 @@ export function BrandsClient() {
                           disabled={deletingId === brand.id}
                           onClick={() => handleDelete(brand)}
                         >
-                          {deletingId === brand.id ? "Deleting..." : "Delete"}
+                          {deletingId === brand.id ? "Удаление..." : "Удалить"}
                         </Button>
                       </div>
                     </td>

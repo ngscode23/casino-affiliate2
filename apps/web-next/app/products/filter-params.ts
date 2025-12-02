@@ -50,7 +50,7 @@ function toSingleValue(value: string | string[] | undefined): string | undefined
 
 function parseDataset(searchParams?: Record<string, string | string[] | undefined>): ProductFilters["dataset"] {
   const raw = toSingleValue(searchParams?.dataset);
-  if (raw === "shop" || raw === "legacy") return raw;
+  if (raw === "shop") return "shop";
   return "all";
 }
 

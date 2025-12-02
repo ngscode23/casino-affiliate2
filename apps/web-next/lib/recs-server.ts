@@ -134,9 +134,16 @@ async function fetchProductsByIds(supabase: SupabaseClient, ids: string[]) {
 }
 
 function buildRecProduct(product: any): RecProduct {
+  const priceCentsRaw =
+    product?.price_cents != null
+      ? parseNumber(product.price_cents)
+      : null;
   const priceCents =
-    product?.price_cents ??
-    (product?.price != null && Number.isFinite(Number(product.price)) ? Math.round(Number(product.price) * 100) : null);
+    priceCentsRaw != null
+      ? priceCentsRaw
+      : product?.price != null && Number.isFinite(Number(product.price))
+        ? Math.round(Number(product.price) * 100)
+        : null;
   const price = priceCents != null ? Math.max(0, priceCents) / 100 : null;
   const rating = parseNumber(product?.rating) ?? 0;
   const image =

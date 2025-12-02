@@ -12,7 +12,7 @@
   display: grid;
   width: 100%;
   justify-content: stretch;
-  align-items: start;
+  align-items: stretch;
   column-gap: var(--vc-grid-column-gap, clamp(16px, 2vw, 32px));
   row-gap: var(--vc-grid-row-gap, clamp(20px, 2.5vw, 40px));
   grid-auto-rows: max-content;
@@ -23,6 +23,7 @@
 .vcGridItem {
   display: flex;
   justify-content: center;
+  align-items: stretch;
 }
 
 .vcReveal {
@@ -36,7 +37,7 @@
   grid-template-columns: repeat(
     auto-fit,
     minmax(
-      clamp(var(--vc-card-min-width, 240px), 24vw, var(--vc-card-width, 360px)),
+      min(var(--vc-card-width, 360px), max(var(--vc-card-min-width, 240px), 260px)),
       1fr
     )
   );

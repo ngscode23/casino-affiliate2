@@ -32,6 +32,11 @@
   --vc-badge-new-fg: #1f4bad;
   --vc-badge-best-bg: #e9ecff;
   --vc-badge-best-fg: #4951b3;
+
+  /* Motion tokens: scroll reveal */
+  --motion-reveal-duration: 260ms;
+  --motion-reveal-easing: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-reveal-offset-y: 8px;
 }
 
 :root.dark {

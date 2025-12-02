@@ -1,15 +1,13 @@
-export type DatasetType = "all" | "shop" | "legacy";
+export type DatasetType = "all" | "shop";
 
 export const DATASET_LABELS: Record<DatasetType, string> = {
   all: "All products",
   shop: "Neon shop",
-  legacy: "Archive",
 };
 
 export const DATASET_OPTIONS: { value: DatasetType; label: string }[] = [
   { value: "all", label: DATASET_LABELS.all },
   { value: "shop", label: DATASET_LABELS.shop },
-  { value: "legacy", label: DATASET_LABELS.legacy },
 ];
 
 export type SortMode = "recent" | "popular" | "price-asc" | "price-desc" | "impressions";

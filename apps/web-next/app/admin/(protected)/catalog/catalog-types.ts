@@ -7,6 +7,8 @@ export type CatalogBrandRecord = {
   description: string | null;
   website: string | null;
   created_at: string | null;
+  status?: string | null;
+  is_active?: boolean | null;
 };
 
 export type CatalogProductStatus = "draft" | "published" | "archived";

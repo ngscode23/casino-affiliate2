@@ -189,8 +189,11 @@ function dedupe<T>(values: T[]): T[] {
 }
 
 function mergeGallery(mainImage: string | null, extras: string[], fallback: string): string[] {
-  const list = [mainImage, ...extras, fallback].filter(Boolean) as string[];
-  return dedupe(list);
+  const base = dedupe([mainImage, ...extras].filter(Boolean) as string[]);
+  if (base.length) {
+    return base;
+  }
+  return fallback ? [fallback] : [];
 }
 
 function normalizeAverageRating(input: number | null | undefined, fallback = 0): number {
@@ -593,7 +596,10 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
   return product;
 }
 
-function formatViewPrice(priceCents: number | null | undefined, currency: string | null | undefined): string {
+function formatViewPrice(
+  priceCents: number | string | null | undefined,
+  currency: string | null | undefined,
+): string {
   const price = Number(priceCents ?? 0) / 100;
   const cur = castString(currency).toUpperCase() || "EUR";
   return formatCurrency(price, cur);

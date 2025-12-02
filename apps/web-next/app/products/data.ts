@@ -4,6 +4,7 @@ import { getAdminClient } from "@/utils/supabase/admin";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
 import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
+import { fetchProductListingPage, type ProductListFilters } from "@/lib/catalog/product-source";
 import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
 import { formatCurrency } from "./currency";
@@ -12,13 +13,17 @@ import { resolveCurrency, resolvePriceDetails } from "./price-utils";
 export type CategorySummary = { slug: string; label: string; count: number };
 
 export const CATALOG_NAME = "Neon Shop Product Catalog";
-export const PRODUCT_LIST_REVALIDATE_SECONDS = 1;
+export const PRODUCT_LIST_REVALIDATE_SECONDS = 30;
 const PRODUCT_COLLECTION_TAG = "products:list";
 const CATEGORY_TAG_PREFIX = "category:";
 
 const NEW_WINDOW_MS = 1000 * 60 * 60 * 24 * 14;
 const TOP_LIMIT = 6;
-const DEFAULT_LIST_LIMIT = 240;
+const PRODUCT_FETCH_CHUNK = Math.max(50, Number(process.env.NEXT_PRODUCTS_FETCH_CHUNK ?? 250) || 250);
+const PRODUCT_FETCH_HARD_CAP = Math.max(
+  PRODUCT_FETCH_CHUNK,
+  Number(process.env.NEXT_PRODUCTS_FETCH_HARD_CAP ?? 1500) || 1500,
+);
 const DEFAULT_CURRENCY = "EUR";
 const SUPABASE_IN_FILTER_CHUNK = 40;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,7 +71,7 @@ function getCatalogPool(): Pool | null {
 export type ProductFilters = {
   query?: string;
   category?: string;
-  dataset?: "all" | "shop" | "legacy";
+  dataset?: "all" | "shop";
   brand?: string;
   model?: string;
   priceMin?: number | null;
@@ -432,7 +437,9 @@ function buildStructuredData(products: Product[]) {
 type NormalizedCachePayload = {
   query: string;
   category: string;
-  dataset: "all" | "shop" | "legacy";
+  brand: string;
+  model: string;
+  dataset: "all" | "shop";
   priceMin: number | null;
   priceMax: number | null;
   minRating: number | null;
@@ -448,7 +455,17 @@ function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
   const category = filters.category?.trim();
   if (category && category !== "all") normalized.category = category;
 
-  normalized.dataset = filters.dataset === "legacy" ? "legacy" : filters.dataset === "shop" ? "shop" : "all";
+  const brand = filters.brand?.trim().toLowerCase();
+  if (brand && brand !== "all") {
+    normalized.brand = brand;
+  }
+
+  const model = filters.model?.trim().toLowerCase();
+  if (model && model !== "all") {
+    normalized.model = model;
+  }
+
+  normalized.dataset = filters.dataset === "shop" ? "shop" : "all";
 
   if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
     normalized.priceMin = Math.max(0, Math.round(filters.priceMin * 100) / 100);
@@ -482,12 +499,111 @@ function buildCachePayload(filters: ProductFilters): NormalizedCachePayload {
   return {
     query: filters.query ?? "",
     category: filters.category ?? "",
+    brand: filters.brand ?? "all",
+    model: filters.model ?? "all",
     dataset: filters.dataset ?? "all",
     priceMin: typeof filters.priceMin === "number" ? filters.priceMin : null,
     priceMax: typeof filters.priceMax === "number" ? filters.priceMax : null,
     minRating: typeof filters.minRating === "number" ? filters.minRating : null,
     sort: filters.sort ?? "recent",
   };
+}
+
+const PRODUCT_SELECT_COLUMNS =
+  "id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path, dataset";
+
+function toProductListFilters(filters: ProductFilters): ProductListFilters {
+  const normalized: ProductListFilters = {
+    sort: filters.sort ?? "recent",
+  };
+
+  const search = filters.query?.trim();
+  if (search) normalized.search = search;
+
+  if (filters.category && filters.category !== "all") {
+    normalized.category = filters.category;
+  }
+
+  if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
+    normalized.priceMinCents = Math.round(filters.priceMin * 100);
+  } else {
+    normalized.priceMinCents = null;
+  }
+
+  if (typeof filters.priceMax === "number" && Number.isFinite(filters.priceMax) && filters.priceMax >= 0) {
+    normalized.priceMaxCents = Math.round(filters.priceMax * 100);
+  } else {
+    normalized.priceMaxCents = null;
+  }
+
+  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating) && filters.minRating > 0) {
+    normalized.minRating = filters.minRating;
+  } else {
+    normalized.minRating = null;
+  }
+
+  if (filters.dataset && filters.dataset !== "all") {
+    normalized.dataset = filters.dataset;
+  } else {
+    normalized.dataset = "all";
+  }
+
+  return normalized;
+}
+
+async function fetchProductRows(
+  supabase: SupabaseClient,
+  filters: ProductListFilters,
+): Promise<{ rows: Array<Record<string, unknown>>; totalCount: number; error: PostgrestError | null }> {
+  const firstLimit = Math.min(PRODUCT_FETCH_CHUNK, PRODUCT_FETCH_HARD_CAP);
+  const firstBatch = await fetchProductListingPage({
+    supabase,
+    select: PRODUCT_SELECT_COLUMNS,
+    filters,
+    limit: firstLimit,
+    offset: 0,
+    withCount: true,
+  });
+
+  if (firstBatch.error) {
+    return { rows: [], totalCount: 0, error: firstBatch.error };
+  }
+
+  const rows: Array<Record<string, unknown>> = [...firstBatch.rows];
+  const dbTotal = firstBatch.count ?? null;
+  const target = dbTotal != null ? Math.min(dbTotal, PRODUCT_FETCH_HARD_CAP) : PRODUCT_FETCH_HARD_CAP;
+
+  while (rows.length < target) {
+    const remaining = target - rows.length;
+    if (remaining <= 0) break;
+    const batch = await fetchProductListingPage({
+      supabase,
+      select: PRODUCT_SELECT_COLUMNS,
+      filters,
+      limit: Math.min(PRODUCT_FETCH_CHUNK, remaining),
+      offset: rows.length,
+      withCount: false,
+    });
+
+    if (batch.error) {
+      return { rows: [], totalCount: 0, error: batch.error };
+    }
+
+    if (!batch.rows.length) {
+      break;
+    }
+    rows.push(...batch.rows);
+  }
+
+  const totalCount = dbTotal ?? rows.length;
+  if (totalCount > PRODUCT_FETCH_HARD_CAP && rows.length >= PRODUCT_FETCH_HARD_CAP) {
+    console.warn("[catalog] product listing truncated by hard cap", {
+      totalCount,
+      cap: PRODUCT_FETCH_HARD_CAP,
+    });
+  }
+
+  return { rows, totalCount, error: null };
 }
 
 async function loadProductsDataInternal(
@@ -502,62 +618,9 @@ async function loadProductsDataInternal(
   totalCount: number;
 }> {
   const supabase = getAdminClient();
-  const appliedSort = filters.sort ?? "recent";
+  const { rows: productRows, totalCount, error } = await fetchProductRows(supabase, toProductListFilters(filters));
 
-  let query = supabase
-    .from("product_with_discount_public")
-    .select(
-      "id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path",
-      { count: "exact" },
-    )
-    .limit(DEFAULT_LIST_LIMIT);
-
-  const trimmedQuery = filters.query?.trim();
-  if (trimmedQuery) {
-    const pattern = `%${trimmedQuery.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
-    query = query.or(`name.ilike.${pattern},slug.ilike.${pattern}`);
-  }
-
-  if (filters.category && filters.category !== "all") {
-    query = query.eq("category_slug", filters.category);
-  }
-
-  if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
-    query = query.gte("effectivePriceCents", Math.round(filters.priceMin * 100));
-  }
-
-  if (typeof filters.priceMax === "number" && Number.isFinite(filters.priceMax) && filters.priceMax >= 0) {
-    query = query.lte("effectivePriceCents", Math.round(filters.priceMax * 100));
-  }
-
-  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating) && filters.minRating > 0) {
-    query = query.gte("rating", filters.minRating);
-  }
-
-  switch (appliedSort) {
-    case "popular":
-      query = query
-        .order("rating", { ascending: false, nullsFirst: true })
-        .order("created_at", { ascending: false, nullsFirst: false });
-      break;
-    case "price-asc":
-      query = query.order("effectivePriceCents", { ascending: true, nullsFirst: false });
-      break;
-    case "price-desc":
-      query = query.order("effectivePriceCents", { ascending: false, nullsFirst: false });
-      break;
-    case "impressions":
-      query = query.order("created_at", { ascending: false, nullsFirst: false });
-      break;
-    case "recent":
-    default:
-      query = query.order("created_at", { ascending: false, nullsFirst: false });
-      break;
-  }
-
-  const { data, error, count } = await query;
-
-  if (error || !Array.isArray(data)) {
+  if (error || !Array.isArray(productRows)) {
     return {
       products: [],
       fetchError: error,
@@ -570,7 +633,7 @@ async function loadProductsDataInternal(
 
   const variantIds = Array.from(
     new Set(
-      data
+      productRows
         .map((row: any) => {
           const raw = row?.id ?? null;
           if (typeof raw === "string" && raw.trim()) return raw.trim();
@@ -583,7 +646,7 @@ async function loadProductsDataInternal(
 
   const variantSlugs = Array.from(
     new Set(
-      data
+      productRows
         .map((row: any) => {
           const raw = row?.slug ?? null;
           if (typeof raw === "string" && raw.trim()) return raw.trim();
@@ -595,7 +658,7 @@ async function loadProductsDataInternal(
 
   const variantSkus = Array.from(
     new Set(
-      data
+      productRows
         .map((row: any) => {
           const raw = row?.sku ?? null;
           if (typeof raw === "string" && raw.trim()) return raw.trim();
@@ -625,7 +688,7 @@ async function loadProductsDataInternal(
 
   const now = Date.now();
 
-  const products: Product[] = data.map((row: any, index) => {
+  const products: Product[] = productRows.map((row: any, index) => {
     const id = row?.id != null ? String(row.id) : "";
     const slug = row?.slug != null ? String(row.slug) : "";
     const sku = typeof row?.sku === "string" ? row.sku : null;
@@ -686,10 +749,10 @@ async function loadProductsDataInternal(
     const modelSlug = catalogProductMeta?.slug ?? null;
     const modelTitle = catalogProductMeta?.title ?? (typeof row?.name === "string" ? row.name : null);
 
-      return {
-        id,
-        slug,
-        sku,
+    return {
+      id,
+      slug,
+      sku,
       title,
       description: typeof row?.description === "string" ? row.description : null,
       category: categorySlug,
@@ -712,7 +775,12 @@ async function loadProductsDataInternal(
       rating,
       clicks: 0,
       impressions: 0,
-      dataset: "shop",
+      dataset: (() => {
+        const rawDataset = (row as Record<string, unknown>)?.dataset;
+        const value = typeof rawDataset === "string" ? rawDataset.toLowerCase().trim() : "";
+        if (value === "legacy" || value === "products") return "legacy";
+        return "shop";
+      })(),
       order: index,
       createdAt,
       isNew,
@@ -727,9 +795,47 @@ async function loadProductsDataInternal(
     products[i].isTop = true;
   }
 
-  const filteredProducts = filters.dataset && filters.dataset !== "all"
-    ? products.filter((product) => product.dataset === filters.dataset)
-    : products;
+  const brandSelection = filters.brand ?? "all";
+  const modelSelection = filters.model ?? "all";
+
+  const filteredProducts = products.filter((product) => {
+    if (filters.dataset && filters.dataset !== "all" && product.dataset !== filters.dataset) {
+      return false;
+    }
+    if (brandSelection && brandSelection !== "all") {
+      const normalizedSelection = brandSelection.trim().toLowerCase();
+      if (normalizedSelection) {
+        const candidates = [
+          product.brand,
+          product.brandSlug,
+          product.brandName,
+        ]
+          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+          .filter(Boolean);
+        if (!candidates.includes(normalizedSelection)) {
+          return false;
+        }
+      }
+    }
+    if (modelSelection && modelSelection !== "all") {
+      const normalizedSelection = modelSelection.trim().toLowerCase();
+      if (normalizedSelection) {
+        const candidates = [
+          product.model,
+          product.modelSlug,
+          product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
+        ]
+          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+          .filter(Boolean);
+        if (!candidates.includes(normalizedSelection)) {
+          if (!product.catalogProductId || product.catalogProductId !== modelSelection) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  });
 
   const categories = (() => {
     const counts = new Map<string, { label: string; count: number }>();
@@ -783,11 +889,11 @@ async function loadProductsDataInternal(
     categories,
     catalogName: CATALOG_NAME,
     totalCount:
-      filters.dataset && filters.dataset !== "all"
+      (filters.dataset && filters.dataset !== "all") ||
+      (filters.brand && filters.brand !== "all") ||
+      (filters.model && filters.model !== "all")
         ? personalizedProducts.length
-        : typeof count === "number"
-          ? count
-          : personalizedProducts.length,
+        : totalCount,
   };
 }
 
@@ -811,6 +917,8 @@ const loadProductsDataCached = unstable_cache(
     };
     if (parsed.query) normalized.query = parsed.query;
     if (parsed.category) normalized.category = parsed.category;
+    if (parsed.brand && parsed.brand !== "all") normalized.brand = parsed.brand;
+    if (parsed.model && parsed.model !== "all") normalized.model = parsed.model;
     if (parsed.priceMin != null) normalized.priceMin = parsed.priceMin;
     if (parsed.priceMax != null) normalized.priceMax = parsed.priceMax;
     if (parsed.minRating != null) normalized.minRating = parsed.minRating;

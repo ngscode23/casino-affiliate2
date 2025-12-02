@@ -13,9 +13,29 @@ type IncomingEvent = {
   ts?: unknown;
 };
 
+const CANONICAL_EVENTS = [
+  "view",
+  "search",
+  "click",
+  "impression",
+  "add_to_cart",
+  "purchase",
+] as const;
+
+type AllowedEvent = (typeof CANONICAL_EVENTS)[number];
+
+const PRODUCT_REQUIRED_EVENTS = new Set<AllowedEvent>(["view", "click", "add_to_cart", "purchase"]);
+
+const STATIC_EVENT_ALIASES: Record<string, AllowedEvent> = {
+  product_impression: "impression",
+  product_click: "click",
+  product_click_discount: "click",
+  product_view: "view",
+};
+
 type NormalizedEvent = {
   anon_id: string;
-  event: string;
+  event: AllowedEvent;
   product_id: string | null;
   category: string | null;
   price_bucket: string | null;
@@ -23,6 +43,7 @@ type NormalizedEvent = {
   country: string | null;
   referrer: string | null;
   experiment_variant: string | null;
+  metadata: Record<string, unknown> | null;
   ts: string;
 };
 
@@ -53,6 +74,32 @@ function normalizeTimestamp(value: unknown): string {
   return new Date().toISOString();
 }
 
+function resolveEventName(value: unknown): { canonical: AllowedEvent; rawAlias: string | null } | null {
+  const trimmed = normalizeText(value, 64);
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+
+  if (CANONICAL_EVENTS.includes(lower as AllowedEvent)) {
+    const canonical = lower as AllowedEvent;
+    return { canonical, rawAlias: trimmed === canonical ? null : trimmed };
+  }
+
+  const alias = STATIC_EVENT_ALIASES[lower] ?? resolveProductEventAlias(lower);
+  if (alias) {
+    return { canonical: alias, rawAlias: trimmed };
+  }
+
+  return null;
+}
+
+function resolveProductEventAlias(value: string): AllowedEvent | null {
+  if (!value.startsWith("product_")) return null;
+  if (value.includes("impression")) return "impression";
+  if (value.includes("click")) return "click";
+  if (value.includes("view")) return "view";
+  return null;
+}
+
 function normalizeEvent(
   raw: IncomingEvent,
   context: {
@@ -63,20 +110,24 @@ function normalizeEvent(
     experimentVariant: string | null;
   },
 ): NormalizedEvent | null {
-  const event = normalizeText(raw.event, 64);
-  if (!event) return null;
+  const resolvedEvent = resolveEventName(raw.event);
+  if (!resolvedEvent) return null;
 
   const productId = isUuid(raw.product_id) ? raw.product_id : null;
+  if (PRODUCT_REQUIRED_EVENTS.has(resolvedEvent.canonical) && !productId) {
+    return null;
+  }
   const category = normalizeText(raw.category, 64);
   const priceBucket = normalizeText(raw.price_bucket, 32);
   const device = normalizeText(raw.device, 24) ?? context.defaultDevice;
   const country = normalizeText(raw.country, 8)?.toLowerCase() ?? context.defaultCountry;
   const referrer = normalizeText(raw.referrer, 256) ?? context.defaultReferrer;
   const ts = normalizeTimestamp(raw.ts);
+  const metadata = resolvedEvent.rawAlias ? { raw_event: resolvedEvent.rawAlias } : null;
 
   return {
     anon_id: context.anonId,
-    event,
+    event: resolvedEvent.canonical,
     product_id: productId,
     category,
     price_bucket: priceBucket,
@@ -84,6 +135,7 @@ function normalizeEvent(
     country: country ?? null,
     referrer: referrer ?? null,
     experiment_variant: context.experimentVariant,
+    metadata,
     ts,
   };
 }

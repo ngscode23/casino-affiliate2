@@ -2,32 +2,54 @@ import { describe, it, expect } from "vitest";
 import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
 import type { Product } from "@/app/products/types";
 
-const baseProduct = (overrides: Partial<Product>): Product => ({
-  id: "p1",
-  slug: "p1",
-  title: "P1",
-  description: null,
-  price: 100,
-  priceCents: 10000,
-  originalPrice: null,
-  originalPriceCents: null,
-  discountPercent: null,
-  discountAmountCents: null,
-  currency: "USD",
-  mainImage: null,
-  thumbnailPath: null,
-  rating: null,
-  clicks: 0,
-  impressions: 0,
-  dataset: "shop",
-  order: 0,
-  createdAt: null,
-  isNew: false,
-  isTop: false,
-  availability: "InStock",
-  categorySlug: null,
-  ...overrides,
-});
+const baseProduct = (overrides: Partial<Product>): Product => {
+  const product: Product = {
+    id: "p1",
+    slug: "p1",
+    sku: null,
+    title: "P1",
+    description: null,
+    category: null,
+    brand: null,
+    model: null,
+    price: 100,
+    priceCents: 10000,
+    originalPrice: null,
+    originalPriceCents: null,
+    discountPercent: null,
+    discountAmountCents: null,
+    currency: "USD",
+    mainImage: null,
+    thumbnailPath: null,
+    rating: null,
+    clicks: 0,
+    impressions: 0,
+    dataset: "shop",
+    order: 0,
+    createdAt: null,
+    isNew: false,
+    isTop: false,
+    availability: "InStock",
+    categorySlug: null,
+  };
+
+  Object.assign(product, overrides);
+
+  if (overrides.sku === undefined) {
+    product.sku = null;
+  }
+  if (overrides.category === undefined) {
+    product.category = null;
+  }
+  if (overrides.brand === undefined) {
+    product.brand = null;
+  }
+  if (overrides.model === undefined) {
+    product.model = null;
+  }
+
+  return product;
+};
 
 describe("applyPersonalizedRanking", () => {
   it("prioritizes matching categories and country", () => {
@@ -78,4 +100,5 @@ describe("applyPersonalizedRanking", () => {
     expect(ranked[1].id).toBe("y");
   });
 });
+
 

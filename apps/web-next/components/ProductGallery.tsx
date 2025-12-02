@@ -28,11 +28,11 @@ export default function ProductGallery({
 }: ProductGalleryProps) {
   const list = useMemo(() => {
     const normalized = Array.isArray(images) ? images.filter(Boolean) : [];
-    if (!normalized.length && fallbackImage) return [fallbackImage];
-    if (fallbackImage && !normalized.includes(fallbackImage)) {
-      return [...normalized, fallbackImage];
+    const deduped = normalized.filter((url, idx) => normalized.indexOf(url) === idx);
+    if (deduped.length) {
+      return deduped;
     }
-    return normalized.length ? normalized : [fallbackImage];
+    return fallbackImage ? [fallbackImage] : [];
   }, [images, fallbackImage]);
 
   const [index, setIndex] = useState(0);

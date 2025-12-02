@@ -1,6 +1,8 @@
 "use client";
 
+
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 
 import Button from "@ui/components/common/button";
@@ -58,19 +60,38 @@ function createEmptyFormState(): ProductFormState {
     brandId: "",
     description: "",
     price: "",
-    currency: "",
+    currency: "USD",
     status: "draft",
     techSpecs: createEmptyProductTechSpecs(),
   };
 }
 
 const STATUS_OPTIONS: Array<{ value: CatalogProductStatus; label: string }> = [
-  { value: "draft", label: "Draft" },
-  { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
+  { value: "draft", label: "Черновик" },
+  { value: "published", label: "Опубликовано" },
+  { value: "archived", label: "Архив" },
 ];
 
+const STATUS_LABELS = STATUS_OPTIONS.reduce<Record<CatalogProductStatus, string>>((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {} as Record<CatalogProductStatus, string>);
+
 type StatusFilterValue = "all" | CatalogProductStatus;
+
+const MODELS_PAGE_SIZE = 25;
+
+function LoadingState({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+  return (
+    <p className={`${compact ? "py-3" : "py-6"} flex items-center gap-2 text-sm text-admin-textSoft`}>
+      <span
+        className="h-3 w-3 animate-spin rounded-full border-2 border-admin-border border-t-transparent"
+        aria-hidden="true"
+      />
+      {children}
+    </p>
+  );
+}
 
 function resolveStatus(value: string | null | undefined): CatalogProductStatus {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -97,7 +118,7 @@ async function fetchBrandOptions(): Promise<CatalogBrandRecord[]> {
   });
   const payload = (await response.json().catch(() => ({}))) as ApiListResponse<CatalogBrandRecord>;
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || payload.error || "Failed to load brands");
+    throw new Error(payload.message || payload.error || "Не удалось загрузить бренды");
   }
   return Array.isArray(payload.items) ? payload.items : [];
 }
@@ -122,7 +143,7 @@ async function fetchModels(filters: {
   });
   const payload = (await response.json().catch(() => ({}))) as ApiListResponse<CatalogProductRecord>;
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || payload.error || "Failed to load models");
+    throw new Error(payload.message || payload.error || "Не удалось загрузить модели");
   }
   const items = Array.isArray(payload.items) ? payload.items : [];
   return items.map((item) => ({
@@ -140,7 +161,7 @@ async function saveModel(payload: Partial<CatalogProductRecord>) {
   });
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse<CatalogProductRecord>;
   if (!response.ok || !result.ok || !result.item) {
-    throw new Error(result.message || result.error || "Failed to save model");
+    throw new Error(result.message || result.error || "Не удалось сохранить модель");
   }
   return result.item;
 }
@@ -154,7 +175,7 @@ async function archiveModel(id: string) {
   });
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse<CatalogProductRecord>;
   if (!response.ok || !result.ok) {
-    throw new Error(result.message || result.error || "Failed to delete model");
+    throw new Error(result.message || result.error || "Не удалось удалить модель");
   }
   return result.item;
 }
@@ -173,6 +194,7 @@ export function CatalogProductsClient() {
   const [search, setSearch] = useState("");
   const [skuList, setSkuList] = useState<SkuSummary[]>([]);
   const [skuLoading, setSkuLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
   const brandById = useMemo(() => {
     const map = new Map<string, CatalogBrandRecord>();
@@ -197,7 +219,7 @@ export function CatalogProductsClient() {
       setBrands(data);
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to load brands", { variant: "error" });
+      toast(error?.message || "Не удалось загрузить бренды.", { variant: "error" });
     } finally {
       setBrandLoading(false);
     }
@@ -212,9 +234,10 @@ export function CatalogProductsClient() {
         query: search || undefined,
       });
       setModels(data);
+      setPage(1);
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to load models", { variant: "error" });
+      toast(error?.message || "Не удалось загрузить модели.", { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -236,7 +259,7 @@ export function CatalogProductsClient() {
       brandId: record.brand_id ?? "",
       description: record.description ?? "",
       price: record.price != null ? String(record.price) : "",
-      currency: record.currency ?? "",
+      currency: (record.currency ?? "USD").toUpperCase(),
       status: resolveStatus(record.status),
       techSpecs: normalizeProductTechSpecs(record.specs ?? null) ?? createEmptyProductTechSpecs(),
     });
@@ -296,23 +319,32 @@ export function CatalogProductsClient() {
     if (saving) return;
     const title = form.title.trim();
     if (!title) {
-      toast("Title is required", { variant: "error" });
+      toast("Введите название модели.", { variant: "error" });
       return;
     }
     const brandId = form.brandId.trim();
     if (!brandId) {
-      toast("Select a brand", { variant: "error" });
+      toast("Выберите бренд.", { variant: "error" });
       return;
     }
     const slug = form.slug.trim() || slugify(title);
     if (!slug) {
-      toast("Slug is required", { variant: "error" });
+      toast("Введите слаг модели.", { variant: "error" });
       return;
     }
     const priceValue = form.price.trim();
     const parsedPrice = priceValue ? Number(priceValue) : null;
     if (priceValue && !Number.isFinite(parsedPrice)) {
-      toast("Price should be a number", { variant: "error" });
+      toast("Цена должна быть числом.", { variant: "error" });
+      return;
+    }
+    if (!priceValue || parsedPrice == null || parsedPrice < 0) {
+      toast("Укажите цену модели.", { variant: "error" });
+      return;
+    }
+    const currency = form.currency.trim().toUpperCase();
+    if (currency.length < 3 || currency.length > 8) {
+      toast("Укажите валюту (например, USD или EUR).", { variant: "error" });
       return;
     }
     setSaving(true);
@@ -325,7 +357,7 @@ export function CatalogProductsClient() {
         brand_id: brandId,
         description: form.description.trim() || null,
         price: parsedPrice,
-        currency: form.currency.trim() || null,
+        currency,
         status: form.status,
         specs: normalizedSpecs,
       } satisfies Partial<CatalogProductRecord>;
@@ -335,11 +367,11 @@ export function CatalogProductsClient() {
         next.push(saved);
         return next;
       });
-      toast(editMode ? "Model updated" : "Model created", { variant: "success" });
+      toast(editMode ? "Модель обновлена." : "Модель создана.", { variant: "success" });
       resetForm();
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to save model", { variant: "error" });
+      toast(error?.message || "Не удалось сохранить модель.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -352,7 +384,7 @@ export function CatalogProductsClient() {
       window.alert(`К этой модели привязано ${skuList.length} SKU. Сначала отвяжите или перенесите их.`);
       return;
     }
-    const confirmed = window.confirm(`Archive model "${record.title}"?`);
+    const confirmed = window.confirm(`Архивировать модель «${record.title}»?`);
     if (!confirmed) return;
     setDeletingId(record.id);
     try {
@@ -363,13 +395,13 @@ export function CatalogProductsClient() {
         }
         return prev.filter((item) => item.id !== record.id);
       });
-      toast("Model archived", { variant: "success" });
+      toast("Модель архивирована.", { variant: "success" });
       if (form.id === record.id) {
         setForm((prev) => ({ ...prev, status: "archived" }));
       }
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Failed to delete model", { variant: "error" });
+      toast(error?.message || "Не удалось архивировать модель.", { variant: "error" });
     } finally {
       setDeletingId(null);
     }
@@ -399,23 +431,47 @@ export function CatalogProductsClient() {
     });
   }, [models]);
 
+  const totalModels = sortedModels.length;
+  const totalPages = Math.max(1, Math.ceil(totalModels / MODELS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const pagedModels = useMemo(() => {
+    const start = (currentPage - 1) * MODELS_PAGE_SIZE;
+    return sortedModels.slice(start, start + MODELS_PAGE_SIZE);
+  }, [sortedModels, currentPage]);
+
+  const pageStartIndex = (currentPage - 1) * MODELS_PAGE_SIZE;
+  const shownUpperBound = totalModels === 0 ? 0 : Math.min(totalModels, pageStartIndex + pagedModels.length);
+  const paginationSummary =
+    totalModels === 0 ? "Ничего не найдено" : `Показано ${shownUpperBound} из ${totalModels}`;
+  const canGoPrev = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+  const goToPrevPage = () => setPage((prev) => Math.max(1, prev - 1));
+  const goToNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   return (
     <AdminStack gap="lg">
       <AdminSurface>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-admin-border pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-admin-text">Model form</h2>
+            <h2 className="text-lg font-semibold text-admin-text">Модель каталога</h2>
             <p className="text-sm text-admin-textSoft">
-              {editMode ? "Editing existing model" : "Create a new catalog model"}
+              {editMode ? "Редактирование существующей модели." : "Создайте новую модель каталога."}
             </p>
           </div>
           <Button variant="secondary" onClick={resetForm} disabled={saving}>
-            New model
+            Новая модель
           </Button>
         </div>
         <form className="mt-6 space-y-5" onSubmit={onSubmit}>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-admin-text">Title</label>
+            <label className="text-sm font-semibold text-admin-text">Название</label>
             <input
               type="text"
               className="rounded-xl border border-admin-border bg-white px-4 py-2 text-admin-text shadow-sm focus:border-admin-primary focus:outline-none"
@@ -427,12 +483,12 @@ export function CatalogProductsClient() {
                   slug: prev.id ? prev.slug : prev.slug || slugify(event.target.value),
                 }))
               }
-              placeholder="SuperPhone 15"
+              placeholder="Например, SuperPhone 15"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-admin-text">Slug</label>
+            <label className="text-sm font-semibold text-admin-text">Слаг</label>
             <div className="flex flex-col gap-2 md:flex-row">
               <input
                 type="text"
@@ -442,20 +498,20 @@ export function CatalogProductsClient() {
                 placeholder="superphone-15"
               />
               <Button type="button" variant="neutral" onClick={handleGenerateSlug}>
-                Generate
+                Сгенерировать
               </Button>
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-admin-text">Brand</label>
+            <label className="text-sm font-semibold text-admin-text">Бренд</label>
             <select
               className="rounded-xl border border-admin-border bg-white px-4 py-2 text-admin-text shadow-sm focus:border-admin-primary focus:outline-none"
               value={form.brandId}
               onChange={(event) => setForm((prev) => ({ ...prev, brandId: event.target.value }))}
               disabled={brandLoading}
             >
-              <option value="">Select brand</option>
+              <option value="">{brandLoading ? "Загрузка брендов..." : "Выберите бренд"}</option>
               {brands.map((brand) => (
                 <option key={brand.id} value={brand.id}>
                   {brand.name}
@@ -465,19 +521,19 @@ export function CatalogProductsClient() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-admin-text">Description</label>
+            <label className="text-sm font-semibold text-admin-text">Описание</label>
             <textarea
               className="rounded-xl border border-admin-border bg-white px-4 py-2 text-admin-text shadow-sm focus:border-admin-primary focus:outline-none"
               rows={3}
               value={form.description}
               onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              placeholder="Optional long description"
+              placeholder="Дополнительное описание (необязательно)"
             />
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-admin-text">Price</label>
+              <label className="text-sm font-semibold text-admin-text">Цена</label>
               <input
                 type="number"
                 step="0.01"
@@ -489,7 +545,7 @@ export function CatalogProductsClient() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-admin-text">Currency</label>
+              <label className="text-sm font-semibold text-admin-text">Валюта</label>
               <input
                 type="text"
                 maxLength={8}
@@ -500,7 +556,7 @@ export function CatalogProductsClient() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-admin-text">Status</label>
+              <label className="text-sm font-semibold text-admin-text">Статус</label>
               <select
                 className="rounded-xl border border-admin-border bg-white px-4 py-2 text-admin-text shadow-sm focus:border-admin-primary focus:outline-none"
                 value={form.status}
@@ -524,10 +580,10 @@ export function CatalogProductsClient() {
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : editMode ? "Save changes" : "Create model"}
+              {saving ? "Сохранение..." : editMode ? "Сохранить изменения" : "Создать модель"}
             </Button>
             <Button type="button" variant="soft" onClick={resetForm} disabled={saving}>
-              Cancel
+              Отмена
             </Button>
           </div>
 
@@ -541,11 +597,11 @@ export function CatalogProductsClient() {
                   </p>
                 </div>
                 <Button type="button" variant="neutral" onClick={() => loadSkuList(form.id)} disabled={skuLoading}>
-                  {skuLoading ? "Refreshing..." : "Refresh"}
+                  {skuLoading ? "Обновляем..." : "Обновить"}
                 </Button>
               </div>
               {skuLoading ? (
-                <p className="py-3 text-sm text-admin-textSubtle">Loading...</p>
+                <LoadingState compact>Загружаем связанные SKU...</LoadingState>
               ) : skuList.length === 0 ? (
                 <p className="py-3 text-sm text-admin-textSubtle">Связанных SKU нет.</p>
               ) : (
@@ -555,8 +611,8 @@ export function CatalogProductsClient() {
                       <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
                         <th className="px-3 py-2">ID</th>
                         <th className="px-3 py-2">Slug</th>
-                        <th className="px-3 py-2">Title</th>
-                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Название</th>
+                        <th className="px-3 py-2">Статус</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -581,24 +637,25 @@ export function CatalogProductsClient() {
         <div className="flex flex-col gap-4 border-b border-admin-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-admin-text">Models</h2>
+              <h2 className="text-lg font-semibold text-admin-text">Модели</h2>
               <p className="text-sm text-admin-textSoft">
-                Showing {models.length} items{appliedFiltersCount ? ` · ${appliedFiltersCount} filter(s)` : ""}
+                Всего: {totalModels}
+                {appliedFiltersCount ? ` · фильтров: ${appliedFiltersCount}` : ""}
               </p>
             </div>
             <Button variant="neutral" onClick={loadModels} disabled={loading}>
-              Refresh
+              Обновить
             </Button>
           </div>
           <form className="flex flex-col gap-3 lg:flex-row lg:items-end" onSubmit={handleSearchSubmit}>
             <div className="flex-1">
-              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Brand</label>
+              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Бренд</label>
               <select
                 className="mt-1 w-full rounded-xl border border-admin-border bg-white px-3 py-2 text-sm text-admin-text focus:border-admin-primary focus:outline-none"
                 value={brandFilter}
                 onChange={(event) => setBrandFilter(event.target.value || "all")}
               >
-                <option value="all">All brands</option>
+                <option value="all">Все бренды</option>
                 {brands.map((brand) => (
                   <option key={brand.id} value={brand.id}>
                     {brand.name}
@@ -607,13 +664,13 @@ export function CatalogProductsClient() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Status</label>
+              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Статус</label>
               <select
                 className="mt-1 w-full rounded-xl border border-admin-border bg-white px-3 py-2 text-sm text-admin-text focus:border-admin-primary focus:outline-none"
                 value={statusFilter}
                 onChange={(event) => setStatusFilter((event.target.value as StatusFilterValue) || "all")}
               >
-                <option value="all">All statuses</option>
+                <option value="all">Все статусы</option>
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -622,96 +679,109 @@ export function CatalogProductsClient() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Search</label>
+              <label className="text-xs font-semibold uppercase tracking-[0.24em] text-admin-textSoft">Поиск</label>
               <input
                 type="search"
                 className="mt-1 w-full rounded-xl border border-admin-border bg-white px-3 py-2 text-sm text-admin-text focus:border-admin-primary focus:outline-none"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Title or slug"
+                placeholder="Название или slug"
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button type="submit">Search</Button>
+              <Button type="submit">Искать</Button>
               <Button type="button" variant="soft" onClick={handleClearFilters}>
-                Clear
+                Сбросить
               </Button>
             </div>
           </form>
         </div>
 
         {loading ? (
-          <p className="py-6 text-sm text-admin-textSoft">Loading models...</p>
-        ) : sortedModels.length === 0 ? (
-          <p className="py-6 text-sm text-admin-textSoft">No models match the selected filters.</p>
+          <LoadingState>Загружаем модели...</LoadingState>
+        ) : totalModels === 0 ? (
+          <p className="py-6 text-sm text-admin-textSoft">По выбранным фильтрам ничего не найдено.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="mt-4 w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
-                  <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2">Slug</th>
-                  <th className="px-3 py-2">Brand</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Created</th>
-                  <th className="px-3 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedModels.map((model) => {
-                  const brand = model.brand_id ? brandById.get(model.brand_id) : null;
-                  return (
-                    <tr key={model.id} className="border-t border-admin-border">
-                      <td className="px-3 py-3">
-                        <div className="font-medium text-admin-text">{model.title}</div>
-                        {model.description ? (
-                          <div className="text-xs text-admin-textSoft">{model.description}</div>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3 text-admin-textSubtle">{model.slug}</td>
-                      <td className="px-3 py-3 text-admin-textSubtle">{brand ? brand.name : "—"}</td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={clsx(
-                            "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
-                            model.status === "published" && "bg-emerald-100 text-emerald-700",
-                            model.status === "draft" && "bg-sky-100 text-sky-700",
-                            model.status === "archived" && "bg-slate-200 text-slate-600",
-                          )}
-                        >
-                          {model.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-admin-textSubtle">
-                        {model.created_at ? new Date(model.created_at).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="neutral"
-                            className="min-h-9 px-3 py-2 text-sm"
-                            onClick={() => startEdit(model)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="soft"
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="mt-4 w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
+                    <th className="px-3 py-2">Название</th>
+                    <th className="px-3 py-2">Slug</th>
+                    <th className="px-3 py-2">Бренд</th>
+                    <th className="px-3 py-2">Статус</th>
+                    <th className="px-3 py-2">Создано</th>
+                    <th className="px-3 py-2 text-right">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedModels.map((model) => {
+                    const brand = model.brand_id ? brandById.get(model.brand_id) : null;
+                    return (
+                      <tr key={model.id} className="border-t border-admin-border">
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-admin-text">{model.title}</div>
+                          {model.description ? (
+                            <div className="text-xs text-admin-textSoft">{model.description}</div>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-3 text-admin-textSubtle">{model.slug}</td>
+                        <td className="px-3 py-3 text-admin-textSubtle">{brand ? brand.name : "—"}</td>
+                        <td className="px-3 py-3">
+                          <span
                             className={clsx(
-                              "min-h-9 px-3 py-2 text-sm text-rose-600",
-                              deletingId === model.id && "opacity-60",
+                              "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
+                              model.status === "published" && "bg-emerald-100 text-emerald-700",
+                              model.status === "draft" && "bg-sky-100 text-sky-700",
+                              model.status === "archived" && "bg-slate-200 text-slate-600",
                             )}
-                            disabled={deletingId === model.id}
-                            onClick={() => handleArchive(model)}
                           >
-                            {deletingId === model.id ? "Archiving..." : "Archive"}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {STATUS_LABELS[model.status as CatalogProductStatus] ?? model.status ?? "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-admin-textSubtle">
+                          {model.created_at ? new Date(model.created_at).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="neutral"
+                              className="min-h-9 px-3 py-2 text-sm"
+                              onClick={() => startEdit(model)}
+                            >
+                              Редактировать
+                            </Button>
+                            <Button
+                              variant="soft"
+                              className={clsx(
+                                "min-h-9 px-3 py-2 text-sm text-rose-600",
+                                deletingId === model.id && "opacity-60",
+                              )}
+                              disabled={deletingId === model.id}
+                              onClick={() => handleArchive(model)}
+                            >
+                              {deletingId === model.id ? "Архивация..." : "Архивировать"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-admin-border pt-4">
+              <p className="text-sm text-admin-textSoft">{paginationSummary}</p>
+              <div className="flex gap-2">
+                <Button variant="soft" onClick={goToPrevPage} disabled={!canGoPrev}>
+                  Назад
+                </Button>
+                <Button variant="secondary" onClick={goToNextPage} disabled={!canGoNext}>
+                  Вперёд
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </AdminSurface>
