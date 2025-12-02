@@ -536,27 +536,41 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
     } catch (metaError) {
       if (process.env.NODE_ENV !== "production") {
         console.warn("[catalog] failed to load variant meta from ecom_products (catalog_product_id)", metaError);
+        }
       }
-    }
 
-    const pricePromise = admin
-      .from("product_with_discount_public")
-      .select("*")
-      .eq("id", product.id)
-      .maybeSingle();
-    const catalogPromise = catalogProductId
-      ? admin
-          .from("catalog_products")
-          .select("id, specs")
-          .eq("id", catalogProductId)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null } as { data: null; error: null });
-    const [priceResult, catalogResult] = await Promise.all([pricePromise, catalogPromise]);
-    const { data: pricedRow, error: priceError } = priceResult;
-    const { data: catalogRow, error: catalogError } = catalogResult as {
-      data: { specs?: unknown } | null;
-      error: { message?: string } | null;
-    };
+      const pricePromise = admin
+        .from("product_with_discount_public")
+        .select("*")
+        .eq("id", product.id)
+        .maybeSingle();
+      const catalogPromise = catalogProductId
+        ? admin
+            .from("catalog_products")
+            .select("id, specs")
+            .eq("id", catalogProductId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as { data: null; error: null });
+      const mediaPromise = admin
+        .from("products")
+        .select("images, main_image_url, image_path")
+        .eq("id", product.id)
+        .maybeSingle();
+
+      const [priceResult, catalogResult, mediaResult] = await Promise.all([
+        pricePromise,
+        catalogPromise,
+        mediaPromise,
+      ]);
+      const { data: pricedRow, error: priceError } = priceResult;
+      const { data: catalogRow, error: catalogError } = catalogResult as {
+        data: { specs?: unknown } | null;
+        error: { message?: string } | null;
+      };
+      const { data: mediaRow, error: mediaError } = mediaResult as {
+        data: { images?: unknown; main_image_url?: unknown; image_path?: unknown } | null;
+        error: { message?: string } | null;
+      };
 
     if (!priceError && pricedRow) {
       const pricing = resolvePriceDetails(pricedRow as Record<string, unknown>);
@@ -567,20 +581,50 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
       product.originalPriceCents = pricing.originalPriceCents ?? product.originalPriceCents;
       product.discountPercent = pricing.discountPercent ?? product.discountPercent;
       product.discountAmountCents = pricing.discountAmountCents ?? product.discountAmountCents;
-      if (currencyOverride) {
-        product.currency = ensureCurrency(currencyOverride, product.dataset);
+        if (currencyOverride) {
+          product.currency = ensureCurrency(currencyOverride, product.dataset);
+        }
+        product.formattedPrice = formatCurrency(product.price, product.currency);
+      } else if (product.priceCents == null) {
+        product.priceCents = Math.round(product.price * 100);
       }
-      product.formattedPrice = formatCurrency(product.price, product.currency);
-    } else if (product.priceCents == null) {
-      product.priceCents = Math.round(product.price * 100);
+      if (!catalogError) {
+        const normalizedSpecs = normalizeProductTechSpecs((catalogRow ?? undefined)?.specs ?? null);
+        product.techSpecs = normalizedSpecs;
+      }
+
+      // Try to enhance gallery/main image from products.images for newly created products.
+      if (!mediaError && mediaRow) {
+        try {
+          const rawImages = Array.isArray(mediaRow.images)
+            ? (mediaRow.images as unknown[]).map((value) => castString(value).trim()).filter(Boolean)
+            : [];
+
+          const gallerySources: string[] = [];
+          gallerySources.push(castString(mediaRow.main_image_url ?? ""));
+          gallerySources.push(castString(mediaRow.image_path ?? ""));
+          gallerySources.push(...rawImages);
+
+          const normalizedGallery = dedupe(
+            gallerySources
+              .map((value) => normalizeImageUrl(value))
+              .filter((value): value is string => Boolean(value)),
+          );
+
+          const mainImageCandidate = normalizedGallery[0] ?? product.mainImage ?? product.fallbackImage;
+          const gallery = mergeGallery(mainImageCandidate, normalizedGallery.slice(1), product.fallbackImage);
+
+          product.mainImage = mainImageCandidate;
+          product.gallery = gallery;
+        } catch (mediaErr) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[catalog] failed to merge products.images into gallery", mediaErr);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[catalog] failed to load product discount view", error);
     }
-    if (!catalogError) {
-      const normalizedSpecs = normalizeProductTechSpecs((catalogRow ?? undefined)?.specs ?? null);
-      product.techSpecs = normalizedSpecs;
-    }
-  } catch (error) {
-    console.error("[catalog] failed to load product discount view", error);
-  }
   if (process.env.NODE_ENV !== "production") {
     try {
       console.debug("product:image", {

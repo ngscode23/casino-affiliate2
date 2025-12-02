@@ -4464,6 +4464,8 @@ export type Database = {
           id: string | null
           name: string | null
           slug: string | null
+          status: string | null
+          is_active: boolean | null
           website: string | null
         }
         Insert: {
@@ -4472,6 +4474,8 @@ export type Database = {
           id?: string | null
           name?: string | null
           slug?: string | null
+          status?: string | null
+          is_active?: boolean | null
           website?: string | null
         }
         Update: {
@@ -4480,6 +4484,8 @@ export type Database = {
           id?: string | null
           name?: string | null
           slug?: string | null
+          status?: string | null
+          is_active?: boolean | null
           website?: string | null
         }
         Relationships: []

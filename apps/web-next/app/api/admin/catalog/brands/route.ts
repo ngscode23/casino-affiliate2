@@ -2,7 +2,7 @@ import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 
-const BRAND_FIELDS = "id, slug, name, description, website, created_at";
+const BRAND_FIELDS = "id, slug, name, description, website, created_at, status, is_active";
 
 type BrandPayload = {
   id?: string;
@@ -10,6 +10,8 @@ type BrandPayload = {
   slug?: string;
   description?: string | null;
   website?: string | null;
+  status?: string | null;
+  is_active?: boolean | null;
 };
 
 function normalizeString(input: unknown): string {
@@ -34,6 +36,27 @@ function normalizeSlug(input: unknown, fallback?: string): string {
     .replace(/^-|-$/g, "")
     .toLowerCase();
   return normalized || "";
+}
+
+function normalizeBoolean(input: unknown): boolean | null {
+  if (typeof input === "boolean") return input;
+  if (typeof input === "string") {
+    const value = input.trim().toLowerCase();
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return null;
+}
+
+function resolveStatusFromPayload(payload: BrandPayload): "active" | "archived" {
+  const normalizedStatus = normalizeString(payload.status).toLowerCase();
+  const isActive = normalizeBoolean(payload.is_active);
+
+  if (normalizedStatus === "archived") return "archived";
+  if (normalizedStatus === "active") return "active";
+
+  if (isActive === false) return "archived";
+  return "active";
 }
 
 export async function GET(request: Request) {
@@ -77,6 +100,7 @@ export async function POST(request: Request) {
   const description = normalizeDescription(payload.description);
   const website = normalizeDescription(payload.website);
   const id = normalizeString(payload.id) || undefined;
+  const status = resolveStatusFromPayload(payload);
 
   const supabase = getAdminClient();
   const record = {
@@ -84,6 +108,7 @@ export async function POST(request: Request) {
     slug,
     description,
     website,
+    status,
   };
 
   const query = id
@@ -92,9 +117,9 @@ export async function POST(request: Request) {
 
   const { data, error } = await query;
   if (error) {
-    const status = error.code === "23505" ? 409 : 500;
+    const statusCode = error.code === "23505" ? 409 : 500;
     const message = error.code === "23505" ? "duplicate_slug" : "save_failed";
-    return json({ ok: false, error: message, message: error.message }, status);
+    return json({ ok: false, error: message, message: error.message }, statusCode);
   }
 
   if (!data) {
@@ -138,10 +163,20 @@ export async function DELETE(request: Request) {
     }
   }
 
-  const { error } = await supabase.from("catalog_brands").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("catalog_brands")
+    .update({ status: "archived" })
+    .eq("id", id)
+    .select(BRAND_FIELDS)
+    .maybeSingle();
+
   if (error) {
     return json({ ok: false, error: "delete_failed", message: error.message }, 500);
   }
 
-  return json({ ok: true, deleted: true }, 200);
+  if (!data) {
+    return json({ ok: false, error: "not_found" }, 404);
+  }
+
+  return json({ ok: true, item: data }, 200);
 }

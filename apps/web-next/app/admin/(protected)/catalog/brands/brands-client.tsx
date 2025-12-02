@@ -30,6 +30,7 @@ type FormState = {
   slug: string;
   description: string;
   website: string;
+  isActive: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -38,6 +39,7 @@ const EMPTY_FORM: FormState = {
   slug: "",
   description: "",
   website: "",
+  isActive: true,
 };
 
 function LoadingMessage({ children }: { children: React.ReactNode }) {
@@ -162,14 +164,18 @@ export function BrandsClient() {
       slug: record.slug,
       description: record.description ?? "",
       website: record.website ?? "",
+      isActive: record.is_active !== false && record.status !== "archived",
     });
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchBrands();
-      setBrands(data);
+      setLoading(true);
+      try {
+        const data = await fetchBrands();
+        const activeBrands = data.filter(
+          (item) => item.status !== "archived" && item.is_active !== false,
+        );
+        setBrands(activeBrands);
     } catch (error: any) {
       console.error(error);
       toast(error?.message || "Не удалось загрузить бренды.", { variant: "error" });
@@ -196,20 +202,23 @@ export function BrandsClient() {
       return;
     }
     setSaving(true);
-    try {
-      const payload = {
-        id: form.id ?? undefined,
-        name,
-        slug,
-        description: form.description.trim() || null,
-        website: form.website.trim() || null,
-      } satisfies Partial<CatalogBrandRecord>;
-      const saved = await saveBrand(payload);
-      setBrands((prev) => {
-        const next = prev.filter((item) => item.id !== saved.id);
-        next.push(saved);
-        return next;
-      });
+      try {
+        const payload = {
+          id: form.id ?? undefined,
+          name,
+          slug,
+          description: form.description.trim() || null,
+          website: form.website.trim() || null,
+          is_active: form.isActive,
+        } satisfies Partial<CatalogBrandRecord>;
+        const saved = await saveBrand(payload);
+        setBrands((prev) => {
+          const next = prev.filter((item) => item.id !== saved.id);
+          if (saved.status !== "archived" && saved.is_active !== false) {
+            next.push(saved);
+          }
+          return next;
+        });
       toast(editMode ? "Бренд обновлён." : "Бренд создан.", { variant: "success" });
       resetForm();
     } catch (error: any) {
@@ -228,7 +237,7 @@ export function BrandsClient() {
       );
       return;
     }
-    const confirmed = window.confirm(`Delete brand "${record.name}"?`);
+      const confirmed = window.confirm(`Archive brand "${record.name}"?`);
     if (!confirmed) return;
     setDeletingId(record.id);
     try {
@@ -308,6 +317,19 @@ export function BrandsClient() {
               onChange={(event) => setForm((prev) => ({ ...prev, website: event.target.value }))}
               placeholder="https://example.com"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="brand-active"
+              type="checkbox"
+              className="h-4 w-4 rounded border-admin-border text-admin-primary focus:ring-admin-primary"
+              checked={form.isActive}
+              onChange={(event) => setForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+            />
+            <label htmlFor="brand-active" className="text-sm text-admin-text">
+              ????? Ñ'¥?ÑæÑ«Ñï ?????????
+            </label>
           </div>
 
           <div className="flex flex-wrap gap-3">

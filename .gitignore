@@ -63,3 +63,4 @@ openai.chatgpt-*.vsix
 
 /generated/prisma
 logsupabase.json
+.vercel
