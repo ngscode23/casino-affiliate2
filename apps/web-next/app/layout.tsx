@@ -31,6 +31,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta name="google-site-verification" content="q77P5m8C_PfT6XP0AGIKYgc5agsYODZGINBVBmMSbaM" />
+      </head>
       <body className={`${openAISans.variable} font-sans antialiased bg-bg text-fg transition-colors duration-300 ease-out`}>
         <Suspense fallback={null}>
           <SiteLayout>{children}</SiteLayout>
