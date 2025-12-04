@@ -49,11 +49,16 @@ function getParam(searchParams: SearchParamsLike, key: string): string | string[
     if (all.length === 0) return undefined;
     return all.length === 1 ? all[0] : all;
   }
-  if (typeof searchParams === "object") {
-    const record = searchParams as Record<string, string | string[] | undefined>;
-    return record[key];
-  }
+  if (isRecordParams(searchParams)) return searchParams[key];
   return undefined;
+}
+
+function isRecordParams(
+  value: SearchParamsLike,
+): value is Record<string, string | string[] | undefined> {
+  if (!value) return false;
+  if (typeof URLSearchParams !== "undefined" && value instanceof URLSearchParams) return false;
+  return typeof value === "object";
 }
 
 function toSingleValue(value: string | string[] | undefined): string | undefined {

@@ -227,9 +227,14 @@ async function loadPersonalizedProducts() {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?:
+    | Record<string, string | string[] | undefined>
+    | URLSearchParams
+    | Promise<Record<string, string | string[] | undefined> | URLSearchParams | undefined>
+    | undefined;
 }) {
-  const filters = resolveFilterParams(searchParams);
+  const resolvedSearchParams = await searchParams;
+  const filters = resolveFilterParams(resolvedSearchParams);
   const personalized = await loadPersonalizedProducts();
 
   const listingPromise = loadProductsData({
