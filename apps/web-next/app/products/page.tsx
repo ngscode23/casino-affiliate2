@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
+
 import ProductsClient from "./products-client";
 import { CATALOG_NAME, loadProductsData } from "./data";
 import { serializeJsonLd } from "@shared/lib/jsonld";
@@ -8,23 +9,40 @@ import { resolveFilterParams } from "./filter-params";
 import { fetchUserProfile } from "@/lib/personalization/rank";
 import { getRecommendationsForActor } from "@/lib/recs-server";
 import type { Product } from "./types";
+import { siteConfig } from "@/lib/site-config";
 
-export const metadata: Metadata = {
-  title: "Каталог Neon Shop – электроника, гаджеты и аксессуары",
-  description:
-    "Каталог Neon Shop: смартфоны, аудио, умный дом, зарядные устройства и аксессуары. Фильтры по бренду и цене, быстрая доставка.",
-  keywords: ["Neon Shop каталог", "электроника", "гаджеты", "аксессуары", "купить смартфон"],
-  alternates: { canonical: "/products" },
-  openGraph: {
-    title: "Каталог Neon Shop – электроника и гаджеты",
-    description:
-      "Сравнивайте и выбирайте электронику и аксессуары: подборки, рейтинги, быстрая доставка.",
-    url: "/products",
-  },
-};
+const BASE_TITLE = siteConfig.name ? `${siteConfig.name} — Каталог` : "Neon Shop — Каталог";
+const BASE_DESCRIPTION =
+  "Каталог Neon Shop: электроника, гаджеты, аксессуары. Фильтруйте по цене, популярности и рейтингу, сравнивайте бренды и находите актуальные предложения.";
 
 export const revalidate = 90;
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const origin =
+    (process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.NEXT_SITE_URL ||
+      "https://neon4.vercel.app").replace(/\/$/, "");
+
+  const canonical = `${origin}/products`;
+
+  return {
+    title: BASE_TITLE,
+    description: BASE_DESCRIPTION,
+    alternates: { canonical },
+    openGraph: {
+      title: BASE_TITLE,
+      description: BASE_DESCRIPTION,
+      url: canonical,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: BASE_TITLE,
+      description: BASE_DESCRIPTION,
+    },
+  };
+}
 
 const MIN_RECS_FOR_INTERLEAVE = 3;
 
@@ -83,193 +101,109 @@ function interleaveWithDiversification(preferred: Product[], others: Product[], 
         }
       }
     }
-    for (let i = 0; i < stride && others.length; i += 1) {
-      interleaved.push(others.shift()!);
+
+    if (others.length) {
+      const strideStep = interleaved.length % (stride + 1);
+      if (strideStep === 0 || !preferred.length) {
+        const next = others.shift();
+        if (next) interleaved.push(next);
+      }
     }
   }
 
   return interleaved;
 }
 
+async function loadPersonalizedProducts() {
+  const hdrs = await headers();
+  const userId = hdrs.get("x-user-id");
+  if (!userId) return null;
+
+  const profile = await fetchUserProfile(userId);
+  if (!profile) return null;
+
+  const recs = await getRecommendationsForActor(profile.id);
+  if (!recs?.length) return null;
+
+  return { recs, profile };
+}
+
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const filters = resolveFilterParams(resolvedSearchParams);
-  const headerStore = new Headers(await headers());
-  const experimentCookieName = process.env.EXPERIMENT_COOKIE_NAME || "exp";
-  const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const filters = resolveFilterParams(searchParams);
+  const personalized = await loadPersonalizedProducts();
 
-  const getCookie = (name: string): string | null => {
-    const cookieHeader = headerStore.get("cookie") || "";
-    const match = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
-    return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
-  };
+  const listingPromise = loadProductsData({
+    query: filters.query,
+    dataset: filters.dataset,
+    priceMin: filters.priceMin,
+    priceMax: filters.priceMax,
+    minRating: filters.minRating,
+    sort: filters.sort,
+    category: filters.category,
+  });
 
-  const anonId = headerStore.get("x-anon-id") || getCookie("anon_id");
-  const experimentVariant =
-    headerStore.get("x-experiment-variant") || getCookie(experimentCookieName) || null;
-  const country = headerStore.get("x-geo-country") || headerStore.get("x-country") || undefined;
-  const device = headerStore.get("x-device-class") || undefined;
-  const profile = anonId ? await fetchUserProfile(anonId) : null;
-  const personalizationContext = profile
-    ? {
-        profile,
-        country: country ?? undefined,
-        device,
-        experimentVariant: experimentVariant ?? undefined,
-      }
-    : null;
+  const listing = await listingPromise;
 
-  const baseLoad = await loadProductsData(
-    {
-      query: filters.query,
-      category: filters.category !== "all" ? filters.category : undefined,
-      dataset: filters.dataset,
-      brand: filters.brand !== "all" ? filters.brand : undefined,
-      model: filters.model !== "all" ? filters.model : undefined,
-      priceMin: filters.priceMin,
-      priceMax: filters.priceMax,
-      minRating: filters.minRating,
-      sort: filters.sort,
-    },
-    personalizationContext ? { personalize: personalizationContext } : undefined,
-  );
-
-  // If personalized fetch fails, fall back to the cached non-personalized list to avoid blank states.
-  const shouldFallbackToCachedList =
-    personalizationContext && baseLoad.fetchError && (!baseLoad.products || baseLoad.products.length === 0);
-
-  const { products, fetchError, structuredData, categories, catalogName, totalCount } = shouldFallbackToCachedList
-    ? await loadProductsData({
-        query: filters.query,
-        category: filters.category !== "all" ? filters.category : undefined,
-        dataset: filters.dataset,
-        brand: filters.brand !== "all" ? filters.brand : undefined,
-        model: filters.model !== "all" ? filters.model : undefined,
-        priceMin: filters.priceMin,
-        priceMax: filters.priceMax,
-        minRating: filters.minRating,
-        sort: filters.sort,
-      })
-    : baseLoad;
-
-  // Подмешиваем персональные рекомендации в общий список каталога
-  const productsWithRecMeta: Product[] = products.map((product) => ({ ...product }));
-  let productsForClient: Product[] = productsWithRecMeta;
-  const actor = anonId && UUID_PATTERN.test(anonId) ? anonId : null;
-
-  if (actor) {
-    const recRes = await getRecommendationsForActor({
-      actor,
-      limit: 32,
-      category: filters.category !== "all" ? filters.category : undefined,
-      query: filters.query ?? undefined,
-    });
-
-    const recItems = Array.isArray(recRes?.items) ? recRes.items : [];
-    const orderedRecItems =
-      recRes.treatment === "explore"
-        ? recItems
-        : [...recItems].sort(
-            (a, b) => (b.adjusted_score ?? b.score ?? 0) - (a.adjusted_score ?? a.score ?? 0),
-          );
-    if (orderedRecItems.length) {
-      const usedIds = new Set<string>();
-      const usedSlugs = new Set<string>();
-      const recMetaMap = new Map<string, Product["recMeta"]>();
-      const preferred: Product[] = [];
-
-      for (const rec of orderedRecItems) {
-        const productId = rec.product?.id ?? rec.product_id ?? null;
-        const productSlug = rec.product?.slug ?? null;
-        const baseProduct =
-          (productId ? productsWithRecMeta.find((p) => p.id === productId) : null) ??
-          (productSlug ? productsWithRecMeta.find((p) => p.slug === productSlug) : null);
-        if (!baseProduct) continue;
-
-        const dedupKey = productId ?? productSlug;
-        if (dedupKey && (usedIds.has(dedupKey) || usedSlugs.has(dedupKey))) continue;
-        if (productId) usedIds.add(productId);
-        if (productSlug) usedSlugs.add(productSlug);
-
-        const recMeta = {
-          treatment: recRes.treatment ?? rec.treatment ?? "control",
-          rank: rec.rank ?? preferred.length + 1,
-          reason: rec.reason ?? null,
-          score: rec.score ?? null,
-          adjusted_score: rec.adjusted_score ?? null,
-          bandit_from: rec.bandit?.from_rank ?? null,
-          rollout: rec.bandit?.rollout ?? null,
-          placement: "catalog",
-          source: "catalog_mix",
-        };
-
-        recMetaMap.set(baseProduct.id, recMeta);
-        if (productSlug) {
-          recMetaMap.set(productSlug, recMeta);
-        }
-        preferred.push({ ...baseProduct, recMeta });
-      }
-
-      const annotated = productsWithRecMeta.map((product) => {
-        const meta = recMetaMap.get(product.id) ?? (product.slug ? recMetaMap.get(product.slug) : undefined);
-        return meta ? { ...product, recMeta: meta } : product;
-      });
-
-      if (preferred.length >= MIN_RECS_FOR_INTERLEAVE) {
-        const others = annotated.filter(
-          (product) => !(recMetaMap.has(product.id) || (product.slug && recMetaMap.has(product.slug))),
-        );
-        const stride = computeAdaptiveStride(preferred.length, others.length, recRes.treatment ?? "control");
-        const interleaved = interleaveWithDiversification([...preferred], [...others], stride);
-        productsForClient = interleaved.map((product, index) => ({ ...product, order: index }));
-      } else {
-        productsForClient = annotated;
-      }
-    }
+  // If we have personalized recs, interleave them near the top of the list
+  if (personalized?.recs?.length && listing.products.length) {
+    const preferredProducts = listing.products.filter((p) => personalized.recs.some((rec) => rec.productId === p.id));
+    const otherProducts = listing.products.filter((p) => !preferredProducts.includes(p));
+    const stride = computeAdaptiveStride(preferredProducts.length, otherProducts.length, personalized.profile?.treatment);
+    listing.products = interleaveWithDiversification([...preferredProducts], [...otherProducts], stride);
   }
 
-
-
-  if (fetchError && !products.length) {
-    return (
-      <div className="mx-auto max-w-3xl p-6 text-gray-900">
-        <h1 className="text-2xl font-semibold">Products</h1>
-        <p className="mt-4 text-red-500">Failed to load products: {String((fetchError as any)?.message ?? fetchError)}</p>
-        <Link href="/" className="mt-6 inline-flex items-center text-sm text-blue-500 hover:text-blue-400">
-          Go back home
-        </Link>
-      </div>
-    );
-  }
+  const description =
+    filters.query && filters.query.trim().length
+      ? `Результаты поиска «${filters.query}» в каталоге ${CATALOG_NAME || "магазина"}`
+      : BASE_DESCRIPTION;
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
-      {structuredData ? (
+    <div className="bg-background">
+      {listing.structuredData ? (
         <script
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(listing.structuredData) }}
         />
       ) : null}
-      <ProductsClient
-        products={productsForClient}
-        categories={categories}
-        catalogName={catalogName}
-        initialQuery={filters.query}
-        initialCategory={filters.category}
-        initialBrand={filters.brand}
-        initialModel={filters.model}
-        initialDataset={filters.dataset}
-        initialSort={filters.sort}
-        initialPriceMin={filters.priceMin}
-        initialPriceMax={filters.priceMax}
-        initialMinRating={filters.minRating}
-        totalAvailable={totalCount}
-      />
-    </main>
+      <section>
+        <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
+          <header className="flex flex-col gap-3 text-center sm:text-left">
+            <span className="text-sm font-medium text-muted">Каталог товаров</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "Каталог"}</h1>
+            <p className="text-base text-muted sm:max-w-3xl">{description}</p>
+            {typeof listing.totalCount === "number" ? (
+              <span className="text-sm text-muted">Всего позиций: {listing.totalCount}</span>
+            ) : null}
+          </header>
+        </div>
+        <ProductsClient
+          products={listing.products}
+          categories={listing.categories}
+          catalogName={CATALOG_NAME ?? "Каталог"}
+          initialQuery={filters.query}
+          initialCategory={filters.category}
+          initialDataset={filters.dataset}
+          initialSort={filters.sort}
+          initialPriceMin={filters.priceMin}
+          initialPriceMax={filters.priceMax}
+          initialMinRating={filters.minRating}
+          totalAvailable={listing.totalCount}
+        />
+        {listing.fetchError ? (
+          <div className="mx-auto max-w-screen-md px-6 pb-12 text-center text-sm text-red-400">
+            Не удалось обновить список товаров: {String((listing.fetchError as any)?.message ?? listing.fetchError)}
+            {" · "}
+            <Link href="/contact" className="text-blue-400 hover:text-blue-300">
+              Написать в поддержку
+            </Link>
+          </div>
+        ) : null}
+      </section>
+    </div>
   );
 }

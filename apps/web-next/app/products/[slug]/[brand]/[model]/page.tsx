@@ -3,36 +3,55 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import ProductCarousel, { getProductsByModel } from "@/components/ProductCarousel";
+import { siteConfig } from "@/lib/site-config";
 
 type PageProps = {
-  params: Promise<{
+  params: {
     slug: string;
     brand: string;
     model: string;
-  }>;
+  };
 };
 
+const formatSegment = (value: string | undefined) =>
+  (value ?? "")
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+    .trim();
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const resolvedParams = await params;
-  const categoryLabel = formatSegment(resolvedParams.slug);
-  const brandLabel = formatSegment(resolvedParams.brand);
-  const modelLabel = formatSegment(resolvedParams.model);
+  const categoryLabel = formatSegment(params.slug);
+  const brandLabel = formatSegment(params.brand);
+  const modelLabel = formatSegment(params.model);
+  const origin =
+    (process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.NEXT_SITE_URL ||
+      "https://neon4.vercel.app").replace(/\/$/, "");
+  const canonicalPath = `/products/${params.slug}/${params.brand}/${params.model}`;
+  const canonicalUrl = `${origin}${canonicalPath}`;
+  const siteName = siteConfig.name || "Neon Shop";
+  const title = `${brandLabel} ${modelLabel} | ${siteName}`;
+  const description = `Обзор ${brandLabel} ${modelLabel} в категории ${categoryLabel}: сравнение вариантов, цены и характеристики.`;
 
   return {
-    title: `${brandLabel} ${modelLabel} – варианты и цены`,
-    description: `Все вариации ${brandLabel} ${modelLabel} в категории ${categoryLabel}: сравните цвета, объём памяти и цены.`,
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: { title, description, url: canonicalUrl },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
 export default async function ProductModelPage({ params }: PageProps) {
-  const resolvedParams = await params;
-  const categoryLabel = formatSegment(resolvedParams.slug);
-  const brandLabel = formatSegment(resolvedParams.brand);
-  const modelLabel = formatSegment(resolvedParams.model);
+  const categoryLabel = formatSegment(params.slug);
+  const brandLabel = formatSegment(params.brand);
+  const modelLabel = formatSegment(params.model);
 
   const variants = await getProductsByModel(modelLabel);
   const featured = variants[0] ?? null;
-  const priceFrom = featured?.price ?? "—";
+  const priceFrom = featured?.price ?? "-";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-12 sm:px-6 lg:px-8">
@@ -43,16 +62,20 @@ export default async function ProductModelPage({ params }: PageProps) {
               Каталог
             </Link>
           </li>
-          <li>›</li>
+          <li aria-hidden="true" className="text-slate-400">
+            &gt;
+          </li>
           <li>
             <Link
-              href={`/products?category=${encodeURIComponent(resolvedParams.slug)}`}
+              href={`/products?category=${encodeURIComponent(params.slug)}`}
               className="hover:text-slate-900 dark:hover:text-white"
             >
               {categoryLabel}
             </Link>
           </li>
-          <li>›</li>
+          <li aria-hidden="true" className="text-slate-400">
+            &gt;
+          </li>
           <li>
             <span className="font-medium text-slate-900 dark:text-white">
               {brandLabel} {modelLabel}
@@ -64,69 +87,47 @@ export default async function ProductModelPage({ params }: PageProps) {
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-500">Модель</p>
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl">
-              {brandLabel} {modelLabel}
-            </h1>
-            <p className="mt-3 text-base text-slate-600 dark:text-slate-300">
-              Выберите идеальную конфигурацию: цвета, объём памяти и варианты поставки. Мы собираем все модификации в
-              одном месте, чтобы вам было проще сравнить и оформить заказ.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-6 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Категория</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-white">{categoryLabel}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Минимальная цена</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-white">{priceFrom}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Бренд</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-white">{brandLabel}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Вариаций</dt>
-                <dd className="text-base font-semibold text-slate-900 dark:text-white">{variants.length || "—"}</dd>
-              </div>
-            </dl>
+          <h1 className="text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl">
+            {brandLabel} {modelLabel}
+          </h1>
+          <p className="text-base text-slate-600 dark:text-slate-300">
+            Популярные конфигурации {brandLabel} {modelLabel} в категории {categoryLabel}.
+          </p>
+          <div className="overflow-hidden rounded-3xl border border-slate-200/60 bg-white/70 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60">
+            <ProductCarousel model={modelLabel} initialProducts={variants} />
           </div>
         </div>
 
-        <div className="relative aspect-square overflow-hidden rounded-[36px] border border-slate-200/60 bg-gradient-to-br from-slate-50 to-slate-100 shadow-[0_25px_100px_-60px_rgba(15,23,42,0.6)] dark:border-white/10 dark:from-slate-900 dark:to-slate-800">
-          {featured?.image ? (
-            <Image
-              src={featured.image}
-              alt={featured.variantLabel}
-              fill
-              className="object-contain p-10"
-              priority
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-300">
-              Изображение появится позже
+        <aside className="space-y-6 rounded-3xl border border-slate-200/60 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60">
+          <p className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Бренд</p>
+          <div className="text-2xl font-semibold text-slate-900 dark:text-white">{brandLabel}</div>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Модель: {modelLabel}
+            <br />
+            Категория: {categoryLabel}
+          </p>
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-slate-50 p-4 text-slate-800 dark:border-slate-800/60 dark:bg-slate-800/50 dark:text-slate-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-lg font-semibold text-white">
+              ₽
             </div>
-          )}
-        </div>
+            <div>
+              <div className="text-sm text-slate-600 dark:text-slate-300">Цена от</div>
+              <div className="text-xl font-semibold text-slate-900 dark:text-white">{priceFrom}</div>
+            </div>
+          </div>
+          {featured?.image ? (
+            <div className="relative aspect-4/3 overflow-hidden rounded-2xl border border-slate-200/60 bg-slate-50 dark:border-slate-800/60 dark:bg-slate-800/50">
+              <Image
+                src={featured.image}
+                alt={`${brandLabel} ${modelLabel}`}
+                fill
+                className="object-contain"
+                sizes="(max-width: 1024px) 100vw, 500px"
+              />
+            </div>
+          ) : null}
+        </aside>
       </div>
-
-      <ProductCarousel
-        model={modelLabel}
-        heading={`Все вариации ${brandLabel} ${modelLabel}`}
-        initialProducts={variants}
-        className="pb-4"
-      />
     </div>
   );
-}
-
-function formatSegment(value: string): string {
-  return decodeURIComponent(value)
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
