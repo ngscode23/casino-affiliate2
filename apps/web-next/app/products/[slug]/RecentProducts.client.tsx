@@ -166,7 +166,7 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
           <div className="overflow-hidden">
             <div
               ref={railRef}
-              className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-2 scroll-smooth"
+              className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-2 scroll-smooth"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {recent.map((product, index) => (
@@ -182,6 +182,7 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
                     addLabel="Add to cart"
                     noImageLabel="No image"
                     translate={(_, fallback) => fallback}
+                    variant="carousel"
                   />
                 </div>
               ))}

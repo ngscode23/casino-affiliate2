@@ -16,18 +16,18 @@ export type ResolvedFilterParams = {
   minRating: number | null;
 };
 
-export function resolveFilterParams(
-  searchParams?: Record<string, string | string[] | undefined>,
-): ResolvedFilterParams {
+type SearchParamsLike = URLSearchParams | Record<string, string | string[] | undefined> | undefined;
+
+export function resolveFilterParams(searchParams?: SearchParamsLike): ResolvedFilterParams {
   const dataset = parseDataset(searchParams);
   const sort = parseSort(searchParams);
   const query = parseQuery(searchParams);
   const category = parseCategory(searchParams);
   const brand = parseBrand(searchParams);
   const model = parseModel(searchParams);
-  const priceMin = parseNumberParam(searchParams?.price_min);
-  const priceMax = parseNumberParam(searchParams?.price_max);
-  const minRating = normalizeRating(parseNumberParam(searchParams?.rating_min));
+  const priceMin = parseNumberParam(getParam(searchParams, "price_min"));
+  const priceMax = parseNumberParam(getParam(searchParams, "price_max"));
+  const minRating = normalizeRating(parseNumberParam(getParam(searchParams, "rating_min")));
 
   return {
     dataset,
@@ -42,39 +42,53 @@ export function resolveFilterParams(
   };
 }
 
+function getParam(searchParams: SearchParamsLike, key: string): string | string[] | undefined {
+  if (!searchParams) return undefined;
+  if (typeof URLSearchParams !== "undefined" && searchParams instanceof URLSearchParams) {
+    const all = searchParams.getAll(key);
+    if (all.length === 0) return undefined;
+    return all.length === 1 ? all[0] : all;
+  }
+  if (typeof searchParams === "object") {
+    const record = searchParams as Record<string, string | string[] | undefined>;
+    return record[key];
+  }
+  return undefined;
+}
+
 function toSingleValue(value: string | string[] | undefined): string | undefined {
   if (typeof value === "string") return value;
   if (Array.isArray(value) && value.length > 0) return value[0];
   return undefined;
 }
 
-function parseDataset(searchParams?: Record<string, string | string[] | undefined>): ProductFilters["dataset"] {
-  const raw = toSingleValue(searchParams?.dataset);
+function parseDataset(searchParams?: SearchParamsLike): ProductFilters["dataset"] {
+  const raw = toSingleValue(getParam(searchParams, "dataset"));
   if (raw === "shop") return "shop";
   return "all";
 }
 
-function parseSort(searchParams?: Record<string, string | string[] | undefined>): SortOption {
-  const raw = toSingleValue(searchParams?.sort);
+function parseSort(searchParams?: SearchParamsLike): SortOption {
+  const raw = toSingleValue(getParam(searchParams, "sort"));
   return isSortOption(raw) ? raw : "recent";
 }
 
-function parseQuery(searchParams?: Record<string, string | string[] | undefined>): string {
-  return toSingleValue(searchParams?.q)?.trim() ?? "";
+function parseQuery(searchParams?: SearchParamsLike): string {
+  return toSingleValue(getParam(searchParams, "q"))?.trim() ?? "";
 }
 
-function parseCategory(searchParams?: Record<string, string | string[] | undefined>): string {
-  const slug = toSingleValue(searchParams?.category)?.trim() ?? "";
+function parseCategory(searchParams?: SearchParamsLike): string {
+  const slug = toSingleValue(getParam(searchParams, "category"))?.trim() ?? "";
   return slug || "all";
 }
 
-function parseBrand(searchParams?: Record<string, string | string[] | undefined>): string {
-  const slug = toSingleValue(searchParams?.brand)?.trim()?.toLowerCase() ?? "";
+function parseBrand(searchParams?: SearchParamsLike): string {
+  const slug = toSingleValue(getParam(searchParams, "brand"))?.trim()?.toLowerCase() ?? "";
   return slug || "all";
 }
 
-function parseModel(searchParams?: Record<string, string | string[] | undefined>): string {
-  const slug = toSingleValue(searchParams?.model)?.trim()?.toLowerCase() ?? "";
+function parseModel(searchParams?: SearchParamsLike): string {
+  const slug = toSingleValue(getParam(searchParams, "model"))?.trim()?.toLowerCase() ?? "";
   return slug || "all";
 }
 

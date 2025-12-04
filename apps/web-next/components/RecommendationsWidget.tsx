@@ -219,7 +219,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     const container = trackRef.current;
     if (!container) return;
     const card = container.querySelector<HTMLElement>("[data-carousel-card]");
-    const gap = 16;
+    const gap = 24;
     const delta = card ? card.offsetWidth + gap : container.clientWidth * 0.85;
     const target = container.scrollLeft + (direction === "next" ? delta : -delta);
     const start = container.scrollLeft;
@@ -250,7 +250,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
           <span className={mutedTextXs}>loading</span>
         </div>
         <div
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-1"
+          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1"
           role="list"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
@@ -308,7 +308,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
       <div className="relative">
         <div
           ref={trackRef}
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-1 scroll-smooth"
+          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1 scroll-smooth"
           role="list"
           aria-roledescription="carousel"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -329,6 +329,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
                 addLabel={addLabel}
                 noImageLabel={noImageLabel}
                 translate={translate}
+                variant="carousel"
               />
             </div>
           ))}

@@ -47,9 +47,19 @@ type ProductCardProps = {
   addLabel: string;
   noImageLabel: string;
   translate: (key: string, fallback: string) => string;
+  variant?: "default" | "carousel";
 };
 
-function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImageLabel, translate }: ProductCardProps) {
+function BaseProductCard({
+  product,
+  index,
+  href,
+  showAddToCart,
+  addLabel,
+  noImageLabel,
+  translate,
+  variant = "default",
+}: ProductCardProps) {
   const { toggle, isSelected } = useCompare();
   const compareId = product.slug || product.id;
   const inCompare = useMemo(() => isSelected(compareId), [compareId, isSelected]);
@@ -84,7 +94,10 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
     : translate("compare.add", "Сравнить");
 
   return (
-    <article aria-label={product.title} className={styles.vcCard}>
+    <article
+      aria-label={product.title}
+      className={cn(styles.vcCard, variant === "carousel" && styles.vcCardCarousel)}
+    >
       <Link href={href} prefetch={false} aria-label={product.title} className={styles.vcLink}>
         <div className={styles.vcMedia}>
           {product.image ? (
