@@ -693,7 +693,7 @@ async function loadProductsDataInternal(
     const slug = row?.slug != null ? String(row.slug) : "";
     const sku = typeof row?.sku === "string" ? row.sku : null;
     const titleSource = row?.title ?? row?.name ?? "";
-    const title = titleSource != null ? String(titleSource) : "";
+    const title = (titleSource != null ? String(titleSource) : "").trim() || slug || "Без названия";
     const createdAtRaw = row?.created_at ?? row?.createdAt ?? null;
     const createdAt = typeof createdAtRaw === "string" ? createdAtRaw : null;
     const createdTime = createdAt ? Date.parse(createdAt) : NaN;

@@ -17,13 +17,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const supabase = await createClient();
     // Include only publicly visible products
-    const { data, error } = await supabase
+    const { data: productRows, error: productError } = await supabase
       .from("products")
       .select("slug, updated_at, created_at, status")
-      .limit(1000);
+      .limit(5000);
 
-    if (!error) {
-      (data || []).forEach((row: any) => {
+    // Published categories for taxonomy pages
+    const { data: categoryRows } = await supabase
+      .from("categories")
+      .select("slug, updated_at, created_at, status")
+      .limit(2000);
+
+    if (!productError && productRows) {
+      productRows.forEach((row: any) => {
         if (!row?.slug) return;
         const status = String(row.status ?? "").toLowerCase();
         if (status && !["published", "active"].includes(status)) return;
@@ -31,6 +37,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         entries.push({
           url: `${origin}/products/${encodeURIComponent(row.slug)}`,
+          changeFrequency: "weekly",
+          lastModified: row.updated_at
+            ? new Date(row.updated_at)
+            : row.created_at
+              ? new Date(row.created_at)
+              : undefined,
+        });
+      });
+    }
+
+    if (Array.isArray(categoryRows)) {
+      categoryRows.forEach((row: any) => {
+        if (!row?.slug) return;
+        const status = String(row.status ?? "").toLowerCase();
+        if (status && ["draft", "inactive", "archived"].includes(status)) return;
+        entries.push({
+          url: `${origin}/products?category=${encodeURIComponent(row.slug)}`,
           changeFrequency: "weekly",
           lastModified: row.updated_at
             ? new Date(row.updated_at)

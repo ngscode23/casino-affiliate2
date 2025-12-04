@@ -482,10 +482,13 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const availabilityCode = mapInventoryToAvailability(inventoryStatus, status);
   const availabilityLabel = resolveAvailabilityLabel(status, shippingEstimate);
 
+  const titleRaw = castString(row.title ?? row.name ?? payload.title ?? payload.product_title ?? "").trim();
+  const resolvedTitle = titleRaw || slug || "Без названия";
+
   return {
     id,
     slug,
-    title: castString(row.title ?? row.name ?? payload.title ?? "Untitled product") || "Untitled product",
+    title: resolvedTitle,
     shortDescription: castString(row.short_desc ?? row.short_description ?? payload.short_desc ?? null) || null,
     description: castString(row.description ?? row.long_description ?? payload.description ?? null) || null,
     price,

@@ -1,5 +1,4 @@
 import { mutedTextSmLegacy } from "@/styles/classnames";
-// app/products/[slug]/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -69,9 +68,7 @@ async function resolveUserRoleFromCookies(): Promise<{ role: string; isAdmin: bo
   }
 
   const payload = decodeJwtPayload(accessToken) ?? {};
-  const appMeta = (payload.app_metadata ??
-    payload.user_metadata ??
-    {}) as Record<string, unknown>;
+  const appMeta = (payload.app_metadata ?? payload.user_metadata ?? {}) as Record<string, unknown>;
 
   const rawRole =
     typeof appMeta.role === "string"
@@ -85,10 +82,7 @@ async function resolveUserRoleFromCookies(): Promise<{ role: string; isAdmin: bo
 }
 
 function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
-  // ProductMetadata ждёт Breadcrumb[] с полем url
-  const trail: { name: string; url: string }[] = [
-    { name: "Каталог", url: "/products" },
-  ];
+  const trail: { name: string; url: string }[] = [{ name: "Каталог", url: "/products" }];
   const categorySlug = product?.category?.slug;
   if (categorySlug) {
     const categoryName = product.category?.name ?? "Категория";
@@ -98,6 +92,7 @@ function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
   return trail;
 }
 
+// SEO metadata
 export async function generateMetadata(
   { params }: Pick<ProductPageProps, "params">
 ): Promise<Metadata> {
@@ -118,20 +113,21 @@ export async function generateMetadata(
     const description =
       category.description?.slice(0, 180) ??
       `Подборка товаров «${category.title}»: отсортируйте по популярности, цене или рейтингу и найдите актуальные предложения.`;
+    const metaTitle = `${category.title} | ${brand}`;
 
     return {
-      title: `${category.title} | Каталог Neon Shop`,
+      title: metaTitle,
       description,
       alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
-        title: `${category.title} | Каталог Neon Shop`,
+        title: metaTitle,
         description,
         url: canonicalUrl,
       },
       twitter: {
         card: "summary_large_image",
-        title: `${category.title} | Каталог Neon Shop`,
+        title: metaTitle,
         description,
       },
     };
@@ -140,27 +136,29 @@ export async function generateMetadata(
   const product = await fetchProduct(slug);
 
   if (product) {
-    const description = product.description ?? product.shortDescription ?? "";
+    const description = product.description ?? product.shortDescription ?? product.title ?? "";
     const canonicalPath = `/products/${product.slug}`;
     const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
     const cover = product.gallery.length ? product.gallery[0] : null;
+    const metaTitle = `${product.title} | ${brand}`;
+    const metaDescription = description.slice(0, 160) || metaTitle;
 
     return {
-      title: `${product.title} | Купить в Neon Shop`,
-      description: description.slice(0, 160),
+      title: metaTitle,
+      description: metaDescription,
       alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
-        title: `${product.title} | Купить в Neon Shop`,
-        description,
+        title: metaTitle,
+        description: metaDescription,
         url: canonicalUrl,
         siteName: brand,
         images: cover ? [{ url: cover }] : undefined,
       },
       twitter: {
         card: "summary_large_image",
-        title: `${product.title} | Купить в Neon Shop`,
-        description,
+        title: metaTitle,
+        description: metaDescription,
         images: cover ? [cover] : undefined,
       },
     };
@@ -168,10 +166,8 @@ export async function generateMetadata(
 
   return { title: `Товар не найден | ${brand}` };
 }
-export default async function ProductPage({
-  params,
-  searchParams,
-}: ProductPageProps) {
+
+export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const resolvedParams = await params;
   const slug = typeof resolvedParams?.slug === "string" ? resolvedParams.slug.trim() : "";
   if (!slug) return notFound();
@@ -179,13 +175,11 @@ export default async function ProductPage({
   const resolvedSearchParams = (await searchParams) ?? {};
 
   const category = await fetchCatalogCategoryBySlug(slug);
-
   if (category) {
     return renderCategoryListing(category, resolvedSearchParams ?? {});
   }
 
   const product = await fetchProduct(slug);
-
   if (!product) return notFound();
 
   const status = (product.status ?? "").toLowerCase();
@@ -205,15 +199,10 @@ export default async function ProductPage({
 
   return (
     <div className="bg-background">
-      <ProductMetadata
-        product={product}
-        breadcrumbs={breadcrumbs} // { name, url }
-        canonicalPath={canonicalPath}
-      />
+      <ProductMetadata product={product} breadcrumbs={breadcrumbs} canonicalPath={canonicalPath} />
       <main className="mx-auto max-w-screen-xl space-y-12 px-6 py-10 sm:px-8 lg:px-10">
         <ProductView
           product={product}
-          // ProductView ожидает href — адаптируем ссылки
           breadcrumbs={breadcrumbs.map((b) => ({ name: b.name, href: b.url }))}
           admin={{ isAdmin, clicks: adminMetrics.clicks, impressions: adminMetrics.impressions }}
           similar={similar}
@@ -293,10 +282,3 @@ async function renderCategoryListing(
     </div>
   );
 }
-
-
-
-
-
-
-

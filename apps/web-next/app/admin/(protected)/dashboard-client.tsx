@@ -492,7 +492,7 @@ export function AdminDashboardClient() {
             <>
               <div>
                 <div className="text-sm font-semibold text-white">
-                  {spotlightReview.product_title || "Untitled product"}
+                  {spotlightReview.product_title || spotlightReview.product_slug || "Без названия"}
                 </div>
                 <div className="text-xs uppercase tracking-[0.25em] text-slate-500">
                   {spotlightReview.product_slug ? `/${spotlightReview.product_slug}` : "-"}
@@ -577,7 +577,7 @@ export function AdminDashboardClient() {
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div className="text-sm font-semibold text-white">
-                        {review.product_title || "Untitled product"}
+                        {review.product_title || review.product_slug || "Без названия"}
                       </div>
                       <div className="text-xs uppercase tracking-[0.25em] text-slate-500">
                         {review.product_slug ? `/${review.product_slug}` : "-"}

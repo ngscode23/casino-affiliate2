@@ -60,8 +60,8 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
   const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
   const canonical = toAbsoluteUrl(canonicalPath, origin) ?? canonicalPath;
 
-  const productDescription = sanitizeText(product.description ?? product.shortDescription ?? "");
-  const metaDescription = truncateText(productDescription, 160);
+  const productDescription = sanitizeText(product.description ?? product.shortDescription ?? product.title ?? "");
+  const metaDescription = truncateText(productDescription || product.title, 160);
   const priceValue = Number(product.price ?? 0);
   const price = Number.isFinite(priceValue) ? priceValue : 0;
   const priceCurrency = (product.currency || "").toUpperCase() || "USD";
@@ -71,6 +71,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
   const formattedPrice = product.formattedPrice?.trim() || formatCurrency(price, priceCurrency);
 
   const siteName = siteConfig.name || "Neon Shop";
+  const metaTitle = `${product.title} | ${siteName}`;
   const breadcrumbTrail: Breadcrumb[] = [
     { name: siteName, url: "/" },
     ...breadcrumbs,
@@ -184,7 +185,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
         </div>
       </div>
       <meta property="og:type" content="product" />
-      <meta property="og:title" content={product.title} />
+      <meta property="og:title" content={metaTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:url" content={canonical} />
       <meta property="og:site_name" content={siteName} />
@@ -197,7 +198,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
       <meta property="og:price:amount" content={price.toFixed(2)} />
       <meta property="og:price:currency" content={priceCurrency} />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={product.title} />
+      <meta name="twitter:title" content={metaTitle} />
       <meta name="twitter:description" content={metaDescription} />
       {primaryImage ? <meta name="twitter:image" content={primaryImage} /> : null}
       <meta name="product:price:amount" content={price.toFixed(2)} />
