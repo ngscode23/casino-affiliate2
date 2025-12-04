@@ -122,8 +122,8 @@ async function loadPersonalizedProducts() {
   const profile = await fetchUserProfile(userId);
   if (!profile) return null;
 
-  const recs = await getRecommendationsForActor(profile.id);
-  if (!recs?.length) return null;
+  const recs = await getRecommendationsForActor({ actor: profile.anon_id });
+  if (!recs?.items?.length) return null;
 
   return { recs, profile };
 }
@@ -149,10 +149,17 @@ export default async function ProductsPage({
   const listing = await listingPromise;
 
   // If we have personalized recs, interleave them near the top of the list
-  if (personalized?.recs?.length && listing.products.length) {
-    const preferredProducts = listing.products.filter((p) => personalized.recs.some((rec) => rec.productId === p.id));
+  if (personalized?.recs?.items?.length && listing.products.length) {
+    const recItems = personalized.recs.items;
+    const preferredProducts = listing.products.filter((p) =>
+      recItems.some((rec) => (rec.product_id ?? rec.product?.id) === p.id),
+    );
     const otherProducts = listing.products.filter((p) => !preferredProducts.includes(p));
-    const stride = computeAdaptiveStride(preferredProducts.length, otherProducts.length, personalized.profile?.treatment);
+    const stride = computeAdaptiveStride(
+      preferredProducts.length,
+      otherProducts.length,
+      personalized.recs.treatment ?? null,
+    );
     listing.products = interleaveWithDiversification([...preferredProducts], [...otherProducts], stride);
   }
 
