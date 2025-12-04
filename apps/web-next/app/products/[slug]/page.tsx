@@ -1,24 +1,14 @@
-import { mutedTextSmLegacy } from "@/styles/classnames";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { serializeJsonLd } from "@shared/lib/jsonld";
 import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
-import ProductsClient from "../products-client";
-import { loadProductsData } from "../data";
-import { resolveFilterParams } from "../filter-params";
 import { fetchProduct, fetchSimilarProducts } from "./data";
-import { fetchCatalogCategoryBySlug, type CatalogCategory } from "@/lib/catalog/categories";
 import { siteConfig } from "@/lib/site-config";
 
 type RouteParams = Promise<{ slug: string }>;
-type RouteSearchParams = Promise<Record<string, string | string[] | undefined>>;
-
 type ProductPageProps = {
   params: RouteParams;
-  searchParams?: RouteSearchParams;
 };
 
 export const revalidate = 90;
@@ -93,97 +83,63 @@ function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
 }
 
 // SEO metadata
-export async function generateMetadata(
-  { params }: Pick<ProductPageProps, "params">
-): Promise<Metadata> {
+export async function generateMetadata({ params }: Pick<ProductPageProps, "params">): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = typeof resolvedParams?.slug === "string" ? resolvedParams.slug.trim() : "";
+  const brand = siteConfig.name || "Neon Shop";
 
   if (!slug) {
-    return { title: "Товар не найден", robots: { index: false, follow: false } };
-  }
-
-  const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
-  const brand = siteConfig.name || "Neon Shop";
-  const category = await fetchCatalogCategoryBySlug(slug);
-
-  if (category) {
-    const canonicalPath = `/products/${category.slug}`;
-    const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
-    const description =
-      category.description?.slice(0, 180) ??
-      `Подборка товаров «${category.title}»: отсортируйте по популярности, цене или рейтингу и найдите актуальные предложения.`;
-    const metaTitle = `${category.title} | ${brand}`;
-
     return {
-      title: metaTitle,
-      description,
-      alternates: { canonical: canonicalUrl },
-      openGraph: {
-        type: "website",
-        title: metaTitle,
-        description,
-        url: canonicalUrl,
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: metaTitle,
-        description,
-      },
+      title: `Товар не найден | ${brand}`,
+      robots: { index: false, follow: false },
     };
   }
 
   const product = await fetchProduct(slug);
-
-  if (product) {
-    const description = product.description ?? product.shortDescription ?? product.title ?? "";
-    const canonicalPath = `/products/${product.slug}`;
-    const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
-    const cover = product.gallery.length ? product.gallery[0] : null;
-    const metaTitle = `${product.title} | ${brand}`;
-    const metaDescription = description.slice(0, 160) || metaTitle;
-
+  if (!product) {
     return {
-      title: metaTitle,
-      description: metaDescription,
-      alternates: { canonical: canonicalUrl },
-      openGraph: {
-        type: "website",
-        title: metaTitle,
-        description: metaDescription,
-        url: canonicalUrl,
-        siteName: brand,
-        images: cover ? [{ url: cover }] : undefined,
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: metaTitle,
-        description: metaDescription,
-        images: cover ? [cover] : undefined,
-      },
+      title: `Товар не найден | ${brand}`,
+      robots: { index: false, follow: false },
     };
   }
 
-  return { title: `Товар не найден | ${brand}` };
+  const origin =
+    (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
+  const canonicalPath = `/products/${product.slug}`;
+  const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
+  const metaTitle = `${product.title} | ${brand}`;
+  const descriptionSource = product.description ?? product.shortDescription ?? product.title;
+  const metaDescription = descriptionSource ? descriptionSource.slice(0, 160) : brand;
+  const cover = product.gallery[0] ?? product.mainImage ?? product.fallbackImage ?? null;
+
+  return {
+    title: metaTitle,
+    description: metaDescription,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      type: "website",
+      title: metaTitle,
+      description: metaDescription,
+      url: canonicalUrl,
+      siteName: brand,
+      images: cover ? [{ url: cover }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: metaTitle,
+      description: metaDescription,
+      images: cover ? [cover] : undefined,
+    },
+  };
 }
 
-export default async function ProductPage({ params, searchParams }: ProductPageProps) {
+export default async function ProductPage({ params }: ProductPageProps) {
   const resolvedParams = await params;
   const slug = typeof resolvedParams?.slug === "string" ? resolvedParams.slug.trim() : "";
   if (!slug) return notFound();
 
-  const resolvedSearchParams = (await searchParams) ?? {};
-
-  const category = await fetchCatalogCategoryBySlug(slug);
-  if (category) {
-    return renderCategoryListing(category, resolvedSearchParams ?? {});
-  }
-
   const product = await fetchProduct(slug);
   if (!product) return notFound();
-
-  const status = (product.status ?? "").toLowerCase();
-  if (!(status === "published" || status === "active")) return notFound();
 
   const [similar, roleInfo] = await Promise.all([
     fetchSimilarProducts(product.category?.slug ?? "", product.id, 8),
@@ -208,77 +164,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           similar={similar}
         />
       </main>
-    </div>
-  );
-}
-
-async function renderCategoryListing(
-  category: CatalogCategory,
-  rawSearchParams: Record<string, string | string[] | undefined>,
-) {
-  const filters = resolveFilterParams(rawSearchParams);
-  const listing = await loadProductsData({
-    query: filters.query,
-    dataset: filters.dataset,
-    priceMin: filters.priceMin,
-    priceMax: filters.priceMax,
-    minRating: filters.minRating,
-    sort: filters.sort,
-    category: category.slug,
-  });
-
-  if (listing.fetchError && !listing.products.length) {
-    return (
-      <div className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">{category.title}</h1>
-        <p className="mt-4 text-red-500">
-          Не удалось загрузить товары: {String((listing.fetchError as any)?.message ?? listing.fetchError)}
-        </p>
-        <Link href="/products" className="mt-6 inline-flex items-center text-sm text-blue-400 hover:text-blue-300">
-          Вернуться в общий каталог
-        </Link>
-      </div>
-    );
-  }
-
-  const description =
-    category.description ??
-    `Подборка «${category.title}»: используйте фильтры, чтобы сравнить бренды, цены и популярность, а затем оформите заказ без переходов по меню.`;
-
-  return (
-    <div className="bg-background">
-      {listing.structuredData ? (
-        <script
-          type="application/ld+json"
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: serializeJsonLd(listing.structuredData) }}
-        />
-      ) : null}
-      <section>
-        <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
-          <header className="flex flex-col gap-3 text-center sm:text-left">
-            <span className="text-sm font-medium text-muted">Категория каталога</span>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{category.title}</h1>
-            <p className="text-base text-muted sm:max-w-3xl">{description}</p>
-            {typeof listing.totalCount === "number" ? (
-              <span className={mutedTextSmLegacy}>Всего позиций: {listing.totalCount}</span>
-            ) : null}
-          </header>
-        </div>
-        <ProductsClient
-          products={listing.products}
-          categories={listing.categories}
-          catalogName={category.title}
-          initialQuery={filters.query}
-          initialCategory={category.slug}
-          initialDataset={filters.dataset}
-          initialSort={filters.sort}
-          initialPriceMin={filters.priceMin}
-          initialPriceMax={filters.priceMax}
-          initialMinRating={filters.minRating}
-          totalAvailable={listing.totalCount}
-        />
-      </section>
     </div>
   );
 }

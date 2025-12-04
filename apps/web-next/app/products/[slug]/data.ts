@@ -10,6 +10,9 @@ const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "pro
 const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 let derivedSupabaseOrigin: string | null = SUPABASE_ORIGIN || null;
 const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
+const PUBLIC_DATASET: ProductData["dataset"] = "shop";
+const ALLOWED_PUBLIC_STATUSES = new Set(["published", "active"]);
+const BLOCKED_SLUG_PATTERN = /^(?:admin|test|draft)/i;
 
 export const PRODUCT_PAGE_REVALIDATE_SECONDS = 1;
 const PRODUCT_COLLECTION_TAG = "products:list";
@@ -226,6 +229,27 @@ function normalizeStatus(value: string | null | undefined): string {
   return (value ?? "").toString().toLowerCase();
 }
 
+function isPublishableSlug(slug: string | null | undefined): boolean {
+  if (typeof slug !== "string") return false;
+  const trimmed = slug.trim();
+  if (!trimmed) return false;
+  return !BLOCKED_SLUG_PATTERN.test(trimmed);
+}
+
+function isPublishableStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return ALLOWED_PUBLIC_STATUSES.has(status.toLowerCase());
+}
+
+function isPublishableDataset(dataset: "shop" | "legacy"): boolean {
+  return dataset === PUBLIC_DATASET;
+}
+
+function canPublishProduct(args: { slug: string | null | undefined; title: string | null | undefined; dataset: "shop" | "legacy"; status: string | null | undefined }): boolean {
+  const { slug, title, dataset, status } = args;
+  return Boolean(title && isPublishableSlug(slug) && isPublishableDataset(dataset) && isPublishableStatus(status));
+}
+
 function mapInventoryToAvailability(
   inventoryStatus: string | null | undefined,
   status: string | null | undefined,
@@ -407,8 +431,11 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const id = castString(row.id ?? row.product_id ?? payload.id ?? "").trim();
   if (!slug || !id) return null;
 
-  const dataset = (castString(row.dataset ?? row.source_dataset).toLowerCase() === "legacy" ? "legacy" : "shop") as "shop" | "legacy";
-  const status = castString(row.status ?? row.product_status ?? payload.status ?? "active").trim() || "active";
+  const datasetSource = row?.dataset ?? (row as Record<string, unknown>)?.source_dataset ?? payload.dataset ?? PUBLIC_DATASET;
+  const datasetValue = castString(datasetSource).toLowerCase();
+  const dataset = (datasetValue === "legacy" ? "legacy" : PUBLIC_DATASET) as "shop" | "legacy";
+  const statusSource = row?.status ?? (row as Record<string, unknown>)?.product_status ?? payload.status ?? "active";
+  const status = normalizeStatus(castString(statusSource) || "active") || "active";
   const inventoryStatus =
     castString(
       (row as Record<string, unknown>).inventory_status ?? (payload as Record<string, unknown>).inventory_status ?? null,
@@ -483,7 +510,17 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const availabilityLabel = resolveAvailabilityLabel(status, shippingEstimate);
 
   const titleRaw = castString(row.title ?? row.name ?? payload.title ?? payload.product_title ?? "").trim();
-  const resolvedTitle = titleRaw || slug || "Без названия";
+  const resolvedTitle = titleRaw;
+  if (
+    !canPublishProduct({
+      slug,
+      title: resolvedTitle,
+      dataset,
+      status,
+    })
+  ) {
+    return null;
+  }
 
   return {
     id,
