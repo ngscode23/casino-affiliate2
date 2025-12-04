@@ -12,6 +12,7 @@ import { loadProductsData } from "../data";
 import { resolveFilterParams } from "../filter-params";
 import { fetchProduct, fetchSimilarProducts } from "./data";
 import { fetchCatalogCategoryBySlug, type CatalogCategory } from "@/lib/catalog/categories";
+import { siteConfig } from "@/lib/site-config";
 
 export const revalidate = 90;
 
@@ -93,23 +94,27 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug } = await params;
+  const origin = (process.env.NEXT_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "")
+    .replace(/\/$/, "");
+  const brand = siteConfig.name || "Neon Shop";
   const category = await fetchCatalogCategoryBySlug(slug);
 
   if (category) {
     const canonicalPath = `/products/${category.slug}`;
+    const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
     const description =
       category.description?.slice(0, 180) ??
-      `Подборка товаров из раздела «${category.title}»: отсортируйте по популярности, цене или рейтингу и находите актуальные предложения.`;
+      `Каталог раздела «${category.title}»: подборки, фильтры и популярные товары.`;
 
     return {
-      title: `${category.title} — Каталог`,
+      title: category.title,
       description,
-      alternates: { canonical: canonicalPath },
+      alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
         title: category.title,
         description,
-        url: canonicalPath,
+        url: canonicalUrl,
       },
       twitter: {
         card: "summary_large_image",
@@ -124,28 +129,31 @@ export async function generateMetadata(
   if (product) {
     const description = product.description ?? product.shortDescription ?? "";
     const canonicalPath = `/products/${product.slug}`;
+    const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
+    const cover = product.gallery.length ? product.gallery[0] : null;
 
     return {
-      title: `${product.title} — купить онлайн`,
+      title: product.title,
       description: description.slice(0, 160),
-      alternates: { canonical: canonicalPath },
+      alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
         title: product.title,
         description,
-        url: canonicalPath,
-        images: product.gallery.length ? [{ url: product.gallery[0] }] : undefined,
+        url: canonicalUrl,
+        siteName: brand,
+        images: cover ? [{ url: cover }] : undefined,
       },
       twitter: {
         card: "summary_large_image",
         title: product.title,
         description,
-        images: product.gallery.length ? [product.gallery[0]] : undefined,
+        images: cover ? [cover] : undefined,
       },
     };
   }
 
-  return { title: "Товар не найден" };
+  return { title: `Товар не найден | ${brand}` };
 }
 
 export default async function ProductPage({

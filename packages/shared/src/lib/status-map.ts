@@ -18,14 +18,11 @@ export const PAYMENT_STATUS_VALUES = [
   "pending",
   "requires_action",
   "authorized",
-  "processing",
   "succeeded",
   "captured",
   "paid",
-  "settled",
   "failed",
   "canceled",
-  "cancelled",
   "refunded",
   "partial_refund",
 ] as const;
@@ -80,7 +77,7 @@ export function toPaymentStatus(raw: string | null | undefined): PaymentStatus |
     return normalized as PaymentStatus;
   }
   if (normalized === "cancelled") {
-    return "cancelled";
+    return "canceled";
   }
   if (normalized === "canceled") {
     return "canceled";

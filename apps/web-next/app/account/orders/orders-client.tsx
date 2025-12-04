@@ -20,10 +20,10 @@ import { sanitizeSearchParam } from "@shared/lib/sanitize";
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "All" },
   { value: "pending", label: "Pending" },
-  { value: "processing", label: "Processing" },
+  { value: "paid", label: "Paid" },
   { value: "succeeded", label: "Succeeded" },
   { value: "failed", label: "Failed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "canceled", label: "Canceled" },
   { value: "refunded", label: "Refunded" },
   { value: "partial_refund", label: "Partial refund" },
   { value: "requires_action", label: "Requires action" },
@@ -48,6 +48,7 @@ function statusLabel(value: string | null | undefined) {
       return "Succeeded";
     case "failed":
       return "Failed";
+    case "canceled":
     case "cancelled":
       return "Cancelled";
     case "refunded":
@@ -78,6 +79,7 @@ function statusClass(value: string | null | undefined) {
       return "bg-amber-500/10 text-amber-200 border border-amber-500/30";
     case "failed":
     case "cancelled":
+    case "canceled":
       return "bg-rose-500/10 text-rose-200 border border-rose-500/30";
     case "requires_action":
       return "bg-purple-500/10 text-purple-200 border border-purple-500/30";

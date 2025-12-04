@@ -16,7 +16,7 @@ import { DEFAULT_CACHE_TTL_MS, resolveCacheAdapterFromEnv, type CacheAdapter } f
 
 type PublicClient = SupabaseClient<Database>;
 
-type OrderRow = Tables<"order_v2">;
+type OrderRow = Tables<"order_v2"> & { shipping_total?: number | null };
 type OrderTableRow = Tables<"orders">;
 type PaymentRow = Tables<"payments">;
 // Some environments may not have this legacy mirror; avoid hard typing to Database.Tables
@@ -27,7 +27,7 @@ type PaymentRow = Tables<"payments">;
 type DatabaseWithRefunds = Database & {
   public: Database["public"] & {
     Tables: Database["public"]["Tables"] & {
-      payment_refunds: {
+      payment_refunds_v: {
         Row: {
           refund_id: string;
           order_id: string | null;
@@ -45,7 +45,7 @@ type DatabaseWithRefunds = Database & {
     Views: Database["public"]["Views"]; // keep existing views
   };
 };
-type RefundRow = DatabaseWithRefunds["public"]["Tables"]["payment_refunds"]["Row"];
+type RefundRow = DatabaseWithRefunds["public"]["Tables"]["payment_refunds_v"]["Row"];
 type OrderItemRow = Tables<"order_items">;
 type OrderHistoryRow = Tables<"order_history_v">;
 
@@ -184,6 +184,7 @@ function mapOrderRow(row: CompleteOrderRow, paymentsIndex: Map<string, PaymentRo
   const subtotal = toNumber(row.amount_subtotal ?? row.amount_total);
   const discount = toNumber(row.amount_discounts);
   const tax = toNumber(row.amount_tax);
+  const shipping = toNumber((row as { shipping_total?: number }).shipping_total);
   const total = toNumber(row.amount_total ?? subtotal - discount + tax);
 
   const successPayment = paymentRows.find((payment) => PAYMENT_SUCCESS_STATUSES.has(payment.status?.toLowerCase?.() ?? ""));
@@ -198,7 +199,7 @@ function mapOrderRow(row: CompleteOrderRow, paymentsIndex: Map<string, PaymentRo
     discount,
     tax,
     total,
-    shipping: 0,
+    shipping,
     currency,
     lastPaymentStatus: lastPayment?.status ?? null,
     lastPaymentAt: successPayment?.created_at ?? lastPayment?.created_at ?? null,
@@ -362,7 +363,7 @@ export class OrdersClient {
       this.client
         .from("order_v2")
         .select(
-          "id, user_id, created_at, amount_total, amount_subtotal, amount_discounts, amount_tax, currency, status, payment_status",
+        "id, user_id, created_at, amount_total, amount_subtotal, amount_discounts, shipping_total, amount_tax, currency, status, payment_status",
           { count: "exact" },
         ),
     );
@@ -546,8 +547,9 @@ export class OrdersClient {
     const subtotalBase = data.subtotal ?? data.grand_total ?? centsToAmount;
     const subtotal = toNumber(subtotalBase);
     const discount = toNumber(data.discount_total);
-    const total = toNumber(data.grand_total ?? subtotal - discount);
-    const tax = Math.max(0, total - subtotal + discount);
+    const shipping = toNumber(data.shipping_total);
+    const total = toNumber(data.grand_total ?? subtotal - discount + shipping);
+    const tax = Math.max(0, total - subtotal + discount - shipping);
 
     const checkoutMetadata = (data.checkout_metadata ?? null) as Record<string, unknown> | null;
     const metadata = (data.metadata_b ?? null) as Record<string, unknown> | null;
@@ -566,7 +568,7 @@ export class OrdersClient {
       discount,
       tax,
       total,
-      shipping: toNumber(data.shipping_total),
+      shipping,
       currency: normalizeCurrency(data.currency),
       lastPaymentStatus: null,
       lastPaymentAt: null,
@@ -621,10 +623,10 @@ export class OrdersClient {
   }
 
   private async fetchRefunds(orderId: string, _userId: string): Promise<OrderRefund[]> {
-    // Use a narrow, typed extension for `payment_refunds` to avoid broad `any` casts
+    // Use a narrow, typed extension for the compatibility view to avoid broad `any` casts
     const client = this.client as SupabaseClient<DatabaseWithRefunds>;
     const response = await client
-      .from("payment_refunds")
+      .from("payment_refunds_v")
       .select("refund_id, order_id, payment_intent_id, amount_cents, currency, reason, created_at")
       .eq("order_id", orderId)
       .order("created_at", { ascending: false });
@@ -633,7 +635,7 @@ export class OrdersClient {
       const message = response.error.message ?? "";
       // Some environments may not have the legacy payment_refunds mirror yet.
       if (
-        message.includes("payment_refunds") &&
+        (message.includes("payment_refunds_v") || message.includes("payment_refunds")) &&
         (message.includes("not exist") || message.includes("Could not find the table"))
       ) {
         return [];

@@ -14,7 +14,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from("products").select("slug, updated_at").limit(1000);
+    // View `products` не содержит updated_at; берем created_at как ближайший аналог.
+    const { data, error } = await supabase.from("products").select("slug, created_at").limit(1000);
 
     if (!error) {
       (data || []).forEach((row: any) => {
@@ -22,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           entries.push({
             url: `${origin}/products/${encodeURIComponent(row.slug)}`,
             changeFrequency: "weekly",
-            lastModified: row.updated_at ? new Date(row.updated_at) : undefined,
+            lastModified: row.created_at ? new Date(row.created_at) : undefined,
           });
         }
       });
