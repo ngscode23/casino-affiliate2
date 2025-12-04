@@ -49,7 +49,8 @@ const fetchTopLevelCategoriesCached = unstable_cache(
 );
 
 const fetchCategoryBySlugCached = unstable_cache(
-  async (slug: string): Promise<CatalogCategory | null> => {
+  async (slug: string | null | undefined): Promise<CatalogCategory | null> => {
+    if (typeof slug !== "string") return null;
     const supabase = getAdminClient();
     const normalizedSlug = slug.trim().toLowerCase();
     if (!normalizedSlug) return null;

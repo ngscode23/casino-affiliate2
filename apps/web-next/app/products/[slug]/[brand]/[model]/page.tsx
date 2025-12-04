@@ -5,17 +5,18 @@ import type { Metadata } from "next";
 import ProductCarousel, { getProductsByModel } from "@/components/ProductCarousel";
 
 type PageProps = {
-  params: {
+  params: Promise<{
     slug: string;
     brand: string;
     model: string;
-  };
+  }>;
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const categoryLabel = formatSegment(params.slug);
-  const brandLabel = formatSegment(params.brand);
-  const modelLabel = formatSegment(params.model);
+  const resolvedParams = await params;
+  const categoryLabel = formatSegment(resolvedParams.slug);
+  const brandLabel = formatSegment(resolvedParams.brand);
+  const modelLabel = formatSegment(resolvedParams.model);
 
   return {
     title: `${brandLabel} ${modelLabel} – варианты и цены`,
@@ -24,9 +25,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProductModelPage({ params }: PageProps) {
-  const categoryLabel = formatSegment(params.slug);
-  const brandLabel = formatSegment(params.brand);
-  const modelLabel = formatSegment(params.model);
+  const resolvedParams = await params;
+  const categoryLabel = formatSegment(resolvedParams.slug);
+  const brandLabel = formatSegment(resolvedParams.brand);
+  const modelLabel = formatSegment(resolvedParams.model);
 
   const variants = await getProductsByModel(modelLabel);
   const featured = variants[0] ?? null;
@@ -44,7 +46,7 @@ export default async function ProductModelPage({ params }: PageProps) {
           <li>›</li>
           <li>
             <Link
-              href={`/products?category=${encodeURIComponent(params.slug)}`}
+              href={`/products?category=${encodeURIComponent(resolvedParams.slug)}`}
               className="hover:text-slate-900 dark:hover:text-white"
             >
               {categoryLabel}

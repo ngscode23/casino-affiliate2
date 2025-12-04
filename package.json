@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "prepare": "husky",
+    "postinstall": "pnpm exec prisma generate",
     "gen:db:types": "node scripts/gen-db-types.mjs",
     "audit:lighthouse": "node ./scripts/run-lighthouse.mjs",
     "mcp": "node ./mcp-server.mjs",
@@ -90,7 +91,10 @@
       "core-js",
       "esbuild",
       "sharp",
-      "unix-dgram"
+      "unix-dgram",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
     ]
   },
   "packageManager": "pnpm@10.19.0",

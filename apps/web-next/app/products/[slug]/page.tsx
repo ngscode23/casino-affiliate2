@@ -14,6 +14,14 @@ import { fetchProduct, fetchSimilarProducts } from "./data";
 import { fetchCatalogCategoryBySlug, type CatalogCategory } from "@/lib/catalog/categories";
 import { siteConfig } from "@/lib/site-config";
 
+type RouteParams = Promise<{ slug: string }>;
+type RouteSearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+type ProductPageProps = {
+  params: RouteParams;
+  searchParams?: RouteSearchParams;
+};
+
 export const revalidate = 90;
 
 function decodeJwtPayload(token: string): Record<string, any> | null {
@@ -91,9 +99,15 @@ function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
 }
 
 export async function generateMetadata(
-  { params }: { params: { slug: string } }
+  { params }: Pick<ProductPageProps, "params">
 ): Promise<Metadata> {
-  const { slug } = params;
+  const resolvedParams = await params;
+  const slug = typeof resolvedParams?.slug === "string" ? resolvedParams.slug.trim() : "";
+
+  if (!slug) {
+    return { title: "Товар не найден", robots: { index: false, follow: false } };
+  }
+
   const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
   const brand = siteConfig.name || "Neon Shop";
   const category = await fetchCatalogCategoryBySlug(slug);
@@ -153,15 +167,16 @@ export async function generateMetadata(
   }
 
   return { title: `Товар не найден | ${brand}` };
-}export default async function ProductPage({
+}
+export default async function ProductPage({
   params,
   searchParams,
-}: {
-  params: { slug: string };
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const resolvedSearchParams = await (searchParams ?? Promise.resolve({}));
-  const { slug } = params;
+}: ProductPageProps) {
+  const resolvedParams = await params;
+  const slug = typeof resolvedParams?.slug === "string" ? resolvedParams.slug.trim() : "";
+  if (!slug) return notFound();
+
+  const resolvedSearchParams = (await searchParams) ?? {};
 
   const category = await fetchCatalogCategoryBySlug(slug);
 
@@ -278,6 +293,8 @@ async function renderCategoryListing(
     </div>
   );
 }
+
+
 
 
 
