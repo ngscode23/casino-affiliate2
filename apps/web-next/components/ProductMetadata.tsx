@@ -1,6 +1,5 @@
 import type { ProductData } from "@/app/products/[slug]/data";
 import { formatCurrency } from "@/app/products/currency";
-import { SITE_NAME, SITE_URL } from "@shared/config";
 import { makeBreadcrumbsLD, serializeJsonLd } from "@shared/lib/jsonld";
 import { siteConfig } from "@/lib/site-config";
 
@@ -58,7 +57,7 @@ function toAbsoluteUrl(value: string | null | undefined, origin: string): string
 }
 
 export default function ProductMetadata({ product, breadcrumbs, canonicalPath }: ProductMetadataProps) {
-  const origin = (SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
   const canonical = toAbsoluteUrl(canonicalPath, origin) ?? canonicalPath;
 
   const productDescription = sanitizeText(product.description ?? product.shortDescription ?? "");
@@ -68,16 +67,17 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
   const priceCurrency = (product.currency || "").toUpperCase() || "USD";
   const availability = mapAvailability(product.status);
   const availabilityUrl = `https://schema.org/${availability}`;
-  const brandText = sanitizeText(product.brand) || siteConfig.name || SITE_NAME;
+  const brandText = sanitizeText(product.brand) || siteConfig.name || "Neon Shop";
   const formattedPrice = product.formattedPrice?.trim() || formatCurrency(price, priceCurrency);
 
+  const siteName = siteConfig.name || "Neon Shop";
   const breadcrumbTrail: Breadcrumb[] = [
-    { name: siteConfig.name || SITE_NAME, url: "/" },
+    { name: siteName, url: "/" },
     ...breadcrumbs,
     { name: product.title, url: canonicalPath },
   ]
     .map((crumb) => {
-      const name = sanitizeText(crumb.name) || SITE_NAME;
+      const name = sanitizeText(crumb.name) || siteName;
       const url = crumb.url?.trim() || "/";
       if (!url.startsWith("/") && !/^https?:/i.test(url)) {
         return { name, url: `/${url}` };
@@ -148,7 +148,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
       itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
-        name: siteConfig.name || SITE_NAME,
+        name: siteName,
         ...(origin ? { url: origin } : {}),
       },
     },
@@ -187,7 +187,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
       <meta property="og:title" content={product.title} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:url" content={canonical} />
-      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:site_name" content={siteName} />
       {primaryImage ? (
         <>
           <meta property="og:image" content={primaryImage} />
