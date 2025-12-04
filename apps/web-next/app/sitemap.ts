@@ -3,7 +3,9 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const origin = process.env.NEXT_SITE_URL?.replace(/\/$/, "") || "";
+  const origin =
+    process.env.NEXT_SITE_URL?.replace(/\/$/, "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.replace(/\/$/, "")}` : "");
   const entries: MetadataRoute.Sitemap = [
     { url: `${origin}/`, priority: 1, changeFrequency: "weekly" },
     { url: `${origin}/products`, priority: 0.8, changeFrequency: "daily" },

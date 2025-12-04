@@ -152,6 +152,4 @@ function isIterable(value: unknown): value is Iterable<string> {
 function pushPaymentStatus(set: Set<PaymentStatus>, status: PaymentStatus | null): void {
   if (!status) return;
   set.add(status);
-  if (status === "canceled") set.add("cancelled");
-  if (status === "cancelled") set.add("canceled");
 }
