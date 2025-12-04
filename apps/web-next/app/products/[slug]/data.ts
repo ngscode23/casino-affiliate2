@@ -627,7 +627,7 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null } as { data: null; error: null });
       const mediaPromise = admin
-        .from("products")
+        .from("ecom_products")
         .select("images, main_image_url, image_path, stock_quantity, is_available, inventory_status")
         .eq("id", product.id)
         .maybeSingle();

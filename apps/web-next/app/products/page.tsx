@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { fetchCatalogCategoryBySlug } from "@/lib/catalog/categories";
+import { fetchProductListingPage } from "@/lib/catalog/product-source";
+import { getAdminClient } from "@/utils/supabase/admin";
 
 import ProductsClient from "./products-client";
 import { CATALOG_NAME, loadProductsData } from "./data";
@@ -11,35 +14,128 @@ import { getRecommendationsForActor } from "@/lib/recs-server";
 import type { Product } from "./types";
 import { siteConfig } from "@/lib/site-config";
 
-const BASE_TITLE = siteConfig.name ? `${siteConfig.name} — Каталог` : "Neon Shop — Каталог";
+const SITE_NAME = siteConfig.name || "Neon Shop";
+const BASE_TITLE = `Каталог товаров | ${SITE_NAME}`;
 const BASE_DESCRIPTION =
-  "Каталог Neon Shop: электроника, гаджеты, аксессуары. Фильтруйте по цене, популярности и рейтингу, сравнивайте бренды и находите актуальные предложения.";
+  "Каталог Neon Shop: новинки, акции и популярные товары. Актуальные цены, наличие и удобные фильтры по категориям.";
 
 export const revalidate = 90;
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
+type ProductsMetadataProps = {
+  searchParams?:
+    | Record<string, string | string[] | undefined>
+    | Promise<Record<string, string | string[] | undefined>>;
+};
+
+function normalizeCategoryParam(input: string | string[] | undefined): string | null {
+  const value = Array.isArray(input) ? input[0] : input;
+  if (typeof value !== "string") return null;
+  const slug = value.trim();
+  return slug ? slug.toLowerCase() : null;
+}
+
+async function fetchCategoryMeta(slug: string) {
+  const category = await fetchCatalogCategoryBySlug(slug);
+  let productCount: number | null = null;
+
+  try {
+    const supabase = getAdminClient();
+    const { count, error } = await fetchProductListingPage({
+      supabase,
+      select: "id",
+      filters: { category: slug, dataset: "shop" },
+      limit: 1,
+      withCount: true,
+    });
+    if (!error && typeof count === "number") {
+      productCount = count;
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[catalog] failed to count products for category", slug, error);
+    }
+  }
+
+  return { category, productCount };
+}
+
+export async function generateMetadata({ searchParams }: ProductsMetadataProps = {}): Promise<Metadata> {
+  const resolvedSearch = (await searchParams) ?? {};
+  const categoryParam = normalizeCategoryParam(resolvedSearch.category);
+
   const origin =
     (process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
       process.env.NEXT_SITE_URL ||
       "https://neon4.vercel.app").replace(/\/$/, "");
+  const baseCanonical = `${origin}/products`;
 
-  const canonical = `${origin}/products`;
-
-  return {
-    title: BASE_TITLE,
-    description: BASE_DESCRIPTION,
-    alternates: { canonical },
-    openGraph: {
+  if (!categoryParam) {
+    return {
       title: BASE_TITLE,
       description: BASE_DESCRIPTION,
+      alternates: { canonical: baseCanonical },
+      openGraph: {
+        type: "website",
+        title: BASE_TITLE,
+        description: BASE_DESCRIPTION,
+        url: baseCanonical,
+        siteName: SITE_NAME,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: BASE_TITLE,
+        description: BASE_DESCRIPTION,
+      },
+    };
+  }
+
+  const { category, productCount } = await fetchCategoryMeta(categoryParam);
+
+  if (!category) {
+    const fallbackTitle = `${BASE_TITLE} — категория не найдена`;
+    return {
+      title: fallbackTitle,
+      description: BASE_DESCRIPTION,
+      alternates: { canonical: baseCanonical },
+      robots: { index: false, follow: false },
+      openGraph: {
+        type: "website",
+        title: fallbackTitle,
+        description: BASE_DESCRIPTION,
+        url: baseCanonical,
+        siteName: SITE_NAME,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: fallbackTitle,
+        description: BASE_DESCRIPTION,
+      },
+    };
+  }
+
+  const canonical = `${baseCanonical}?category=${encodeURIComponent(category.slug)}`;
+  const hasCount = typeof productCount === "number" && productCount > 0;
+  const countLabel = hasCount ? ` — ${productCount} моделей` : "";
+  const title = `${category.title}${countLabel} | ${SITE_NAME}`;
+  const description = category.description?.trim() || BASE_DESCRIPTION;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      title,
+      description,
       url: canonical,
+      siteName: SITE_NAME,
     },
     twitter: {
       card: "summary_large_image",
-      title: BASE_TITLE,
-      description: BASE_DESCRIPTION,
+      title,
+      description,
     },
   };
 }

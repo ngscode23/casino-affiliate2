@@ -11,22 +11,34 @@ type ProductMetadataProps = {
   canonicalPath: string;
 };
 
-function mapAvailability(status: string): string {
-  const normalized = status.toLowerCase();
-  switch (normalized) {
-    case "preorder":
-    case "pre-order":
-      return "PreOrder";
-    case "draft":
-    case "inactive":
-    case "discontinued":
-      return "Discontinued";
-    case "out_of_stock":
-    case "unavailable":
-      return "OutOfStock";
-    default:
-      return "InStock";
+function resolveAvailabilityCode(product: ProductData): "InStock" | "OutOfStock" | "PreOrder" {
+  const byQuantity =
+    typeof product.stockQuantity === "number" && Number.isFinite(product.stockQuantity)
+      ? product.stockQuantity
+      : null;
+
+  if (byQuantity != null) {
+    return byQuantity > 0 ? "InStock" : "OutOfStock";
   }
+
+  if (product.isAvailable === false) return "OutOfStock";
+
+  const inventory = (product.inventoryStatus ?? "").toLowerCase();
+  if (inventory) {
+    if (/(pre[_-]?order|coming_soon)/.test(inventory)) return "PreOrder";
+    if (/(out[_-]?of[_-]?stock|sold[_-]?out|unavailable|inactive|archived|disabled|discontinued)/.test(inventory)) {
+      return "OutOfStock";
+    }
+    if (/(in[_-]?stock|available)/.test(inventory)) return "InStock";
+  }
+
+  const status = (product.status ?? "").toLowerCase();
+  if (/(preorder|pre-order|pre_order|coming_soon)/.test(status)) return "PreOrder";
+  if (/(out_of_stock|unavailable|sold_out|inactive|archived|disabled|discontinued|draft)/.test(status)) {
+    return "OutOfStock";
+  }
+
+  return product.availabilityCode ?? "InStock";
 }
 
 function sanitizeText(input: string | null | undefined): string {
@@ -65,7 +77,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
   const priceValue = Number(product.price ?? 0);
   const price = Number.isFinite(priceValue) ? priceValue : 0;
   const priceCurrency = (product.currency || "").toUpperCase() || "USD";
-  const availability = mapAvailability(product.status);
+  const availability = resolveAvailabilityCode(product);
   const availabilityUrl = `https://schema.org/${availability}`;
   const brandText = sanitizeText(product.brand) || siteConfig.name || "Neon Shop";
   const formattedPrice = product.formattedPrice?.trim() || formatCurrency(price, priceCurrency);
@@ -132,7 +144,7 @@ export default function ProductMetadata({ product, breadcrumbs, canonicalPath }:
     name: product.title,
     description: productDescription,
     image: productImages.length ? productImages : undefined,
-    sku: product.sku ?? undefined,
+    sku: product.sku ?? product.productUid ?? product.id,
     productID: product.productUid ?? product.id,
     url: canonical,
     category: breadcrumbTrail.slice(1, -1).map((crumb) => crumb.name).join(" > ") || undefined,
