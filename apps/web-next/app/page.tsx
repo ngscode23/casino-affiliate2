@@ -1,4 +1,4 @@
-import { sectionTitle, mutedTextSmLegacy } from "@/styles/classnames";
+import { mutedTextSmLegacy } from "@/styles/classnames";
 import { Suspense } from "react";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
@@ -22,11 +22,22 @@ import { fetchUserProfile } from "@/lib/personalization/rank";
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 export const metadata: Metadata = {
-  title: `${siteConfig.name} - ${siteConfig.tagline || siteConfig.description}`,
-  description: siteConfig.description,
+  title: "Neon Shop – электроника и аксессуары | Интернет-магазин гаджетов",
+  description:
+    "Смартфоны, аудио, умный дом, зарядные устройства и аксессуары с быстрой доставкой по Европе. Подарки, акции и гарантия качества.",
+  keywords: ["Neon Shop", "электроника", "аксессуары", "магазин гаджетов", "смартфоны", "умный дом"],
   alternates: { canonical: "/" },
-  openGraph: { title: siteConfig.name, description: siteConfig.description, url: "/" },
-  twitter: { card: "summary_large_image", title: siteConfig.name, description: siteConfig.description },
+  openGraph: {
+    title: "Neon Shop – электроника и аксессуары",
+    description:
+      "Подборка проверенных гаджетов и аксессуаров с доставкой: телефоны, аудио, powerbank, умный дом.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Neon Shop – электроника и аксессуары",
+    description: "Каталог гаджетов, быстрая доставка и поддержка.",
+  },
 };
 
 export const revalidate = 300;
@@ -100,28 +111,7 @@ export default async function HomePage() {
       </Suspense>
       {/* Персональные рекомендации на главной */}
       <section className="relative overflow-hidden rounded-[28px] border border-border/40 bg-card/70 px-4 py-8 shadow-card sm:px-8 sm:py-12">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className={sectionTitle}>Recommended for you</h2>
-        </div>
         <RecommendationsWidget limit={12} />
-      </section>
-      <section className="relative overflow-hidden rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/60 px-6 py-16 text-center shadow-card sm:px-10 sm:py-20 lg:flex lg:items-center lg:justify-between lg:text-left">
-        <div className="flex-1 space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Admin toolkit</p>
-          <h3 className="text-2xl font-semibold text-fg lg:text-3xl">Command centre for partners &amp; payouts</h3>
-          <p className={mutedTextSmLegacy}>
-            Manage catalogue metadata, click &amp; conversion events, and partner compliance from one responsive
-            dashboard. Extend APIs with Edge Functions when you need bespoke workflows.
-          </p>
-        </div>
-        <div className="mt-8 flex justify-center lg:mt-0 lg:justify-end">
-          <Link
-            href="/admin"
-            className="inline-flex h-12 items-center justify-center rounded-full border border-primary/60 bg-primary px-8 text-sm font-semibold text-primaryfg shadow-[0_28px_68px_-30px_rgba(252,50,114,0.72)] transition hover:-translate-y-[1px] hover:shadow-[0_36px_84px_-32px_rgba(252,50,114,0.84)]"
-          >
-            Open admin
-          </Link>
-        </div>
       </section>
     </div>
   );

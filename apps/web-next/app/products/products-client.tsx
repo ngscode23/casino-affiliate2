@@ -194,6 +194,17 @@ export default function ProductsClient({
     return map;
   }, [products]);
 
+  const variantCountByCatalogId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const product of products) {
+      if (product.catalogProductId) {
+        const key = product.catalogProductId;
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [products]);
+
   const resolvePriceCents = useCallback(
     (productId: string | undefined) => {
       if (!productId) return undefined;
@@ -496,7 +507,7 @@ export default function ProductsClient({
           ? numberFormatter.format(product.clicks || 0) + " clicks • " + numberFormatter.format(product.impressions || 0) + " views"
           : null;
       const categoryLabel = product.categorySlug ? humanize(product.categorySlug) : null;
-      const metaParts = [availabilityLabel, categoryLabel, statsLabel].filter(Boolean);
+      const metaParts = [categoryLabel, statsLabel].filter(Boolean);
       const meta = metaParts.length ? metaParts.join(" • ") : null;
       return {
         id: product.id,
@@ -508,10 +519,17 @@ export default function ProductsClient({
         originalPrice,
         badge,
         meta,
+        availability: product.availability,
+        availabilityLabel,
+        variantCount:
+          product.catalogProductId && variantCountByCatalogId.has(product.catalogProductId)
+            ? variantCountByCatalogId.get(product.catalogProductId)
+            : null,
+        variantLabel: product.modelTitle ?? product.model ?? null,
         recMeta: product.recMeta,
       };
     },
-    [availabilityLabelMap, numberFormatter],
+    [availabilityLabelMap, numberFormatter, variantCountByCatalogId],
   );
 
   const gridItems = useMemo(() => displayed.map(mapProductToGridItem), [displayed, mapProductToGridItem]);

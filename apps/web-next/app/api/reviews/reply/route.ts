@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { requireAuth } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { createReviewMessage } from "../messages";
+import { notifyReviewReplyEmail } from "../../reviews-admin/reply-email";
 
 function json(body: unknown, status = 200) {
   return Response.json(body, {
@@ -144,6 +145,13 @@ export async function POST(request: Request) {
       /* ignore revalidation failures */
     }
   }
+
+  // Уведомляем владельца отзыва (если он включил notify_review_replies в профиле).
+  void notifyReviewReplyEmail({
+    reviewOwnerId: createResult.reviewOwnerId,
+    productId: createResult.productId,
+    replyBody: createResult.message.body,
+  });
 
   return json({
     ok: true,

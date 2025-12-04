@@ -99,7 +99,8 @@ export async function POST(request: Request) {
 
     let reviewRecord: Record<string, unknown> | null = null;
 
-    const targetStatus = "pending" as const;
+    // Автоматически одобряем новые отзывы, чтобы они сразу появлялись на сайте.
+    const targetStatus = "approved" as const;
 
     if (existingRow) {
       const { data, error } = await supabase

@@ -18,6 +18,7 @@ type ProductActionPanelProps = {
   analyticsParams: Record<string, unknown>;
   isAdmin: boolean;
   paymentMethods: string[];
+  availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
 };
 
 export default function ProductActionPanel({
@@ -34,6 +35,7 @@ export default function ProductActionPanel({
   analyticsParams,
   isAdmin,
   paymentMethods,
+  availabilityCode,
 }: ProductActionPanelProps) {
   return (
     <div className="space-y-4 rounded-3xl border border-border/40 bg-card/70 p-6">
@@ -61,6 +63,7 @@ export default function ProductActionPanel({
           category={category}
           recMetadata={{ source: "product_action_panel" }}
           onAddAction={onAddAction}
+          availabilityCode={availabilityCode}
         />
         {isAdmin ? <TrackClickButton productId={productId} dataset={dataset} /> : null}
       </div>

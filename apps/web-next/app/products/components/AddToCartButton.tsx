@@ -38,6 +38,8 @@ type AddToCartButtonProps = {
   priceCents?: number | null;
   category?: string | null;
   recMetadata?: Record<string, unknown>;
+  availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
+  outOfStockLabel?: string;
 };
 
 export default function AddToCartButton({
@@ -53,15 +55,18 @@ export default function AddToCartButton({
   priceCents = null,
   category = null,
   recMetadata,
+  availabilityCode,
+  outOfStockLabel,
 }: AddToCartButtonProps) {
   const { add } = useCart();
   const [pending, setPending] = useState(false);
+  const isOutOfStock = availabilityCode === "OutOfStock";
 
   const handleClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      if (pending) return;
+      if (pending || availabilityCode === "OutOfStock") return;
       setPending(true);
       try {
         add(productId, quantity);
@@ -105,6 +110,7 @@ export default function AddToCartButton({
       productId,
       quantity,
       recMetadata,
+      availabilityCode,
       title,
     ],
   );
@@ -120,17 +126,20 @@ export default function AddToCartButton({
       "h-11 rounded-full border border-border/30 bg-card/90 text-fg hover:-translate-y-[1px] hover:bg-card focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
   };
   const variantClass = variantClassMap[variant] ?? variantClassMap.solid;
+  const displayLabel =
+    isOutOfStock ? outOfStockLabel ?? "Нет в наличии" : label;
+  const isDisabled = pending || isOutOfStock;
 
   return (
     <button
       type="button"
       className={cn(baseClass, variantClass, className)}
       onClick={handleClick}
-      disabled={pending}
-      aria-label={label}
+      disabled={isDisabled}
+      aria-label={displayLabel}
     >
       <ShoppingCart className={iconSm} aria-hidden />
-      <span>{label}</span>
+      <span>{displayLabel}</span>
     </button>
   );
 }

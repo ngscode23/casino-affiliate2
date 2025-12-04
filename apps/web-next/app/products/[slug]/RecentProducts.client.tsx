@@ -119,7 +119,21 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
   const scrollBy = (delta: number) => {
     const el = railRef.current;
     if (!el) return;
-    el.scrollBy({ left: delta, behavior: "smooth" });
+    const start = el.scrollLeft;
+    const target = start + delta;
+    const distance = target - start;
+    const duration = 700;
+    let startTs: number | null = null;
+
+    const step = (ts: number) => {
+      if (startTs === null) startTs = ts;
+      const elapsed = Math.min(1, (ts - startTs) / duration);
+      const ease = 0.5 * (1 - Math.cos(Math.PI * elapsed)); // easeInOut
+      el.scrollLeft = start + distance * ease;
+      if (elapsed < 1) requestAnimationFrame(step);
+    };
+
+    requestAnimationFrame(step);
   };
 
   if (loading || (recent.length === 0 && recommended.length === 0)) return null;
@@ -152,13 +166,13 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
           <div className="overflow-hidden">
             <div
               ref={railRef}
-              className="flex gap-4 overflow-x-auto pb-2 pr-2"
-              style={{ scrollSnapType: "x mandatory" }}
+              className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-2 scroll-smooth"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {recent.map((product, index) => (
                 <div
                   key={product.slug || product.id}
-                  className="w-[260px] flex-none scroll-snap-align-start"
+                  className="w-[260px] flex-none snap-start"
                 >
                   <ProductCard
                     product={product}

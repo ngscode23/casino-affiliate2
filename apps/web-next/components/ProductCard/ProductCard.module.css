@@ -179,6 +179,56 @@
   color: #0f0f0f;
 }
 
+.vcMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vcStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.vcStatusIn {
+  background: #ecfdf3;
+  color: #047857;
+  border-color: rgba(5, 150, 105, 0.2);
+}
+
+.vcStatusOut {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.18);
+}
+
+.vcStatusPre {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: rgba(79, 70, 229, 0.22);
+}
+
+.vcStatusMuted {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: rgba(156, 163, 175, 0.4);
+}
+
+.vcVariant {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
 .vcDescription {
   margin: 0;
   font-size: 0.875rem; /* 14px */
@@ -223,6 +273,58 @@
 .vcActionBar {
   padding: 8px 6px 6px;
   margin-top: auto;
+}
+
+.vcCompareRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.vcCompareToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vcCompareToggle:hover,
+.vcCompareToggle:focus-visible {
+  outline: none;
+  background: #111827;
+  border-color: #111827;
+  color: #f9fafb;
+  box-shadow:
+    0 0 0 1px #ffffff,
+    0 0 0 3px rgba(15, 23, 42, 0.8);
+  transform: translateY(-1px);
+}
+
+.vcCompareToggleActive {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #f9fafb;
+}
+
+.vcCompareDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .vcAddButton {

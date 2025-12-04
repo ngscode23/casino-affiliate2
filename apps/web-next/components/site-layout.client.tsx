@@ -14,6 +14,7 @@ import { ensureSession } from "@shared/lib/auth";
 import { CompareProvider } from "@shared/ctx/CompareContext";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader, type NavItem } from "./site-header";
+import ProductCompareBar from "./ProductCompareBar";
 
 type HeaderCategorySummary = {
   slug: string;
@@ -58,7 +59,7 @@ export function SiteLayoutClient({ children, navItems, catalogCategories }: Site
                     <SiteFooter />
                   </>
                 ) : (
-                  <div className="mx-auto w-full max-w-screen-xl px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
+                  <div className="mx-auto w-full  px-6 py-10 sm:px-8 sm:py-12 lg:px-10 lg:py-16">
                     <main key={pathname ?? "site-root"} className="pb-16 lg:pb-20 animate-page-fade">
                       {children}
                     </main>
@@ -66,6 +67,7 @@ export function SiteLayoutClient({ children, navItems, catalogCategories }: Site
                   </div>
                 )}
               </div>
+              <ProductCompareBar />
             </div>
             <ToastContainer />
             <CookieBar />

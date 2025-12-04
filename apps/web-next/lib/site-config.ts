@@ -1,29 +1,24 @@
 export const siteConfig = {
-  name: "Name",
-  tagline: "",
+  name: "Neon Shop",
+  tagline: "Электроника и аксессуары с быстрой доставкой",
   taglineKey: "layout.tagline",
   description:
-    "Subscription",
+    "Neon Shop – интернет-магазин электроники и аксессуаров: смартфоны, аудио, умный дом и зарядные решения.",
   nav: [
     { href: "/", label: "Home", labelKey: "nav.home" },
     { href: "/products", label: "Catalog", labelKey: "nav.catalog" },
-    { href: "/wishlist", label: "Wishlist", labelKey: "nav.wishlist" },
-    { href: "/cart", label: "Cart", labelKey: "nav.cart" },
-    { href: "/checkout", label: "Checkout", labelKey: "nav.checkout" },
     { href: "/contact", label: "Contact", labelKey: "nav.contact" },
     { href: "/account", label: "Account", labelKey: "nav.account" },
-    { href: "/account/orders", label: "My orders", labelKey: "nav.orders" },
-    { href: "/account/reviews", label: "My reviews", labelKey: "nav.myReviews" },
   ],
   footer: {
-    company: "Company",
+    company: "Neon Shop LLC",
     email: "hello@neonshop.com",
-    address: "Adress",
-    phone: "+00 00 0000",
+    address: "12 Kohtu tn, Tallinn, Estonia",
+    phone: "+372 5555 1234",
   },
   socials: [
-    { href: " ", label: "Telegram" },
-    { href: " ", label: "LinkedIn" },
+    { href: "https://t.me/neonshop", label: "Telegram" },
+    { href: "https://www.linkedin.com/company/neonshop", label: "LinkedIn" },
   ],
 };
 

@@ -322,7 +322,12 @@ export function SiteHeaderClient({
     [navItems],
   );
   const panelCategories = useMemo(() => catalogCategories ?? [], [catalogCategories]);
-  const brandInitials = useMemo(() => toInitials(brandName), [brandName]);
+  const brandMark = useMemo(() => {
+    const trimmed = brandName?.trim() ?? "";
+    if (trimmed.length <= 6 && trimmed.length > 0) return trimmed;
+    const firstWord = trimmed.split(/\s+/).find(Boolean);
+    return firstWord && firstWord.length <= 10 ? firstWord : toInitials(brandName);
+  }, [brandName]);
 
   const translate = (key: string, fallback: string) => {
     const value = t(key);
@@ -584,14 +589,14 @@ const mobileOverlayMenu = isPortalReady
           id={mobileMenuId}
           className={cn(styles.mobileSheet, mobileMenuOpen ? styles.mobileSheetOpen : styles.mobileSheetClosed)}
         >
-          <div className={styles.mobileSheetHeader}>
-            <div className={styles.mobileSheetBrand}>
-              <span className={styles.mobileSheetMark}>{brandInitials}</span>
-              <div className={styles.mobileSheetText}>
-                <span className={styles.mobileSheetName}>{brandName}</span>
-                {tagline ? <span className={styles.mobileSheetTagline}>{tagline}</span> : null}
+            <div className={styles.mobileSheetHeader}>
+              <div className={styles.mobileSheetBrand}>
+                <span className={styles.mobileSheetMark}>{brandMark}</span>
+                <div className={styles.mobileSheetText}>
+                  <span className={styles.mobileSheetName}>{brandName}</span>
+                  {tagline ? <span className={styles.mobileSheetTagline}>{tagline}</span> : null}
+                </div>
               </div>
-            </div>
             <button
               type="button"
               className={styles.mobileSheetClose}
@@ -695,7 +700,7 @@ const mobileOverlayMenu = isPortalReady
         <div className={cn(styles.vhInner, mobileMenuOpen && styles.vhInnerExpanded)}>
           <div>
             <Link href={withLang("/", lang)} className={styles.vhBrandLink} aria-label={brandName}>
-              <span className={styles.vhBrandMark}>{brandInitials}</span>
+              <span className={styles.vhBrandMark}>{brandMark}</span>
               <span className={styles.vhBrandName}>{brandName}</span>
             </Link>
           </div>

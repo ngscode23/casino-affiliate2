@@ -673,26 +673,43 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               </div>
             ) : null}
 
-          <ProductActionPanel
-            productId={product.id}
-            title={product.title}
-            formattedPrice={formattedPrice}
-            compareAtPrice={compareAtPrice}
-            finalPrice={finalPrice}
-            priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
-            dataset={product.dataset}
-            category={product.category?.slug}
-            variantLabel={variantLabel}
-            onAddAction={onAdd}
-            analyticsParams={{
-              product_id: product.id,
-              slug: product.slug,
-              variant: variantLabel ?? undefined,
-              dataset: product.dataset,
-            }}
-            isAdmin={admin.isAdmin}
-            paymentMethods={PAYMENT_METHODS}
-          />
+            <ProductActionPanel
+              productId={product.id}
+              title={product.title}
+              formattedPrice={formattedPrice}
+              compareAtPrice={compareAtPrice}
+              finalPrice={finalPrice}
+              priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
+              dataset={product.dataset}
+              category={product.category?.slug}
+              variantLabel={variantLabel}
+              onAddAction={onAdd}
+              analyticsParams={{
+                product_id: product.id,
+                slug: product.slug,
+                variant: variantLabel ?? undefined,
+                dataset: product.dataset,
+              }}
+              isAdmin={admin.isAdmin}
+              paymentMethods={PAYMENT_METHODS}
+              availabilityCode={product.availabilityCode}
+            />
+
+            <div className={cn("pt-3 text-xs text-muted-foreground")}>
+              <span>Есть вопросы о товаре? </span>
+              <Link
+                href={{
+                  pathname: "/contact",
+                  query: {
+                    topic: "product",
+                    sku: product.sku ?? product.id,
+                  },
+                }}
+                className="font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                Связаться с консультантом
+              </Link>
+            </div>
           </div>
 
           <TrustPanel isAdmin={admin.isAdmin} clicks={admin.clicks} impressions={admin.impressions} />

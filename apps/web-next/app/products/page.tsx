@@ -10,14 +10,15 @@ import { getRecommendationsForActor } from "@/lib/recs-server";
 import type { Product } from "./types";
 
 export const metadata: Metadata = {
-  title: `${CATALOG_NAME}`,
+  title: "Каталог Neon Shop – электроника, гаджеты и аксессуары",
   description:
-    "Browse the Neon Shop catalog: discover featured gear, compare engagement stats, and zero in on the tools that fit your workflow.",
+    "Каталог Neon Shop: смартфоны, аудио, умный дом, зарядные устройства и аксессуары. Фильтры по бренду и цене, быстрая доставка.",
+  keywords: ["Neon Shop каталог", "электроника", "гаджеты", "аксессуары", "купить смартфон"],
   alternates: { canonical: "/products" },
   openGraph: {
-    title: `${CATALOG_NAME}`,
+    title: "Каталог Neon Shop – электроника и гаджеты",
     description:
-      "Browse the Neon Shop catalog: discover featured gear, compare engagement stats, and zero in on the tools that fit your workflow.",
+      "Сравнивайте и выбирайте электронику и аксессуары: подборки, рейтинги, быстрая доставка.",
     url: "/products",
   },
 };

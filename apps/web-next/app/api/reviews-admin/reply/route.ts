@@ -4,6 +4,7 @@ import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { ensureAdminToken, isUuid, json, parseReviewCompositeId } from "../utils";
 import { createReviewMessage } from "../../reviews/messages";
+import { notifyReviewReplyEmail } from "../reply-email";
 
 export async function POST(request: Request) {
   const auth = await requireAdmin(request);
@@ -139,6 +140,13 @@ export async function POST(request: Request) {
         /* ignore revalidation failures */
       }
     }
+
+    // Уведомление автора отзыва по e‑mail (учитываем notify_review_replies в профиле).
+    void notifyReviewReplyEmail({
+      reviewOwnerId: createResult.reviewOwnerId,
+      productId: createResult.productId,
+      replyBody: createResult.message.body,
+    });
 
     return json({
       ok: true,

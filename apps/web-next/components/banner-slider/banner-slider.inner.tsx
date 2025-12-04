@@ -24,6 +24,7 @@ export const BannerSliderInner = memo(function BannerSliderInner({ banners, auto
     <Swiper
       modules={[Autoplay, Pagination, A11y]}
       autoplay={autoplay}
+      speed={900}
       pagination={{ clickable: true }}
       loop={banners.length > 1}
       spaceBetween={24}

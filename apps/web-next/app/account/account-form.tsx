@@ -12,6 +12,16 @@ export default function AccountForm({ user }: { user: User | null }) {
     const [username, setUsername] = useState<string | null>(null)
     const [website, setWebsite] = useState<string | null>(null)
     const [avatar_url, setAvatarUrl] = useState<string | null>(null)
+    const [country, setCountry] = useState<string | null>(null)
+    const [language, setLanguage] = useState<string | null>(null)
+    const [timezone, setTimezone] = useState<string | null>(null)
+    const [currency, setCurrency] = useState<string | null>(null)
+    const [notifyMarketing, setNotifyMarketing] = useState<boolean>(true)
+    const [notifyProductUpdates, setNotifyProductUpdates] = useState<boolean>(true)
+    const [notifyOrderStatus, setNotifyOrderStatus] = useState<boolean>(true)
+    const [notifyReviewReplies, setNotifyReviewReplies] = useState<boolean>(true)
+    const [password, setPassword] = useState<string>("")
+    const [passwordSaving, setPasswordSaving] = useState(false)
 
     const getProfile = useCallback(async () => {
         try {
@@ -19,7 +29,7 @@ export default function AccountForm({ user }: { user: User | null }) {
 
             const { data, error, status } = await supabase
                 .from('profiles')
-                .select(`full_name, username, website, avatar_url`)
+                .select(`full_name, username, website, avatar_url, country, language, timezone, currency, notify_marketing, notify_product_updates, notify_order_status, notify_review_replies`)
                 .eq('id', user?.id)
                 .single()
 
@@ -33,6 +43,14 @@ export default function AccountForm({ user }: { user: User | null }) {
                 setUsername(data.username)
                 setWebsite(data.website)
                 setAvatarUrl(data.avatar_url)
+                setCountry(data.country ?? null)
+                setLanguage(data.language ?? null)
+                setTimezone(data.timezone ?? null)
+                setCurrency(data.currency ?? null)
+                setNotifyMarketing(data.notify_marketing ?? true)
+                setNotifyProductUpdates(data.notify_product_updates ?? true)
+                setNotifyOrderStatus(data.notify_order_status ?? true)
+                setNotifyReviewReplies(data.notify_review_replies ?? true)
             }
         } catch (error) {
             alert('Error loading user data!')
@@ -49,11 +67,27 @@ export default function AccountForm({ user }: { user: User | null }) {
         username,
         website,
         avatar_url,
+        country,
+        language,
+        timezone,
+        currency,
+        notify_marketing,
+        notify_product_updates,
+        notify_order_status,
+        notify_review_replies,
     }: {
         username: string | null
         fullname: string | null
         website: string | null
         avatar_url: string | null
+        country: string | null
+        language: string | null
+        timezone: string | null
+        currency: string | null
+        notify_marketing: boolean
+        notify_product_updates: boolean
+        notify_order_status: boolean
+        notify_review_replies: boolean
     }) {
         try {
             setLoading(true)
@@ -64,6 +98,14 @@ export default function AccountForm({ user }: { user: User | null }) {
                 username,
                 website,
                 avatar_url,
+                country,
+                language,
+                timezone,
+                currency,
+                notify_marketing,
+                notify_product_updates,
+                notify_order_status,
+                notify_review_replies,
                 updated_at: new Date().toISOString(),
             })
             if (error) throw error
@@ -77,8 +119,29 @@ export default function AccountForm({ user }: { user: User | null }) {
         }
     }
 
+    async function handlePasswordChange(e: React.FormEvent) {
+        e.preventDefault()
+        if (!password.trim()) return
+        try {
+            setPasswordSaving(true)
+            const { error } = await supabase.auth.updateUser({ password: password.trim() })
+            if (error) {
+                alert(error.message)
+                return
+            }
+            alert('Password updated')
+            setPassword('')
+        } catch (error) {
+            const msg = (error as any)?.message ?? JSON.stringify(error)
+            console.error('password update error:', error)
+            alert(`Error updating password: ${msg}`)
+        } finally {
+            setPasswordSaving(false)
+        }
+    }
+
     return (
-        <div className="surface mx-auto flex w-full max-w-xl flex-col gap-8 rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/70 p-8 shadow-card">
+        <div className="surface mx-auto flex w-full max-w-3xl flex-col gap-8 rounded-[calc(var(--radius)+1rem)] border border-border/40 bg-card/70 p-8 shadow-card">
             <div className="flex flex-col items-center gap-4 text-center">
                 <Avatar
                     uid={user?.id ?? null}
@@ -86,69 +149,222 @@ export default function AccountForm({ user }: { user: User | null }) {
                     size={150}
                     onUpload={(url) => {
                         setAvatarUrl(url)
-                        updateProfile({ fullname, username, website, avatar_url: url })
+                        updateProfile({
+                            fullname,
+                            username,
+                            website,
+                            avatar_url: url,
+                            country,
+                            language,
+                            timezone,
+                            currency,
+                            notify_marketing: notifyMarketing,
+                            notify_product_updates: notifyProductUpdates,
+                            notify_order_status: notifyOrderStatus,
+                            notify_review_replies: notifyReviewReplies,
+                        })
                     }}
                 />
                 <div className="space-y-1">
                     <p className="text-sm font-medium uppercase tracking-[0.32em] text-muted/80">Account</p>
-                    <h2 className="text-2xl font-semibold text-fg">Profile preferences</h2>
+                    <h2 className="text-2xl font-semibold text-fg">Profile & preferences</h2>
                     <p className={mutedTextSmLegacy}>
-                        Update your public information and avatar. Changes are saved instantly after upload.
+                        Update your public information, avatar and preferences. Changes are saved instantly after upload.
                     </p>
                 </div>
             </div>
-            <div className="grid gap-5">
-                <label className="grid gap-2" htmlFor="email">
-                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Email</span>
-                    <input
-                        id="email"
-                        type="text"
-                        value={user?.email ?? ''}
-                        disabled
-                        className="w-full rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-sm text-muted/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                    />
-                </label>
+            <div className="grid gap-8 md:grid-cols-2">
+                <div className="grid gap-5">
+                    <label className="grid gap-2" htmlFor="email">
+                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Email</span>
+                        <input
+                            id="email"
+                            type="text"
+                            value={user?.email ?? ''}
+                            disabled
+                            className="w-full rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-sm text-muted/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                        />
+                    </label>
 
-                <label className="grid gap-2" htmlFor="fullName">
-                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Full name</span>
-                    <input
-                        id="fullName"
-                        type="text"
-                        value={fullname || ''}
-                        onChange={(e) => setFullname(e.target.value)}
-                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
-                    />
-                </label>
+                    <label className="grid gap-2" htmlFor="fullName">
+                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Full name</span>
+                        <input
+                            id="fullName"
+                            type="text"
+                            value={fullname || ''}
+                            onChange={(e) => setFullname(e.target.value)}
+                            className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                        />
+                    </label>
 
-                <label className="grid gap-2" htmlFor="username">
-                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Username</span>
-                    <input
-                        id="username"
-                        type="text"
-                        value={username || ''}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
-                    />
-                </label>
+                    <label className="grid gap-2" htmlFor="username">
+                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Username</span>
+                        <input
+                            id="username"
+                            type="text"
+                            value={username || ''}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                        />
+                    </label>
 
-                <label className="grid gap-2" htmlFor="website">
-                    <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Website</span>
-                    <input
-                        id="website"
-                        type="url"
-                        value={website || ''}
-                        onChange={(e) => setWebsite(e.target.value)}
-                        className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
-                    />
-                </label>
+                    <label className="grid gap-2" htmlFor="website">
+                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Website</span>
+                        <input
+                            id="website"
+                            type="url"
+                            value={website || ''}
+                            onChange={(e) => setWebsite(e.target.value)}
+                            className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                        />
+                    </label>
+
+                    <div className="grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
+                            Profile locale
+                        </p>
+                        <label className="grid gap-1 text-sm" htmlFor="country">
+                            <span className="text-xs text-muted">Country</span>
+                            <input
+                                id="country"
+                                type="text"
+                                value={country || ''}
+                                onChange={(e) => setCountry(e.target.value)}
+                                placeholder="Germany, USA, ..."
+                                className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-sm" htmlFor="language">
+                            <span className="text-xs text-muted">Language</span>
+                            <input
+                                id="language"
+                                type="text"
+                                value={language || ''}
+                                onChange={(e) => setLanguage(e.target.value)}
+                                placeholder="ru-RU, en-US"
+                                className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-sm" htmlFor="timezone">
+                            <span className="text-xs text-muted">Time zone</span>
+                            <input
+                                id="timezone"
+                                type="text"
+                                value={timezone || ''}
+                                onChange={(e) => setTimezone(e.target.value)}
+                                placeholder="Europe/Berlin"
+                                className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                            />
+                        </label>
+                        <label className="grid gap-1 text-sm" htmlFor="currency">
+                            <span className="text-xs text-muted">Currency</span>
+                            <input
+                                id="currency"
+                                type="text"
+                                value={currency || ''}
+                                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                                placeholder="EUR, USD, RUB"
+                                className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                <div className="grid gap-5">
+                    <div className="grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
+                            Security
+                        </p>
+                        <form className="grid gap-3" onSubmit={handlePasswordChange}>
+                            <label className="grid gap-1 text-sm" htmlFor="newPassword">
+                                <span className="text-xs text-muted">New password</span>
+                                <input
+                                    id="newPassword"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
+                                />
+                            </label>
+                            <button
+                                type="submit"
+                                disabled={passwordSaving || !password.trim()}
+                                className="inline-flex items-center justify-center rounded-full border border-primary/60 bg-primary px-5 py-2 text-xs font-semibold text-primaryfg transition hover:-translate-y-[1px]"
+                            >
+                                {passwordSaving ? 'Saving…' : 'Change password'}
+                            </button>
+                            <p className={mutedTextSmLegacy}>
+                                Two-factor auth and social login can be added later; сейчас смена пароля работает через Supabase.
+                            </p>
+                        </form>
+                    </div>
+
+                    <div className="grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
+                            Notifications
+                        </p>
+                        <label className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-fg">Marketing & promotions</span>
+                            <input
+                                type="checkbox"
+                                checked={notifyMarketing}
+                                onChange={(e) => setNotifyMarketing(e.target.checked)}
+                            />
+                        </label>
+                        <label className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-fg">New products & updates</span>
+                            <input
+                                type="checkbox"
+                                checked={notifyProductUpdates}
+                                onChange={(e) => setNotifyProductUpdates(e.target.checked)}
+                            />
+                        </label>
+                        <label className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-fg">Order status emails</span>
+                            <input
+                                type="checkbox"
+                                checked={notifyOrderStatus}
+                                onChange={(e) => setNotifyOrderStatus(e.target.checked)}
+                            />
+                        </label>
+                        <label className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-fg">Replies to my reviews</span>
+                            <input
+                                type="checkbox"
+                                checked={notifyReviewReplies}
+                                onChange={(e) => setNotifyReviewReplies(e.target.checked)}
+                            />
+                        </label>
+                        <p className={mutedTextSmLegacy}>
+                            Эти настройки пока только сохраняются в профиле; логику рассылок можно привязать к ним позже.
+                        </p>
+                    </div>
+                </div>
             </div>
+
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <button
                     className="inline-flex items-center justify-center rounded-full border border-primary/60 bg-primary px-6 py-3 text-sm font-semibold text-primaryfg shadow-[0_24px_60px_-32px_rgba(252,50,114,0.7)] transition hover:-translate-y-[1px] hover:shadow-[0_32px_72px_-34px_rgba(252,50,114,0.82)]"
-                    onClick={() => updateProfile({ fullname, username, website, avatar_url })}
+                    onClick={() =>
+                        updateProfile({
+                            fullname,
+                            username,
+                            website,
+                            avatar_url,
+                            country,
+                            language,
+                            timezone,
+                            currency,
+                            notify_marketing: notifyMarketing,
+                            notify_product_updates: notifyProductUpdates,
+                            notify_order_status: notifyOrderStatus,
+                            notify_review_replies: notifyReviewReplies,
+                        })
+                    }
                     disabled={loading}
                 >
-                    {loading ? 'Loading ...' : 'Update profile'}
+                    {loading ? 'Loading ...' : 'Save profile changes'}
                 </button>
 
                 <form action="/auth/signout" method="post" className="w-full sm:w-auto">

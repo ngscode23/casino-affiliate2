@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import AddToCartButton from "@/app/products/components/AddToCartButton";
 import { cn } from "@shared/lib/cn";
+import { useCompare } from "@shared/ctx/CompareContext";
 import WishlistHeart from "./WishlistHeart";
 import styles from "./ProductCard/ProductCard.module.css";
 
@@ -31,6 +32,10 @@ export type ProductGridItem = {
   meta?: string | null;
   badge?: string | null;
   image?: string | null;
+  availability?: "InStock" | "OutOfStock" | "PreOrder" | null;
+  availabilityLabel?: string | null;
+  variantCount?: number | null;
+  variantLabel?: string | null;
   recMeta?: RecMeta;
 };
 
@@ -45,10 +50,17 @@ type ProductCardProps = {
 };
 
 function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImageLabel, translate }: ProductCardProps) {
+  const { toggle, isSelected } = useCompare();
+  const compareId = product.slug || product.id;
+  const inCompare = useMemo(() => isSelected(compareId), [compareId, isSelected]);
+
   const badgeLabel = getBadgeLabel(product, translate);
   const badgeClass = getBadgeClass(badgeLabel);
   const originalPrice =
     product.originalPrice && product.originalPrice !== product.price ? product.originalPrice : null;
+  const availabilityLabel =
+    product.availabilityLabel ??
+    resolveAvailabilityLabel(product.availability, translate);
   const metaItems = product.meta
     ? product.meta
         .split("\u0007")
@@ -56,7 +68,20 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
         .filter(Boolean)
     : null;
   const description = product.subtitle ?? metaItems?.[0] ?? null;
-  const supportingMeta = description && metaItems ? metaItems.slice(1) : metaItems;
+  const supportingMeta = metaItems
+    ? metaItems.filter(
+        (item) =>
+          item !== availabilityLabel &&
+          item !== product.variantLabel,
+      )
+    : null;
+  const imageAlt = product.variantLabel
+    ? `${product.title} - ${product.variantLabel}`
+    : product.title ?? "";
+
+  const compareLabel = inCompare
+    ? translate("compare.selected", "В сравнении")
+    : translate("compare.add", "Сравнить");
 
   return (
     <article aria-label={product.title} className={styles.vcCard}>
@@ -65,7 +90,7 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
           {product.image ? (
             <Image
               src={product.image}
-              alt={product.title ?? ""}
+              alt={imageAlt}
               fill
               loading={index === 0 ? "eager" : "lazy"}
               sizes="(max-width: 768px) 90vw, (max-width: 1199px) 45vw, 320px"
@@ -84,6 +109,18 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
 
         <div className={styles.vcBody}>
           <h3 className={styles.vcTitle}>{product.title}</h3>
+          <div className={styles.vcMetaRow}>
+            {availabilityLabel ? (
+              <span className={cn(styles.vcStatus, getAvailabilityClass(product.availability))}>
+                {availabilityLabel}
+              </span>
+            ) : null}
+            {product.variantCount && product.variantCount > 1 ? (
+              <span className={styles.vcVariant}>
+                {product.variantLabel ?? translate("products.variants", `${product.variantCount} options`)}
+              </span>
+            ) : null}
+          </div>
           {description ? <p className={styles.vcDescription}>{description}</p> : null}
 
           {product.price ? (
@@ -108,12 +145,36 @@ function BaseProductCard({ product, index, href, showAddToCart, addLabel, noImag
 
       {showAddToCart ? (
         <div className={styles.vcActionBar}>
+          <div className={styles.vcCompareRow}>
+            <button
+              type="button"
+              className={cn(styles.vcCompareToggle, inCompare && styles.vcCompareToggleActive)}
+              aria-pressed={inCompare}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggle({
+                  slug: product.slug,
+                  name: product.title,
+                  price: product.price,
+                  availability: availabilityLabel,
+                  availabilityCode: product.availability ?? null,
+                  image: product.image,
+                  variantLabel: product.variantLabel ?? null,
+                });
+              }}
+            >
+              <span className={styles.vcCompareDot} aria-hidden />
+              <span>{compareLabel}</span>
+            </button>
+          </div>
           <AddToCartButton
             productId={product.id}
             title={product.title ?? ""}
             label={addLabel}
             variant="soft"
             className={styles.vcAddButton}
+            availabilityCode={product.availability ?? undefined}
           />
         </div>
       ) : null}
@@ -155,4 +216,33 @@ function getBadgeClass(label: string | null): string {
     return styles.vcBadgeBest;
   }
   return styles.vcBadgeNeutral;
+}
+
+function resolveAvailabilityLabel(
+  availability: ProductGridItem["availability"],
+  translate: (key: string, fallback: string) => string,
+): string | null {
+  switch (availability) {
+    case "InStock":
+      return translate("products.availability.inStock", "In stock");
+    case "OutOfStock":
+      return translate("products.availability.outOfStock", "Out of stock");
+    case "PreOrder":
+      return translate("products.availability.preorder", "Pre-order");
+    default:
+      return null;
+  }
+}
+
+function getAvailabilityClass(availability: ProductGridItem["availability"]): string {
+  switch (availability) {
+    case "InStock":
+      return styles.vcStatusIn;
+    case "OutOfStock":
+      return styles.vcStatusOut;
+    case "PreOrder":
+      return styles.vcStatusPre;
+    default:
+      return styles.vcStatusMuted;
+  }
 }

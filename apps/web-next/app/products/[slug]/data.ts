@@ -91,7 +91,13 @@ export type ProductData = {
   techSpecs: ProductTechSpecs | null;
   variants: ProductVariantGroup[];
   shippingEstimate: string | null;
+  // Человеко-читаемый статус наличия для витрины
   availabilityLabel: string;
+  // Машино-читаемый код наличия и сырой инвентаризационный статус
+  availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
+  stockQuantity?: number | null;
+  isAvailable?: boolean | null;
+  inventoryStatus?: string | null;
   reviewSummary: ProductReviewSummary;
   recentReviews: ProductReviewPreview[];
   productUid: string | null;
@@ -208,16 +214,29 @@ function normalizeAverageRating(input: number | null | undefined, fallback = 0):
   return Number(value.toFixed(2));
 }
 
-function mapStatusToAvailability(status: string | null | undefined): "InStock" | "OutOfStock" | "PreOrder" {
-  if (!status) return "InStock";
-  const normalized = status.toLowerCase();
-  if (["sold_out", "out_of_stock", "inactive", "archived", "disabled"].includes(normalized)) {
+type AvailabilityCode = "InStock" | "OutOfStock" | "PreOrder";
+
+function normalizeStatus(value: string | null | undefined): string {
+  return (value ?? "").toString().toLowerCase();
+}
+
+function mapInventoryToAvailability(
+  inventoryStatus: string | null | undefined,
+  status: string | null | undefined,
+): AvailabilityCode {
+  const inventory = normalizeStatus(inventoryStatus);
+  const base = inventory || normalizeStatus(status);
+
+  if (!base) return "InStock";
+  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(base)) return "PreOrder";
+  if (["out_of_stock", "unavailable", "sold_out", "inactive", "archived", "disabled", "discontinued"].includes(base)) {
     return "OutOfStock";
   }
-  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(normalized)) {
-    return "PreOrder";
-  }
   return "InStock";
+}
+
+function mapStatusToAvailability(status: string | null | undefined): AvailabilityCode {
+  return mapInventoryToAvailability(null, status);
 }
 
 function ensureCurrency(currency: string | null | undefined, dataset: "shop" | "legacy"): string {
@@ -384,6 +403,10 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
 
   const dataset = (castString(row.dataset ?? row.source_dataset).toLowerCase() === "legacy" ? "legacy" : "shop") as "shop" | "legacy";
   const status = castString(row.status ?? row.product_status ?? payload.status ?? "active").trim() || "active";
+  const inventoryStatus =
+    castString(
+      (row as Record<string, unknown>).inventory_status ?? (payload as Record<string, unknown>).inventory_status ?? null,
+    ).trim() || null;
   const catalogProductRaw =
     row.catalog_product_id ??
     (payload.product as Record<string, unknown> | undefined)?.catalog_product_id ??
@@ -451,6 +474,9 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
       ? Math.round(priceCents)
       : Math.round(price * 100);
 
+  const availabilityCode = mapInventoryToAvailability(inventoryStatus, status);
+  const availabilityLabel = resolveAvailabilityLabel(status, shippingEstimate);
+
   return {
     id,
     slug,
@@ -477,7 +503,11 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     techSpecs: null,
     variants: parsed.variants,
     shippingEstimate,
-    availabilityLabel: resolveAvailabilityLabel(status, shippingEstimate),
+    availabilityLabel,
+    availabilityCode,
+    stockQuantity: null,
+    isAvailable: null,
+    inventoryStatus,
     reviewSummary,
     recentReviews,
     productUid: castString(payload.product_uid ?? row.product_uid ?? payload.uid ?? null) || null,
@@ -553,7 +583,7 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
         : Promise.resolve({ data: null, error: null } as { data: null; error: null });
       const mediaPromise = admin
         .from("products")
-        .select("images, main_image_url, image_path")
+        .select("images, main_image_url, image_path, stock_quantity, is_available, inventory_status")
         .eq("id", product.id)
         .maybeSingle();
 
@@ -568,7 +598,7 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
         error: { message?: string } | null;
       };
       const { data: mediaRow, error: mediaError } = mediaResult as {
-        data: { images?: unknown; main_image_url?: unknown; image_path?: unknown } | null;
+        data: { images?: unknown; main_image_url?: unknown; image_path?: unknown; stock_quantity?: unknown; is_available?: unknown; inventory_status?: unknown } | null;
         error: { message?: string } | null;
       };
 
@@ -593,7 +623,7 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
         product.techSpecs = normalizedSpecs;
       }
 
-      // Try to enhance gallery/main image from products.images for newly created products.
+      // Try to enhance gallery/main image and inventory info from products table for newly created products.
       if (!mediaError && mediaRow) {
         try {
           const rawImages = Array.isArray(mediaRow.images)
@@ -616,6 +646,25 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
 
           product.mainImage = mainImageCandidate;
           product.gallery = gallery;
+
+          const stockQuantity =
+            typeof mediaRow.stock_quantity === "number" && Number.isFinite(mediaRow.stock_quantity)
+              ? mediaRow.stock_quantity
+              : null;
+          const isAvailable =
+            typeof mediaRow.is_available === "boolean"
+              ? mediaRow.is_available
+              : null;
+          const inventoryStatus =
+            castString(mediaRow.inventory_status ?? product.inventoryStatus ?? null).trim() || null;
+
+          product.stockQuantity = stockQuantity;
+          product.isAvailable = isAvailable;
+          product.inventoryStatus = inventoryStatus ?? product.inventoryStatus ?? null;
+
+          const availabilityCode = mapInventoryToAvailability(product.inventoryStatus, product.status);
+          product.availabilityCode = availabilityCode;
+          product.availabilityLabel = resolveAvailabilityLabel(product.status, product.shippingEstimate);
         } catch (mediaErr) {
           if (process.env.NODE_ENV !== "production") {
             console.warn("[catalog] failed to merge products.images into gallery", mediaErr);

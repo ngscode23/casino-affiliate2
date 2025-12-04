@@ -22,7 +22,28 @@ type FetchOptions = {
   now?: string; // ISO for testing
 };
 
-export async function getActiveHero(options: FetchOptions = {}): Promise<HeroPayload | null> {
+function mapRowToHero(row: any): HeroPayload {
+  return {
+    id: row.id,
+    title: row.title,
+    eyebrow: row.eyebrow,
+    body: row.body,
+    primaryCta:
+      row.primary_cta_label && row.primary_cta_href
+        ? { label: row.primary_cta_label, href: row.primary_cta_href }
+        : null,
+    secondaryCta:
+      row.secondary_cta_label && row.secondary_cta_href
+        ? { label: row.secondary_cta_label, href: row.secondary_cta_href }
+        : null,
+    imageUrl: row.image_url,
+    imageAlt: row.image_alt,
+    theme: row.theme,
+    trackingId: row.tracking_id,
+  };
+}
+
+export async function getActiveHeroes(options: FetchOptions = {}, limit = 5): Promise<HeroPayload[]> {
   const nowIso = options.now ?? new Date().toISOString();
   const supabase = await createClient();
 
@@ -44,32 +65,21 @@ export async function getActiveHero(options: FetchOptions = {}): Promise<HeroPay
     .or(orEnd)
     .order("priority", { ascending: false })
     .order("start_at", { ascending: false })
-    .limit(1);
+    .limit(limit);
 
   if (error) {
     console.error("[hero] fetch failed", error?.message ?? error);
-    return null;
+    return [];
   }
 
-  const row = data?.[0];
-  if (!row) return null;
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
 
-  return {
-    id: row.id,
-    title: row.title,
-    eyebrow: row.eyebrow,
-    body: row.body,
-    primaryCta:
-      row.primary_cta_label && row.primary_cta_href
-        ? { label: row.primary_cta_label, href: row.primary_cta_href }
-        : null,
-    secondaryCta:
-      row.secondary_cta_label && row.secondary_cta_href
-        ? { label: row.secondary_cta_label, href: row.secondary_cta_href }
-        : null,
-    imageUrl: row.image_url,
-    imageAlt: row.image_alt,
-    theme: row.theme,
-    trackingId: row.tracking_id,
-  };
+  return data.map((row) => mapRowToHero(row));
+}
+
+export async function getActiveHero(options: FetchOptions = {}): Promise<HeroPayload | null> {
+  const heroes = await getActiveHeroes(options, 1);
+  return heroes[0] ?? null;
 }

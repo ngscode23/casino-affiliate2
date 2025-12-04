@@ -51,7 +51,8 @@ export default function CatalogProductCarousel({
     align: "start",
     loop: visibleProducts.length > 1,
     containScroll: visibleProducts.length > 2 ? "trimSnaps" : false,
-    skipSnaps: visibleProducts.length <= 2,
+    skipSnaps: false,
+    duration: 60,
   });
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);

@@ -54,8 +54,7 @@ function resolveRecipients(userEmail: string | null): { to: string[]; bcc: strin
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const sendToUser = process.env.PAYMENTS_NOTIFY_SEND_TO_USER === "1";
-  if (sendToUser && userEmail) toList.push(userEmail);
+  if (userEmail) toList.push(userEmail);
   return { to: Array.from(new Set(toList)), bcc: Array.from(new Set(bccList)) };
 }
 
@@ -68,6 +67,32 @@ async function fetchUserEmail(userId: string | null | undefined): Promise<string
     return (data?.user?.email ?? null) as string | null;
   } catch {
     return null;
+  }
+}
+
+async function shouldNotifyOrderStatus(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("notify_order_status")
+      .eq("id", userId)
+      .maybeSingle<{ notify_order_status: boolean | null }>();
+
+    if (error) {
+      // Fail-open: if профиль не найден или таблица не настроена, не блокируем рассылку.
+      return true;
+    }
+
+    if (data && data.notify_order_status === false) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    // При ошибке БД считаем, что блокировать письма не надо.
+    return true;
   }
 }
 
@@ -261,7 +286,16 @@ export async function notifyPayment(kind: PaymentNotifyKind, payload: NotifyPayl
   if (!from) return;
 
   const userEmail = await fetchUserEmail(payload.userId);
-  const { to, bcc } = resolveRecipients(userEmail);
+  let effectiveUserEmail: string | null = null;
+  const sendToUserEnv = process.env.PAYMENTS_NOTIFY_SEND_TO_USER === "1";
+  if (sendToUserEnv && userEmail) {
+    const wantsOrderStatus = await shouldNotifyOrderStatus(payload.userId);
+    if (wantsOrderStatus) {
+      effectiveUserEmail = userEmail;
+    }
+  }
+
+  const { to, bcc } = resolveRecipients(effectiveUserEmail);
   if (to.length === 0) return;
 
   const subject = makeSubject(kind, payload.orderId);

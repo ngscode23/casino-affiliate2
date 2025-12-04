@@ -220,12 +220,27 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     if (!container) return;
     const card = container.querySelector<HTMLElement>("[data-carousel-card]");
     const gap = 16;
-    const distance = card ? card.offsetWidth + gap : container.clientWidth * 0.85;
-    container.scrollBy({
-      left: direction === "next" ? distance : -distance,
-      behavior: "smooth",
-    });
-  }, []);
+    const delta = card ? card.offsetWidth + gap : container.clientWidth * 0.85;
+    const target = container.scrollLeft + (direction === "next" ? delta : -delta);
+    const start = container.scrollLeft;
+    const distance = target - start;
+    const duration = 700;
+    let startTs: number | null = null;
+
+    const step = (ts: number) => {
+      if (startTs === null) startTs = ts;
+      const elapsed = Math.min(1, (ts - startTs) / duration);
+      const ease = 0.5 * (1 - Math.cos(Math.PI * elapsed)); // easeInOut
+      container.scrollLeft = start + distance * ease;
+      if (elapsed < 1) {
+        requestAnimationFrame(step);
+      } else {
+        updateNavState();
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, [updateNavState]);
 
   if (state.loading) {
     return (
@@ -350,3 +365,4 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     </section>
   );
 }
+

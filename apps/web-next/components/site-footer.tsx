@@ -2,7 +2,6 @@
 import { mutedTextSmLegacy } from "@/styles/classnames";
 
 import Link from "next/link";
-import { useState } from "react";
 import { siteConfig } from "../lib/site-config";
 import { useT } from "@shared/lib/useT";
 import LanguageSwitcher from "@ui/components/layout/LanguageSwitcher";
@@ -59,19 +58,6 @@ export function SiteFooter() {
     return item.label;
   };
 
-  const [optOutStatus, setOptOutStatus] = useState<"idle" | "working" | "done" | "error">("idle");
-  const handleOptOut = async () => {
-    if (optOutStatus === "working") return;
-    setOptOutStatus("working");
-    try {
-      const res = await fetch("/api/profile", { method: "DELETE" });
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      setOptOutStatus("done");
-    } catch {
-      setOptOutStatus("error");
-    }
-  };
-
   return (
     <footer className="mt-14">
       <div className="rounded-[28px] border border-border/35 bg-card/92 px-6 py-8 shadow-soft sm:px-9 sm:py-10">
@@ -114,17 +100,6 @@ export function SiteFooter() {
               {legalLinks.map((item) => (
                 <div key={item.href}>{renderLink(item.href, item.label)}</div>
               ))}
-              <button
-                type="button"
-                onClick={handleOptOut}
-                className="text-left text-sm text-muted transition hover:text-primary disabled:opacity-60"
-                disabled={optOutStatus === "working" || optOutStatus === "done"}
-              >
-                {optOutStatus === "done" ? "Персонализация отключена" : "Отключить персонализацию"}
-              </button>
-              {optOutStatus === "error" ? (
-                <div className="text-xs text-red-400">Не удалось выполнить запрос, попробуйте ещё раз.</div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -137,3 +112,4 @@ export function SiteFooter() {
     </footer>
   );
 }
+

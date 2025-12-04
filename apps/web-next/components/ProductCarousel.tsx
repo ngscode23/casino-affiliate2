@@ -94,9 +94,10 @@ export default function ProductCarousel({
 
   const [viewportRef, emblaApi] = useEmblaCarousel({
     align: "start",
-    loop: products.length > 3,
+    loop: products.length > 1,
     containScroll: "trimSnaps",
-    dragFree: true,
+    dragFree: false,
+    duration: 60,
   });
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
