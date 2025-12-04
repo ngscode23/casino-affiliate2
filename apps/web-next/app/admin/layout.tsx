@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
 import { AdminProviders } from "@/components/admin/admin-providers";
+
+export const metadata: Metadata = {
+  title: "Admin | Neon Shop",
+  robots: { index: false, follow: true },
+};
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   // Force dark theme within the admin subtree regardless of global theme

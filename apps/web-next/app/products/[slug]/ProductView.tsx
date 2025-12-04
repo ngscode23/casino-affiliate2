@@ -557,9 +557,11 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
           <ProductGallery
             title={product.title}
             images={gallery}
-            fallbackImage={product.fallbackImage}
+            fallbackImage={product.fallbackImage ?? "/logo.png"}
             activeImage={activeImage}
-            onActiveChangeAction={(_, idx) => handleGalleryChange(gallery[idx] ?? product.fallbackImage)}
+            onActiveChangeAction={(_, idx) =>
+              handleGalleryChange(gallery[idx] ?? product.fallbackImage ?? "/logo.png")
+            }
           />
         </div>
 

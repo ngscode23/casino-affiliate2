@@ -3,12 +3,12 @@ import { getAdminClient } from "@/utils/supabase/admin";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductTechSpecs } from "@/lib/catalog/product-tech-specs";
 import { normalizeProductTechSpecs } from "@/lib/catalog/product-tech-specs";
-import { getFallbackImageByKey } from "../fallback-images";
 import { formatCurrency } from "../currency";
 import { resolveCurrency, resolvePriceDetails } from "../price-utils";
 
 const PRODUCT_IMAGE_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET?.trim() || "product-images";
 const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+let derivedSupabaseOrigin: string | null = SUPABASE_ORIGIN || null;
 const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
 
 export const PRODUCT_PAGE_REVALIDATE_SECONDS = 1;
@@ -80,7 +80,7 @@ export type ProductData = {
   formattedPrice: string;
   gallery: string[];
   mainImage: string;
-  fallbackImage: string;
+  fallbackImage: string | null;
   dataset: "shop" | "legacy";
   status: string;
   sku?: string | null;
@@ -107,14 +107,17 @@ export type ProductData = {
 };
 
 function toStoragePublicUrl(path: string | null | undefined): string | null {
-  if (!path || !SUPABASE_ORIGIN) return null;
+  if (!path) return null;
+  const origin = derivedSupabaseOrigin || SUPABASE_ORIGIN;
+  if (!origin) return null;
+
   const normalized = path.replace(/^\/+/, "");
   const encodedPath = normalized
     .split("/")
     .filter(Boolean)
     .map(encodeURIComponent)
     .join("/");
-  return `${SUPABASE_ORIGIN}/storage/v1/object/public/${encodeURIComponent(PRODUCT_IMAGE_BUCKET)}/${encodedPath}`;
+  return `${origin}/storage/v1/object/public/${encodeURIComponent(PRODUCT_IMAGE_BUCKET)}/${encodedPath}`;
 }
 
 export function normalizeImageUrl(input: string | null | undefined): string | null {
@@ -122,6 +125,9 @@ export function normalizeImageUrl(input: string | null | undefined): string | nu
   if (/^https?:/i.test(input)) {
     try {
       const parsed = new URL(input);
+      if (!derivedSupabaseOrigin && parsed.hostname.endsWith(".supabase.co")) {
+        derivedSupabaseOrigin = `${parsed.protocol}//${parsed.host}`;
+      }
       if (BLOCKED_REMOTE_IMAGE_HOSTS.has(parsed.hostname) || parsed.hostname.endsWith(".example.com")) {
         return null;
       }
@@ -194,7 +200,7 @@ function dedupe<T>(values: T[]): T[] {
   return result;
 }
 
-function mergeGallery(mainImage: string | null, extras: string[], fallback: string): string[] {
+function mergeGallery(mainImage: string | null, extras: string[], fallback: string | null): string[] {
   const base = dedupe([mainImage, ...extras].filter(Boolean) as string[]);
   if (base.length) {
     return base;
@@ -429,6 +435,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
 
   const gallerySources: string[] = [];
   gallerySources.push(...toStringArray(payload.gallery_urls ?? row.gallery_urls ?? row.gallery));
+  gallerySources.push(...toStringArray(row.images ?? payload.images ?? []));
   gallerySources.push(castString(row.main_image_url ?? row.image_url ?? payload.main_image_url ?? ""));
   gallerySources.push(castString(row.image_path ?? payload.image_path ?? ""));
   const normalizedGallery = dedupe(
@@ -438,9 +445,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   );
 
   const primaryImage = resolveThumbnail(row);
-  const fallbackImage =
-    normalizeImageUrl(castString(payload.fallback_image ?? row.fallback_image ?? "")) ||
-    getFallbackImageByKey(id);
+  const fallbackImage = normalizeImageUrl(castString(payload.fallback_image ?? row.fallback_image ?? "")) || null;
   const mainImage = primaryImage ?? normalizedGallery[0] ?? fallbackImage;
   const gallery = mergeGallery(mainImage, normalizedGallery.slice(1), fallbackImage);
 
@@ -642,9 +647,14 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
           );
 
           const mainImageCandidate = normalizedGallery[0] ?? product.mainImage ?? product.fallbackImage;
-          const gallery = mergeGallery(mainImageCandidate, normalizedGallery.slice(1), product.fallbackImage);
+          // Keep any images we already had from the RPC while adding media table images.
+          const extraImages = dedupe([
+            ...normalizedGallery.slice(1),
+            ...product.gallery.filter((url) => url !== mainImageCandidate),
+          ]);
+          const gallery = mergeGallery(mainImageCandidate, extraImages, product.fallbackImage);
 
-          product.mainImage = mainImageCandidate;
+          product.mainImage = mainImageCandidate ?? product.mainImage;
           product.gallery = gallery;
 
           const stockQuantity =
@@ -668,6 +678,43 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
         } catch (mediaErr) {
           if (process.env.NODE_ENV !== "production") {
             console.warn("[catalog] failed to merge products.images into gallery", mediaErr);
+          }
+        }
+      }
+
+      // Ultimate fallback: if галерея до сих пор пустая — попробуем взять изображения прямо из ecom_products
+      if (!product.gallery.length) {
+        try {
+          const { data: rawProduct } = await admin
+            .from("ecom_products")
+            .select("images, main_image_url, image_path")
+            .eq("id", product.id)
+            .maybeSingle();
+          if (rawProduct) {
+            const gallerySources: string[] = [];
+            gallerySources.push(...toStringArray(rawProduct.images ?? []));
+            gallerySources.push(castString(rawProduct.main_image_url ?? ""));
+            gallerySources.push(castString(rawProduct.image_path ?? ""));
+
+            const normalizedGallery = dedupe(
+              gallerySources
+                .map((value) => normalizeImageUrl(value))
+                .filter((value): value is string => Boolean(value)),
+            );
+
+            const mainImageCandidate = normalizedGallery[0] ?? product.mainImage ?? product.fallbackImage;
+            const extraImages = dedupe([
+              ...normalizedGallery.slice(1),
+              ...product.gallery.filter((url) => url !== mainImageCandidate),
+            ]);
+            const gallery = mergeGallery(mainImageCandidate, extraImages, product.fallbackImage);
+
+            product.mainImage = mainImageCandidate ?? product.mainImage;
+            product.gallery = gallery;
+          }
+        } catch (fallbackErr) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[catalog] fallback fetch from ecom_products failed", fallbackErr);
           }
         }
       }
@@ -717,7 +764,7 @@ export async function fetchSimilarProducts(
       .limit(limit);
     if (error || !data) return [];
     return data.map((row) => {
-      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? null;
       const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       return {
         id: String(row.id ?? ""),
@@ -745,11 +792,11 @@ export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise
       .in("slug", unique)
       .in("status", ["active", "published"]);
     if (error || !data) return [];
-    const bySlug = new Map<string, ProductGridItem>();
+ const bySlug = new Map<string, ProductGridItem>();
     for (const row of data) {
       const slug = String(row.slug ?? "");
       if (!slug) continue;
-      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? getFallbackImageByKey(row.id ?? "");
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? null;
       const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
       bySlug.set(slug, {
         id: String(row.id ?? ""),

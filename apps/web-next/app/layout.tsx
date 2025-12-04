@@ -7,11 +7,12 @@ import "../styles/vite-bridge.css";
 import { SiteLayout } from "../components/site-layout";
 import { siteConfig } from "../lib/site-config";
 import { openAISans } from "./fonts";
+const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
+
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
-  // базовый origin для canonical и OG
-  metadataBase: new URL(process.env.NEXT_SITE_URL?.replace(/\/$/, "") || "https://example.com"),
+  metadataBase: new URL(siteOrigin || "https://neon4.vercel.app"),
   openGraph: {
     siteName: siteConfig.name,
     type: "website",
@@ -43,4 +44,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+
 

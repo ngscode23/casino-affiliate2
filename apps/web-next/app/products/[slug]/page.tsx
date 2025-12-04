@@ -91,11 +91,10 @@ function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
 }
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { slug: string } }
 ): Promise<Metadata> {
-  const { slug } = await params;
-  const origin = (process.env.NEXT_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "")
-    .replace(/\/$/, "");
+  const { slug } = params;
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
   const brand = siteConfig.name || "Neon Shop";
   const category = await fetchCatalogCategoryBySlug(slug);
 
@@ -104,21 +103,21 @@ export async function generateMetadata(
     const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
     const description =
       category.description?.slice(0, 180) ??
-      `Каталог раздела «${category.title}»: подборки, фильтры и популярные товары.`;
+      `Подборка товаров «${category.title}»: отсортируйте по популярности, цене или рейтингу и найдите актуальные предложения.`;
 
     return {
-      title: category.title,
+      title: `${category.title} | Каталог Neon Shop`,
       description,
       alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
-        title: category.title,
+        title: `${category.title} | Каталог Neon Shop`,
         description,
         url: canonicalUrl,
       },
       twitter: {
         card: "summary_large_image",
-        title: category.title,
+        title: `${category.title} | Каталог Neon Shop`,
         description,
       },
     };
@@ -133,12 +132,12 @@ export async function generateMetadata(
     const cover = product.gallery.length ? product.gallery[0] : null;
 
     return {
-      title: product.title,
+      title: `${product.title} | Купить в Neon Shop`,
       description: description.slice(0, 160),
       alternates: { canonical: canonicalUrl },
       openGraph: {
         type: "website",
-        title: product.title,
+        title: `${product.title} | Купить в Neon Shop`,
         description,
         url: canonicalUrl,
         siteName: brand,
@@ -146,7 +145,7 @@ export async function generateMetadata(
       },
       twitter: {
         card: "summary_large_image",
-        title: product.title,
+        title: `${product.title} | Купить в Neon Shop`,
         description,
         images: cover ? [cover] : undefined,
       },
@@ -154,19 +153,15 @@ export async function generateMetadata(
   }
 
   return { title: `Товар не найден | ${brand}` };
-}
-
-export default async function ProductPage({
+}export default async function ProductPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams ?? Promise.resolve({}),
-  ]);
+  const resolvedSearchParams = await (searchParams ?? Promise.resolve({}));
+  const { slug } = params;
 
   const category = await fetchCatalogCategoryBySlug(slug);
 
@@ -283,4 +278,8 @@ async function renderCategoryListing(
     </div>
   );
 }
+
+
+
+
 

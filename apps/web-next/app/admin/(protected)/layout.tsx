@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 import { createClient } from "@/utils/supabase/server";
 import { AdminShell } from "@/components/admin/admin-shell";
+
+export const metadata: Metadata = {
+  title: "Admin | Neon Shop",
+  robots: { index: false, follow: true },
+};
 
 
 async function currentAdminPath(): Promise<string> {

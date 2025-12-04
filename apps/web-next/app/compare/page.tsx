@@ -350,13 +350,19 @@ export default async function ComparePage({
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative h-14 w-14 overflow-hidden rounded-xl bg-muted/40">
-                            <Image
-                              src={product.mainImage || product.fallbackImage}
-                              alt={product.title}
-                              fill
-                              sizes="56px"
-                              className="object-cover"
-                            />
+                            {/** Ensure Next/Image gets a non-null source */}
+                            {(() => {
+                              const imageSrc = product.mainImage || product.fallbackImage || "/logo.png";
+                              return (
+                                <Image
+                                  src={imageSrc}
+                                  alt={product.title}
+                                  fill
+                                  sizes="56px"
+                                  className="object-cover"
+                                />
+                              );
+                            })()}
                           </div>
                           <div className="space-y-1">
                             <Link
