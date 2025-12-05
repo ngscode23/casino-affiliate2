@@ -67,15 +67,12 @@ export async function POST(request: Request) {
 
   // log activity (best-effort)
   try {
-    await supabase.from("user_activity").insert(
-      {
-        user_id: user.id,
-        product_id: productId,
-        type: "favorite_add",
-        payload: { source: "api/account/favorites" },
-      },
-      { returning: "minimal" },
-    );
+    await supabase.from("user_activity").insert({
+      user_id: user.id,
+      product_id: productId,
+      type: "favorite_add",
+      payload: { source: "api/account/favorites" },
+    });
   } catch {
     /* ignore logging error */
   }
@@ -103,15 +100,12 @@ export async function DELETE(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   try {
-    await supabase.from("user_activity").insert(
-      {
-        user_id: user.id,
-        product_id: productId,
-        type: "favorite_remove",
-        payload: { source: "api/account/favorites" },
-      },
-      { returning: "minimal" },
-    );
+    await supabase.from("user_activity").insert({
+      user_id: user.id,
+      product_id: productId,
+      type: "favorite_remove",
+      payload: { source: "api/account/favorites" },
+    });
   } catch {
     /* ignore logging error */
   }
