@@ -83,7 +83,6 @@ export function WishlistHeart({
             const msg = await res.text().catch(() => res.statusText);
             if (res.status === 401 || res.status === 403) {
               // not logged in or blocked by RLS
-              // eslint-disable-next-line no-console
               console.warn("Favorites requires login:", msg || res.status);
               setActive(false);
               if (typeof window !== "undefined") {
@@ -104,7 +103,6 @@ export function WishlistHeart({
           if (!res.ok) {
             const msg = await res.text().catch(() => res.statusText);
             if (res.status === 401 || res.status === 403) {
-              // eslint-disable-next-line no-console
               console.warn("Favorites requires login:", msg || res.status);
               setActive(!nextState); // keep previous state
               if (typeof window !== "undefined") {
@@ -122,7 +120,6 @@ export function WishlistHeart({
       } catch {
         // keep UX simple: roll back state and log for debugging
         setActive(!nextState); // rollback on failure
-        // eslint-disable-next-line no-console
         console.warn("Failed to update favorites, request rolled back");
       }
     };
