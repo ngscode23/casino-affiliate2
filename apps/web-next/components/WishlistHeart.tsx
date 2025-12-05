@@ -4,30 +4,9 @@ import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { Heart } from "lucide-react";
 import { cn } from "@shared/lib/cn";
 
-const LS_KEY = "ecom:wishlist";
-
-function readIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter((x) => typeof x === "string");
-    if (parsed && Array.isArray(parsed.ids)) return parsed.ids.filter((x: unknown) => typeof x === "string");
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function writeIds(ids: string[]) {
-  try {
-    // keep shape compatible with existing provider
-    localStorage.setItem(LS_KEY, JSON.stringify({ ids }));
-  } catch {
-    /* ignore */
-  }
-}
+// shared cache per page load to avoid multiple GETs
+let favoritesCache: string[] | null = null;
+let favoritesPromise: Promise<string[]> | null = null;
 
 export function WishlistHeart({
   productId,
@@ -44,41 +23,111 @@ export function WishlistHeart({
 }) {
   const pid = String(productId);
   const [active, setActive] = useState<boolean>(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // simple in-memory cache to avoid N GETs for N hearts
+  // shared across component instances on the page
+  const loadFavorites = useCallback(async (): Promise<string[]> => {
+    if (favoritesCache) return favoritesCache;
+    if (favoritesPromise) return favoritesPromise;
+    favoritesPromise = fetch("/api/account/favorites", { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        const json = (await res.json()) as { items?: Array<{ product_id: string }> };
+        favoritesCache = (json.items ?? []).map((i) => i.product_id);
+        return favoritesCache;
+      })
+      .catch(() => {
+        favoritesCache = [];
+        return favoritesCache;
+      })
+      .finally(() => {
+        favoritesPromise = null;
+      });
+    return favoritesPromise;
+  }, []);
 
   useEffect(() => {
-    setActive(readIds().includes(pid));
-  }, [pid]);
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key !== LS_KEY) return;
-      setActive(readIds().includes(pid));
-    };
-    const onCustom = () => {
-      setActive(readIds().includes(pid));
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("wishlist:update", onCustom);
+    let mounted = true;
+    loadFavorites()
+      .then((ids) => {
+        if (!mounted) return;
+        setActive(ids.includes(pid));
+      })
+      .finally(() => {
+        if (mounted) setHydrated(true);
+      });
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("wishlist:update", onCustom);
+      mounted = false;
     };
-  }, [pid]);
+  }, [loadFavorites, pid]);
 
   const onClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {
     // prevent navigation when placed inside links
     e.preventDefault();
     e.stopPropagation();
-    const cur = readIds();
-    const next = cur.includes(pid) ? cur.filter((x) => x !== pid) : [...cur, pid];
-    writeIds(next);
-    setActive(next.includes(pid));
-    try {
-      window.dispatchEvent(new CustomEvent("wishlist:update", { detail: { ids: next } }));
-    } catch {
-      /* ignore */
-    }
-  }, [pid]);
+    const nextState = !active;
+    setActive(nextState);
+    const controller = new AbortController();
+    const push = async () => {
+      try {
+        if (nextState) {
+          const res = await fetch("/api/account/favorites", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ product_id: pid }),
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => res.statusText);
+            if (res.status === 401 || res.status === 403) {
+              // not logged in or blocked by RLS
+              // eslint-disable-next-line no-console
+              console.warn("Favorites requires login:", msg || res.status);
+              setActive(false);
+              if (typeof window !== "undefined") {
+                const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/login?redirect=${redirect}`;
+              }
+              return;
+            }
+            throw new Error(`POST /favorites ${res.status}: ${msg}`);
+          }
+          favoritesCache = Array.from(new Set([...(favoritesCache ?? []), pid]));
+        } else {
+          const res = await fetch(`/api/account/favorites?product_id=${encodeURIComponent(pid)}`, {
+            method: "DELETE",
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const msg = await res.text().catch(() => res.statusText);
+            if (res.status === 401 || res.status === 403) {
+              // eslint-disable-next-line no-console
+              console.warn("Favorites requires login:", msg || res.status);
+              setActive(!nextState); // keep previous state
+              if (typeof window !== "undefined") {
+                const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/login?redirect=${redirect}`;
+              }
+              return;
+            }
+            throw new Error(`DELETE /favorites ${res.status}: ${msg}`);
+          }
+          if (favoritesCache) {
+            favoritesCache = favoritesCache.filter((id) => id !== pid);
+          }
+        }
+      } catch {
+        // keep UX simple: roll back state and log for debugging
+        setActive(!nextState); // rollback on failure
+        // eslint-disable-next-line no-console
+        console.warn("Failed to update favorites, request rolled back");
+      }
+    };
+    void push();
+  }, [active, pid]);
 
   return (
     <button
@@ -91,6 +140,7 @@ export function WishlistHeart({
         active ? "text-primary" : "text-muted hover:text-primary",
         className,
       )}
+      disabled={!hydrated}
     >
       <Heart
         style={{ width: size, height: size }}

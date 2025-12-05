@@ -110,14 +110,15 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Canonicalize product URLs: strip trailing slash
       {
-        source: "/admin/cms",
-        destination: "https://YOUR_CMS_SUBDOMAIN",
+        source: "/products/:slug*/",
+        destination: "/products/:slug*",
         permanent: true,
       },
       {
-        source: "/admin/cms/:path*",
-        destination: "https://YOUR_CMS_SUBDOMAIN/:path*",
+        source: "/products/",
+        destination: "/products",
         permanent: true,
       },
     ];

@@ -233,6 +233,11 @@ const NAV_PANEL_PRESETS: Record<string, PanelBuilder> = {
         description: translate("nav.accountOrdersDesc", "Track packages, download PDF"),
       },
       {
+        label: translate("nav.accountFavorites", "Favorites"),
+        href: "/account/favorites",
+        description: translate("nav.accountFavoritesDesc", "Saved items in one place"),
+      },
+      {
         label: translate("nav.accountReviews", "My reviews"),
         href: "/account/reviews",
         description: translate("nav.accountReviewsDesc", "Rate purchases & earn perks"),

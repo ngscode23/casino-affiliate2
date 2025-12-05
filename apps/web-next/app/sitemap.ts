@@ -4,7 +4,6 @@ import type { MetadataRoute } from "next";
 import { getAdminClient } from "@/utils/supabase/admin";
 
 const PRODUCT_LIMIT = 5000;
-const CATEGORY_LIMIT = 2000;
 const PUBLIC_DATASET = "shop";
 const PUBLIC_STATUSES = new Set(["published", "active"]);
 const BLOCKED_SLUG_PATTERN = /^(?:admin|test|draft)/i;
@@ -26,13 +25,7 @@ type ProductMetaRow = {
   created_at: string | null;
 };
 
-type CategoryRow = {
-  slug: string | null;
-  is_active: boolean | null;
-};
-
 type TimestampMap = Map<string, number>;
-type CategoryTimestampMap = TimestampMap;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = resolveOrigin();
@@ -46,11 +39,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return entries;
   }
 
-  const { productEntries, categoryLastModified } = await fetchProductEntries(supabase, origin);
+  const productEntries = await fetchProductEntries(supabase, origin);
   entries.push(...productEntries);
 
-  const categoryEntries = await fetchCategoryEntries(supabase, origin, categoryLastModified);
-  entries.push(...categoryEntries);
+  // Category landing pages by query (?category=) create duplicate URLs; skip them in sitemap.
+  // Google will reach category views via internal links.
 
   return entries;
 }
@@ -68,7 +61,6 @@ function buildStaticEntries(origin: string): MetadataRoute.Sitemap {
   return [
     { url: `${origin}/`, priority: 1, changeFrequency: "weekly" },
     { url: `${origin}/products`, priority: 0.8, changeFrequency: "daily" },
-    { url: `${origin}/wishlist`, priority: 0.6, changeFrequency: "weekly" },
     { url: `${origin}/contact`, priority: 0.5, changeFrequency: "monthly" },
     { url: `${origin}/affiliate`, priority: 0.5, changeFrequency: "monthly" },
   ];
@@ -76,7 +68,6 @@ function buildStaticEntries(origin: string): MetadataRoute.Sitemap {
 
 async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string) {
   const productEntries: MetadataRoute.Sitemap = [];
-  const categoryLastModified: CategoryTimestampMap = new Map();
 
   const { data, error } = await supabase
     .from("product_with_discount_with_dataset")
@@ -87,13 +78,22 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
 
   if (error) {
     console.error("[sitemap] failed to load products", error);
-    return { productEntries, categoryLastModified };
+    return productEntries;
   }
 
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
   const idList = rows.map((row) => row?.id).filter((value): value is string => Boolean(value));
   const metaMap = await fetchProductMeta(supabase, idList);
-  const catalogUpdateMap = await fetchCatalogUpdates(supabase, Array.from(new Set(Array.from(metaMap.values()).map((row) => row.catalog_product_id).filter((value): value is string => Boolean(value)))));
+  const catalogUpdateMap = await fetchCatalogUpdates(
+    supabase,
+    Array.from(
+      new Set(
+        Array.from(metaMap.values())
+          .map((row) => row.catalog_product_id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ),
+  );
   const stockUpdateMap = await fetchStockUpdates(supabase, idList);
 
   const seenSlugs = new Set<string>();
@@ -114,15 +114,6 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
     const lastModified = resolveProductLastModified(row, meta, stockUpdateMap, catalogUpdateMap);
     if (!lastModified) continue;
 
-    const categorySlug = normalizeSlug(row.category_slug);
-    if (categorySlug) {
-      const current = categoryLastModified.get(categorySlug);
-      const timestamp = lastModified.getTime();
-      if (!current || timestamp > current) {
-        categoryLastModified.set(categorySlug, timestamp);
-      }
-    }
-
     productEntries.push({
       url: `${origin}/products/${encodeURIComponent(slug)}`,
       changeFrequency: "weekly",
@@ -130,7 +121,7 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
     });
   }
 
-  return { productEntries, categoryLastModified };
+  return productEntries;
 }
 
 function normalizeStatus(value: string | null | undefined): string {
@@ -248,46 +239,6 @@ function resolveProductLastModified(
   }
   if (!candidates.length) return undefined;
   return new Date(Math.max(...candidates));
-}
-
-async function fetchCategoryEntries(
-  supabase: SupabaseAdminClient,
-  origin: string,
-  categoryLastModified: CategoryTimestampMap,
-) {
-  const categoryEntries: MetadataRoute.Sitemap = [];
-  const { data, error } = await supabase
-    .from("categories")
-    .select("slug, is_active")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("title", { ascending: true })
-    .limit(CATEGORY_LIMIT);
-
-  if (error) {
-    console.error("[sitemap] failed to load categories", error);
-    return categoryEntries;
-  }
-
-  const seenSlugs = new Set<string>();
-  const rows = Array.isArray(data) ? (data as CategoryRow[]) : [];
-
-  for (const row of rows) {
-    if (!row) continue;
-    if (!row.is_active) continue;
-    const slug = normalizeSlug(row.slug);
-    if (!slug || seenSlugs.has(slug)) continue;
-    seenSlugs.add(slug);
-
-    const lastModifiedTimestamp = categoryLastModified.get(slug);
-    categoryEntries.push({
-      url: `${origin}/products?category=${encodeURIComponent(slug)}`,
-      changeFrequency: "weekly",
-      lastModified: typeof lastModifiedTimestamp === "number" ? new Date(lastModifiedTimestamp) : undefined,
-    });
-  }
-
-  return categoryEntries;
 }
 
 function normalizeSlug(value: string | null | undefined): string | null {
