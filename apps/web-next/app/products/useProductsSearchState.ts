@@ -85,7 +85,7 @@ function sanitizeState(state: ProductsSearchState): ProductsSearchState {
   const priceMax = clampPrice(state.priceMax);
   const normalizedMin = normalizeRating(state.minRating);
 
-  let finalMin = priceMin;
+  const finalMin = priceMin;
   let finalMax = priceMax;
   if (finalMin != null && finalMax != null && finalMax < finalMin) {
     finalMax = finalMin;

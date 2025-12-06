@@ -36,8 +36,7 @@ export function useUrlSearchState<T>({ initialState, parse, serialize, mode = "r
       setState(next);
       isApplyingFromUrl.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, parse, initialState, state]);
 
   // при изменении state синхронизируем в URL
   useEffect(() => {
@@ -53,8 +52,7 @@ export function useUrlSearchState<T>({ initialState, parse, serialize, mode = "r
     } else {
       router.replace(href, { scroll: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  }, [state, serialize, router]);
 
   const update = useCallback((partial: Partial<T>, opts?: { mode?: "push" | "replace" }) => {
     if (opts?.mode) {

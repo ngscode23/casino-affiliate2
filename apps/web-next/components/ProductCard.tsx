@@ -210,7 +210,7 @@ function buildBlurDataURL(src?: string | null): string | undefined {
   if (src.startsWith("data:")) return src;
   // Generate a tiny blurred derivative via CDN/query params; fallback to a tiny inline placeholder.
   const separator = src.includes("?") ? "&" : "?";
-  return `${src}${separator}auto=format&fit=crop&w=24&h=24&blur=20&q=30` || BLUR_DATA_URL;
+  return `${src}${separator}auto=format&fit=crop&w=24&h=24&blur=20&q=30`;
 }
 
 function getBadgeLabel(
