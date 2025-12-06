@@ -112,7 +112,7 @@ export default function ProductCompareBar() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth">
           {items.map((item) => (
             <div
               key={item.id}
@@ -154,4 +154,3 @@ export default function ProductCompareBar() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { HeroPayload } from "@/lib/hero";
@@ -9,12 +9,25 @@ type HeroSliderProps = {
   heroes: HeroPayload[];
 };
 
+const BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PQ8lWAAAAABJRU5ErkJggg==";
+
 /**
  * Hero slider with smooth slide animation between banners.
  */
 export function HeroSlider({ heroes }: HeroSliderProps) {
   const [index, setIndex] = useState(0);
   const count = heroes.length;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (event: MediaQueryListEvent | MediaQueryList) => setReduceMotion(event.matches);
+    handler(mql);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   const hasMultiple = count > 1;
 
@@ -38,13 +51,32 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
   if (count === 0) return null;
 
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 text-white shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] sm:px-10 lg:py-20">
+    <section
+      className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 text-white shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] sm:px-10 lg:py-20"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Featured stories"
+      aria-live="off"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          handlePrev();
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          handleNext();
+        }
+      }}
+    >
       <div className="relative overflow-hidden">
         <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${index * 100}%)` }}
+          className="flex transition-transform ease-out"
+          style={{
+            transform: `translateX(-${index * 100}%)`,
+            transitionDuration: reduceMotion ? "0ms" : "500ms",
+          }}
         >
-          {heroes.map((hero) => (
+          {heroes.map((hero, heroIndex) => (
             <div key={hero.id} className="min-w-full">
               <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_minmax(0,0.9fr)]">
                 <div className="space-y-6">
@@ -86,7 +118,11 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1280px) 60vw, 640px"
                         className="object-contain"
-                        priority
+                        priority={heroIndex === 0}
+                        loading={heroIndex === 0 ? "eager" : "lazy"}
+                        quality={heroIndex === 0 ? 70 : 55}
+                        placeholder="blur"
+                        blurDataURL={buildBlurDataURL(hero.imageUrl)}
                       />
                     </div>
                   </div>
@@ -130,4 +166,11 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
       </div>
     </section>
   );
+}
+
+function buildBlurDataURL(src?: string | null): string {
+  if (!src) return BLUR_DATA_URL;
+  if (src.startsWith("data:")) return src;
+  const separator = src.includes("?") ? "&" : "?";
+  return `${src}${separator}auto=format&fit=crop&w=32&h=24&blur=18&q=30`;
 }

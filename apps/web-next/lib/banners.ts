@@ -3,6 +3,7 @@
 import { cache } from "react";
 import { HAS_SUPABASE } from "@shared/config";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { safeQuery } from "./db/safeQuery";
 
 export type BannerRecord = {
   id: string;
@@ -95,16 +96,16 @@ export const getActiveBanners = cache(async (): Promise<BannerRecord[]> => {
   const nowIso = new Date().toISOString();
   try {
     const supabase = getAdminClient();
-    const { data, error } = await supabase
-      .from("banners")
-      .select(
-        "id, title, subtitle, image_url, href, priority, active_from, active_to, is_active",
-      )
-      .eq("is_active", true)
-      .or(`active_from.is.null,active_from.lte.${nowIso}`)
-      .or(`active_to.is.null,active_to.gte.${nowIso}`)
-      .order("priority", { ascending: false })
-      .order("id", { ascending: false });
+    const { data, error } = await safeQuery(
+      supabase
+        .from("banners")
+        .select("id, title, subtitle, image_url, href, priority, active_from, active_to, is_active")
+        .eq("is_active", true)
+        .or(`active_from.is.null,active_from.lte.${nowIso}`)
+        .or(`active_to.is.null,active_to.gte.${nowIso}`)
+        .order("priority", { ascending: false })
+        .order("id", { ascending: false }) as unknown as Promise<{ data: RawBannerRow[] | null; error: any }>,
+    );
 
     if (error) {
       console.warn("[banners] Failed to fetch from Supabase:", error);

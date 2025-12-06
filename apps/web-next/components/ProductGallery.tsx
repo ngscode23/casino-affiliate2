@@ -6,6 +6,8 @@ import Image from "next/image";
 import { Maximize2 } from "lucide-react";
 import { cn } from "@shared/lib/cn";
 
+const BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PQ8lWAAAAABJRU5ErkJggg==";
 
 type ProductGalleryLightboxComponent = typeof import("./ProductGalleryLightbox").default;
 
@@ -119,6 +121,8 @@ export default function ProductGallery({
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 560px"
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
             style={{ transformOrigin }}
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-muted">
@@ -137,7 +141,7 @@ export default function ProductGallery({
         ) : null}
       </div>
       {list.length > 1 ? (
-        <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="hide-scrollbar flex gap-3 overflow-x-auto pb-1 scroll-smooth">
           {list.map((image, idx) => (
             <button
               key={image ?? idx}
@@ -158,6 +162,8 @@ export default function ProductGallery({
                   sizes="80px"
                   loading="lazy"
                   className="object-cover"
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-[11px] text-muted">

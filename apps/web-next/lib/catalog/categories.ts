@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 
 import type { NavItem } from "@/components/site-header/site-header.client";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { safeQuery } from "../db/safeQuery";
 
 export type CatalogCategory = {
   id: string;
@@ -22,21 +23,24 @@ const fetchTopLevelCategoriesCached = unstable_cache(
     // Read from the public `categories` view so we don't rely on non-whitelisted schemas.
     const supabase = getAdminClient();
     const effectiveLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_LIMIT;
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, slug, title, description, parent_id, sort_order, is_active")
-      .is("parent_id", null)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true, nullsFirst: false })
-      .order("title", { ascending: true })
-      .limit(effectiveLimit * 2);
+    const { data, error } = await safeQuery<CatalogCategory[]>(
+      supabase
+        .from("categories")
+        .select("id, slug, title, description, parent_id, sort_order, is_active")
+        .is("parent_id", null)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("title", { ascending: true })
+        .limit(effectiveLimit * 2) as unknown as Promise<{ data: CatalogCategory[]; error: any }>,
+    );
 
     if (error) {
       console.error("[catalog] failed to load header categories", error);
       return [];
     }
 
-    return (data ?? [])
+    const rows = Array.isArray(data) ? data : [];
+    return rows
       .map((row) => normalizeCategory(row))
       .filter((category): category is CatalogCategory => Boolean(category))
       .slice(0, effectiveLimit);
@@ -56,11 +60,13 @@ const fetchCategoryBySlugCached = unstable_cache(
     if (!normalizedSlug) return null;
     const pattern = normalizedSlug.replace(/[%_]/g, "\\$&");
 
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, slug, title, description, parent_id, sort_order, is_active")
-      .ilike("slug", pattern)
-      .maybeSingle();
+    const { data, error } = await safeQuery<CatalogCategory | null>(
+      supabase
+        .from("categories")
+        .select("id, slug, title, description, parent_id, sort_order, is_active")
+        .ilike("slug", pattern)
+        .maybeSingle() as unknown as Promise<{ data: CatalogCategory | null; error: any }>,
+    );
 
     if (error) {
       console.error("[catalog] failed to load category by slug", normalizedSlug, error);

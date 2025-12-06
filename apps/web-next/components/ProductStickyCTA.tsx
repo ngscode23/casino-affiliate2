@@ -14,6 +14,7 @@ type ProductStickyCTAProps = {
   quantity?: number;
   priceCents?: number | null;
   category?: string | null;
+  currency?: string | null;
   recMetadata?: Record<string, unknown>;
   addLabel?: string;
   className?: string;
@@ -32,6 +33,7 @@ export default function ProductStickyCTA({
   quantity = 1,
   priceCents = null,
   category = null,
+  currency = null,
   recMetadata,
   addLabel = "В корзину",
   className,
@@ -112,6 +114,7 @@ export default function ProductStickyCTA({
               analyticsParams={analyticsPayload}
               priceCents={priceCents ?? undefined}
               category={category}
+              currency={currency}
               recMetadata={recMetadata}
             />
             {secondaryAction ? (

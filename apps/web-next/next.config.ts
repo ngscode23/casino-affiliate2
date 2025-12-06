@@ -47,17 +47,17 @@ const imgHosts = [
 const csp = [
   "default-src 'self'",
   // картинки и медиа
-  `img-src 'self' data: blob: https: ${imgHosts.join(' ')}`,
+  `img-src 'self' data: blob: https: www.google-analytics.com ${imgHosts.join(' ')}`,
   // скрипты: оставляем inline/eval, чтобы не ломать Next/3rd-party на текущей стадии
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://js.stripe.com https://va.vercel-scripts.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://js.stripe.com https://va.vercel-scripts.com https://www.googletagmanager.com https://www.google-analytics.com",
   // стили: временно разрешаем inline
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   // сетевые запросы: пока разрешаем https к любым доменам (Supabase, Stripe, аналитики)
-  "connect-src 'self' https:",
+  "connect-src 'self' https: https://www.google-analytics.com https://www.googletagmanager.com",
   // веб-воркеры и модули
   "worker-src 'self' blob:",
-  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.googletagmanager.com",
   // запрет встраивания
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -125,8 +125,29 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Long-term immutable cache for Next static assets
       {
-        source: '/(.*)',
+        source: "/_next/static/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      // Sensitive / personal APIs must not be cached
+      {
+        source:
+          "/api/(account|orders|profile|payments|checkout|auth|ecom-wishlist|recent-views|customer-portal|bootstrap-admin|admin|track|metrics)/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      // Catalog APIs: allow revalidation window
+      {
+        source: "/api/catalog/:path*",
+        headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=300" }],
+      },
+      {
+        source: "/api/ecom-products",
+        headers: [{ key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=300" }],
+      },
+      // Security headers for everything else
+      {
+        source: "/(.*)",
         headers: securityHeaders,
       },
     ];

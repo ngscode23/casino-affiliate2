@@ -5,6 +5,7 @@ import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
 import { fetchProduct, fetchSimilarProducts } from "./data";
 import { siteConfig } from "@/lib/site-config";
+import { ProductAnalytics } from "@/components/analytics/EcommerceEvents";
 
 type RouteParams = Promise<{ slug: string }>;
 type ProductPageProps = {
@@ -155,6 +156,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="bg-background">
+      <ProductAnalytics
+        product={{
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          currency: product.currency,
+          category: product.category?.slug ?? null,
+          brand: product.brand ?? null,
+        }}
+      />
       <ProductMetadata product={product} breadcrumbs={breadcrumbs} canonicalPath={canonicalPath} />
       <main className="mx-auto max-w-screen-xl space-y-12 px-6 py-10 sm:px-8 lg:px-10">
         <ProductView

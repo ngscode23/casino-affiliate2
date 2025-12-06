@@ -13,9 +13,11 @@ import {
   getOrder,
   getProductsByIds,
   listOrders,
-  type OrderListItem,
 } from "@shared/ecom/api/client";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
+import { AsyncSection } from "@/components/ui/AsyncSection";
+import type { CartItem, OrderDetail, OrderListItem, PaymentStatus } from "@/types/domain";
+import type { OrderListItem as OrderListItemDto } from "@shared/ecom/api/client";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "All" },
@@ -31,11 +33,112 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
 
 const CANCELLABLE_PAYMENT_STATUSES = new Set(["", "failed", "canceled", "cancelled"]);
 
-type OrderDetail = Awaited<ReturnType<typeof getOrder>>;
+type OrderDetailDto = Awaited<ReturnType<typeof getOrder>>;
 
 type PaymentState = {
   [orderId: string]: "pay" | "cancel" | null;
 };
+
+function toCents(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
+}
+
+function normalizePaymentStatus(value: string | null | undefined): PaymentStatus | null {
+  const normalized = (value ?? "").toLowerCase();
+  const allowed: PaymentStatus[] = [
+    "pending",
+    "succeeded",
+    "failed",
+    "authorized",
+    "captured",
+    "paid",
+    "canceled",
+    "refunded",
+    "partial_refund",
+    "requires_action",
+  ];
+  return allowed.includes(normalized as PaymentStatus) ? (normalized as PaymentStatus) : null;
+}
+
+function normalizeOrderStatus(value: string | null | undefined): OrderListItem["status"] {
+  const normalized = (value ?? "").toLowerCase();
+  switch (normalized) {
+    case "processing":
+      return "processing";
+    case "paid":
+    case "succeeded":
+      return "paid";
+    case "cancelled":
+    case "canceled":
+      return "cancelled";
+    case "refunded":
+      return "refunded";
+    case "failed":
+      return "failed";
+    default:
+      return "pending";
+  }
+}
+
+function normalizeOrderRow(row: OrderListItemDto): OrderListItem {
+  const createdAt =
+    typeof row.created_at === "string" && row.created_at ? row.created_at : new Date().toISOString();
+  return {
+    id: String(row.id ?? ""),
+    createdAt,
+    status: normalizeOrderStatus(row.status),
+    paymentStatus: normalizePaymentStatus(row.payment_status),
+    totalCents: toCents(row.amount_total ?? 0),
+    currency: ((row.currency ?? "EUR") as string).toUpperCase(),
+  };
+}
+
+function normalizeOrderDetail(dto: OrderDetailDto): OrderDetail {
+  const order = normalizeOrderRow({
+    id: dto.order.id,
+    created_at: dto.order.created_at,
+    amount_total: dto.order.amount_total,
+    currency: dto.order.currency,
+    status: dto.order.status,
+    payment_status: dto.order.payment_status,
+  } as OrderListItemDto);
+
+  const items: CartItem[] = (dto.items ?? []).map((item, index) => {
+    const quantity = Number(item.qty ?? 0);
+    const unitCents = toCents(item.unit_price ?? item.total ?? 0);
+    return {
+      id: item.id ? String(item.id) : `${order.id}-${index}`,
+      productId: item.product_id ?? "",
+      quantity,
+      priceCents: unitCents,
+      currency: order.currency,
+      title: item.title ?? item.product_id ?? "Item",
+      thumbnail: null,
+      sku: null,
+    };
+  });
+
+  const payment =
+    dto.payment && dto.payment.status
+      ? {
+          status: normalizePaymentStatus(dto.payment.status) ?? "pending",
+          amountCents: toCents(dto.payment.amount ?? 0),
+          currency: (dto.payment.currency ?? order.currency) as string,
+          provider: dto.payment.provider ?? null,
+          providerRef: dto.payment.provider_ref ?? null,
+        }
+      : null;
+
+  return {
+    ...order,
+    items,
+    subtotalCents: toCents(dto.order.amount_subtotal ?? dto.order.amount_total ?? 0),
+    discountCents: toCents(dto.order.amount_discounts ?? 0),
+    taxCents: toCents(dto.order.amount_tax ?? 0),
+    payment,
+  };
+}
 
 function statusLabel(value: string | null | undefined) {
   const normalized = (value ?? "").toLowerCase();
@@ -44,6 +147,7 @@ function statusLabel(value: string | null | undefined) {
       return "Pending";
     case "processing":
       return "Processing";
+    case "paid":
     case "succeeded":
       return "Succeeded";
     case "failed":
@@ -72,6 +176,7 @@ function statusClass(value: string | null | undefined) {
     case "processing":
     case "authorized":
       return "bg-sky-500/10 text-sky-200 border border-sky-500/30";
+    case "paid":
     case "succeeded":
     case "refunded":
       return "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30";
@@ -173,13 +278,14 @@ export function OrdersClient() {
         cursor: cursorParam || undefined,
         page_size: limit,
       });
+      const normalizedItems = response.items.map(normalizeOrderRow);
       setOrders((prev) => {
         if (!cursorParam) {
-          return response.items;
+          return normalizedItems;
         }
-        return [...prev, ...response.items];
+        return [...prev, ...normalizedItems];
       });
-      setTotal(response.count ?? response.items.length);
+      setTotal(response.count ?? normalizedItems.length);
       setHasMore(Boolean(response.hasMore));
       setNextCursor(response.nextCursor ?? null);
       if (!cursorParam) {
@@ -197,6 +303,8 @@ export function OrdersClient() {
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  const sectionStatus: "loading" | "error" | "success" = loading && orders.length === 0 ? "loading" : error ? "error" : "success";
 
   const onSearchSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -240,13 +348,14 @@ export function OrdersClient() {
       if (details[orderId]) return;
 
       try {
-        const detail = await getOrder(orderId);
+        const detailDto = await getOrder(orderId);
+        const detail = normalizeOrderDetail(detailDto);
         setDetails((prev) => ({ ...prev, [orderId]: detail }));
 
         const productIds = Array.from(
           new Set(
             detail.items
-              .map((item) => item.product_id)
+              .map((item) => item.productId)
               .filter((pid): pid is string => typeof pid === "string" && pid.trim().length > 0),
           ),
         ).filter((pid) => !slugMap[pid]);
@@ -318,7 +427,15 @@ export function OrdersClient() {
     [fetchOrders],
   );
 
-  const isLoading = loading && orders.length === 0;
+  const isLoading = sectionStatus === "loading";
+
+  const ordersSkeleton = (
+    <div className="space-y-3" aria-live="polite">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="h-16 rounded-2xl border border-border/20 bg-card/60" />
+      ))}
+    </div>
+  );
 
   return (
     <Section className="py-12">
@@ -421,23 +538,22 @@ export function OrdersClient() {
             </div>
           </form>
 
-          {isLoading ? (
-            <div className="space-y-3" aria-live="polite">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="h-16 rounded-2xl border border-border/20 bg-card/60" />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-100">
-              {error}
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="rounded-2xl border border-border/35 bg-card/70 p-6 text-sm text-muted-foreground">
-              No orders found. Try adjusting the filters or search query.
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-3xl border border-border/35 bg-card/85 shadow-soft">
-              <table className="w-full text-sm">
+          <AsyncSection
+            status={sectionStatus}
+            skeleton={ordersSkeleton}
+            errorFallback={
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-100">
+                {error ?? "We couldn't load your orders."}
+              </div>
+            }
+          >
+            {orders.length === 0 ? (
+              <div className="rounded-2xl border border-border/35 bg-card/70 p-6 text-sm text-muted-foreground">
+                No orders found. Try adjusting the filters or search query.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-3xl border border-border/35 bg-card/85 shadow-soft">
+                <table className="w-full text-sm">
                 <thead className="border-b border-border/30 text-left text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 font-semibold text-muted-foreground">Order</th>
@@ -453,7 +569,7 @@ export function OrdersClient() {
                     const isOpen = !!expanded[orderId];
                     const detail = details[orderId];
                     const paymentState = pendingMap[orderId];
-                    const paymentStatus = (order.payment_status ?? "").toLowerCase();
+                    const paymentStatus = (order.paymentStatus ?? "").toLowerCase();
                     const canPay = order.status === "pending" || order.status === "processing";
                     const canCancel =
                       order.status === "pending" &&
@@ -468,23 +584,23 @@ export function OrdersClient() {
                       <Fragment key={orderId}>
                         <tr className="border-b border-border/20 transition hover:bg-card/70">
                           <td className="px-5 py-3 font-medium text-fg">{orderId}</td>
-                          <td className="px-5 py-3 text-muted-foreground">{formatDate(order.created_at)}</td>
+                          <td className="px-5 py-3 text-muted-foreground">{formatDate(order.createdAt)}</td>
                           <td className="px-5 py-3">
                             <div className="flex flex-wrap gap-2">
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.status)}`}>
                                 {statusLabel(order.status)}
                               </span>
-                              {order.payment_status ? (
+                              {order.paymentStatus ? (
                                 <span
-                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.payment_status)}`}
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.paymentStatus)}`}
                                 >
-                                  {statusLabel(order.payment_status)}
+                                  {statusLabel(order.paymentStatus)}
                                 </span>
                               ) : null}
                             </div>
                           </td>
                           <td className="px-5 py-3 font-medium text-fg">
-                            {formatCurrency(order.amount_total ?? 0, order.currency || "EUR")}
+                            {formatCurrency(order.totalCents / 100, order.currency || "EUR")}
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex justify-end gap-2">
@@ -536,11 +652,11 @@ export function OrdersClient() {
                                   </div>
                                   <ul className="space-y-3">
                                     {detail.items.map((item) => {
-                                      const productId = item.product_id ? String(item.product_id) : "";
+                                      const productId = item.productId ? String(item.productId) : "";
                                       const slug = productId ? slugMap[productId] : undefined;
-                                      const quantity = item.qty ?? 1;
-                                      const unit = formatCurrency(item.unit_price ?? 0, detail.order.currency);
-                                      const totalAmount = formatCurrency(item.total ?? item.unit_price ?? 0, detail.order.currency);
+                                      const quantity = item.quantity ?? 1;
+                                      const unit = formatCurrency(item.priceCents / 100, detail.currency);
+                                      const totalAmount = formatCurrency((item.priceCents * quantity) / 100, detail.currency);
                                       return (
                                         <li
                                           key={`${orderId}-${productId}-${item.id}`}
@@ -567,19 +683,19 @@ export function OrdersClient() {
                                     })}
                                   </ul>
                                   <div className="flex flex-col items-end gap-1 text-sm text-muted-foreground">
-                                    <div>Subtotal: {formatCurrency(detail.order.amount_subtotal ?? 0, detail.order.currency)}</div>
-                                    <div>Discounts: {formatCurrency(detail.order.amount_discounts ?? 0, detail.order.currency)}</div>
-                                    <div>Tax &amp; duties: {formatCurrency(detail.order.amount_tax ?? 0, detail.order.currency)}</div>
+                                    <div>Subtotal: {formatCurrency((detail.subtotalCents ?? 0) / 100, detail.currency)}</div>
+                                    <div>Discounts: {formatCurrency((detail.discountCents ?? 0) / 100, detail.currency)}</div>
+                                    <div>Tax &amp; duties: {formatCurrency((detail.taxCents ?? 0) / 100, detail.currency)}</div>
                                     <div className="text-base font-semibold text-fg">
-                                      Total: {formatCurrency(detail.order.amount_total ?? 0, detail.order.currency)}
+                                      Total: {formatCurrency(detail.totalCents / 100, detail.currency)}
                                     </div>
                                     {detail.payment ? (
                                       <div className="text-xs text-muted-foreground/80">
                                         Payment: {statusLabel(detail.payment.status)}
-                                        {detail.payment.amount
+                                        {detail.payment.amountCents != null
                                           ? ` • ${formatCurrency(
-                                              detail.payment.amount,
-                                              detail.payment.currency || detail.order.currency,
+                                              (detail.payment.amountCents ?? 0) / 100,
+                                              detail.payment.currency || detail.currency,
                                             )}`
                                           : ""}
                                       </div>
@@ -596,7 +712,8 @@ export function OrdersClient() {
                 </tbody>
               </table>
             </div>
-          )}
+            )}
+          </AsyncSection>
         </div>
 
         {orders.length > 0 && !isLoading ? (
@@ -633,5 +750,6 @@ export function OrdersClient() {
     </Section>
   );
 }
+
 
 

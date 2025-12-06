@@ -4,8 +4,10 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 import Button from "@ui/components/common/button";
+import FormField from "@/components/ui/form-field";
 
 import { loginAction, type AuthActionState } from "./actions";
 
@@ -14,8 +16,20 @@ const INITIAL_STATE: AuthActionState = { success: false };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending ? "Signing in..." : "Sign in"}
+    <Button
+      type="submit"
+      disabled={pending}
+      aria-busy={pending}
+      className="w-full"
+    >
+      {pending ? (
+        <span className="inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Signing in...
+        </span>
+      ) : (
+        "Sign in"
+      )}
     </Button>
   );
 }
@@ -47,12 +61,8 @@ export default function LoginForm() {
       className="space-y-4"
       suppressHydrationWarning
     >
-      <div className="space-y-1">
-        <label htmlFor="email" className="block text-sm font-medium text-neutral-400">
-          Email
-        </label>
+      <FormField id="email" label="Email" required>
         <input
-          id="email"
           name="email"
           type="email"
           required
@@ -61,13 +71,9 @@ export default function LoginForm() {
           className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-neutral-500"
           placeholder="you@example.com"
         />
-      </div>
-      <div className="space-y-1">
-        <label htmlFor="password" className="block text-sm font-medium text-neutral-400">
-          Password
-        </label>
+      </FormField>
+      <FormField id="password" label="Password" required>
         <input
-          id="password"
           name="password"
           type="password"
           required
@@ -77,7 +83,7 @@ export default function LoginForm() {
           className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-neutral-500"
           placeholder="********"
         />
-      </div>
+      </FormField>
       <SubmitButton />
       {state.error && (
         <p className="text-sm text-red-400" role="alert">

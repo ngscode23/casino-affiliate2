@@ -51,6 +51,7 @@ export function ProductGrid({
     <div
       className={cn(gridStyles.vcGridBase, gridLayout)}
       role="list"
+      aria-busy={false}
       data-product-grid={gridId}
     >
         {items.map((product, index) => {
@@ -60,6 +61,8 @@ export function ProductGrid({
               key={product.slug || product.id}
               className={gridStyles.vcGridItem}
               role="listitem"
+              aria-posinset={index + 1}
+              aria-setsize={items.length}
             data-product-id={product.id}
             data-product-slug={product.slug}
             data-product-rank={index + 1}

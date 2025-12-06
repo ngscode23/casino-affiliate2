@@ -3,13 +3,14 @@ import { iconSm } from "@/styles/classnames";
 
 import { useState, useCallback } from "react";
 import type { MouseEvent } from "react";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
 
 import { useCart } from "@shared/ecom/lib/cart";
 import { track } from "@shared/lib/analytics";
 import { toast } from "@ui/components/common/toast";
 import cn from "@shared/lib/cn";
 import { logRecEvent } from "@/lib/recs-events";
+import { computeEventValue, pushToDataLayer, toGa4Item } from "@/components/analytics/dataLayer";
 
 type Variant = "solid" | "overlay" | "soft";
 
@@ -37,6 +38,7 @@ type AddToCartButtonProps = {
   analyticsParams?: Record<string, unknown>;
   priceCents?: number | null;
   category?: string | null;
+  currency?: string | null;
   recMetadata?: Record<string, unknown>;
   availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
   outOfStockLabel?: string;
@@ -54,6 +56,7 @@ export default function AddToCartButton({
   analyticsParams,
   priceCents = null,
   category = null,
+  currency = null,
   recMetadata,
   availabilityCode,
   outOfStockLabel,
@@ -84,6 +87,36 @@ export default function AddToCartButton({
       } catch {
         /* noop */
       }
+        try {
+          const price =
+            typeof priceCents === "number"
+              ? priceCents / 100
+              : typeof analyticsParams?.price === "number"
+                ? Number(analyticsParams.price)
+                : undefined;
+          const item = toGa4Item({
+            id: productId,
+            name,
+            price,
+            currency: currency ?? undefined,
+            category,
+            quantity,
+          });
+          const eventCurrency = item.currency ?? currency ?? "USD";
+          const value = computeEventValue([{ ...item, currency: eventCurrency }]);
+          scheduleIdle(() => {
+            pushToDataLayer({
+              event: "add_to_cart",
+              ecommerce: {
+                currency: eventCurrency,
+                value,
+                items: [{ ...item, currency: eventCurrency }],
+              },
+            });
+          });
+        } catch {
+          /* noop */
+        }
         scheduleIdle(() => {
           void logRecEvent({
             event: "add_to_cart",
@@ -95,6 +128,14 @@ export default function AddToCartButton({
           });
         });
         onAddAction?.();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        toast("Не удалось добавить в корзину", { variant: "error" });
+        track("cart:add_error", {
+          productId,
+          message,
+          availability: availabilityCode,
+        });
       } finally {
         setTimeout(() => setPending(false), 400);
       }
@@ -111,6 +152,7 @@ export default function AddToCartButton({
       quantity,
       recMetadata,
       availabilityCode,
+      currency,
       title,
     ],
   );
@@ -127,8 +169,9 @@ export default function AddToCartButton({
   };
   const variantClass = variantClassMap[variant] ?? variantClassMap.solid;
   const displayLabel =
-    isOutOfStock ? outOfStockLabel ?? "Нет в наличии" : label;
+    isOutOfStock ? outOfStockLabel ?? "??? ? ???????" : label;
   const isDisabled = pending || isOutOfStock;
+  const computedAriaLabel = `${displayLabel} ${title ?? ""}`.trim();
 
   return (
     <button
@@ -136,10 +179,13 @@ export default function AddToCartButton({
       className={cn(baseClass, variantClass, className)}
       onClick={handleClick}
       disabled={isDisabled}
-      aria-label={displayLabel}
+      aria-label={computedAriaLabel}
+      aria-busy={pending}
     >
-      <ShoppingCart className={iconSm} aria-hidden />
-      <span>{displayLabel}</span>
+      {pending ? <Loader2 className={cn(iconSm, "animate-spin")} aria-hidden /> : <ShoppingCart className={iconSm} aria-hidden />}
+      <span>{pending ? "Adding..." : displayLabel}</span>
     </button>
   );
 }
+
+

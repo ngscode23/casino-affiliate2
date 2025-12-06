@@ -1,20 +1,7 @@
-import type { Product } from "@/app/products/types";
+import type { Product, UserProfile } from "@/types/domain";
 import { getAdminClient } from "@/utils/supabase/admin";
 
-export type UserProfile = {
-  anon_id: string;
-  first_seen?: string | null;
-  last_seen?: string | null;
-  updated_at?: string | null;
-  visit_count?: number | null;
-  device_pref?: string | null;
-  countries?: string[] | null;
-  categories?: string[] | null;
-  discount_affinity?: number | null;
-  cold_start?: boolean | null;
-  opt_out?: boolean | null;
-  experiment_variant?: string | null;
-};
+export type { UserProfile };
 
 export type PersonalizationContext = {
   profile?: UserProfile | null;
@@ -125,4 +112,3 @@ export function applyPersonalizedRanking(
 
   return scored.map((item) => item.product);
 }
-

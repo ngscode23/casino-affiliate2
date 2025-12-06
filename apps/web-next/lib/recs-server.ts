@@ -10,6 +10,8 @@ type FeatureFlagRow = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type RecRpcRowDto = { product_id: string | null; reason: string | null; score: number | null };
+
 type RpcRec = { product_id: string | null; reason: string | null; score: number | null };
 
 type SupabaseClient = ReturnType<typeof getAdminClient>;
@@ -97,6 +99,14 @@ async function fetchExploreFlag(supabase: SupabaseClient) {
   } catch {
     return { enabled: false, rollout: 0 };
   }
+}
+
+function mapRecRpcRow(row: RecRpcRowDto | null | undefined): RpcRec {
+  return {
+    product_id: typeof row?.product_id === "string" ? row.product_id : null,
+    reason: normalizeText(row?.reason),
+    score: parseNumber(row?.score),
+  };
 }
 
 function applyBanditVariant(items: RpcRec[], rollout: number) {
@@ -225,7 +235,7 @@ export async function getRecommendationsForActor(params: RecommendationParams): 
     return { ...fallback, actor, error: error.message ?? "rpc_failed" };
   }
 
-  const recs: RpcRec[] = Array.isArray(data) ? data : [];
+  const recs: RpcRec[] = Array.isArray(data) ? (data as RecRpcRowDto[]).map(mapRecRpcRow) : [];
   if (!recs.length) {
     const fallback = await fetchFallback(supabase, p_limit);
     return { ...fallback, actor, error: null };

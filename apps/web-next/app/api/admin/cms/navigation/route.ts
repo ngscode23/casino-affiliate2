@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
-import { createAuthenticatedClient } from "@/utils/supabase/authenticated";
+import { createAuthenticatedClient } from "@/utils/supabase";
 
 type NavigationReorderUpdate = {
   id: string;

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ReviewMessageRecord = {
@@ -47,6 +48,34 @@ function isNonEmptyString(value: unknown): value is string {
 
 function coerceString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+async function resolveProductId(
+  supabase: SupabaseClient,
+  productUid: string | null | undefined,
+): Promise<string | null> {
+  const uid = coerceString(productUid);
+  if (!uid) return null;
+
+  const direct = await supabase.from("ecom_products").select("id").eq("id", uid).maybeSingle();
+  if (!direct.error && direct.data?.id) return coerceString(direct.data.id);
+
+  const { data: catalogRows, error } = await supabase
+    .from("product_catalog")
+    .select("source_pk, source_table")
+    .eq("product_uid", uid)
+    .eq("source_schema", "public");
+  if (!error && Array.isArray(catalogRows)) {
+    for (const row of catalogRows) {
+      const sourcePk = coerceString((row as any)?.source_pk);
+      if (!sourcePk) continue;
+      const candidate = await supabase.from("ecom_products").select("id").eq("id", sourcePk).maybeSingle();
+      if (!candidate.error && candidate.data?.id) {
+        return coerceString(candidate.data.id);
+      }
+    }
+  }
+  return null;
 }
 
 export type FetchReviewMessagesSuccess = {
@@ -165,7 +194,7 @@ export async function createReviewMessage({
 }: CreateReviewMessageParams): Promise<CreateReviewMessageResult> {
   const { data: reviewRow, error: reviewError } = await supabase
     .from("product_reviews_raw")
-    .select("id, product_id, user_id, status")
+    .select("id, product_id, user_id, status, body")
     .eq("id", reviewId)
     .maybeSingle();
   if (reviewError) {
@@ -175,7 +204,12 @@ export async function createReviewMessage({
     return { ok: false, code: "review_not_found" };
   }
 
-  const { data: rootRow, error: rootError } = await supabase
+  const productId = await resolveProductId(supabase, reviewRow.product_id);
+  if (!productId) {
+    return { ok: false, code: "db", message: "product_not_found_for_review" };
+  }
+
+  const { data: existingRootRow, error: rootError } = await supabase
     .from("product_review_messages")
     .select("id, product_id")
     .eq("review_raw_id", reviewRow.id)
@@ -184,8 +218,35 @@ export async function createReviewMessage({
   if (rootError) {
     return { ok: false, code: "db", message: rootError.message };
   }
+  let rootRow = existingRootRow;
   if (!rootRow) {
-    return { ok: false, code: "root_not_found" };
+    // Автоматически создаём корневое сообщение, если его ещё нет (старые отзывы).
+    const rootBody =
+      typeof reviewRow.body === "string" && reviewRow.body.trim()
+        ? reviewRow.body.trim()
+        : "(review)";
+    const rootId = randomUUID();
+    const insertedRoot = await supabase
+      .from("product_review_messages")
+      .insert({
+        id: rootId,
+        product_id: productId,
+        root_review_id: rootId,
+        parent_id: null,
+        review_raw_id: reviewRawIdOverride ?? reviewRow.id,
+        author_id: reviewRow.user_id,
+        author_role: "user",
+        body: rootBody,
+      })
+      .select("id, product_id")
+      .maybeSingle();
+    if (insertedRoot.error) {
+      return { ok: false, code: "db", message: insertedRoot.error.message };
+    }
+    if (!insertedRoot.data) {
+      return { ok: false, code: "root_not_found" };
+    }
+    rootRow = insertedRoot.data;
   }
 
   let parentId = rootRow.id;
@@ -243,7 +304,7 @@ export async function createReviewMessage({
   return {
     ok: true,
     message: normalized,
-    productId: rootRow.product_id ?? reviewRow.product_id ?? null,
+    productId: coerceString(rootRow.product_id ?? productId),
     reviewOwnerId: reviewRow.user_id ?? null,
     reviewStatus: reviewRow.status ?? null,
     rootMessageId: rootRow.id,

@@ -1,21 +1,24 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { getAdminClient } from "@/utils/supabase/admin";
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
 import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
 import { fetchProductListingPage, type ProductListFilters } from "@/lib/catalog/product-source";
+import { mapDbProduct, type DbProductRow } from "@/lib/catalog/mapDbProduct";
+import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
 import { formatCurrency } from "./currency";
-import { resolveCurrency, resolvePriceDetails } from "./price-utils";
+import { createSupabaseFetchLogger } from "@/utils/supabase/fetch-logger";
+import { getAdminClient } from "@/utils/supabase/admin";
 
 export type CategorySummary = { slug: string; label: string; count: number };
 
 export const CATALOG_NAME = "Neon Shop Product Catalog";
-export const PRODUCT_LIST_REVALIDATE_SECONDS = 30;
-const PRODUCT_COLLECTION_TAG = "products:list";
+export const PRODUCT_LIST_REVALIDATE_SECONDS = 180;
+export const PRODUCT_COLLECTION_TAG = "products:list";
 const CATEGORY_TAG_PREFIX = "category:";
+const BRAND_TAG_PREFIX = "brand:";
 
 const NEW_WINDOW_MS = 1000 * 60 * 60 * 24 * 14;
 const TOP_LIMIT = 6;
@@ -24,7 +27,8 @@ const PRODUCT_FETCH_HARD_CAP = Math.max(
   PRODUCT_FETCH_CHUNK,
   Number(process.env.NEXT_PRODUCTS_FETCH_HARD_CAP ?? 1500) || 1500,
 );
-const DEFAULT_CURRENCY = "EUR";
+export const PRODUCT_PAGE_SIZE_DEFAULT = 24;
+export const PRODUCT_PAGE_HARD_CAP = 200;
 const SUPABASE_IN_FILTER_CHUNK = 40;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,6 +72,33 @@ function getCatalogPool(): Pool | null {
   return catalogPool;
 }
 
+const CATALOG_FETCH = createSupabaseFetchLogger("catalog-public", console.info, {
+  retries: 2,
+  baseDelayMs: 250,
+});
+
+let catalogSupabase: SupabaseClient | null = null;
+function getCatalogClient(): SupabaseClient {
+  if (!catalogSupabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key =
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_*KEY for catalog client");
+    }
+    catalogSupabase = createSupabaseClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        fetch: CATALOG_FETCH,
+      },
+    });
+  }
+  return catalogSupabase;
+}
+
 export type ProductFilters = {
   query?: string;
   category?: string;
@@ -81,6 +112,8 @@ export type ProductFilters = {
 };
 
 export type LoadProductsOptions = {
+  limit?: number;
+  cursor?: number;
   personalize?: {
     profile?: UserProfile | null;
     country?: string;
@@ -89,8 +122,12 @@ export type LoadProductsOptions = {
   };
 };
 
-function categoryTag(slug: string) {
+export function categoryTag(slug: string) {
   return `${CATEGORY_TAG_PREFIX}${slug}`;
+}
+
+export function brandTag(slug: string) {
+  return `${BRAND_TAG_PREFIX}${slug}`;
 }
 
 function humanizeSlug(value: string): string {
@@ -127,7 +164,6 @@ function looksLikeUuid(value: string | null | undefined): value is string {
 }
 
 async function fetchCatalogMeta(
-  supabase: SupabaseClient,
   catalogProductIds: string[],
 ): Promise<{
   productById: Map<string, CatalogProductMeta>;
@@ -197,7 +233,7 @@ async function fetchCatalogMeta(
     return { productById, brandById };
   }
 
-  const catalogSupabase = getAdminClient();
+  const catalogSupabase = getCatalogClient();
   for (const chunk of chunkValues(uniqueIds, SUPABASE_IN_FILTER_CHUNK)) {
     const { data, error } = await catalogSupabase
       .from("catalog_product_meta")
@@ -249,13 +285,13 @@ async function fetchCatalogMeta(
 }
 
 async function fetchVariantMeta(
-  supabase: SupabaseClient,
   variantIds: string[],
   variantSlugs: string[],
   variantSkus: string[],
 ): Promise<Map<string, VariantMeta>> {
   const variantByKey = new Map<string, VariantMeta>();
   const enableProductsFallback = process.env.SUPABASE_ENABLE_PRODUCTS_FALLBACK === "true";
+  const supabase = getCatalogClient();
 
   const fetchChunk = async (
     source: "ecom_products" | "products",
@@ -407,6 +443,33 @@ async function fetchVariantMeta(
   return variantByKey;
 }
 
+const fetchVariantMetaCached = unstable_cache(
+  async (payload: { ids: string[]; slugs: string[]; skus: string[] }) => {
+    const metaMap = await fetchVariantMeta(payload.ids, payload.slugs, payload.skus);
+    return Array.from(metaMap.entries());
+  },
+  ["catalog:variant-meta"],
+  {
+    revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
+    tags: [PRODUCT_COLLECTION_TAG],
+  },
+);
+
+const fetchCatalogMetaCached = unstable_cache(
+  async (ids: string[]) => {
+    const { productById, brandById } = await fetchCatalogMeta(ids);
+    return {
+      productEntries: Array.from(productById.entries()),
+      brandEntries: Array.from(brandById.entries()),
+    };
+  },
+  ["catalog:meta"],
+  {
+    revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
+    tags: [PRODUCT_COLLECTION_TAG],
+  },
+);
+
 function buildStructuredData(products: Product[]) {
   const rawOrigin = process.env.NEXT_SITE_URL ?? "";
   const base = rawOrigin.replace(/\/$/, "");
@@ -434,6 +497,67 @@ function buildStructuredData(products: Product[]) {
   } satisfies Record<string, unknown>;
 }
 
+function filterProductsByTaxonomy(products: Product[], filters: ProductFilters): Product[] {
+  const brandSelection = filters.brand ?? "all";
+  const modelSelection = filters.model ?? "all";
+
+  return products.filter((product) => {
+    if (filters.dataset && filters.dataset !== "all" && product.dataset !== filters.dataset) {
+      return false;
+    }
+
+    if (brandSelection && brandSelection !== "all") {
+      const normalizedSelection = brandSelection.trim().toLowerCase();
+      if (normalizedSelection) {
+        const candidates = [product.brand, product.brandSlug, product.brandName]
+          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+          .filter(Boolean);
+        if (!candidates.includes(normalizedSelection)) {
+          return false;
+        }
+      }
+    }
+
+    if (modelSelection && modelSelection !== "all") {
+      const normalizedSelection = modelSelection.trim().toLowerCase();
+      if (normalizedSelection) {
+        const candidates = [
+          product.model,
+          product.modelSlug,
+          product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
+        ]
+          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+          .filter(Boolean);
+        if (!candidates.includes(normalizedSelection)) {
+          if (!product.catalogProductId || product.catalogProductId !== modelSelection) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  });
+}
+
+function summarizeCategories(products: Product[]): CategorySummary[] {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const product of products) {
+    const slug = product.categorySlug;
+    if (!slug) continue;
+    const label = humanizeSlug(slug);
+    const existing = counts.get(slug);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      counts.set(slug, { label, count: 1 });
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([slug, value]) => ({ slug, label: value.label, count: value.count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
 type NormalizedCachePayload = {
   query: string;
   category: string;
@@ -444,12 +568,15 @@ type NormalizedCachePayload = {
   priceMax: number | null;
   minRating: number | null;
   sort: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
+  limit: number;
+  cursor: number;
 };
 
 function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
   const normalized: ProductFilters = {};
 
-  const trimmedQuery = filters.query?.trim();
+  const sanitizedQuery = sanitizeSearchParam(filters.query ?? "");
+  const trimmedQuery = sanitizedQuery ? sanitizedQuery.trim().slice(0, 120) : "";
   if (trimmedQuery) normalized.query = trimmedQuery;
 
   const category = filters.category?.trim();
@@ -495,7 +622,13 @@ function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
   return normalized;
 }
 
-function buildCachePayload(filters: ProductFilters): NormalizedCachePayload {
+function buildCachePayload(filters: ProductFilters, options?: LoadProductsOptions): NormalizedCachePayload {
+  const limit = Math.min(
+    Math.max(1, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT)),
+    PRODUCT_PAGE_HARD_CAP,
+  );
+  const cursor = Math.max(0, Math.floor(options?.cursor ?? 0));
+
   return {
     query: filters.query ?? "",
     category: filters.category ?? "",
@@ -506,6 +639,8 @@ function buildCachePayload(filters: ProductFilters): NormalizedCachePayload {
     priceMax: typeof filters.priceMax === "number" ? filters.priceMax : null,
     minRating: typeof filters.minRating === "number" ? filters.minRating : null,
     sort: filters.sort ?? "recent",
+    limit,
+    cursor,
   };
 }
 
@@ -551,86 +686,13 @@ function toProductListFilters(filters: ProductFilters): ProductListFilters {
   return normalized;
 }
 
-async function fetchProductRows(
-  supabase: SupabaseClient,
-  filters: ProductListFilters,
-): Promise<{ rows: Array<Record<string, unknown>>; totalCount: number; error: PostgrestError | null }> {
-  const firstLimit = Math.min(PRODUCT_FETCH_CHUNK, PRODUCT_FETCH_HARD_CAP);
-  const firstBatch = await fetchProductListingPage({
-    supabase,
-    select: PRODUCT_SELECT_COLUMNS,
-    filters,
-    limit: firstLimit,
-    offset: 0,
-    withCount: true,
-  });
+type MetaMaps = {
+  variantMetaById: Map<string, VariantMeta>;
+  catalogProductById: Map<string, CatalogProductMeta>;
+  catalogBrandById: Map<string, CatalogBrandMeta>;
+};
 
-  if (firstBatch.error) {
-    return { rows: [], totalCount: 0, error: firstBatch.error };
-  }
-
-  const rows: Array<Record<string, unknown>> = [...firstBatch.rows];
-  const dbTotal = firstBatch.count ?? null;
-  const target = dbTotal != null ? Math.min(dbTotal, PRODUCT_FETCH_HARD_CAP) : PRODUCT_FETCH_HARD_CAP;
-
-  while (rows.length < target) {
-    const remaining = target - rows.length;
-    if (remaining <= 0) break;
-    const batch = await fetchProductListingPage({
-      supabase,
-      select: PRODUCT_SELECT_COLUMNS,
-      filters,
-      limit: Math.min(PRODUCT_FETCH_CHUNK, remaining),
-      offset: rows.length,
-      withCount: false,
-    });
-
-    if (batch.error) {
-      return { rows: [], totalCount: 0, error: batch.error };
-    }
-
-    if (!batch.rows.length) {
-      break;
-    }
-    rows.push(...batch.rows);
-  }
-
-  const totalCount = dbTotal ?? rows.length;
-  if (totalCount > PRODUCT_FETCH_HARD_CAP && rows.length >= PRODUCT_FETCH_HARD_CAP) {
-    console.warn("[catalog] product listing truncated by hard cap", {
-      totalCount,
-      cap: PRODUCT_FETCH_HARD_CAP,
-    });
-  }
-
-  return { rows, totalCount, error: null };
-}
-
-async function loadProductsDataInternal(
-  filters: ProductFilters = {},
-  options?: LoadProductsOptions,
-): Promise<{
-  products: Product[];
-  fetchError: unknown;
-  structuredData: Record<string, unknown> | null;
-  categories: CategorySummary[];
-  catalogName: string;
-  totalCount: number;
-}> {
-  const supabase = getAdminClient();
-  const { rows: productRows, totalCount, error } = await fetchProductRows(supabase, toProductListFilters(filters));
-
-  if (error || !Array.isArray(productRows)) {
-    return {
-      products: [],
-      fetchError: error,
-      structuredData: null,
-      categories: [],
-      catalogName: CATALOG_NAME,
-      totalCount: 0,
-    };
-  }
-
+async function resolveMetaForRows(productRows: Array<Record<string, unknown>>): Promise<MetaMaps> {
   const variantIds = Array.from(
     new Set(
       productRows
@@ -668,7 +730,13 @@ async function loadProductsDataInternal(
     ),
   );
 
-  const variantMetaById = await fetchVariantMeta(supabase, variantIds, variantSlugs, variantSkus);
+  const variantEntries = await fetchVariantMetaCached({
+    ids: variantIds,
+    slugs: variantSlugs,
+    skus: variantSkus,
+  });
+  const variantMetaById = new Map<string, VariantMeta>(variantEntries);
+
   const catalogProductIds = Array.from(
     new Set(
       Array.from(variantMetaById.values())
@@ -677,65 +745,33 @@ async function loadProductsDataInternal(
     ),
   );
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[catalog-meta] requested product IDs", catalogProductIds);
-  }
+  const { productEntries, brandEntries } = await fetchCatalogMetaCached(catalogProductIds);
+  const catalogProductById = new Map<string, CatalogProductMeta>(productEntries);
+  const catalogBrandById = new Map<string, CatalogBrandMeta>(brandEntries);
 
-  const { productById: catalogProductById, brandById: catalogBrandById } = await fetchCatalogMeta(
-    supabase,
-    catalogProductIds,
-  );
+  return { variantMetaById, catalogProductById, catalogBrandById };
+}
 
+function mapRowsToProducts(
+  productRows: Array<Record<string, unknown>>,
+  meta: MetaMaps,
+  baseOrderOffset = 0,
+): Product[] {
+  const { variantMetaById, catalogProductById, catalogBrandById } = meta;
   const now = Date.now();
 
-  const products: Product[] = productRows.map((row: any, index) => {
+  return productRows.map((row: any, index) => {
     const id = row?.id != null ? String(row.id) : "";
     const slug = row?.slug != null ? String(row.slug) : "";
     const sku = typeof row?.sku === "string" ? row.sku : null;
-    const titleSource = row?.title ?? row?.name ?? "";
-    const title = (titleSource != null ? String(titleSource) : "").trim() || slug || "Без названия";
-    const createdAtRaw = row?.created_at ?? row?.createdAt ?? null;
-    const createdAt = typeof createdAtRaw === "string" ? createdAtRaw : null;
-    const createdTime = createdAt ? Date.parse(createdAt) : NaN;
+    const createdAtFallback =
+      typeof row?.created_at === "string"
+        ? row.created_at
+        : typeof row?.createdAt === "string"
+          ? row.createdAt
+          : null;
+    const createdTime = createdAtFallback ? Date.parse(createdAtFallback) : NaN;
     const isNew = Number.isFinite(createdTime) ? createdTime >= now - NEW_WINDOW_MS : index < TOP_LIMIT;
-
-    const priceDetails = resolvePriceDetails(row as Record<string, unknown>);
-    const currencyResolved = resolveCurrency(row as Record<string, unknown>);
-    const normalizedPrice = priceDetails.price;
-    const normalizedPriceCents = Number.isFinite(priceDetails.priceCents)
-      ? priceDetails.priceCents
-      : Math.round(normalizedPrice * 100);
-    const currencyRaw = (currencyResolved ?? DEFAULT_CURRENCY).toUpperCase();
-    const thumbnailPath = (() => {
-      if (typeof row?.thumbnail === "string" && row.thumbnail.trim()) return row.thumbnail.trim();
-      if (typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim()) return row.thumbnail_path.trim();
-      return null;
-    })();
-
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        console.debug("catalog:image", slug, thumbnailPath);
-      } catch {
-        // ignore debug logging failures
-      }
-    }
-
-    const mainImage = thumbnailPath ? normalizeImageUrl(thumbnailPath) : null;
-    const rating =
-      typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
-    const categorySlug = (() => {
-      const value =
-        (typeof row?.category_slug === "string" && row.category_slug.trim()
-          ? row.category_slug
-          : typeof (row as Record<string, unknown>)?.categorySlug === "string"
-            ? (row as Record<string, unknown>).categorySlug
-            : null) ?? null;
-      if (typeof value === "string") {
-        const trimmed = value.trim();
-        return trimmed ? trimmed : null;
-      }
-      return null;
-    })();
 
     const variantMeta =
       (id ? variantMetaById.get(id) : null) ??
@@ -749,113 +785,175 @@ async function loadProductsDataInternal(
     const modelSlug = catalogProductMeta?.slug ?? null;
     const modelTitle = catalogProductMeta?.title ?? (typeof row?.name === "string" ? row.name : null);
 
-    return {
-      id,
-      slug,
-      sku,
-      title,
-      description: typeof row?.description === "string" ? row.description : null,
-      category: categorySlug,
-      brand: brandSlug ?? null,
-      brandSlug: brandSlug ?? null,
-      brandName,
-      model: modelSlug ?? null,
-      modelSlug: modelSlug ?? null,
-      modelTitle,
-      catalogProductId,
-      price: normalizedPrice,
-      priceCents: normalizedPriceCents,
-      originalPrice: priceDetails.originalPrice,
-      originalPriceCents: priceDetails.originalPriceCents,
-      discountPercent: priceDetails.discountPercent,
-      discountAmountCents: priceDetails.discountAmountCents,
-      currency: currencyRaw,
-      mainImage,
-      thumbnailPath,
-      rating,
-      clicks: 0,
-      impressions: 0,
-      dataset: (() => {
-        const rawDataset = (row as Record<string, unknown>)?.dataset;
-        const value = typeof rawDataset === "string" ? rawDataset.toLowerCase().trim() : "";
-        if (value === "legacy" || value === "products") return "legacy";
-        return "shop";
-      })(),
-      order: index,
-      createdAt,
+    const product = mapDbProduct(row as DbProductRow, {
+      order: baseOrderOffset + index,
+      createdAtFallback,
+      meta: {
+        catalogProductId,
+        brandSlug,
+        brandName,
+        modelSlug,
+        modelTitle,
+      },
       isNew,
-      isTop: false,
-      availability: "InStock",
-      categorySlug,
+    });
+
+    return {
+      ...product,
+      createdAt: product.createdAt ?? createdAtFallback,
+      category: product.category ?? product.categorySlug ?? null,
+      categorySlug: product.categorySlug ?? product.category ?? null,
+      isTop: product.isTop ?? false,
+      availability: product.availability ?? "InStock",
     } satisfies Product;
   });
+}
+export async function fetchProductsPage(filters: ProductFilters = {}, options?: LoadProductsOptions) {
+  const normalized = normalizeFilters(filters);
+  const limit = Math.min(
+    Math.max(1, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT)),
+    PRODUCT_PAGE_HARD_CAP,
+  );
+  const cursor = Math.max(0, Math.floor(options?.cursor ?? 0));
 
-  // Mark top products by recency for now.
-  for (let i = 0; i < Math.min(TOP_LIMIT, products.length); i += 1) {
-    products[i].isTop = true;
+  const result = await loadProductsData(normalized, { ...options, limit, cursor });
+
+  const items = result.products;
+  const nextCursor = cursor + items.length < result.totalCount ? cursor + items.length : null;
+
+  return {
+    items,
+    nextCursor,
+    total: result.totalCount,
+    categories: result.categories,
+    structuredData: result.structuredData,
+  };
+}
+
+async function fetchProductRows(
+  supabase: SupabaseClient,
+  filters: ProductListFilters,
+  pagination: { limit: number; offset: number; withCount?: boolean },
+): Promise<{ rows: Array<Record<string, unknown>>; totalCount: number; error: PostgrestError | null }> {
+  const limit = Math.max(0, Math.min(PRODUCT_FETCH_HARD_CAP, Math.floor(pagination.limit)));
+  const offset = Math.max(0, Math.floor(pagination.offset));
+
+  const tryFetch = async (client: SupabaseClient) =>
+    fetchProductListingPage({
+      supabase: client,
+      select: PRODUCT_SELECT_COLUMNS,
+      filters,
+      limit,
+      offset,
+      withCount: Boolean(pagination.withCount),
+    });
+
+  let page = await tryFetch(supabase);
+
+  const needsAdminFallback =
+    page.error &&
+    (page.error.code === "PGRST302" ||
+      page.error.code === "401" ||
+      page.error.code === "403" ||
+      /permission|policy|unauthor/i.test(page.error.message));
+
+  if (needsAdminFallback) {
+    try {
+      const admin = getAdminClient();
+      page = await tryFetch(admin);
+    } catch (fallbackError) {
+      // ignore and return original error below
+    }
   }
 
-  const brandSelection = filters.brand ?? "all";
-  const modelSelection = filters.model ?? "all";
+  if (page.error) {
+    return { rows: [], totalCount: 0, error: page.error };
+  }
 
-  const filteredProducts = products.filter((product) => {
-    if (filters.dataset && filters.dataset !== "all" && product.dataset !== filters.dataset) {
-      return false;
-    }
-    if (brandSelection && brandSelection !== "all") {
-      const normalizedSelection = brandSelection.trim().toLowerCase();
-      if (normalizedSelection) {
-        const candidates = [
-          product.brand,
-          product.brandSlug,
-          product.brandName,
-        ]
-          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
-          .filter(Boolean);
-        if (!candidates.includes(normalizedSelection)) {
-          return false;
-        }
-      }
-    }
-    if (modelSelection && modelSelection !== "all") {
-      const normalizedSelection = modelSelection.trim().toLowerCase();
-      if (normalizedSelection) {
-        const candidates = [
-          product.model,
-          product.modelSlug,
-          product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
-        ]
-          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
-          .filter(Boolean);
-        if (!candidates.includes(normalizedSelection)) {
-          if (!product.catalogProductId || product.catalogProductId !== modelSelection) {
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  });
+  const totalCount = page.count ?? page.rows.length;
+  return { rows: page.rows, totalCount, error: null };
+}
 
-  const categories = (() => {
-    const counts = new Map<string, { label: string; count: number }>();
-    for (const product of filteredProducts) {
-      const slug = product.categorySlug;
-      if (!slug) continue;
-      const label = humanizeSlug(slug);
-      const existing = counts.get(slug);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        counts.set(slug, { label, count: 1 });
-      }
-    }
-    return Array.from(counts.entries())
-      .map(([slug, value]) => ({ slug, label: value.label, count: value.count }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  })();
+async function loadProductsDataInternal(
+  filters: ProductFilters = {},
+  options?: LoadProductsOptions,
+): Promise<{
+  products: Product[];
+  fetchError: unknown;
+  structuredData: Record<string, unknown> | null;
+  categories: CategorySummary[];
+  catalogName: string;
+  totalCount: number;
+}> {
+  const supabase = getCatalogClient();
+  const effectiveLimit = Math.min(
+    PRODUCT_FETCH_HARD_CAP,
+    Math.max(PRODUCT_PAGE_SIZE_DEFAULT, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT * 2)),
+  );
+  const effectiveCursor = Math.max(0, Math.floor(options?.cursor ?? 0));
 
-  const personalizedProducts = options?.personalize
+  const needsDeepScan =
+    (filters.brand && filters.brand !== "all") || (filters.model && filters.model !== "all");
+  const targetCount = Math.min(
+    PRODUCT_FETCH_HARD_CAP,
+    effectiveCursor + effectiveLimit + (needsDeepScan ? PRODUCT_FETCH_CHUNK : 0),
+  );
+  let fetchedRows: Array<Record<string, unknown>> = [];
+  let totalCount = 0;
+  let fetchError: PostgrestError | null = null;
+  let offset = 0;
+
+  while (fetchedRows.length < targetCount) {
+    const pageLimit = Math.min(PRODUCT_FETCH_CHUNK, targetCount - fetchedRows.length);
+    const page = await fetchProductRows(
+      supabase,
+      toProductListFilters(filters),
+      {
+        limit: pageLimit,
+        offset,
+        withCount: offset === 0,
+      },
+    );
+
+    if (page.error) {
+      fetchError = page.error;
+      break;
+    }
+
+    if (offset === 0 && page.totalCount) {
+      totalCount = page.totalCount;
+    }
+
+    if (!Array.isArray(page.rows) || page.rows.length === 0) {
+      break;
+    }
+
+    fetchedRows = fetchedRows.concat(page.rows);
+    offset += page.rows.length;
+
+    if (page.rows.length < pageLimit) {
+      break;
+    }
+  }
+
+  if (fetchError || !fetchedRows.length) {
+    return {
+      products: [],
+      fetchError,
+      structuredData: null,
+      categories: [],
+      catalogName: CATALOG_NAME,
+      totalCount: 0,
+    };
+  }
+
+  const meta = await resolveMetaForRows(fetchedRows);
+  const products = mapRowsToProducts(fetchedRows, meta, 0);
+
+  const filteredProducts = filterProductsByTaxonomy(products, filters);
+  const categories = summarizeCategories(filteredProducts);
+
+  const personalizedList = options?.personalize
     ? applyPersonalizedRanking(filteredProducts, {
         profile: options.personalize.profile,
         country: options.personalize.country,
@@ -864,11 +962,19 @@ async function loadProductsDataInternal(
       })
     : filteredProducts;
 
-  const structuredData = buildStructuredData(personalizedProducts);
+  for (let i = 0; i < Math.min(TOP_LIMIT, personalizedList.length); i += 1) {
+    personalizedList[i].isTop = true;
+  }
+
+  const paginatedProducts = personalizedList
+    .slice(effectiveCursor, effectiveCursor + effectiveLimit)
+    .map((product, index) => ({ ...product, order: effectiveCursor + index }));
+
+  const structuredData = buildStructuredData(paginatedProducts);
 
   if (process.env.NODE_ENV !== "production") {
     try {
-      for (const p of personalizedProducts) {
+      for (const p of paginatedProducts) {
         console.debug("catalog:image", {
           id: p.id,
           sku: p.slug,
@@ -882,65 +988,100 @@ async function loadProductsDataInternal(
     }
   }
 
+  const totalForFilters =
+    (filters.dataset && filters.dataset !== "all") ||
+    (filters.brand && filters.brand !== "all") ||
+    (filters.model && filters.model !== "all")
+      ? filteredProducts.length
+      : totalCount || filteredProducts.length;
+
   return {
-    products: personalizedProducts,
+    products: paginatedProducts,
     fetchError: null,
     structuredData,
     categories,
     catalogName: CATALOG_NAME,
-    totalCount:
-      (filters.dataset && filters.dataset !== "all") ||
-      (filters.brand && filters.brand !== "all") ||
-      (filters.model && filters.model !== "all")
-        ? personalizedProducts.length
-        : totalCount,
+    totalCount: totalForFilters,
   };
 }
 
 export async function loadProductsData(filters: ProductFilters = {}, options?: LoadProductsOptions) {
   const normalized = normalizeFilters(filters);
-  if (options?.personalize) {
-    return loadProductsDataInternal(normalized, options);
-  }
-  const payload = buildCachePayload(normalized);
+  const limit = Math.min(
+    Math.max(1, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT)),
+    PRODUCT_PAGE_HARD_CAP,
+  );
+  const cursor = Math.max(0, Math.floor(options?.cursor ?? 0));
+  const paginatedOptions: LoadProductsOptions = { ...options, limit, cursor };
+
+  const tags: string[] = [PRODUCT_COLLECTION_TAG];
+  if (normalized.category) tags.push(categoryTag(normalized.category));
+  if (normalized.brand) tags.push(brandTag(normalized.brand));
+
+  const payload = buildCachePayload(normalized, paginatedOptions);
   const key = JSON.stringify(payload);
-  const result = await loadProductsDataCached(key);
-  return result;
+  const baseResult = await loadProductsDataCached(key, tags);
+
+  if (!paginatedOptions.personalize) {
+    return baseResult;
+  }
+
+  // Apply user-specific ranking on top of the cached, static payload to keep SSG + revalidate.
+  const clonedProducts = baseResult.products.map((product) => ({ ...product }));
+  const reranked = applyPersonalizedRanking(clonedProducts, {
+    profile: paginatedOptions.personalize.profile,
+    country: paginatedOptions.personalize.country,
+    device: paginatedOptions.personalize.device,
+    experimentVariant: paginatedOptions.personalize.experimentVariant,
+  });
+
+  const personalized = reranked.map((product, index) => ({
+    ...product,
+    order: cursor + index,
+    isTop: index < TOP_LIMIT || Boolean(product.isTop),
+  }));
+
+  return {
+    ...baseResult,
+    products: personalized,
+    structuredData: buildStructuredData(personalized),
+  };
 }
 
-const loadProductsDataCached = unstable_cache(
-  async (key: string) => {
-    const parsed = JSON.parse(key) as NormalizedCachePayload;
-    const normalized: ProductFilters = {
-      dataset: parsed.dataset,
-      sort: parsed.sort,
-    };
-    if (parsed.query) normalized.query = parsed.query;
-    if (parsed.category) normalized.category = parsed.category;
-    if (parsed.brand && parsed.brand !== "all") normalized.brand = parsed.brand;
-    if (parsed.model && parsed.model !== "all") normalized.model = parsed.model;
-    if (parsed.priceMin != null) normalized.priceMin = parsed.priceMin;
-    if (parsed.priceMax != null) normalized.priceMax = parsed.priceMax;
-    if (parsed.minRating != null) normalized.minRating = parsed.minRating;
-    return loadProductsDataInternal(normalized);
-  },
-  ["products:list:data"],
-  {
-    revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
-    tags: [PRODUCT_COLLECTION_TAG],
-  },
-);
+async function loadProductsDataCached(key: string, tags: string[]) {
+  const uniqueTags = Array.from(new Set([PRODUCT_COLLECTION_TAG, ...tags]));
+  const cached = unstable_cache(
+    async (cacheKey: string) => {
+      const parsed = JSON.parse(cacheKey) as NormalizedCachePayload;
+      const normalized: ProductFilters = {
+        dataset: parsed.dataset,
+        sort: parsed.sort,
+      };
+      if (parsed.query) normalized.query = parsed.query;
+      if (parsed.category) normalized.category = parsed.category;
+      if (parsed.brand && parsed.brand !== "all") normalized.brand = parsed.brand;
+      if (parsed.model && parsed.model !== "all") normalized.model = parsed.model;
+      if (parsed.priceMin != null) normalized.priceMin = parsed.priceMin;
+      if (parsed.priceMax != null) normalized.priceMax = parsed.priceMax;
+      if (parsed.minRating != null) normalized.minRating = parsed.minRating;
+
+      return loadProductsDataInternal(normalized, {
+        limit: parsed.limit,
+        cursor: parsed.cursor,
+      });
+    },
+    ["products:list:data", ...uniqueTags],
+    {
+      revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
+      tags: uniqueTags,
+    },
+  );
+
+  return cached(key);
+}
 
 export function formatPrice(priceCents: number | null | undefined, currency: string | null | undefined): string {
   const price = Number(priceCents ?? 0) / 100;
   const cur = (currency ?? "EUR").toUpperCase();
   return formatCurrency(price, cur);
 }
-
-
-
-
-
-
-
-

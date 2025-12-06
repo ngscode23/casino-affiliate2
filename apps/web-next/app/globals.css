@@ -12,6 +12,10 @@
   --sidebar-gap: clamp(1.5rem, 2vw, 1.75rem);
   --mobile-tab-bar-height: 3.5rem;
   --radius: 1.5rem;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   scroll-behavior: smooth;
 
   --bg-rgb: 255 255 255;
@@ -31,6 +35,12 @@
   --shadow-popover: 0 34px 94px -50px rgba(102, 78, 55, 0.22);
   --shadow-card: 0 28px 84px -48px rgba(102, 78, 55, 0.18);
   --shadow-card-hover: 0 44px 118px -54px rgba(229, 94, 121, 0.26);
+  --elevation-card: var(--shadow-card);
+  --elevation-card-hover: var(--shadow-card-hover);
+  --elevation-1: 0 12px 32px -26px rgba(0, 0, 0, 0.14);
+  --elevation-2: var(--shadow-card);
+  --elevation-3: var(--shadow-card-hover);
+  --elevation-popover: var(--shadow-popover);
 
   color-scheme: light;
 
@@ -61,6 +71,12 @@
   --shadow-popover: 0 40px 120px -44px rgba(0, 0, 0, 0.72);
   --shadow-card: 0 28px 80px -34px rgba(0, 0, 0, 0.65);
   --shadow-card-hover: 0 52px 130px -44px rgba(252, 50, 114, 0.5);
+  --elevation-card: var(--shadow-card);
+  --elevation-card-hover: var(--shadow-card-hover);
+  --elevation-1: 0 14px 36px -28px rgba(0, 0, 0, 0.65);
+  --elevation-2: var(--shadow-card);
+  --elevation-3: var(--shadow-card-hover);
+  --elevation-popover: var(--shadow-popover);
   color-scheme: dark;
 
   /* Keep custom props consistent in dark mode */
@@ -86,6 +102,12 @@
   --shadow-popover: 0 38px 120px -54px rgba(0,0,0,0.75);
   --shadow-card: 0 30px 90px -48px rgba(0,0,0,0.7);
   --shadow-card-hover: 0 54px 138px -52px rgba(252, 50, 114, 0.48);
+  --elevation-card: var(--shadow-card);
+  --elevation-card-hover: var(--shadow-card-hover);
+  --elevation-1: 0 18px 46px -32px rgba(0,0,0,0.7);
+  --elevation-2: var(--shadow-card);
+  --elevation-3: var(--shadow-card-hover);
+  --elevation-popover: var(--shadow-popover);
 }
 
 @layer base {
@@ -95,6 +117,7 @@ body {
   background: rgb(var(--bg-rgb));
   color: rgb(var(--fg-rgb));
   font-family: var(--font-sans, 'OpenAI Sans', system-ui);
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 200ms ease, color 200ms ease;
@@ -157,6 +180,15 @@ body {
   .border-primary\/40 { border-color: rgb(var(--primary-rgb) / 0.4); }
   .border-primary\/30 { border-color: rgb(var(--primary-rgb) / 0.3); }
   .border-primary\/20 { border-color: rgb(var(--primary-rgb) / 0.2); }
+
+  /* Hide scrollbars on touch carousels without breaking scroll */
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 
   .ring-primary { --tw-ring-color: rgb(var(--primary-rgb)); }
   .ring-primary\/60 { --tw-ring-color: rgb(var(--primary-rgb) / 0.6); }

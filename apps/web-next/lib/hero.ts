@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { safeQuery } from "./db/safeQuery";
 
 export type HeroPayload = {
   id: string;
@@ -50,25 +51,27 @@ export async function getActiveHeroes(options: FetchOptions = {}, limit = 5): Pr
   const orEnd = `end_at.is.null,end_at.gte.${nowIso}`;
   const orStart = `start_at.is.null,start_at.lte.${nowIso}`;
 
-  const { data, error } = await supabase
-    .from("hero_campaigns")
-    .select(
-      `
+  const { data, error } = await safeQuery<HeroPayload[]>(
+    supabase
+      .from("hero_campaigns")
+      .select(
+        `
         id, title, eyebrow, body,
         primary_cta_label, primary_cta_href,
         secondary_cta_label, secondary_cta_href,
         image_url, image_alt, theme, tracking_id
       `,
-    )
-    .eq("published", true)
-    .or(orStart)
-    .or(orEnd)
-    .order("priority", { ascending: false })
-    .order("start_at", { ascending: false })
-    .limit(limit);
+      )
+      .eq("published", true)
+      .or(orStart)
+      .or(orEnd)
+      .order("priority", { ascending: false })
+      .order("start_at", { ascending: false })
+      .limit(limit) as unknown as Promise<{ data: HeroPayload[]; error: any }>,
+  );
 
   if (error) {
-    console.error("[hero] fetch failed", error?.message ?? error);
+    console.error("[hero] fetch failed", error);
     return [];
   }
 

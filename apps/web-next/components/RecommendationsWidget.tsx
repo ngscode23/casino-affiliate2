@@ -1,5 +1,5 @@
 "use client";;
-import { sectionTitle, mutedTextXs, mutedTextSm } from "@/styles/classnames";
+import { sectionTitle, mutedTextSm } from "@/styles/classnames";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -10,6 +10,7 @@ import { useMaybeI18n } from "@shared/lib/i18n";
 import { t as translateKey, type Lang } from "@shared/lib/t";
 import { cn } from "@shared/lib/cn";
 import { isRecsOptedOut, logRecEvent, setRecsOptOut } from "@/lib/recs-events";
+import { AsyncSection } from "@/components/ui/AsyncSection";
 
 type ApiRecProduct = {
   id?: string | null;
@@ -39,6 +40,7 @@ type State = {
   items: ApiRec[];
   treatment: string | null;
   optOut: boolean;
+  error: string | null;
 };
 
 function buildGridItem(rec: ApiRec): ProductGridItem | null {
@@ -73,6 +75,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     items: [],
     treatment: null,
     optOut: isRecsOptedOut(),
+    error: null,
   }));
   const impressions = useRef<Set<string>>(new Set());
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -80,12 +83,13 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
 
   useEffect(() => {
     if (state.optOut) {
-      setState((prev) => ({ ...prev, loading: false, items: [] }));
+      setState((prev) => ({ ...prev, loading: false, items: [], error: null }));
       return;
     }
     const controller = new AbortController();
     (async () => {
       try {
+        setState((prev) => ({ ...prev, loading: true, error: null }));
         const res = await fetch(`/api/recs?limit=${limit}`, {
           signal: controller.signal,
           headers: { accept: "application/json" },
@@ -97,11 +101,13 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
             items: Array.isArray(json.recommendations) ? json.recommendations : [],
             treatment: json.treatment ?? null,
             optOut: false,
+            error: null,
           });
         }
-      } catch {
+      } catch (err) {
         if (!controller.signal.aborted) {
-          setState((prev) => ({ ...prev, loading: false, items: [], treatment: null }));
+          const message = err instanceof Error ? err.message : "Не удалось загрузить рекомендации";
+          setState((prev) => ({ ...prev, loading: false, items: [], treatment: null, error: message || null }));
         }
       }
     })();
@@ -242,32 +248,6 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     requestAnimationFrame(step);
   }, [updateNavState]);
 
-  if (state.loading) {
-    return (
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className={sectionTitle}>Recommended for you</h2>
-          <span className={mutedTextXs}>loading</span>
-        </div>
-        <div
-          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1"
-          role="list"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          {Array.from({ length: Math.min(4, limit) }).map((_, idx) => (
-            <div
-              key={idx}
-              className="flex-shrink-0 basis-[85%] snap-start sm:basis-[45%] lg:basis-[30%]"
-              role="listitem"
-            >
-              <ProductSkeleton />
-            </div>
-          ))}
-        </div>
-      </section>
-    );
-  }
-
   if (state.optOut) {
     return (
       <section className="space-y-3 rounded-xl border border-border/60 p-4">
@@ -286,7 +266,31 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
     );
   }
 
-  if (!gridItems.length) return null;
+  const status = state.loading ? "loading" : state.error ? "error" : "success";
+
+  const skeleton = (
+    <div
+      className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1 scroll-smooth"
+      role="list"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      {Array.from({ length: Math.min(4, limit) }).map((_, idx) => (
+        <div
+          key={idx}
+          className="flex-shrink-0 basis-[85%] snap-start sm:basis-[45%] lg:basis-[30%]"
+          role="listitem"
+        >
+          <ProductSkeleton />
+        </div>
+      ))}
+    </div>
+  );
+
+  const errorFallback = (
+    <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+      {state.error ?? "Не удалось загрузить рекомендации."}
+    </div>
+  );
 
   return (
     <section className="space-y-4">
@@ -305,64 +309,70 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
           </label>
         </div>
       </div>
-      <div className="relative">
-        <div
-          ref={trackRef}
-          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1 scroll-smooth"
-          role="list"
-          aria-roledescription="carousel"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          {gridItems.map(({ rec, item }, index) => (
+      <AsyncSection status={status} skeleton={skeleton} errorFallback={errorFallback}>
+        {!gridItems.length ? (
+          <p className={mutedTextSm}>No recommendations yet.</p>
+        ) : (
+          <div className="relative">
             <div
-              key={item.slug || item.id}
-              className="flex-shrink-0 basis-[85%] snap-start sm:basis-[45%] lg:basis-[30%] xl:basis-[25%]"
-              role="listitem"
-              data-carousel-card
-              onClickCapture={() => handleClick(rec, index)}
+              ref={trackRef}
+              className="hide-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 pr-1 scroll-smooth"
+              role="list"
+              aria-roledescription="carousel"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              <ProductCard
-                product={item}
-                index={index}
-                href={`/products/${item.slug}`}
-                showAddToCart
-                addLabel={addLabel}
-                noImageLabel={noImageLabel}
-                translate={translate}
-                variant="carousel"
-              />
+              {gridItems.map(({ rec, item }, index) => (
+                <div
+                  key={item.slug || item.id}
+                  className="flex-shrink-0 basis-[85%] snap-start sm:basis-[45%] lg:basis-[30%] xl:basis-[25%]"
+                  role="listitem"
+                  data-carousel-card
+                  onClickCapture={() => handleClick(rec, index)}
+                >
+                  <ProductCard
+                    product={item}
+                    index={index}
+                    href={`/products/${item.slug}`}
+                    showAddToCart
+                    addLabel={addLabel}
+                    noImageLabel={noImageLabel}
+                    translate={translate}
+                    variant="carousel"
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {gridItems.length > 1 ? (
-          <>
-            <button
-              type="button"
-              aria-label="Previous recommendations"
-              onClick={() => scrollCarousel("prev")}
-              disabled={!navState.canScrollPrev}
-              className={cn(
-                "pointer-events-none absolute left-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/90 p-2 text-fg shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:flex",
-                navState.canScrollPrev ? "pointer-events-auto hover:bg-background" : "opacity-40",
-              )}
-            >
-              <ChevronLeft className="h-5 w-5" aria-hidden />
-            </button>
-            <button
-              type="button"
-              aria-label="Next recommendations"
-              onClick={() => scrollCarousel("next")}
-              disabled={!navState.canScrollNext}
-              className={cn(
-                "pointer-events-none absolute right-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/90 p-2 text-fg shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:flex",
-                navState.canScrollNext ? "pointer-events-auto hover:bg-background" : "opacity-40",
-              )}
-            >
-              <ChevronRight className="h-5 w-5" aria-hidden />
-            </button>
-          </>
-        ) : null}
-      </div>
+            {gridItems.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous recommendations"
+                  onClick={() => scrollCarousel("prev")}
+                  disabled={!navState.canScrollPrev}
+                  className={cn(
+                    "pointer-events-none absolute left-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/90 p-2 text-fg shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:flex",
+                    navState.canScrollPrev ? "pointer-events-auto hover:bg-background" : "opacity-40",
+                  )}
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next recommendations"
+                  onClick={() => scrollCarousel("next")}
+                  disabled={!navState.canScrollNext}
+                  className={cn(
+                    "pointer-events-none absolute right-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/90 p-2 text-fg shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:flex",
+                    navState.canScrollNext ? "pointer-events-auto hover:bg-background" : "opacity-40",
+                  )}
+                >
+                  <ChevronRight className="h-5 w-5" aria-hidden />
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
+      </AsyncSection>
     </section>
   );
 }

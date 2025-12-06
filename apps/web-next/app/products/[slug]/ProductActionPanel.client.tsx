@@ -13,6 +13,7 @@ type ProductActionPanelProps = {
   priceCents?: number | null;
   dataset: "shop" | "legacy";
   category?: string | null;
+  currency?: string | null;
   variantLabel: string | null;
   onAddAction?: () => void;
   analyticsParams: Record<string, unknown>;
@@ -30,6 +31,7 @@ export default function ProductActionPanel({
   priceCents,
   dataset,
   category,
+  currency,
   variantLabel,
   onAddAction,
   analyticsParams,
@@ -61,6 +63,7 @@ export default function ProductActionPanel({
           analyticsParams={{ ...analyticsParams, price: finalPrice }}
           priceCents={priceCents ?? Math.round((finalPrice || 0) * 100)}
           category={category}
+          currency={currency}
           recMetadata={{ source: "product_action_panel" }}
           onAddAction={onAddAction}
           availabilityCode={availabilityCode}

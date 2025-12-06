@@ -44,6 +44,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
   const safeSlides = useMemo(() => slides.filter(Boolean), [slides]);
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   const slideCount = safeSlides.length;
 
@@ -56,12 +57,21 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
   );
 
   useEffect(() => {
-    if (slideCount <= 1 || isPaused) return;
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (event: MediaQueryListEvent | MediaQueryList) => setReduceMotion(event.matches);
+    handler(mql);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    if (slideCount <= 1 || isPaused || reduceMotion) return;
     const timer = window.setInterval(() => {
       setIndex((prev) => ((prev + 1) % slideCount + slideCount) % slideCount);
     }, AUTOPLAY_INTERVAL);
     return () => window.clearInterval(timer);
-  }, [isPaused, slideCount]);
+  }, [isPaused, reduceMotion, slideCount]);
 
   const activeSlide = safeSlides[index] ?? safeSlides[0];
 
@@ -78,11 +88,15 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
       onBlurCapture={() => setIsPaused(false)}
+      role="region"
+      aria-roledescription="carousel"
+      aria-live="off"
+      aria-label="Featured hero stories"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)]" aria-hidden />
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col items-center gap-6 px-4 py-8 text-center sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col items-center gap-4 px-4 py-6 text-center sm:px-6 sm:py-9 lg:px-8 lg:py-12">
         <div className="relative w-full">
-          <div className="relative grid min-h-[220px] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,1fr)] lg:items-center">
+          <div className="relative grid min-h-[200px] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,1fr)] lg:items-center">
             {safeSlides.map((slide, slideIndex) => (
               <article key={slide.id} className="contents" aria-hidden={slideIndex !== index}>
                 <div
@@ -99,20 +113,20 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
                       {slide.eyebrow}
                     </span>
                   ) : null}
-                  <h1 className="text-3xl font-semibold sm:text-4xl md:text-5xl">{slide.title}</h1>
-                  <p className="mt-4 text-base text-slate-200 sm:text-lg">{slide.description}</p>
+                  <h1 className="text-2xl font-semibold sm:text-4xl md:text-5xl">{slide.title}</h1>
+                  <p className="mt-3 text-sm text-slate-200 sm:text-lg">{slide.description}</p>
                   <HeroHighlights id={slide.id} highlights={slide.highlights} />
-                  <div className="mt-6 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                     <Link
                       href={slide.primaryCta.href}
-                      className="rounded-md bg-white px-6 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:-translate-y-[1px] hover:bg-slate-100"
+                      className="rounded-md bg-white px-5 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition hover:-translate-y-[1px] hover:bg-slate-100"
                     >
                       {slide.primaryCta.label}
                     </Link>
                     {slide.secondaryCta ? (
                       <Link
                         href={slide.secondaryCta.href}
-                        className="rounded-md border border-white/60 px-6 py-3 text-sm font-medium text-white transition hover:-translate-y-[1px] hover:border-white hover:bg-white/10"
+                        className="rounded-md border border-white/60 px-5 py-2.5 text-sm font-medium text-white transition hover:-translate-y-[1px] hover:border-white hover:bg-white/10"
                       >
                         {slide.secondaryCta.label}
                       </Link>
@@ -122,7 +136,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
 
                 <div
                   className={cn(
-                    "relative hidden overflow-hidden rounded-3xl border border-white/10 bg-white/10 p-6 text-left text-white shadow-[0_50px_80px_-32px_rgba(15,23,42,0.55)] backdrop-blur-lg transition-all duration-700 ease-out lg:block",
+                    "relative hidden overflow-hidden rounded-3xl border border-white/10 bg-white/10 p-4 text-left text-white shadow-[0_50px_80px_-32px_rgba(15,23,42,0.55)] backdrop-blur-lg transition-all duration-700 ease-out lg:block",
                     slideIndex === index
                       ? "pointer-events-auto opacity-100 translate-y-0 scale-100"
                       : "pointer-events-none opacity-0 translate-y-6 scale-95 lg:hidden",
@@ -138,12 +152,12 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
         </div>
 
         {slideCount > 1 ? (
-          <div className="mt-6 flex w-full max-w-3xl items-center justify-between gap-6 lg:max-w-none">
+          <div className="mt-4 flex w-full max-w-3xl items-center justify-between gap-4 lg:mt-6 lg:max-w-none">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsPaused((prev) => !prev)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:h-9 sm:w-9"
                 aria-label={isPaused ? "Resume autoplay" : "Pause slides"}
               >
                 {isPaused ? <Play className={iconSm} /> : <Pause className={iconSm} />}
@@ -151,7 +165,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
               <button
                 type="button"
                 onClick={() => goTo(index - 1)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:h-9 sm:w-9"
                 aria-label="Previous slide"
               >
                 <ChevronLeft className={iconSm} />
@@ -159,7 +173,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
               <button
                 type="button"
                 onClick={() => goTo(index + 1)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:h-9 sm:w-9"
                 aria-label="Next slide"
               >
                 <ChevronRight className={iconSm} />

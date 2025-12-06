@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { type User } from '@supabase/supabase-js'
 import Avatar from './avatar'
+import FormField from "@/components/ui/form-field"
+import { Loader2 } from "lucide-react"
 
 export default function AccountForm({ user }: { user: User | null }) {
     const supabase = createClient()
@@ -175,98 +177,82 @@ export default function AccountForm({ user }: { user: User | null }) {
             </div>
             <div className="grid gap-8 md:grid-cols-2">
                 <div className="grid gap-5">
-                    <label className="grid gap-2" htmlFor="email">
-                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Email</span>
+                    <FormField id="email" label="Email">
                         <input
-                            id="email"
                             type="text"
                             value={user?.email ?? ''}
                             disabled
                             className="w-full rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-sm text-muted/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                         />
-                    </label>
+                    </FormField>
 
-                    <label className="grid gap-2" htmlFor="fullName">
-                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Full name</span>
+                    <FormField id="fullName" label="Full name">
                         <input
-                            id="fullName"
                             type="text"
                             value={fullname || ''}
                             onChange={(e) => setFullname(e.target.value)}
                             className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                         />
-                    </label>
+                    </FormField>
 
-                    <label className="grid gap-2" htmlFor="username">
-                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Username</span>
+                    <FormField id="username" label="Username">
                         <input
-                            id="username"
                             type="text"
                             value={username || ''}
                             onChange={(e) => setUsername(e.target.value)}
                             className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                         />
-                    </label>
+                    </FormField>
 
-                    <label className="grid gap-2" htmlFor="website">
-                        <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Website</span>
+                    <FormField id="website" label="Website">
                         <input
-                            id="website"
                             type="url"
                             value={website || ''}
                             onChange={(e) => setWebsite(e.target.value)}
                             className="w-full rounded-2xl border border-border/40 bg-transparent px-4 py-3 text-sm text-fg transition focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                         />
-                    </label>
+                    </FormField>
 
                     <div className="grid gap-3 rounded-2xl border border-border/40 bg-card/40 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
                             Profile locale
                         </p>
-                        <label className="grid gap-1 text-sm" htmlFor="country">
-                            <span className="text-xs text-muted">Country</span>
+                        <FormField id="country" label="Country" description="Country or region">
                             <input
-                                id="country"
                                 type="text"
                                 value={country || ''}
                                 onChange={(e) => setCountry(e.target.value)}
                                 placeholder="Germany, USA, ..."
                                 className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                             />
-                        </label>
-                        <label className="grid gap-1 text-sm" htmlFor="language">
-                            <span className="text-xs text-muted">Language</span>
+                        </FormField>
+                        <FormField id="language" label="Language">
                             <input
-                                id="language"
                                 type="text"
                                 value={language || ''}
                                 onChange={(e) => setLanguage(e.target.value)}
                                 placeholder="ru-RU, en-US"
                                 className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                             />
-                        </label>
-                        <label className="grid gap-1 text-sm" htmlFor="timezone">
-                            <span className="text-xs text-muted">Time zone</span>
+                        </FormField>
+                        <FormField id="timezone" label="Time zone">
                             <input
-                                id="timezone"
                                 type="text"
                                 value={timezone || ''}
                                 onChange={(e) => setTimezone(e.target.value)}
                                 placeholder="Europe/Berlin"
                                 className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                             />
-                        </label>
-                        <label className="grid gap-1 text-sm" htmlFor="currency">
-                            <span className="text-xs text-muted">Currency</span>
+                        </FormField>
+                        <FormField id="currency" label="Currency">
                             <input
-                                id="currency"
                                 type="text"
                                 value={currency || ''}
                                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
                                 placeholder="EUR, USD, RUB"
                                 className="w-full rounded-xl border border-border/40 bg-transparent px-3 py-2 text-sm text-fg focus:border-primary/50 focus:bg-card/70 focus:ring-2 focus:ring-primary/30"
                             />
-                        </label>
+                        </FormField>
                     </div>
                 </div>
 

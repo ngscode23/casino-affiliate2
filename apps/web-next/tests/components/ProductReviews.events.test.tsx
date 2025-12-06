@@ -4,6 +4,18 @@ import { createRoot, type Root } from "react-dom/client";
 
 import ProductReviews from "@/components/ProductReviews";
 
+vi.mock("@shared/lib/authStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/lib/authStore")>();
+  return {
+    ...actual,
+    useAuthState: () => ({ user: null, session: null }),
+    subscribe: () => () => {},
+    setAuthState: () => {},
+    clearAuthState: () => {},
+    getAuthState: () => ({ user: null, session: null }),
+  };
+});
+
 type ReviewsResponse = {
   ok: boolean;
   items: unknown[];

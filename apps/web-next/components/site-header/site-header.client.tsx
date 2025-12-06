@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import nextDynamic from "next/dynamic";
+import { FormEvent, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bell, Heart, Home, Menu, Search, ShoppingBag, User, X, ChevronRight } from "lucide-react";
+import { Bell, Heart, Home, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { createPortal } from "react-dom";
 
 import { useCart } from "@shared/ecom/lib/cart";
@@ -13,17 +14,16 @@ import { cn } from "@shared/lib/cn";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import { logRecEvent } from "@/lib/recs-events";
 import styles from "./SiteHeader.module.css";
+import type { HoverPanel } from "./CatalogPanel";
+import { useSiteHeaderState } from "./useSiteHeaderState";
+import { HeaderDesktopNav } from "./HeaderDesktopNav";
+import { HeaderActions, type ActionButton } from "./HeaderActions";
+import { HeaderMobileNav } from "./HeaderMobileNav";
 
 export type NavItem = {
   href: string;
   label?: string;
   labelKey?: string;
-};
-
-type HoverPanel = {
-  title: string;
-  subtitle: string;
-  items: { label: string; href: string; description?: string }[];
 };
 
 type CatalogPanelCategory = {
@@ -72,6 +72,11 @@ const appendQuery = (href: string, query: string) => {
 };
 
 const MAX_PANEL_CATEGORIES = 6;
+
+const SearchPanel = nextDynamic(() => import("./SearchPanel"), { ssr: false, loading: () => null });
+const AccountMenu = nextDynamic(() => import("./AccountMenu"), { ssr: false, loading: () => null });
+const MobileDrawer = nextDynamic(() => import("./MobileDrawer"), { ssr: false, loading: () => null });
+const CatalogPanel = nextDynamic(() => import("./CatalogPanel"), { ssr: false, loading: () => null });
 
 const buildCatalogPanelFallback = (translate: PanelBuilderArgs["translate"]): HoverPanel => ({
   title: translate("nav.catalogPanelTitle", "Catalog spotlight"),
@@ -301,30 +306,62 @@ export function SiteHeaderClient({
   const t = useT();
   const { totalQty } = useCart();
 
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState(() => sanitizeSearchParam(searchParams?.get("q")) ?? "");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isPortalReady, setIsPortalReady] = useState(false);
+  const isActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/") return pathname === "/";
+    if (href === "/products") {
+      return pathname === "/products" || pathname.startsWith("/products/");
+    }
+    return pathname === href;
+  };
 
-  const openMobileMenu = useCallback(() => {
-    setMobileMenuOpen(true);
-  }, []);
+  const translate = useCallback(
+    (key: string, fallback: string) => {
+      const value = t(key);
+      return value && value !== key ? value : fallback;
+    },
+    [t],
+  );
 
-  const closeMobileMenu = useCallback(() => {
-    setMobileMenuOpen(false);
-  }, []);
-
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen((prev) => !prev);
-  }, []);
-  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
-
-  const searchPanelRef = useRef<HTMLDivElement>(null);
-  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const initialSearchValue = useMemo(() => sanitizeSearchParam(searchParams?.get("q")) ?? "", [searchParams]);
+  const {
+    searchOpen,
+    setSearchOpen,
+    searchValue,
+    setSearchValue,
+    searchPanelReady,
+    mobileMenuOpen,
+    mobileDrawerReady,
+    isPortalReady,
+    accountMenuReady,
+    enableAccountMenu,
+    hoveredNav,
+    setHoveredNav,
+    scrolled,
+    openMobileMenu,
+    closeMobileMenu,
+    toggleMobileMenu,
+    mobileMenuButtonRef,
+    setSearchPanelReady,
+  } = useSiteHeaderState({
+    initialSearchValue,
+    pathname,
+    searchParams,
+    sanitize: sanitizeSearchParam,
+  });
 
   const nav = useMemo(
     () => navItems.filter((item) => item.href !== "/wishlist" && item.href !== "/"),
     [navItems],
+  );
+  const navDesktopItems = useMemo(
+    () =>
+      nav.map((item) => ({
+        href: withLang(item.href, lang),
+        label: item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href,
+        active: isActive(item.href),
+      })),
+    [lang, nav, translate],
   );
   const panelCategories = useMemo(() => catalogCategories ?? [], [catalogCategories]);
   const brandMark = useMemo(() => {
@@ -333,11 +370,6 @@ export function SiteHeaderClient({
     const firstWord = trimmed.split(/\s+/).find(Boolean);
     return firstWord && firstWord.length <= 10 ? firstWord : toInitials(brandName);
   }, [brandName]);
-
-  const translate = (key: string, fallback: string) => {
-    const value = t(key);
-    return value && value !== key ? value : fallback;
-  };
 
   const primaryLabel = translate("nav.primary", "Primary navigation");
   const searchLabel = translate("header.search", "Search");
@@ -352,76 +384,6 @@ export function SiteHeaderClient({
     "nav.panel.defaultSubtitle",
     "Quick shortcuts and featured actions",
   );
-
-  useEffect(() => {
-    setSearchValue(sanitizeSearchParam(searchParams?.get("q")) ?? "");
-  }, [searchParams]);
-
-  useEffect(() => {
-    setSearchOpen(false);
-    setMobileMenuOpen(false);
-    setHoveredNav(null);
-  }, [pathname]);
-
-  useEffect(() => {
-    setIsPortalReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    if (!searchOpen) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!searchPanelRef.current) return;
-      if (searchPanelRef.current.contains(event.target as Node)) return;
-      setSearchOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setSearchOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [searchOpen]);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeMobileMenu();
-        mobileMenuButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [mobileMenuOpen, closeMobileMenu]);
-
-  const isActive = (href: string) => {
-    if (!pathname) return false;
-    if (href === "/") return pathname === "/";
-    if (href === "/products") {
-      return pathname === "/products" || pathname.startsWith("/products/");
-    }
-    return pathname === href;
-  };
 
   const onSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -476,30 +438,35 @@ export function SiteHeaderClient({
     };
   };
 
-  const actionButtons = [
+  const actionButtons: ActionButton[] = [
     {
       key: "notif",
       label: notificationLabel,
       icon: <Bell size={18} aria-hidden />,
       href: withLang("/contact", lang),
+      isActive: pathname === "/contact",
     },
     {
       key: "wishlist",
       label: wishlistLabel,
       icon: <Heart size={18} aria-hidden />,
       href: withLang("/wishlist", lang),
+      isActive: pathname?.startsWith("/wishlist") ?? false,
     },
     {
       key: "account",
       label: accountLabel,
       icon: <User size={18} aria-hidden />,
       href: withLang("/account", lang),
+      isActive: pathname?.startsWith("/account") ?? false,
     },
     {
       key: "search",
       label: searchLabel,
       icon: <Search size={18} aria-hidden />,
-      onClick: () => setSearchOpen((v) => !v),
+      onClick: () => {
+        setSearchOpen((v) => !v);
+      },
       togglesSearch: true,
     },
   ];
@@ -511,7 +478,10 @@ export function SiteHeaderClient({
       key: "search",
       label: searchLabel,
       icon: <Search size={18} aria-hidden />,
-      onClick: () => setSearchOpen((v) => !v),
+      onClick: () => {
+        setSearchPanelReady(true);
+        setSearchOpen((v) => !v);
+      },
       togglesSearch: true,
       isActive: searchOpen,
     },
@@ -546,6 +516,51 @@ export function SiteHeaderClient({
     },
   ];
 
+  const mobileNavItems = nav.map((item) => ({
+    ...item,
+    label: item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href,
+    href: withLang(item.href, lang),
+    active: isActive(item.href),
+  }));
+
+  const quickActions = [
+    { key: "wishlist", label: wishlistLabel, href: withLang("/wishlist", lang), icon: <Heart size={18} aria-hidden /> },
+    { key: "cart", label: cartLabel, href: withLang("/cart", lang), icon: <ShoppingBag size={18} aria-hidden />, badge: totalQty },
+    { key: "account", label: accountLabel, href: withLang("/account", lang), icon: <User size={18} aria-hidden /> },
+    { key: "contact", label: notificationLabel, href: withLang("/contact", lang), icon: <Bell size={18} aria-hidden /> },
+  ];
+  const cartHref = withLang("/cart", lang);
+  const cartIcon = <ShoppingBag size={18} aria-hidden />;
+  const cartActive = pathname === "/cart";
+
+  const mobileOverlayMenu = isPortalReady && mobileDrawerReady ? (
+    <HeaderMobileNav
+      open={mobileMenuOpen}
+      ready={mobileDrawerReady}
+      navItems={mobileNavItems}
+      brandName={brandName}
+      brandMark={brandMark}
+      tagline={tagline}
+      menuId={mobileMenuId}
+      copy={{
+        primaryLabel,
+        quickLabel: translate("nav.quick", "Quick actions"),
+        searchLabel,
+        closeLabel: translate("nav.close", "Close menu"),
+        placeholder: translate("header.searchPlaceholder", "Search products"),
+      }}
+      quickActions={quickActions}
+      searchValue={searchValue}
+      onSearchChange={setSearchValue}
+      onSearchSubmit={onSearchSubmit}
+      onClose={() => {
+        closeMobileMenu();
+        mobileMenuButtonRef.current?.focus();
+      }}
+      onReturnFocus={() => mobileMenuButtonRef.current?.focus()}
+    />
+  ) : null;
+
   const bottomNav = (
     <nav className={cn(styles.vhBottomNav, mobileMenuOpen && styles.vhBottomNavHidden)} aria-label={primaryLabel}>
       <ul className={styles.vhBottomNavList}>
@@ -557,7 +572,12 @@ export function SiteHeaderClient({
           return (
             <li key={`bottom-${item.key}`} className={styles.vhBottomNavItem}>
               {item.href ? (
-                <Link href={item.href} className={baseClass} aria-label={item.label}>
+                <Link
+                  href={item.href}
+                  className={baseClass}
+                  aria-label={item.label}
+                  aria-current={isActive ? "page" : undefined}
+                >
                   <span className={styles.vhBottomNavIcon} aria-hidden>
                     {item.icon}
                     {badgeValue > 0 ? (
@@ -583,115 +603,7 @@ export function SiteHeaderClient({
     </nav>
   );
 
-const mobileOverlayMenu = isPortalReady
-  ? createPortal(
-      <div className={cn(styles.mobileSheetOverlay, mobileMenuOpen && styles.mobileSheetOverlayOpen)}>
-        <div className={styles.mobileSheetBackdrop} onClick={closeMobileMenu} />
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={primaryLabel}
-          id={mobileMenuId}
-          className={cn(styles.mobileSheet, mobileMenuOpen ? styles.mobileSheetOpen : styles.mobileSheetClosed)}
-        >
-            <div className={styles.mobileSheetHeader}>
-              <div className={styles.mobileSheetBrand}>
-                <span className={styles.mobileSheetMark}>{brandMark}</span>
-                <div className={styles.mobileSheetText}>
-                  <span className={styles.mobileSheetName}>{brandName}</span>
-                  {tagline ? <span className={styles.mobileSheetTagline}>{tagline}</span> : null}
-                </div>
-              </div>
-            <button
-              type="button"
-              className={styles.mobileSheetClose}
-              onClick={closeMobileMenu}
-              aria-label={translate("nav.close", "Close menu")}
-            >
-              <X size={18} aria-hidden />
-            </button>
-          </div>
-
-          <form
-            className={styles.mobileSearch}
-            onSubmit={(event) => {
-              onSearchSubmit(event);
-              closeMobileMenu();
-            }}
-          >
-            <Search size={18} aria-hidden />
-            <input
-              type="search"
-              name="q"
-              placeholder={translate("header.searchPlaceholder", "Search products")}
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-            />
-            <button type="submit">{searchLabel}</button>
-          </form>
-
-          <nav aria-label={primaryLabel} className={styles.mobileNav}>
-            <ul>
-              {nav.map((item) => {
-                const label = item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href;
-                const href = withLang(item.href, lang);
-                const active = isActive(item.href);
-
-                return (
-                  <li key={`mobile-${item.href}`}>
-                    <Link
-                      href={href}
-                      className={cn(styles.mobileNavLink, active && styles.mobileNavLinkActive)}
-                      onClick={closeMobileMenu}
-                    >
-                      <span>{label}</span>
-                      <ChevronRight size={18} aria-hidden />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          <div className={styles.mobileQuick}>
-            <div className={styles.mobileQuickHeader}>{translate("nav.quick", "Quick actions")}</div>
-            <div className={styles.mobileQuickGrid}>
-              {[
-                { key: "wishlist", label: wishlistLabel, href: withLang("/wishlist", lang), icon: <Heart size={18} aria-hidden /> },
-                { key: "cart", label: cartLabel, href: withLang("/cart", lang), icon: <ShoppingBag size={18} aria-hidden />, badge: totalQty },
-                { key: "account", label: accountLabel, href: withLang("/account", lang), icon: <User size={18} aria-hidden /> },
-                { key: "contact", label: notificationLabel, href: withLang("/contact", lang), icon: <Bell size={18} aria-hidden /> },
-              ].map((item) => (
-                <Link key={item.key} href={item.href} className={styles.mobileQuickItem} onClick={closeMobileMenu}>
-                  <span className={styles.mobileQuickIcon}>
-                    {item.icon}
-                    {item.badge ? <span className={styles.mobileQuickBadge}>{item.badge}</span> : null}
-                  </span>
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )
-  : null;
-
   const bottomNavPortal = isPortalReady ? createPortal(bottomNav, document.body) : null;
-
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleScroll = () => {
-      const y = window.scrollY || window.pageYOffset || 0;
-      setScrolled(y > 8);
-    };
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   return (
     <>
@@ -711,61 +623,13 @@ const mobileOverlayMenu = isPortalReady
           </div>
 
           <div className={styles.vhNavWrapper}>
-            <nav className={styles.vhNav} aria-label={primaryLabel}>
-              <ul className={styles.vhNavList}>
-                {nav.map((item) => {
-                  const label = item.labelKey ? translate(item.labelKey, item.label ?? item.href) : item.label ?? item.href;
-                  const href = withLang(item.href, lang);
-                  const active = isActive(item.href);
-                  const panel = buildPanel(item.href, label);
-                  const panelOpen = hoveredNav === item.href;
-                  return (
-                    <li
-                      key={item.href}
-                      className={cn(styles.vhNavItem, panelOpen && styles.vhNavItemActive)}
-                      onMouseEnter={() => setHoveredNav(item.href)}
-                      onMouseLeave={() => setHoveredNav(null)}
-                      onFocusCapture={() => setHoveredNav(item.href)}
-                      onBlurCapture={(event) => {
-                        const related = event.relatedTarget as Node | null;
-                        if (!related || !event.currentTarget.contains(related)) {
-                          setHoveredNav(null);
-                        }
-                      }}
-                    >
-                      <Link
-                        href={href}
-                        className={cn(styles.vhNavLink, active && styles.vhNavLinkActive)}
-                        aria-haspopup="true"
-                      >
-                        {label}
-                      </Link>
-                      <div
-                        className={cn(styles.vhNavPanel, panelOpen && styles.vhNavPanelVisible)}
-                        aria-hidden={!panelOpen}
-                      >
-                        <div className={styles.vhNavPanelHeader}>
-                          <span className={styles.vhNavPanelTitle}>{panel.title}</span>
-                          <span className={styles.vhNavPanelSubtitle}>{panel.subtitle}</span>
-                        </div>
-                        <ul className={styles.vhNavPanelList}>
-                          {panel.items.map((panelItem) => (
-                            <li key={`${item.href}-${panelItem.label}`}>
-                              <Link href={panelItem.href} className={styles.vhNavPanelLink}>
-                                <span>{panelItem.label}</span>
-                                {panelItem.description ? (
-                                  <span className={styles.vhNavPanelMeta}>{panelItem.description}</span>
-                                ) : null}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
+            <HeaderDesktopNav
+              items={navDesktopItems}
+              primaryLabel={primaryLabel}
+              hoveredNav={hoveredNav}
+              onHoverChange={setHoveredNav}
+              buildPanel={buildPanel}
+            />
           </div>
 
           <div className={styles.vhMobileControls}>
@@ -783,70 +647,26 @@ const mobileOverlayMenu = isPortalReady
             </button>
           </div>
 
-          <ul className={styles.vhActions}>
-            {actionButtons.map((action) => (
-              <li key={action.key}>
-                {action.href ? (
-                  <Link
-                    href={action.href}
-                    className={styles.vhActionButton}
-                    aria-label={action.label}
-                  >
-                    {action.icon}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className={cn(
-                      styles.vhActionButton,
-                      action.key === "search" && searchOpen && styles.vhNavLinkActive,
-                    )}
-                    aria-pressed={action.togglesSearch ? searchOpen : undefined}
-                    aria-label={action.label}
-                    onClick={action.onClick}
-                  >
-                    {action.icon}
-                  </button>
-                )}
-                {action.key === "search" ? (
-                  <div
-                    ref={searchPanelRef}
-                    className={cn(styles.vhSearchPanel, searchOpen && styles.vhSearchPanelOpen)}
-                    role="dialog"
-                    aria-label={searchLabel}
-                  >
-                    <form className={styles.vhSearchForm} onSubmit={onSearchSubmit}>
-                      <label className={styles.vhSearchLabel}>{searchLabel}</label>
-                      <div className={styles.vhSearchControls}>
-                        <input
-                          type="search"
-                          name="q"
-                          autoComplete="off"
-                          placeholder={translate("header.searchPlaceholder", "Search products")}
-                          value={searchValue}
-                          onChange={(event) => setSearchValue(event.target.value)}
-                          className={styles.vhSearchInput}
-                        />
-                        <button type="submit" className={styles.vhSearchSubmit}>
-                          {searchLabel}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-            <li>
-              <Link
-                href={withLang("/cart", lang)}
-                className={cn(styles.vhActionButton, styles.vhCartButton)}
-                aria-label={cartLabel}
-              >
-                <ShoppingBag size={18} aria-hidden />
-                {totalQty ? <span className={styles.vhCartBadge}>{totalQty}</span> : null}
-              </Link>
-            </li>
-          </ul>
+          <HeaderActions
+            actionButtons={actionButtons}
+            accountMenuReady={accountMenuReady}
+            enableAccountMenu={enableAccountMenu}
+            searchPanelReady={searchPanelReady}
+            searchOpen={searchOpen}
+            searchValue={searchValue}
+            searchLabel={searchLabel}
+            searchPlaceholder={translate("header.searchPlaceholder", "Search products")}
+            lang={lang}
+            applyLang={withLang}
+            onSearchChange={setSearchValue}
+            onSearchSubmit={onSearchSubmit}
+            onSearchClose={() => setSearchOpen(false)}
+            cartHref={cartHref}
+            cartLabel={cartLabel}
+            cartActive={cartActive}
+            cartQty={totalQty ?? null}
+            cartIcon={cartIcon}
+          />
         </div>
       </header>
       {bottomNavPortal}

@@ -59,9 +59,9 @@ export function SiteFooter() {
   };
 
   return (
-    <footer className="mt-14">
-      <div className="rounded-[28px] border border-border/35 bg-card/92 px-6 py-8 shadow-soft sm:px-9 sm:py-10">
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr_1fr]">
+    <footer className="mt-10 sm:mt-12">
+      <div className="rounded-[24px] border border-border/35 bg-card/92 px-5 py-6 shadow-soft sm:px-8 sm:py-8">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr_1fr]">
           <div className="space-y-5">
             <div>
               <h2 className="text-base font-semibold text-fg">{siteConfig.name}</h2>
@@ -70,7 +70,7 @@ export function SiteFooter() {
             <LanguageSwitcher />
           </div>
 
-          <div className="space-y-1.5 text-sm text-muted">
+          <div className="space-y-1 text-sm text-muted">
             <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{contactLabel}</h3>
             {siteConfig.footer.address ? <div className={mutedTextSmLegacy}>{siteConfig.footer.address}</div> : null}
             {siteConfig.footer.phone ? <div className={mutedTextSmLegacy}>{siteConfig.footer.phone}</div> : null}
@@ -81,21 +81,21 @@ export function SiteFooter() {
             ) : null}
           </div>
 
-          <div className="grid gap-5 text-sm text-muted sm:grid-cols-2 lg:grid-cols-1">
-            <div className="space-y-1.5">
+          <div className="grid gap-4 text-sm text-muted sm:grid-cols-2 lg:grid-cols-1">
+            <div className="space-y-1">
               <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{exploreLabel}</h3>
               {primaryNav.map((item) => (
                 <div key={item.href}>{renderLink(item.href, resolveNavLabel(item))}</div>
               ))}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{connectLabel}</h3>
               {siteConfig.socials.map((social: { href: string; label: string }, idx: number) => {
                 const key = social.href?.trim() || social.label || String(idx);
                 return <div key={key}>{renderLink(social.href, social.label)}</div>;
               })}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h3 className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">{legalLabel}</h3>
               {legalLinks.map((item) => (
                 <div key={item.href}>{renderLink(item.href, item.label)}</div>
@@ -104,7 +104,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-3 border-t border-border/30 pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-7 flex flex-col gap-3 border-t border-border/30 pt-3 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <span>{siteConfig.footer.company ? `${year} ${siteConfig.footer.company}` : year}</span>
           {rights ? <span>{rights}</span> : null}
         </div>

@@ -684,6 +684,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
               dataset={product.dataset}
               category={product.category?.slug}
+              currency={product.currency}
               variantLabel={variantLabel}
               onAddAction={onAdd}
               analyticsParams={{
@@ -743,6 +744,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         selectedVariantLabel={variantLabel}
         priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
         category={product.category?.slug}
+        currency={product.currency}
         recMetadata={{ source: "sticky_cta" }}
         secondaryAction={
           admin.isAdmin ? (

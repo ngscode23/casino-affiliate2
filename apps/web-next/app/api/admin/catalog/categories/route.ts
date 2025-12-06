@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache";
 
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
-import { createAuthenticatedClient } from "@/utils/supabase/authenticated";
+import { createAuthenticatedClient } from "@/utils/supabase";
 import { HEADER_CATEGORIES_TAG } from "@/lib/catalog/categories";
 
 const CATEGORY_FIELDS = "id, slug, title, description, parent_id, sort_order, is_active";

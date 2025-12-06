@@ -40,7 +40,12 @@ export function HydratedProductGrid({
     const count = skeletonCount ?? Math.max(items.length, 4);
     const gridLayout = PRODUCT_GRID_LAYOUTS[layout] ?? PRODUCT_GRID_LAYOUTS.grid;
     const skeletonGrid = (
-      <div className={cn(gridStyles.vcGridBase, gridLayout)} role="status" aria-live="polite">
+      <div
+        className={cn(gridStyles.vcGridBase, gridLayout)}
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         {Array.from({ length: count }).map((_, index) => (
           <div key={`skeleton-${index}`} className={gridStyles.vcGridItem} aria-hidden="true">
             <ProductSkeleton />
@@ -53,7 +58,11 @@ export function HydratedProductGrid({
       return skeletonGrid;
     }
 
-    return <div className={cn(gridStyles.vcContainer, containerClassName)}>{skeletonGrid}</div>;
+    return (
+      <div className={cn(gridStyles.vcContainer, containerClassName)} aria-busy="true">
+        {skeletonGrid}
+      </div>
+    );
   }
 
   return (

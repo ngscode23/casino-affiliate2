@@ -40,8 +40,9 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 300;
-export const dynamic = "force-dynamic";
+export const revalidate = 180;
+export const dynamic = "force-static";
+export const fetchCache = "force-cache";
 
 export default async function HomePage() {
   const headerStore = new Headers(await headers());

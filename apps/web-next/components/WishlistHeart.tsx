@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { Heart } from "lucide-react";
 import { cn } from "@shared/lib/cn";
+import { toast } from "@ui/components/common/toast";
 
 // shared cache per page load to avoid multiple GETs
 let favoritesCache: string[] | null = null;
@@ -69,6 +70,12 @@ export function WishlistHeart({
     const nextState = !active;
     setActive(nextState);
     const controller = new AbortController();
+    const redirectToLogin = () => {
+      if (typeof window === "undefined") return;
+      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/login?redirect=${redirect}`;
+    };
+
     const push = async () => {
       try {
         if (nextState) {
@@ -85,10 +92,8 @@ export function WishlistHeart({
               // not logged in or blocked by RLS
               console.warn("Favorites requires login:", msg || res.status);
               setActive(false);
-              if (typeof window !== "undefined") {
-                const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-                window.location.href = `/login?redirect=${redirect}`;
-              }
+              toast("Войдите, чтобы сохранять избранное", { variant: "warning" });
+              redirectToLogin();
               return;
             }
             throw new Error(`POST /favorites ${res.status}: ${msg}`);
@@ -105,10 +110,8 @@ export function WishlistHeart({
             if (res.status === 401 || res.status === 403) {
               console.warn("Favorites requires login:", msg || res.status);
               setActive(!nextState); // keep previous state
-              if (typeof window !== "undefined") {
-                const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-                window.location.href = `/login?redirect=${redirect}`;
-              }
+              toast("Войдите, чтобы сохранять избранное", { variant: "warning" });
+              redirectToLogin();
               return;
             }
             throw new Error(`DELETE /favorites ${res.status}: ${msg}`);
@@ -121,6 +124,7 @@ export function WishlistHeart({
         // keep UX simple: roll back state and log for debugging
         setActive(!nextState); // rollback on failure
         console.warn("Failed to update favorites, request rolled back");
+        toast("Не удалось обновить избранное", { variant: "error" });
       }
     };
     void push();
@@ -139,6 +143,9 @@ export function WishlistHeart({
       )}
       disabled={!hydrated}
     >
+      <span className="sr-only" aria-live="polite">
+        {active ? "В избранном" : "Не в избранном"}
+      </span>
       <Heart
         style={{ width: size, height: size }}
         aria-hidden

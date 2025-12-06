@@ -5,7 +5,6 @@ export const dynamic = "force-static";
 export const revalidate = 300;
 export const fetchCache = "default-cache";
 export const runtime = "nodejs";
-export const tags = [HERO_TAG];
 
 export async function GET() {
   const hero = await getActiveHero();

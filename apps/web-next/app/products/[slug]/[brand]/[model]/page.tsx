@@ -6,11 +6,11 @@ import ProductCarousel, { getProductsByModel } from "@/components/ProductCarouse
 import { siteConfig } from "@/lib/site-config";
 
 type PageProps = {
-  params: {
+  params: Promise<{
     slug: string;
     brand: string;
     model: string;
-  };
+  }>;
 };
 
 const formatSegment = (value: string | undefined) =>
@@ -21,15 +21,16 @@ const formatSegment = (value: string | undefined) =>
     .trim();
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const categoryLabel = formatSegment(params.slug);
-  const brandLabel = formatSegment(params.brand);
-  const modelLabel = formatSegment(params.model);
+  const resolvedParams = await params;
+  const categoryLabel = formatSegment(resolvedParams.slug);
+  const brandLabel = formatSegment(resolvedParams.brand);
+  const modelLabel = formatSegment(resolvedParams.model);
   const origin =
     (process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
       process.env.NEXT_SITE_URL ||
       "https://neon4.vercel.app").replace(/\/$/, "");
-  const canonicalPath = `/products/${params.slug}/${params.brand}/${params.model}`;
+  const canonicalPath = `/products/${resolvedParams.slug}/${resolvedParams.brand}/${resolvedParams.model}`;
   const canonicalUrl = `${origin}${canonicalPath}`;
   const siteName = siteConfig.name || "Neon Shop";
   const title = `${brandLabel} ${modelLabel} | ${siteName}`;
@@ -45,9 +46,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProductModelPage({ params }: PageProps) {
-  const categoryLabel = formatSegment(params.slug);
-  const brandLabel = formatSegment(params.brand);
-  const modelLabel = formatSegment(params.model);
+  const resolvedParams = await params;
+  const categoryLabel = formatSegment(resolvedParams.slug);
+  const brandLabel = formatSegment(resolvedParams.brand);
+  const modelLabel = formatSegment(resolvedParams.model);
 
   const variants = await getProductsByModel(modelLabel);
   const featured = variants[0] ?? null;
@@ -67,7 +69,7 @@ export default async function ProductModelPage({ params }: PageProps) {
           </li>
           <li>
             <Link
-              href={`/products?category=${encodeURIComponent(params.slug)}`}
+              href={`/products?category=${encodeURIComponent(resolvedParams.slug)}`}
               className="hover:text-slate-900 dark:hover:text-white"
             >
               {categoryLabel}

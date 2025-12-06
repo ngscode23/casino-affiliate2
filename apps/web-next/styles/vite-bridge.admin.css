@@ -1,0 +1,16 @@
+.theme-admin {
+  --vc-card-bg: color-mix(in srgb, rgb(var(--card-rgb, 255 255 255)) 94%, rgb(var(--bg-rgb, 245 246 248)) 6%);
+  --vc-card-surface: color-mix(in srgb, rgb(var(--card-rgb, 255 255 255)) 88%, rgb(var(--bg-rgb, 245 246 248)) 12%);
+  --vc-card-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 10px 26px -12px rgba(15, 23, 42, 0.12);
+  --vc-card-shadow-hover: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 16px 34px -12px rgba(15, 23, 42, 0.16);
+  --vc-focus-ring: 0 0 0 2px rgb(var(--bg-rgb, 245 246 248)), 0 0 0 6px rgba(29, 78, 216, 0.35);
+  --vc-text-strong: rgb(var(--fg-rgb, 31 41 55));
+  --vc-price-color: rgb(var(--fg-rgb, 31 41 55));
+  --vc-price-strike: rgba(15, 23, 42, 0.45);
+  --vc-meta-color: rgba(15, 23, 42, 0.6);
+  --vc-description-color: rgba(15, 23, 42, 0.72);
+  --vc-placeholder-bg: rgba(15, 23, 42, 0.08);
+  --vc-placeholder-fg: rgba(15, 23, 42, 0.52);
+  --vc-badge-neutral-bg: rgba(15, 23, 42, 0.08);
+  --vc-badge-neutral-fg: rgb(var(--fg-rgb, 31 41 55));
+}

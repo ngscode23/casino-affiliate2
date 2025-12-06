@@ -189,6 +189,44 @@ function sanitizeRequestUrl(request: NextRequest): NextResponse | null {
   return NextResponse.redirect(url, 302);
 }
 
+// ---------- Rate limit (middleware replacement) ----------
+type HitStore = Map<string, number[]>;
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 60;
+const RL_PATHS = new Set(["/api/catalog/products", "/api/catalog/search-suggest"]);
+const globalHitStore = globalThis as typeof globalThis & { __rateLimitStore?: HitStore };
+const rlStore: HitStore = globalHitStore.__rateLimitStore ?? new Map();
+globalHitStore.__rateLimitStore = rlStore;
+
+function rateLimit(req: NextRequest): NextResponse | null {
+  if (!RL_PATHS.has(req.nextUrl.pathname)) return null;
+
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const runtimeIp = (req as any)?.ip as string | undefined;
+  const key = runtimeIp || forwarded || cfIp || "anon";
+
+  const now = Date.now();
+  const windowStart = now - RL_WINDOW_MS;
+  const hits = rlStore.get(key)?.filter((ts) => ts > windowStart) ?? [];
+
+  if (hits.length >= RL_MAX) {
+    const retryAfterMs = RL_WINDOW_MS - (now - hits[0]);
+    const res = NextResponse.json(
+      { error: "rate_limited", retryAfterMs },
+      { status: 429 },
+    );
+    res.headers.set("Retry-After", Math.max(1, Math.ceil(retryAfterMs / 1000)).toString());
+    res.headers.set("X-RateLimit-Limit", String(RL_MAX));
+    res.headers.set("X-RateLimit-Remaining", "0");
+    return res;
+  }
+
+  hits.push(now);
+  rlStore.set(key, hits);
+  return null;
+}
+
 // ---------- Main proxy ----------
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -205,6 +243,9 @@ export async function proxy(request: NextRequest) {
   ) {
     return nextWithAb(request);
   }
+
+  const limited = rateLimit(request);
+  if (limited) return withAb(request, limited);
 
   // Публичные маршруты
   if (pathname === "/" || pathname.startsWith("/api/public") || pathname.startsWith("/login")) {

@@ -9,18 +9,10 @@ import { cn } from "@shared/lib/cn";
 import { useCompare } from "@shared/ctx/CompareContext";
 import WishlistHeart from "./WishlistHeart";
 import styles from "./ProductCard/ProductCard.module.css";
+import type { RecMeta } from "@/types/domain";
 
-export type RecMeta = {
-  treatment?: string | null;
-  rank?: number | null;
-  reason?: string | null;
-  score?: number | null;
-  adjusted_score?: number | null;
-  bandit_from?: number | null;
-  rollout?: number | null;
-  placement?: string | null;
-  source?: string | null;
-};
+const BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PQ8lWAAAAABJRU5ErkJggg==";
 
 export type ProductGridItem = {
   id: string;
@@ -32,6 +24,7 @@ export type ProductGridItem = {
   meta?: string | null;
   badge?: string | null;
   image?: string | null;
+  imageBlur?: string | null;
   availability?: "InStock" | "OutOfStock" | "PreOrder" | null;
   availabilityLabel?: string | null;
   variantCount?: number | null;
@@ -85,9 +78,15 @@ function BaseProductCard({
           item !== product.variantLabel,
       )
     : null;
-  const imageAlt = product.variantLabel
-    ? `${product.title} - ${product.variantLabel}`
-    : product.title ?? "";
+  const baseAltParts = [
+    product.title?.trim() ?? "",
+    product.variantLabel?.trim() ?? "",
+    product.meta?.split("\u0007")[0]?.trim() ?? "",
+  ].filter(Boolean);
+  const imageAlt = baseAltParts.length ? Array.from(new Set(baseAltParts)).join(" — ") : product.title ?? "";
+  const blurDataURL = buildBlurDataURL(product.imageBlur ?? product.image);
+  const isLikelyLcp = index === 0;
+  const imageQuality = isLikelyLcp ? 70 : 55;
 
   const compareLabel = inCompare
     ? translate("compare.selected", "В сравнении")
@@ -105,16 +104,19 @@ function BaseProductCard({
               src={product.image}
               alt={imageAlt}
               fill
-              loading={index === 0 ? "eager" : "lazy"}
-              sizes="(max-width: 768px) 90vw, (max-width: 1199px) 45vw, 320px"
-              quality={60}
+              loading={isLikelyLcp ? "eager" : "lazy"}
+              sizes="(max-width: 768px) 90vw, (max-width: 1200px) 50vw, 25vw"
+              quality={imageQuality}
               className={styles.vcImage}
               style={{ borderRadius: "var(--vc-card-image-radius, 11px)" }}
-              placeholder={product.image.startsWith("data:") ? "blur" : "empty"}
-              blurDataURL={product.image.startsWith("data:") ? product.image : undefined}
+              placeholder={blurDataURL ? "blur" : "empty"}
+              blurDataURL={blurDataURL}
             />
           ) : (
-            <div className={styles.vcMediaPlaceholder}>{noImageLabel}</div>
+            <div className={styles.vcMediaPlaceholder} aria-hidden="true">
+              <div className={styles.vcMediaSkeleton} />
+              <span className={styles.vcSrOnly}>{noImageLabel}</span>
+            </div>
           )}
           {badgeLabel ? <span className={cn(styles.vcBadge, badgeClass)}>{badgeLabel}</span> : null}
           <WishlistHeart productId={product.id} className={styles.vcWishlist} />
@@ -158,11 +160,12 @@ function BaseProductCard({
 
       {showAddToCart ? (
         <div className={styles.vcActionBar}>
-          <div className={styles.vcCompareRow}>
+          <div className={styles.vcCompareRow} aria-live="polite">
             <button
               type="button"
               className={cn(styles.vcCompareToggle, inCompare && styles.vcCompareToggleActive)}
               aria-pressed={inCompare}
+              aria-label={`${compareLabel} ${product.title ?? ""}`.trim()}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -179,6 +182,11 @@ function BaseProductCard({
             >
               <span className={styles.vcCompareDot} aria-hidden />
               <span>{compareLabel}</span>
+              <span className={styles.vcSrOnly}>
+                {inCompare
+                  ? translate("compare.addedStatus", "Added to compare")
+                  : translate("compare.removedStatus", "Removed from compare")}
+              </span>
             </button>
           </div>
           <AddToCartButton
@@ -196,6 +204,14 @@ function BaseProductCard({
 }
 
 export default memo(BaseProductCard);
+
+function buildBlurDataURL(src?: string | null): string | undefined {
+  if (!src) return undefined;
+  if (src.startsWith("data:")) return src;
+  // Generate a tiny blurred derivative via CDN/query params; fallback to a tiny inline placeholder.
+  const separator = src.includes("?") ? "&" : "?";
+  return `${src}${separator}auto=format&fit=crop&w=24&h=24&blur=20&q=30` || BLUR_DATA_URL;
+}
 
 function getBadgeLabel(
   product: ProductGridItem,

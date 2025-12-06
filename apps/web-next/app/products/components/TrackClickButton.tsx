@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { attachUtm } from "@shared/lib/utm";
 import { track } from "@/lib/track";
 
@@ -48,11 +49,12 @@ export default function TrackClickButton({
     <button
       type="button"
       onClick={onClick}
-      className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+      className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
       disabled={loading}
+      aria-busy={loading}
     >
-      {loading ? "Tracking." : "Track click"}
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+      {loading ? "Tracking..." : "Track click"}
     </button>
   );
 }
-

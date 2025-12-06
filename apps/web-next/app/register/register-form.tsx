@@ -3,17 +3,31 @@
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 import { signupAction, type AuthActionState } from "../login/actions";
 import Button from "@ui/components/common/button";
+import FormField from "@/components/ui/form-field";
 
 const INITIAL_STATE: AuthActionState = { success: false };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending ? "Creating account..." : "Create account"}
+    <Button
+      type="submit"
+      disabled={pending}
+      aria-busy={pending}
+      className="w-full"
+    >
+      {pending ? (
+        <span className="inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Creating account...
+        </span>
+      ) : (
+        "Create account"
+      )}
     </Button>
   );
 }
@@ -30,12 +44,8 @@ export default function RegisterForm() {
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
-      <div className="space-y-1">
-        <label htmlFor="email" className="block text-sm font-medium text-neutral-400">
-          Email
-        </label>
+      <FormField id="email" label="Email" required>
         <input
-          id="email"
           name="email"
           type="email"
           required
@@ -43,13 +53,9 @@ export default function RegisterForm() {
           className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
           placeholder="you@email.com"
         />
-      </div>
-      <div className="space-y-1">
-        <label htmlFor="password" className="block text-sm font-medium text-neutral-400">
-          Password
-        </label>
+      </FormField>
+      <FormField id="password" label="Password" required>
         <input
-          id="password"
           name="password"
           type="password"
           required
@@ -58,7 +64,7 @@ export default function RegisterForm() {
           className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
           placeholder="********"
         />
-      </div>
+      </FormField>
       <SubmitButton />
       {state.error && (
         <p className="text-sm text-red-400" role="alert">

@@ -10,8 +10,11 @@ function getAnonKey() {
 }
 
 export function createClient() {
-  const browserFetch = createSupabaseFetchLogger("browser", console.debug);
-  return createBrowserClient(
+  const browserFetch = createSupabaseFetchLogger("browser", console.debug, {
+    retries: 2,
+    baseDelayMs: 200,
+  });
+  return createBrowserClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     getAnonKey()!,
     {

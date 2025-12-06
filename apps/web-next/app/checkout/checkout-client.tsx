@@ -1,15 +1,18 @@
 "use client";
 
 // moved from page.tsx to keep the page a Server Component
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 import { useCart } from "@shared/ecom/lib/cart";
 import { getProductBySlug, getProductsByIds, placeOrder } from "@shared/ecom/api/client";
 import type { PlaceOrderCheckout } from "@shared/ecom/api/client";
 import { getValidAccessToken } from "@shared/lib/auth";
 import { HAS_SUPABASE } from "@shared/config";
+import { CheckoutAnalytics } from "@/components/analytics/EcommerceEvents";
+import FormField from "@/components/ui/form-field";
 
 const StripeElementsProvider = dynamic(
   () => import("@/components/stripe/StripeElementsProvider").then((m) => m.StripeElementsProvider),
@@ -56,6 +59,18 @@ export default function CheckoutClient() {
   );
   const isCartEmpty = items.length === 0;
   const orderCurrency = "EUR";
+  const analyticsItems = useMemo(
+    () =>
+      items.map((row) => ({
+        id: row.product.id,
+        title: row.product.title,
+        price: row.product.price,
+        currency: orderCurrency,
+        category: row.product.category,
+        quantity: row.qty,
+      })),
+    [items, orderCurrency],
+  );
 
   useEffect(() => {
     if (orderId) return;
@@ -353,7 +368,9 @@ export default function CheckoutClient() {
 
   if (checkoutStep === "complete" && orderId && snapshot) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6 lg:px-8">
+      <>
+        <CheckoutAnalytics items={analyticsItems} currency={orderCurrency} />
+        <div className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6 lg:px-8">
         <div className="space-y-2 text-center sm:text-left">
           <h1 className="text-3xl font-semibold sm:text-4xl">Thank you for your order</h1>
           <p className="text-sm text-neutral-600">
@@ -388,13 +405,16 @@ export default function CheckoutClient() {
           </Link>
         </div>
       </div>
+      </>
     );
   }
 
   if (checkoutStep === "payment" && orderId && snapshot && clientSecret) {
     const amountLabel = formatPrice(snapshot.subtotal, snapshot.currency);
     return (
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <>
+        <CheckoutAnalytics items={analyticsItems} currency={orderCurrency} />
+        <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
         <div className="space-y-2 text-center sm:text-left">
           <h1 className="text-3xl font-semibold sm:text-4xl">Complete your payment</h1>
           <p className="text-sm text-neutral-600">Order ID: <span className="font-mono text-neutral-800">{orderId}</span></p>
@@ -432,12 +452,15 @@ export default function CheckoutClient() {
             <span className="font-semibold text-slate-900">{amountLabel}</span>
           </div>
         </section>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <>
+      <CheckoutAnalytics items={analyticsItems} currency={orderCurrency} />
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold sm:text-4xl">Checkout</h1>
@@ -455,37 +478,76 @@ export default function CheckoutClient() {
           <form className="space-y-5 md:col-span-2" onSubmit={handleSubmit} noValidate>
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="text-lg font-semibold text-slate-900">Contact</div>
-              <label className="grid gap-2 text-sm text-neutral-600">
-                Full name
-                <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" name="fullName" placeholder="Ada Lovelace" autoComplete="name" required disabled={isSubmitting} />
-              </label>
-              <label className="grid gap-2 text-sm text-neutral-600">
-                Email
-                <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" type="email" name="email" placeholder="you@example.com" autoComplete="email" required disabled={isSubmitting} />
-              </label>
+              <FormField id="checkout-fullName" label="Full name" required>
+                <input
+                  className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  name="fullName"
+                  placeholder="Ada Lovelace"
+                  autoComplete="name"
+                  required
+                  disabled={isSubmitting}
+                />
+              </FormField>
+              <FormField id="checkout-email" label="Email" required>
+                <input
+                  className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  type="email"
+                  name="email"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                  disabled={isSubmitting}
+                />
+              </FormField>
             </section>
             <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="text-lg font-semibold text-slate-900">Shipping</div>
-              <label className="grid gap-2 text-sm text-neutral-600">
-                Address
-                <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" name="address" placeholder="123 Main Street" autoComplete="street-address" required disabled={isSubmitting} />
-              </label>
+              <FormField id="checkout-address" label="Address" required>
+                <input
+                  className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  name="address"
+                  placeholder="123 Main Street"
+                  autoComplete="street-address"
+                  required
+                  disabled={isSubmitting}
+                />
+              </FormField>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2 text-sm text-neutral-600">
-                  City
-                  <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" name="city" autoComplete="address-level2" required disabled={isSubmitting} />
-                </label>
-                <label className="grid gap-2 text-sm text-neutral-600">
-                  Postal code
-                  <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" name="zip" autoComplete="postal-code" required disabled={isSubmitting} />
-                </label>
+                <FormField id="checkout-city" label="City" required className="text-sm text-neutral-600">
+                  <input
+                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    name="city"
+                    autoComplete="address-level2"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </FormField>
+                <FormField id="checkout-zip" label="Postal code" required className="text-sm text-neutral-600">
+                  <input
+                    className="h-11 rounded-lg border border-slate-200 px-3 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    name="zip"
+                    autoComplete="postal-code"
+                    required
+                    disabled={isSubmitting}
+                  />
+                </FormField>
               </div>
-              <label className="grid gap-2 text-sm text-neutral-600">
-                Notes (optional)
-                <textarea className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200" name="notes" placeholder="Delivery instructions" disabled={isSubmitting} />
-              </label>
+              <FormField id="checkout-notes" label="Notes" description="Optional instructions for courier">
+                <textarea
+                  className="min-h-[120px] rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  name="notes"
+                  placeholder="Delivery instructions"
+                  disabled={isSubmitting}
+                />
+              </FormField>
             </section>
-            <button type="submit" className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-6 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               {isSubmitting ? "Placing order..." : "Place order"}
             </button>
           </form>
@@ -510,6 +572,7 @@ export default function CheckoutClient() {
           </aside>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

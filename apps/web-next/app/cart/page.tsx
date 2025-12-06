@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@shared/ecom/lib/cart";
+import { CartAnalytics } from "@/components/analytics/EcommerceEvents";
 
 function formatPrice(value: number, currency = "USD") {
   try {
@@ -20,9 +21,19 @@ function formatPrice(value: number, currency = "USD") {
 export default function CartPage() {
   const { items, subtotal, update, remove, clear } = useCart();
   const empty = items.length === 0;
+  const cartCurrency = "USD";
+  const analyticsItems = items.map((row) => ({
+    id: row.product.id,
+    title: row.product.title,
+    price: row.product.price,
+    currency: cartCurrency,
+    category: row.product.category,
+    quantity: row.qty,
+  }));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <CartAnalytics items={analyticsItems} currency={cartCurrency} />
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold sm:text-4xl">Cart</h1>
         {!empty ? (

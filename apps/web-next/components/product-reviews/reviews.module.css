@@ -1,0 +1,145 @@
+@reference "../../app/globals.css";
+
+.filters {
+  @apply flex w-full flex-col gap-3 text-xs uppercase tracking-[0.24em];
+  color: rgb(var(--mutedfg-rgb));
+}
+
+.filtersLabel {
+  /* nowrap handled in media query for compatibility with @apply */
+}
+
+.filtersShell {
+  @apply rounded-2xl p-1.5 shadow-sm;
+  border: 1px solid rgb(var(--border-rgb) / 0.3);
+  background-color: rgb(var(--card-rgb) / 0.7);
+}
+
+.filtersGroup {
+  @apply flex flex-wrap gap-2 text-xs;
+}
+
+.filterButton {
+  @apply inline-flex min-w-[120px] items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold tracking-normal transition focus-visible:outline-none;
+}
+
+.filterButtonActive {
+  @apply shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)];
+  border-color: rgb(var(--primary-rgb) / 0.6);
+  background-color: rgb(var(--primary-rgb) / 0.1);
+  color: rgb(var(--primary-rgb));
+}
+
+.filterButtonIdle {
+  @apply bg-transparent;
+  color: rgb(var(--mutedfg-rgb));
+  border-color: rgb(var(--border-rgb) / 0.3);
+}
+
+.filterButtonIdle:hover {
+  border-color: rgb(var(--primary-rgb) / 0.3);
+  color: rgb(var(--primary-rgb));
+}
+
+.filterDot {
+  @apply inline-flex h-2.5 w-2.5 rounded-full transition;
+}
+
+.filterDotActive {
+  background-color: rgb(var(--primary-rgb));
+}
+
+.filterDotIdle {
+  background-color: rgb(var(--border-rgb) / 0.4);
+}
+
+.filterButtonIdle:hover .filterDotIdle {
+  background-color: rgb(var(--primary-rgb) / 0.7);
+}
+
+.statsCard {
+  @apply min-w-0 space-y-4 rounded-2xl p-4;
+  border: 1px solid rgb(var(--border-rgb) / 0.3);
+  background-color: rgb(var(--card-rgb) / 0.7);
+}
+
+.statsHeadline {
+  @apply flex items-baseline gap-2;
+}
+
+.statsAverage {
+  @apply text-3xl font-semibold;
+  color: rgb(var(--fg-rgb));
+}
+
+.statsStars {
+  @apply flex items-center gap-1 text-amber-400;
+}
+
+.star {
+  @apply h-5 w-5;
+  color: rgb(var(--border-rgb));
+}
+
+.starFilled {
+  @apply fill-amber-400 text-amber-400;
+}
+
+.statsCount {
+  @apply text-sm;
+  color: rgb(var(--mutedfg-rgb));
+}
+
+.bucketButton {
+  @apply flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition;
+}
+
+.bucketButtonActive {
+  @apply border;
+  border-color: rgb(var(--primary-rgb) / 0.6);
+  background-color: rgb(var(--primary-rgb) / 0.1);
+  color: rgb(var(--primary-rgb));
+}
+
+.bucketButtonIdle {
+  color: rgb(var(--mutedfg-rgb));
+  border-color: rgb(var(--border-rgb) / 0.3);
+}
+
+.bucketButtonIdle:hover {
+  background-color: rgb(var(--border-rgb) / 0.2);
+}
+
+.bucketScore {
+  @apply w-10 text-right font-medium;
+  color: rgb(var(--fg-rgb));
+}
+
+.bucketBar {
+  @apply relative h-2 flex-1 overflow-hidden rounded-full;
+  background-color: rgb(var(--border-rgb) / 0.4);
+}
+
+.bucketCount {
+  @apply w-16 text-xs;
+  color: rgb(var(--mutedfg-rgb));
+}
+
+.bucketList {
+  @apply space-y-2;
+}
+
+.bucketFill {
+  @apply absolute inset-y-0 left-0 rounded-full;
+  background-color: rgb(var(--primary-rgb));
+}
+
+@media (min-width: 640px) {
+  .filters {
+    width: auto;
+  }
+
+  .filtersLabel {
+    white-space: nowrap;
+  }
+}

@@ -1,11 +1,14 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseFetchLogger } from "./fetch-logger";
 
-type AnySchemaClient = SupabaseClient<any, string, any, any, any>;
+type AnySchemaClient = SupabaseClient<any, any>;
 
 let adminClient: AnySchemaClient | null = null;
 const adminClientsBySchema = new Map<string, AnySchemaClient>();
-const adminFetch = createSupabaseFetchLogger("admin");
+const adminFetch = createSupabaseFetchLogger("admin", console.info, {
+  retries: 2,
+  baseDelayMs: 300,
+});
 
 function resolveConfig() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,7 +17,6 @@ function resolveConfig() {
   const key =
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_SECRET ||
-    process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_SERVICE_ROLE;
 
   if (!url || !key) {
@@ -29,7 +31,7 @@ type ClientSchema = string | undefined | null;
 
 function createAdminClient(schema?: string): AnySchemaClient {
   const { url, key } = resolveConfig();
-  return createClient(url, key, {
+  return createClient<any, any>(url, key, {
     auth: {
       persistSession: false,
     },

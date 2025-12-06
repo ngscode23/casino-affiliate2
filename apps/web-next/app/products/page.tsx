@@ -1,31 +1,38 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { headers } from "next/headers";
+import { Suspense, use } from "react";
 import { fetchCatalogCategoryBySlug } from "@/lib/catalog/categories";
 import { fetchProductListingPage } from "@/lib/catalog/product-source";
 import { getAdminClient } from "@/utils/supabase/admin";
+import Skeleton from "@ui/components/common/skeleton";
 
 import ProductsClient from "./products-client";
-import { CATALOG_NAME, loadProductsData } from "./data";
+import { CATALOG_NAME, PRODUCT_PAGE_SIZE_DEFAULT, fetchProductsPage } from "./data";
 import { serializeJsonLd } from "@shared/lib/jsonld";
 import { resolveFilterParams } from "./filter-params";
-import { fetchUserProfile } from "@/lib/personalization/rank";
-import { getRecommendationsForActor } from "@/lib/recs-server";
-import type { Product } from "./types";
 import { siteConfig } from "@/lib/site-config";
+import { ProductListAnalytics } from "@/components/analytics/EcommerceEvents";
 
 const SITE_NAME = siteConfig.name || "Neon Shop";
-const BASE_TITLE = `Каталог товаров | ${SITE_NAME}`;
+const BASE_TITLE = `??????? ??????? | ${SITE_NAME}`;
 const BASE_DESCRIPTION =
-  "Каталог Neon Shop: новинки, акции и популярные товары. Актуальные цены, наличие и удобные фильтры по категориям.";
+  "??????? Neon Shop: ???????, ????? ? ?????????? ??????. ?????????? ????, ??????? ? ??????? ??????? ?? ??????????.";
 
-export const revalidate = 90;
-export const dynamic = "force-dynamic";
+export const revalidate = 180;
+export const dynamic = "force-static";
+export const fetchCache = "force-cache";
+
+type ListingResult = Awaited<ReturnType<typeof fetchProductsPage>>;
+type ListingResponse = { listing: ListingResult; fetchError: string | null };
 
 type ProductsMetadataProps = {
-  searchParams?:
-    | Record<string, string | string[] | undefined>
-    | Promise<Record<string, string | string[] | undefined>>;
+  params?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+type ProductsPageProps = {
+  params?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function normalizeCategoryParam(input: string | string[] | undefined): string | null {
@@ -60,7 +67,7 @@ async function fetchCategoryMeta(slug: string) {
   return { category, productCount };
 }
 
-export async function generateMetadata({ searchParams }: ProductsMetadataProps = {}): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: ProductsMetadataProps): Promise<Metadata> {
   const resolvedSearch = (await searchParams) ?? {};
   const categoryParam = normalizeCategoryParam(resolvedSearch.category);
 
@@ -94,7 +101,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps =
   const { category, productCount } = await fetchCategoryMeta(categoryParam);
 
   if (!category) {
-    const fallbackTitle = `${BASE_TITLE} — категория не найдена`;
+    const fallbackTitle = `${BASE_TITLE} - ????????? ?? ???????`;
     return {
       title: fallbackTitle,
       description: BASE_DESCRIPTION,
@@ -117,7 +124,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps =
 
   const canonical = `${baseCanonical}?category=${encodeURIComponent(category.slug)}`;
   const hasCount = typeof productCount === "number" && productCount > 0;
-  const countLabel = hasCount ? ` — ${productCount} моделей` : "";
+  const countLabel = hasCount ? ` - ${productCount} ???????` : "";
   const title = `${category.title}${countLabel} | ${SITE_NAME}`;
   const description = category.description?.trim() || BASE_DESCRIPTION;
 
@@ -140,137 +147,52 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps =
   };
 }
 
-const MIN_RECS_FOR_INTERLEAVE = 3;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function computeAdaptiveStride(preferredCount: number, othersCount: number, treatment: string | null | undefined) {
-  if (preferredCount <= 0) return 1;
-  const base = clamp(Math.floor(othersCount / Math.max(preferredCount, 1)), 1, 5);
-  const targetMin = treatment === "explore" ? 0.3 : 0.2;
-  const targetMax = treatment === "explore" ? 0.45 : 0.35;
-  const calcShare = (stride: number) => 1 / (1 + stride);
-  let stride = base;
-  let share = calcShare(stride);
-
-  while (share < targetMin && stride > 1) {
-    stride -= 1;
-    share = calcShare(stride);
-  }
-  while (share > targetMax && stride < 5) {
-    stride += 1;
-    share = calcShare(stride);
-  }
-
-  return clamp(stride, 1, 5);
-}
-
-function interleaveWithDiversification(preferred: Product[], others: Product[], stride: number) {
-  const interleaved: Product[] = [];
-  let lastRecCategory: string | null = null;
-  let categoryStreak = 0;
-
-  const pickNextRec = () => {
-    if (!preferred.length) return null;
-    if (lastRecCategory && categoryStreak >= 2) {
-      const altIndex = preferred.findIndex((item) => (item.categorySlug ?? null) !== lastRecCategory);
-      if (altIndex > 0) {
-        return preferred.splice(altIndex, 1)[0];
-      }
-    }
-    return preferred.shift() ?? null;
-  };
-
-  while (preferred.length || others.length) {
-    if (preferred.length) {
-      const nextRec = pickNextRec();
-      if (nextRec) {
-        interleaved.push(nextRec);
-        const cat = nextRec.categorySlug ?? null;
-        if (cat && cat === lastRecCategory) {
-          categoryStreak += 1;
-        } else {
-          lastRecCategory = cat;
-          categoryStreak = 1;
-        }
-      }
-    }
-
-    if (others.length) {
-      const strideStep = interleaved.length % (stride + 1);
-      if (strideStep === 0 || !preferred.length) {
-        const next = others.shift();
-        if (next) interleaved.push(next);
-      }
-    }
-  }
-
-  return interleaved;
-}
-
-async function loadPersonalizedProducts() {
-  const hdrs = await headers();
-  const userId = hdrs.get("x-user-id");
-  if (!userId) return null;
-
-  const profile = await fetchUserProfile(userId);
-  if (!profile) return null;
-
-  const recs = await getRecommendationsForActor({ actor: profile.anon_id });
-  if (!recs?.items?.length) return null;
-
-  return { recs, profile };
-}
-
-export default async function ProductsPage({
-  searchParams,
-}: {
-  searchParams?:
-    | Record<string, string | string[] | undefined>
-    | URLSearchParams
-    | Promise<Record<string, string | string[] | undefined> | URLSearchParams | undefined>
-    | undefined;
-}) {
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const resolvedSearchParams = await searchParams;
   const filters = resolveFilterParams(resolvedSearchParams);
-  const personalized = await loadPersonalizedProducts();
-
-  const listingPromise = loadProductsData({
-    query: filters.query,
-    dataset: filters.dataset,
-    priceMin: filters.priceMin,
-    priceMax: filters.priceMax,
-    minRating: filters.minRating,
-    sort: filters.sort,
-    category: filters.category,
-  });
-
-  const listing = await listingPromise;
-
-  // If we have personalized recs, interleave them near the top of the list
-  if (personalized?.recs?.items?.length && listing.products.length) {
-    const recItems = personalized.recs.items;
-    const preferredProducts = listing.products.filter((p) =>
-      recItems.some((rec) => (rec.product_id ?? rec.product?.id) === p.id),
-    );
-    const otherProducts = listing.products.filter((p) => !preferredProducts.includes(p));
-    const stride = computeAdaptiveStride(
-      preferredProducts.length,
-      otherProducts.length,
-      personalized.recs.treatment ?? null,
-    );
-    listing.products = interleaveWithDiversification([...preferredProducts], [...otherProducts], stride);
-  }
-
-  const description =
-    filters.query && filters.query.trim().length
-      ? `Результаты поиска «${filters.query}» в каталоге ${CATALOG_NAME || "магазина"}`
-      : BASE_DESCRIPTION;
+  const listingPromise = getListing(filters);
 
   return (
     <div className="bg-background">
+      <Suspense fallback={<CatalogSkeleton />}>
+        <ProductsStream listingPromise={listingPromise} filters={filters} />
+      </Suspense>
+    </div>
+  );
+}
+
+function ProductsStream({
+  listingPromise,
+  filters,
+}: {
+  listingPromise: Promise<ListingResponse>;
+  filters: ReturnType<typeof resolveFilterParams>;
+}) {
+  const { listing, fetchError } = use(listingPromise);
+
+  const description =
+    filters.query && filters.query.trim().length
+      ? `?????????? ?????? Ž${filters.query}Ż ? ???????? ${CATALOG_NAME || "????????"}`
+      : BASE_DESCRIPTION;
+
+  const analyticsItems = listing.items.map((product, index) => ({
+    id: product.id,
+    title: product.title,
+    price: product.price,
+    currency: product.currency,
+    category: product.category ?? product.categorySlug ?? null,
+    position: index + 1,
+    listId: filters.category ?? null,
+    listName: CATALOG_NAME ?? "Products",
+  }));
+
+  return (
+    <>
+      <ProductListAnalytics
+        items={analyticsItems}
+        listId={filters.category ?? undefined}
+        listName={CATALOG_NAME ?? "Products"}
+      />
       {listing.structuredData ? (
         <script
           type="application/ld+json"
@@ -278,21 +200,21 @@ export default async function ProductsPage({
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(listing.structuredData) }}
         />
       ) : null}
-      <section>
+      <section aria-busy={Boolean(fetchError)} aria-live="polite">
         <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
           <header className="flex flex-col gap-3 text-center sm:text-left">
-            <span className="text-sm font-medium text-muted">Каталог товаров</span>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "Каталог"}</h1>
+            <span className="text-sm font-medium text-muted">??????? ???????</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "???????"}</h1>
             <p className="text-base text-muted sm:max-w-3xl">{description}</p>
-            {typeof listing.totalCount === "number" ? (
-              <span className="text-sm text-muted">Всего позиций: {listing.totalCount}</span>
+            {typeof listing.total === "number" ? (
+              <span className="text-sm text-muted">????? ???????: {listing.total}</span>
             ) : null}
           </header>
         </div>
         <ProductsClient
-          products={listing.products}
+          products={listing.items}
           categories={listing.categories}
-          catalogName={CATALOG_NAME ?? "Каталог"}
+          catalogName={CATALOG_NAME ?? "???????"}
           initialQuery={filters.query}
           initialCategory={filters.category}
           initialDataset={filters.dataset}
@@ -300,18 +222,78 @@ export default async function ProductsPage({
           initialPriceMin={filters.priceMin}
           initialPriceMax={filters.priceMax}
           initialMinRating={filters.minRating}
-          totalAvailable={listing.totalCount}
+          totalAvailable={listing.total}
+          initialNextCursor={listing.nextCursor}
+          fetchError={fetchError}
         />
-        {listing.fetchError ? (
+        {fetchError ? (
           <div className="mx-auto max-w-screen-md px-6 pb-12 text-center text-sm text-red-400">
-            Не удалось обновить список товаров: {String((listing.fetchError as any)?.message ?? listing.fetchError)}
-            {" · "}
+            ?? ??????? ???????? ?????? ???????: {fetchError}
+            {" ú "}
             <Link href="/contact" className="text-blue-400 hover:text-blue-300">
-              Написать в поддержку
+              ???????? ? ?????????
             </Link>
           </div>
         ) : null}
       </section>
+    </>
+  );
+}
+
+function CatalogSkeleton() {
+  return (
+    <div className="bg-background" aria-busy="true" aria-live="polite">
+      <section className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-14 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
+        <div className="flex flex-col gap-3 text-center sm:text-left">
+          <Skeleton className="inline-flex h-4 w-36 sm:w-28" />
+          <Skeleton className="h-9 w-64 sm:w-80" />
+          <Skeleton className="mt-1 h-5 w-full max-w-3xl" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={`catalog-skeleton-${idx}`}
+              className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 p-4 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.35)]"
+            >
+              <Skeleton className="h-52 w-full rounded-2xl" />
+              <div className="mt-4 space-y-2">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-4 w-1/2 rounded-full" />
+                <Skeleton className="h-9 w-full rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
+}
+
+async function getListing(filters: ReturnType<typeof resolveFilterParams>): Promise<ListingResponse> {
+  try {
+    const listing = await fetchProductsPage(
+      {
+        query: filters.query,
+        dataset: filters.dataset,
+        priceMin: filters.priceMin,
+        priceMax: filters.priceMax,
+        minRating: filters.minRating,
+        sort: filters.sort,
+        category: filters.category,
+      },
+      { limit: PRODUCT_PAGE_SIZE_DEFAULT, cursor: 0 },
+    );
+    return { listing, fetchError: null };
+  } catch (error) {
+    return {
+      listing: {
+        items: [],
+        nextCursor: null,
+        total: 0,
+        categories: [],
+        structuredData: null,
+      },
+      fetchError: (error as Error)?.message ?? String(error),
+    };
+  }
 }

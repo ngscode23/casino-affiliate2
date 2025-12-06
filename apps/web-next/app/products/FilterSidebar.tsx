@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Building2, Package, ChevronDown, Filter, LayoutGrid, Search, SlidersHorizontal, Star, Tag, X } from "lucide-react";
+import { Building2, Package, ChevronDown, Filter, LayoutGrid, Search, SlidersHorizontal, Star, Tag as TagIcon, X } from "lucide-react";
+
+import { Badge, Button, Card, Input, Tag } from "@/components/ui";
 
 import { iconSm } from "@/styles/classnames";
 import type { CategorySummary } from "./data";
@@ -103,7 +105,7 @@ export default function FilterSidebar({
 
   return (
     <aside
-      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-4xl border border-border/30 bg-white/90 px-4 py-5 shadow-[0_25px_65px_rgba(15,23,42,0.15)] backdrop-blur-3xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 dark:bg-white/5 dark:shadow-[0_24px_70px_-48px_rgba(0,0,0,0.6)] ${
+      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/30 bg-card/90 px-4 py-5 shadow-[var(--elevation-2)] backdrop-blur-2xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 ${
         hasEntered ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
       }`}
       aria-label="Product filters"
@@ -115,14 +117,16 @@ export default function FilterSidebar({
           <Filter className="h-5 w-5 text-primary" />
           <span>Filters</span>
         </div>
-        <button
+        <Button
           type="button"
-          className="rounded-full p-2 text-muted transition hover:bg-surface/40 hover:text-fg lg:hidden"
+          variant="ghost"
+          size="sm"
+          className="lg:hidden rounded-full p-2 text-muted"
           onClick={onCloseAction}
           aria-label="Close filters"
         >
           <X className={iconSm} />
-        </button>
+        </Button>
       </div>
       <p className="text-xs uppercase tracking-[0.3em] text-muted/80">Fine-tune view</p>
       <div className="mt-4 space-y-3 overflow-y-auto pb-8 pr-2 filters-scroll">
@@ -135,12 +139,12 @@ export default function FilterSidebar({
         >
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <input
+            <Input
               type="search"
               value={activeQuery}
               onChange={(event) => onQueryChangeAction(event.target.value)}
               placeholder="Find a product..."
-              className="w-full rounded-xl border border-border/50 bg-surface/60 py-2.5 pl-10 pr-3 text-sm text-fg placeholder:text-muted shadow-inner outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+              className="pl-10"
             />
           </div>
         </FilterSection>
@@ -259,7 +263,7 @@ export default function FilterSidebar({
         <FilterSection
           id="price"
           title="Price range"
-          icon={<Tag className="h-4 w-4 text-muted" />}
+          icon={<TagIcon className="h-4 w-4 text-muted" />}
           isOpen={openSections.price}
           onToggle={() => toggleSection("price")}
         >
@@ -452,14 +456,15 @@ type FilterSectionProps = {
 
 function FilterSection({ id, title, icon, isOpen, onToggle, children }: FilterSectionProps) {
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby={`${id}-label`}
-      className="rounded-2xl border border-border/30 bg-white/60 p-3 shadow-[0_20px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm transition duration-150 ease-out hover:border-border/60 hover:-translate-y-[1px]"
+      className="p-3 shadow-[var(--elevation-1)] backdrop-blur-sm transition duration-150 ease-out hover:border-border/60 hover:-translate-y-[1px]"
     >
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-1 py-2 text-sm font-semibold text-gray-700 transition duration-150 ease-out hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        className="flex w-full items-center justify-between gap-3 px-1 py-2 text-sm font-semibold text-fg transition duration-150 ease-out hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         aria-expanded={isOpen}
         aria-controls={`${id}-panel`}
       >
@@ -477,7 +482,7 @@ function FilterSection({ id, title, icon, isOpen, onToggle, children }: FilterSe
           {children}
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -492,22 +497,7 @@ function FilterPill({
   onClick: () => void;
   badge?: number;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-semibold transform-gpu transition duration-170 ease-out hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
-        active
-          ? "border-primary/70 bg-linear-to-r from-primary/10 to-primary/5 text-primary shadow-[0_16px_40px_rgba(15,23,42,0.26)]"
-          : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900 hover:shadow-[0_10px_26px_rgba(15,23,42,0.16)]"
-      }`}
-    >
-      <span className="truncate text-left">{label}</span>
-      {typeof badge === "number" ? (
-        <span className="ml-3 rounded-full bg-surface/70 px-2 text-xs text-muted">{badge}</span>
-      ) : null}
-    </button>
-  );
+  return <Tag active={active} onClick={onClick} trailing={typeof badge === "number" ? <Badge tone="muted">{badge}</Badge> : null}>{label}</Tag>;
 }
 
 function NumberInput({
@@ -524,7 +514,7 @@ function NumberInput({
   return (
     <label className="space-y-1 text-sm text-muted">
       <span className="block text-xs font-semibold uppercase tracking-wide text-muted">{label}</span>
-      <input
+      <Input
         type="number"
         inputMode="decimal"
         value={value ?? ""}
@@ -535,7 +525,6 @@ function NumberInput({
             onChange(next);
           }
         }}
-        className="w-full rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-sm text-fg outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
       />
     </label>
   );
