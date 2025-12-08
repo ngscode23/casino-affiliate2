@@ -56,7 +56,7 @@ function normalizeErrorMessage(error: unknown): string {
   }
 
   const tokens = message.split(/\s+/);
-  const classLike = tokens.filter((token) => /^[\w\-:[\]\/.]+$/.test(token)).length;
+  const classLike = tokens.filter((token) => /^[\w\-:[\]/.]+$/.test(token)).length;
   if (tokens.length > 8 && classLike / tokens.length > 0.6) {
     return fallback;
   }

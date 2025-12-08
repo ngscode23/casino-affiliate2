@@ -624,11 +624,9 @@ export default function ProductsClient({
       model: p.model ?? p.modelSlug ?? p.modelTitle,
       category: p.categorySlug ?? p.category,
     }));
-    // eslint-disable-next-line no-console
     console.groupCollapsed(
       `[catalog-brand-debug] category=${activeCategory} brand=${activeBrand} options=${brandOptions.length} items=${items.length}`,
     );
-    // eslint-disable-next-line no-console
     console.log({
       activeCategory,
       activeBrand,
@@ -639,15 +637,12 @@ export default function ProductsClient({
       matchingItems: matching,
       totalItems: items.length,
     });
-    // eslint-disable-next-line no-console
     console.table(sample);
-    // eslint-disable-next-line no-console
     console.groupEnd();
   }, [activeBrand, activeCategory, brandOptions, items, modelOptions]);
 
   useEffect(() => {
     if (!pageError) return;
-    // eslint-disable-next-line no-console
     console.warn("[catalog-page-error]", pageError);
   }, [pageError]);
 
