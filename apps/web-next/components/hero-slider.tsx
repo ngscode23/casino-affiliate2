@@ -94,7 +94,7 @@ function HeroSlider({ slides, className }: HeroSliderProps) {
       aria-label="Featured hero stories"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)]" aria-hidden />
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col items-center gap-4 px-4 py-6 text-center sm:px-6 sm:py-9 lg:px-8 lg:py-12">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col items-center gap-4 px-4 py-24 text-center sm:px-6 lg:px-8">
         <div className="relative w-full">
           <div className="relative grid min-h-[200px] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,1fr)] lg:items-center">
             {safeSlides.map((slide, slideIndex) => (

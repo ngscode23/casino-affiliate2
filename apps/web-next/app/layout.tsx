@@ -7,15 +7,15 @@ import "../styles/vite-bridge.css";
 import { SiteLayout } from "../components/site-layout";
 import GtmProvider from "../components/analytics/GtmProvider";
 import { siteConfig } from "../lib/site-config";
+import { getSiteOrigin } from "../lib/env/siteUrl";
 import { openAISans } from "./fonts";
-const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
 
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
-  metadataBase: new URL(siteOrigin || "https://neon4.vercel.app"),
+  metadataBase: new URL(getSiteOrigin()),
   openGraph: {
     siteName: siteConfig.name,
     type: "website",

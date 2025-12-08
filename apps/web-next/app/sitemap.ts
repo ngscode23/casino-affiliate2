@@ -1,6 +1,7 @@
 // apps/web-next/app/sitemap.ts
 import type { MetadataRoute } from "next";
 
+import { getSiteOrigin } from "@/lib/env/siteUrl";
 import { getAdminClient } from "@/utils/supabase/admin";
 
 const PRODUCT_LIMIT = 5000;
@@ -28,7 +29,7 @@ type ProductMetaRow = {
 type TimestampMap = Map<string, number>;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const origin = resolveOrigin();
+  const origin = getSiteOrigin();
   const entries: MetadataRoute.Sitemap = [...buildStaticEntries(origin)];
 
   let supabase: SupabaseAdminClient;
@@ -46,15 +47,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Google will reach category views via internal links.
 
   return entries;
-}
-
-function resolveOrigin(): string {
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    process.env.NEXT_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://neon4.vercel.app");
-  return origin.replace(/\/$/, "");
 }
 
 function buildStaticEntries(origin: string): MetadataRoute.Sitemap {

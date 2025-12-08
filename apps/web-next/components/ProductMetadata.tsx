@@ -2,6 +2,7 @@ import type { ProductData } from "@/app/products/[slug]/data";
 import { formatCurrency } from "@/app/products/currency";
 import { makeBreadcrumbsLD, serializeJsonLd } from "@shared/lib/jsonld";
 import { siteConfig } from "@/lib/site-config";
+import { buildCanonical, getSiteOrigin } from "@/lib/env/siteUrl";
 
 type Breadcrumb = { name: string; url: string };
 
@@ -69,8 +70,8 @@ function toAbsoluteUrl(value: string | null | undefined, origin: string): string
 }
 
 export default function ProductMetadata({ product, breadcrumbs, canonicalPath }: ProductMetadataProps) {
-  const origin = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
-  const canonical = toAbsoluteUrl(canonicalPath, origin) ?? canonicalPath;
+  const origin = getSiteOrigin();
+  const canonical = buildCanonical(canonicalPath);
 
   const productDescription = sanitizeText(product.description ?? product.shortDescription ?? product.title ?? "");
   const metaDescription = truncateText(productDescription || product.title, 160);

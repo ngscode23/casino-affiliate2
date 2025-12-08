@@ -68,14 +68,23 @@ function buildProductListingQuery(
   // - "all" (или пусто) трактуем как основной каталог ("shop"), чтобы legacy-товары по умолчанию не попадали в публичный список.
   // - "shop" явно ограничивает только новые товары.
   // - "legacy" оставляем как опцию для архивных карточек (например, в админке).
-  if (!filters.dataset || filters.dataset === "all" || filters.dataset === "shop") {
+  if (filters.dataset === "shop") {
     query.eq("dataset", "shop");
   } else if (filters.dataset === "legacy") {
     query.eq("dataset", "legacy");
   }
 
   if (filters.category) {
-    query.eq("category_slug", filters.category);
+    // Match exact slug or nested paths like "electronics/phones" and "phones/smart"
+    const slug = escapeForILike(filters.category);
+    query.or(
+      [
+        `category_slug.eq.${slug}`,
+        `category_slug.ilike.${slug}/%`,
+        `category_slug.ilike.%/${slug}`,
+        `category_slug.ilike.%/${slug}/%`,
+      ].join(","),
+    );
   }
 
   if (typeof filters.priceMinCents === "number" && Number.isFinite(filters.priceMinCents)) {

@@ -41,7 +41,7 @@ export async function HeroSection() {
 
 export function HeroSectionSkeleton() {
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 sm:px-10 sm:py-16 lg:py-20">
+    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-4 py-10 sm:px-6 sm:py-12 lg:px-10 lg:py-20">
       <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
         <div className="space-y-4">
           <div className="h-3 w-24 rounded-full bg-white/20 animate-pulse" />
@@ -57,4 +57,3 @@ export function HeroSectionSkeleton() {
     </section>
   );
 }
-

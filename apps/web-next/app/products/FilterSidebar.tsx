@@ -1,10 +1,22 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Building2, Package, ChevronDown, Filter, LayoutGrid, Search, SlidersHorizontal, Star, Tag as TagIcon, X } from "lucide-react";
+import {
+  Building2,
+  Package,
+  ChevronDown,
+  Filter,
+  LayoutGrid,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Tag as TagIcon,
+  X,
+} from "lucide-react";
 
-import { Badge, Button, Card, Input, Tag } from "@/components/ui";
+import { Badge, Button, Card, Input } from "@/components/ui";
 
 import { iconSm } from "@/styles/classnames";
 import type { CategorySummary } from "./data";
@@ -103,9 +115,15 @@ export default function FilterSidebar({
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const categoryItems = buildCategoryItems(categories);
+  const brandItems = buildFacetItems(brandOptions, "All brands");
+  const modelItems = buildFacetItems(modelOptions, "All models");
+  const datasetItems = DATASET_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
+  const sortItems = SORT_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
+
   return (
     <aside
-      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/30 bg-card/90 px-4 py-5 shadow-[var(--elevation-2)] backdrop-blur-2xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 ${
+      className={`pointer-events-auto lg:pointer-events-auto lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/30 bg-card/90 px-4 py-5 shadow-[var(--elevation-2)] backdrop-blur-2xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 ${
         hasEntered ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
       }`}
       aria-label="Product filters"
@@ -129,6 +147,7 @@ export default function FilterSidebar({
         </Button>
       </div>
       <p className="text-xs uppercase tracking-[0.3em] text-muted/80">Fine-tune view</p>
+
       <div className="mt-4 space-y-3 overflow-y-auto pb-8 pr-2 filters-scroll">
         <FilterSection
           id="search"
@@ -150,35 +169,32 @@ export default function FilterSidebar({
         </FilterSection>
 
         <FilterSection
+          id="category"
+          title="Category"
+          icon={<LayoutGrid className="h-4 w-4 text-muted" />}
+          isOpen={openSections.category}
+          onToggle={() => toggleSection("category")}
+        >
+          <CategoryFilter
+            items={categoryItems}
+            selected={activeCategory}
+            onSelect={onCategoryChangeAction}
+          />
+        </FilterSection>
+
+        <FilterSection
           id="brand"
           title="Brand"
           icon={<Building2 className="h-4 w-4 text-muted" />}
           isOpen={openSections.brand}
           onToggle={() => toggleSection("brand")}
         >
-          {brandOptions.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <FilterPill
-                active={activeBrand === "all"}
-                label="All brands"
-                onClick={() => onBrandChangeAction("all")}
-                badge={brandOptions.reduce((total, option) => total + option.count, 0)}
-              />
-              {brandOptions.map((option) => (
-                <FilterPill
-                  key={option.value}
-                  active={activeBrand === option.value}
-                  label={option.label}
-                  onClick={() => onBrandChangeAction(option.value)}
-                  badge={option.count}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted">
-              {brandEmptyMessage || "Choose a category to see available brands."}
-            </p>
-          )}
+          <BrandFilter
+            items={brandItems}
+            selected={activeBrand}
+            onSelect={onBrandChangeAction}
+            emptyMessage={brandEmptyMessage}
+          />
         </FilterSection>
 
         <FilterSection
@@ -188,171 +204,56 @@ export default function FilterSidebar({
           isOpen={openSections.model}
           onToggle={() => toggleSection("model")}
         >
-          {activeBrand === "all" || modelOptions.length === 0 ? (
-            <p className="text-sm text-muted">
-              {activeBrand === "all"
-                ? "Select a brand to see models."
-                : modelEmptyMessage || "No models found for this brand yet."}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <FilterPill
-                active={activeModel === "all"}
-                label="All models"
-                onClick={() => onModelChangeAction("all")}
-                badge={modelOptions.reduce((total, option) => total + option.count, 0)}
-              />
-              {modelOptions.map((option) => (
-                <FilterPill
-                  key={option.value}
-                  active={activeModel === option.value}
-                  label={option.label}
-                  onClick={() => onModelChangeAction(option.value)}
-                  badge={option.count}
-                />
-              ))}
-            </div>
-          )}
-        </FilterSection>
-
-        <FilterSection
-          id="category"
-          title="Category"
-          icon={<LayoutGrid className="h-4 w-4 text-muted" />}
-          isOpen={openSections.category}
-          onToggle={() => toggleSection("category")}
-        >
-          <div className="flex flex-col gap-2">
-            <FilterPill
-              active={activeCategory === "all"}
-              label="All categories"
-            onClick={() => onCategoryChangeAction("all")}
-              badge={categories.reduce((total, item) => total + (item.count || 0), 0)}
-            />
-            {categories.map((category) => (
-              <FilterPill
-                key={category.slug}
-                active={activeCategory === category.slug}
-                label={category.label}
-                onClick={() => onCategoryChangeAction(category.slug)}
-                badge={category.count}
-              />
-            ))}
-          </div>
+          <ModelFilter
+            items={modelItems}
+            selected={activeModel}
+            onSelect={onModelChangeAction}
+            disabled={activeBrand === "all"}
+            emptyMessage={modelEmptyMessage}
+          />
         </FilterSection>
 
         <FilterSection
           id="dataset"
           title="Dataset"
-          icon={<SlidersHorizontal className="h-4 w-4 text-muted" />}
+          icon={<TagIcon className="h-4 w-4 text-muted" />}
           isOpen={openSections.dataset}
           onToggle={() => toggleSection("dataset")}
         >
-          <div className="flex flex-col gap-2">
-            {DATASET_OPTIONS.map((option) => (
-              <FilterPill
-                key={option.value}
-                active={activeDataset === option.value}
-                label={option.label}
-                onClick={() => onDatasetChangeAction(option.value)}
-              />
-            ))}
-          </div>
+          <FacetCheckboxList
+            items={datasetItems}
+            selected={activeDataset}
+            onToggle={(value) => onDatasetChangeAction(value as DatasetType)}
+          />
         </FilterSection>
 
         <FilterSection
           id="price"
-          title="Price range"
-          icon={<TagIcon className="h-4 w-4 text-muted" />}
+          title="Price"
+          icon={<LayoutGrid className="h-4 w-4 text-muted" />}
           isOpen={openSections.price}
           onToggle={() => toggleSection("price")}
         >
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted">
-                <span>Min</span>
-                <span className="text-fg">{priceMin ?? 0}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={5000}
-                step={50}
-                value={priceMin ?? 0}
-                onChange={(e) => onPriceMinChangeAction(Number(e.target.value))}
-                className="slider"
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted">
-                <span>Max</span>
-                <span className="text-fg">{priceMax ?? 5000}</span>
-              </div>
-              <input
-                type="range"
-                min={priceMin ?? 0}
-                max={5000}
-                step={50}
-                value={priceMax ?? 5000}
-                onChange={(e) => onPriceMaxChangeAction(Number(e.target.value))}
-                className="slider"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <NumberInput
-                label="Min"
-                value={priceMin}
-                onChange={onPriceMinChangeAction}
-                placeholder="0"
-              />
-              <NumberInput
-                label="Max"
-                value={priceMax}
-                onChange={onPriceMaxChangeAction}
-                placeholder="5000"
-              />
-            </div>
-          </div>
+          <PriceFilter
+            min={priceMin}
+            max={priceMax}
+            onMinChange={onPriceMinChangeAction}
+            onMaxChange={onPriceMaxChangeAction}
+          />
         </FilterSection>
 
         <FilterSection
           id="rating"
-          title="Minimum rating"
+          title="Rating"
           icon={<Star className="h-4 w-4 text-muted" />}
           isOpen={openSections.rating}
           onToggle={() => toggleSection("rating")}
         >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted">
-              <span>From</span>
-              <span className="text-fg">{minRating ?? "Any"}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={5}
-              step={0.5}
-              value={minRating ?? 0}
-              onChange={(e) => onRatingChangeAction(Number(e.target.value) || null)}
-              className="slider"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              {ratingOptions.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  onClick={() => onRatingChangeAction(option.value)}
-                  className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
-                    minRating === option.value
-                      ? "border-primary/60 bg-primary/10 text-primary shadow-sm"
-                      : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900 dark:bg-white/5 dark:text-slate-200 dark:border-white/15 dark:hover:border-white/25"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <RatingFilter
+            value={minRating}
+            options={ratingOptions}
+            onChange={onRatingChangeAction}
+          />
         </FilterSection>
 
         <FilterSection
@@ -362,16 +263,11 @@ export default function FilterSidebar({
           isOpen={openSections.sort}
           onToggle={() => toggleSection("sort")}
         >
-          <div className="flex flex-col gap-2">
-            {SORT_OPTIONS.map((option) => (
-              <FilterPill
-                key={option.value}
-                active={activeSort === option.value}
-                label={option.label}
-                onClick={() => onSortChangeAction(option.value)}
-              />
-            ))}
-          </div>
+          <FacetCheckboxList
+            items={sortItems}
+            selected={activeSort}
+            onToggle={(value) => onSortChangeAction(value as SortMode)}
+          />
         </FilterSection>
 
         <div className="flex gap-3 pt-2">
@@ -391,6 +287,7 @@ export default function FilterSidebar({
           </button>
         </div>
       </div>
+
       <style jsx>{`
         .filters-scroll {
           scrollbar-width: thin;
@@ -486,18 +383,142 @@ function FilterSection({ id, title, icon, isOpen, onToggle, children }: FilterSe
   );
 }
 
-function FilterPill({
-  active,
-  label,
-  onClick,
-  badge,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  badge?: number;
-}) {
-  return <Tag active={active} onClick={onClick} trailing={typeof badge === "number" ? <Badge tone="muted">{badge}</Badge> : null}>{label}</Tag>;
+type FacetOption = { value: string; label: string; count?: number | null; disabled?: boolean };
+
+type FacetCheckboxListProps = {
+  items: FacetOption[];
+  selected: string;
+  onToggle: (value: string) => void;
+  emptyMessage?: string;
+};
+
+function FacetCheckboxList({ items, selected, onToggle, emptyMessage }: FacetCheckboxListProps) {
+  if (!items.length) {
+    return <p className="text-sm text-muted">{emptyMessage || "No options available."}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => {
+        const isSelected = selected === item.value;
+        const baseClass = isSelected
+          ? "border-primary/60 bg-primary/10 text-primary shadow-sm"
+          : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900 dark:bg-white/5 dark:text-slate-200 dark:border-white/15 dark:hover:border-white/25";
+        return (
+          <button
+            key={item.value}
+            type="button"
+            disabled={item.disabled}
+            onClick={() => onToggle(item.value)}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+              item.disabled ? "opacity-60" : baseClass
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className={`h-4 w-4 rounded border ${
+                  isSelected ? "border-primary bg-primary/90" : "border-border/70 bg-white dark:bg-white/5"
+                }`}
+                aria-hidden
+              />
+              <span>{item.label}</span>
+            </span>
+            {typeof item.count === "number" ? <Badge tone="muted">{item.count}</Badge> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type CategoryFilterProps = {
+  items: FacetOption[];
+  selected: string;
+  onSelect: (value: string) => void;
+};
+
+function CategoryFilter({ items, selected, onSelect }: CategoryFilterProps) {
+  return <FacetCheckboxList items={items} selected={selected} onToggle={onSelect} emptyMessage="No categories yet." />;
+}
+
+type BrandFilterProps = {
+  items: FacetOption[];
+  selected: string;
+  onSelect: (value: string) => void;
+  emptyMessage?: string;
+};
+
+function BrandFilter({ items, selected, onSelect, emptyMessage }: BrandFilterProps) {
+  return <FacetCheckboxList items={items} selected={selected} onToggle={onSelect} emptyMessage={emptyMessage} />;
+}
+
+type ModelFilterProps = {
+  items: FacetOption[];
+  selected: string;
+  onSelect: (value: string) => void;
+  disabled?: boolean;
+  emptyMessage?: string;
+};
+
+function ModelFilter({ items, selected, onSelect, disabled, emptyMessage }: ModelFilterProps) {
+  if (disabled) {
+    return <p className="text-sm text-muted">Select a brand to see models.</p>;
+  }
+  return <FacetCheckboxList items={items} selected={selected} onToggle={onSelect} emptyMessage={emptyMessage} />;
+}
+
+type PriceFilterProps = {
+  min: number | null;
+  max: number | null;
+  onMinChange: (value: number | null) => void;
+  onMaxChange: (value: number | null) => void;
+};
+
+function PriceFilter({ min, max, onMinChange, onMaxChange }: PriceFilterProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <NumberInput label="Min price" value={min} onChange={onMinChange} placeholder="0" />
+      <NumberInput label="Max price" value={max} onChange={onMaxChange} placeholder="500" />
+    </div>
+  );
+}
+
+type RatingFilterProps = {
+  value: number | null;
+  options: { value: number | null; label: string }[];
+  onChange: (value: number | null) => void;
+};
+
+function RatingFilter({ value, options, onChange }: RatingFilterProps) {
+  return (
+    <div className="space-y-3">
+      <input
+        type="range"
+        min={0}
+        max={5}
+        step={0.5}
+        value={value ?? 0}
+        onChange={(e) => onChange(Number(e.target.value) || null)}
+        className="slider"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+              value === option.value
+                ? "border-primary/60 bg-primary/10 text-primary shadow-sm"
+                : "border-border/60 bg-white text-muted hover:border-gray-300 hover:text-gray-900 dark:bg-white/5 dark:text-slate-200 dark:border-white/15 dark:hover:border-white/25"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function NumberInput({
@@ -528,6 +549,25 @@ function NumberInput({
       />
     </label>
   );
+}
+
+function buildCategoryItems(categories: CategorySummary[]): FacetOption[] {
+  const total = categories.reduce((sum, category) => sum + (category.count ?? 0), 0);
+  return [
+    { value: "all", label: "All categories", count: total },
+    ...categories.map((category) => ({ value: category.slug, label: category.label, count: category.count ?? 0 })),
+  ];
+}
+
+function buildFacetItems(options: TaxonomyOption[], allLabel: string): FacetOption[] {
+  if (!options.length) {
+    return [];
+  }
+  const total = options.reduce((sum, option) => sum + (option.count ?? 0), 0);
+  return [
+    { value: "all", label: allLabel, count: total },
+    ...options.map((option) => ({ value: option.value, label: option.label, count: option.count ?? 0 })),
+  ];
 }
 
 export type { FilterSidebarProps };

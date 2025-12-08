@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Serializer<T> = (state: T) => URLSearchParams;
 type Parser<T> = (params: URLSearchParams) => T;
@@ -18,6 +18,7 @@ type Options<T> = {
  */
 export function useUrlSearchState<T>({ initialState, parse, serialize, mode = "replace" }: Options<T>) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [state, setState] = useState<T>(() => initialState);
   const lastSerializedRef = useRef<string>("");
@@ -34,9 +35,13 @@ export function useUrlSearchState<T>({ initialState, parse, serialize, mode = "r
     if (currentKey !== nextKey) {
       isApplyingFromUrl.current = true;
       setState(next);
-      isApplyingFromUrl.current = false;
+      // Keep the flag true until the state update has flushed to avoid
+      // immediately writing the same stale params back to the URL.
+      queueMicrotask(() => {
+        isApplyingFromUrl.current = false;
+      });
     }
-  }, [searchParams, parse, initialState, state]);
+  }, [searchParams, parse, initialState]);
 
   // при изменении state синхронизируем в URL
   useEffect(() => {
@@ -45,7 +50,8 @@ export function useUrlSearchState<T>({ initialState, parse, serialize, mode = "r
     const qs = params.toString();
     if (qs === lastSerializedRef.current) return;
     lastSerializedRef.current = qs;
-    const href = qs ? `?${qs}` : "";
+    // When qs пустой, явно очищаем search-часть, иначе старый ?category= сохраняется.
+    const href = qs ? `?${qs}` : pathname || "";
     const effectiveMode = modeRef.current;
     if (effectiveMode === "push") {
       router.push(href, { scroll: false });

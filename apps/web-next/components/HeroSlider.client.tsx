@@ -52,7 +52,7 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
 
   return (
     <section
-      className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-6 py-16 text-white shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] sm:px-10 lg:py-20"
+      className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#050816] px-4 py-10 text-white shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] sm:px-6 sm:py-12 lg:px-10 lg:py-20"
       role="region"
       aria-roledescription="carousel"
       aria-label="Featured stories"
@@ -78,17 +78,19 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
         >
           {heroes.map((hero, heroIndex) => (
             <div key={hero.id} className="min-w-full">
-              <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_minmax(0,0.9fr)]">
+              <div className="grid items-center gap-8 sm:gap-10 lg:grid-cols-[1.15fr_1fr]">
                 <div className="space-y-6">
                   {hero.eyebrow ? (
                     <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/70">
                       {hero.eyebrow}
                     </p>
                   ) : null}
-                  <h1 className="text-balance text-5xl font-semibold leading-[1.02] sm:text-6xl">
+                  <h1 className="text-balance text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
                     {hero.title}
                   </h1>
-                  {hero.body ? <p className="max-w-xl text-lg text-white/80">{hero.body}</p> : null}
+                  {hero.body ? (
+                    <p className="max-w-xl text-base text-white/80 sm:text-lg">{hero.body}</p>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-4">
                     {hero.primaryCta ? (
                       <Link
@@ -110,21 +112,19 @@ export function HeroSlider({ heroes }: HeroSliderProps) {
                 </div>
 
                 {hero.imageUrl ? (
-                  <div className="relative isolate flex justify-end">
-                    <div className="relative aspect-[4/3] w-full max-w-md overflow-hidden rounded-[26px] border border-white/12 bg-white/5 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.85)]">
-                      <Image
-                        src={hero.imageUrl}
-                        alt={hero.imageAlt || hero.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 60vw, 640px"
-                        className="object-contain"
-                        priority={heroIndex === 0}
-                        loading={heroIndex === 0 ? "eager" : "lazy"}
-                        quality={heroIndex === 0 ? 70 : 55}
-                        placeholder="blur"
-                        blurDataURL={buildBlurDataURL(hero.imageUrl)}
-                      />
-                    </div>
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.85)]">
+                    <Image
+                      src={hero.imageUrl}
+                      alt={hero.imageAlt || hero.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 60vw, 640px"
+                      className="object-contain"
+                      priority={heroIndex === 0}
+                      loading={heroIndex === 0 ? "eager" : "lazy"}
+                      quality={heroIndex === 0 ? 70 : 55}
+                      placeholder="blur"
+                      blurDataURL={buildBlurDataURL(hero.imageUrl)}
+                    />
                   </div>
                 ) : null}
               </div>

@@ -233,12 +233,37 @@ async function fetchCatalogMeta(
     return { productById, brandById };
   }
 
-  const catalogSupabase = getCatalogClient();
+  let catalogSupabase: SupabaseClient | null = null;
+  let adminCatalog: SupabaseClient | null = null;
+
+  try {
+    adminCatalog = getAdminClient();
+  } catch {
+    adminCatalog = null;
+  }
+
+  catalogSupabase = getCatalogClient();
   for (const chunk of chunkValues(uniqueIds, SUPABASE_IN_FILTER_CHUNK)) {
-    const { data, error } = await catalogSupabase
-      .from("catalog_product_meta")
-      .select("id, slug, title, brand_id, brand_slug, brand_name")
-      .in("id", chunk);
+    const client = adminCatalog ?? catalogSupabase;
+    // public view mirrors catalog.products with brand fields; REST (public schema) can read it
+    const table = "catalog_products_with_brand";
+
+    let productsResp = await client.from(table).select("id, slug, title, brand_id, brand_slug, brand_name").in("id", chunk);
+
+    const needAdminRetry =
+      !adminCatalog && (productsResp.error || (Array.isArray(productsResp.data) && productsResp.data.length === 0));
+
+    // если анонимный клиент не имеет прав ИЛИ вернул пусто, пробуем переключиться на admin и повторить
+    if (needAdminRetry) {
+      try {
+        adminCatalog = getAdminClient();
+        productsResp = await adminCatalog.from(table).select("id, slug, title, brand_id, brand_slug, brand_name").in("id", chunk);
+      } catch {
+        // остаёмся на исходной ошибке
+      }
+    }
+
+    const { data: products, error } = productsResp;
     if (error && process.env.NODE_ENV !== "production") {
       const pgError = error as PostgrestError | null;
       console.error("[catalog-meta] products error", {
@@ -248,8 +273,77 @@ async function fetchCatalogMeta(
         hint: pgError?.hint,
       });
     }
-    if (!Array.isArray(data)) continue;
-    for (const row of data) {
+    if (!Array.isArray(products) || products.length === 0) continue;
+
+    // when using public view, brand fields already in rows; when adminCatalog, fetch brands table
+    const brandIds = Array.from(
+      new Set(
+        products
+          .map((row: any) => (typeof row?.brand_id === "string" ? row.brand_id : null))
+          .filter(Boolean) as string[],
+      ),
+    );
+
+    // populate brandById from products rows if data present
+    for (const row of products) {
+      const bId = typeof (row as any)?.brand_id === "string" ? (row as any).brand_id : null;
+      if (!bId || brandById.has(bId)) continue;
+      const bSlug = typeof (row as any)?.brand_slug === "string" ? (row as any).brand_slug : null;
+      const bName = typeof (row as any)?.brand_name === "string" ? (row as any).brand_name : null;
+      if (bSlug || bName || adminCatalog) {
+        brandById.set(bId, { id: bId, slug: bSlug, name: bName });
+      }
+    }
+
+    // if adminCatalog is available, ensure brands are loaded from catalog.brands for completeness
+    if (brandIds.length) {
+      // Try dedicated catalog schema first to avoid "public.catalog.brands" cache errors.
+      let brandClient: SupabaseClient | null = null;
+      try {
+        brandClient = getAdminClient("catalog");
+      } catch {
+        brandClient = adminCatalog;
+      }
+
+      const candidates: Array<{ client: SupabaseClient | null; table: string }> = [
+        { client: brandClient, table: "brands" }, // schema-bound client
+        { client: adminCatalog, table: "catalog_brands" }, // fallback: public view/table
+        { client: catalogSupabase, table: "catalog_brands" }, // anon client fallback
+      ];
+
+      for (const { client, table } of candidates) {
+        if (!client) continue;
+        const { data: brandRows, error: brandError } = await client
+          .from(table)
+          .select("id, slug, name")
+          .in("id", brandIds);
+
+        if (brandError && process.env.NODE_ENV !== "production") {
+          const pgError = brandError as PostgrestError | null;
+          console.error("[catalog-meta] brands error", {
+            chunkSize: brandIds.length,
+            message: brandError.message,
+            details: pgError?.details,
+            hint: pgError?.hint,
+          });
+        }
+
+        if (Array.isArray(brandRows) && brandRows.length) {
+          for (const row of brandRows) {
+            const id = typeof row?.id === "string" ? row.id : null;
+            if (!id || brandById.has(id)) continue;
+            brandById.set(id, {
+              id,
+              slug: typeof row?.slug === "string" ? row.slug : null,
+              name: typeof row?.name === "string" ? row.name : null,
+            });
+          }
+          break; // stop after first successful source
+        }
+      }
+    }
+
+    for (const row of products) {
       const id = typeof row?.id === "string" ? row.id : null;
       if (!id) continue;
       const brandId = typeof row?.brand_id === "string" ? row.brand_id : null;
@@ -259,12 +353,9 @@ async function fetchCatalogMeta(
         title: typeof row?.title === "string" ? row.title : null,
         brandId,
       });
-      if (brandId && !brandById.has(brandId)) {
-        brandById.set(brandId, {
-          id: brandId,
-          slug: typeof row?.brand_slug === "string" ? row.brand_slug : null,
-          name: typeof row?.brand_name === "string" ? row.brand_name : null,
-        });
+      if (brandId && brandById.has(brandId)) {
+        // already filled above
+        continue;
       }
     }
   }
@@ -292,16 +383,38 @@ async function fetchVariantMeta(
   const variantByKey = new Map<string, VariantMeta>();
   const enableProductsFallback = process.env.SUPABASE_ENABLE_PRODUCTS_FALLBACK === "true";
   const supabase = getCatalogClient();
+  let adminClient: SupabaseClient | null = null;
+  try {
+    adminClient = getAdminClient();
+  } catch {
+    adminClient = null;
+  }
 
   const fetchChunk = async (
     source: "ecom_products" | "products",
     column: "id" | "slug" | "sku",
     values: string[],
   ) => {
-    const { data, error } = await supabase
-      .from(source)
-      .select("id, slug, sku, catalog_product_id")
-      .in(column, values);
+    let client = adminClient ?? supabase;
+    let table = adminClient ? source : `public.${source}`;
+
+    let resp = await client.from(table).select("id, slug, sku, catalog_product_id").in(column, values);
+
+    const needAdminRetry = !adminClient && (resp.error || (Array.isArray(resp.data) && resp.data.length === 0));
+
+    // если анонимный клиент не имеет прав ИЛИ вернул пусто (из-за RLS), пробуем создать admin on-demand и повторить
+    if (needAdminRetry) {
+      try {
+        adminClient = getAdminClient();
+        client = adminClient;
+        table = source;
+        resp = await client.from(table).select("id, slug, sku, catalog_product_id").in(column, values);
+      } catch {
+        // keep original resp
+      }
+    }
+
+    const { data, error } = resp;
     if (error) {
       if (process.env.NODE_ENV !== "production") {
         const pgError = error as PostgrestError | null;
@@ -443,32 +556,46 @@ async function fetchVariantMeta(
   return variantByKey;
 }
 
-const fetchVariantMetaCached = unstable_cache(
-  async (payload: { ids: string[]; slugs: string[]; skus: string[] }) => {
-    const metaMap = await fetchVariantMeta(payload.ids, payload.slugs, payload.skus);
-    return Array.from(metaMap.entries());
-  },
-  ["catalog:variant-meta"],
-  {
-    revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
-    tags: [PRODUCT_COLLECTION_TAG],
-  },
-);
+function stablePayloadKey(payload: { ids: string[]; slugs?: string[]; skus?: string[] }) {
+  const ids = Array.from(new Set(payload.ids || [])).sort();
+  const slugs = Array.from(new Set(payload.slugs || [])).sort();
+  const skus = Array.from(new Set(payload.skus || [])).sort();
+  return JSON.stringify({ ids, slugs, skus });
+}
 
-const fetchCatalogMetaCached = unstable_cache(
-  async (ids: string[]) => {
-    const { productById, brandById } = await fetchCatalogMeta(ids);
-    return {
-      productEntries: Array.from(productById.entries()),
-      brandEntries: Array.from(brandById.entries()),
-    };
-  },
-  ["catalog:meta"],
-  {
-    revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
-    tags: [PRODUCT_COLLECTION_TAG],
-  },
-);
+const fetchVariantMetaCached = (payload: { ids: string[]; slugs: string[]; skus: string[] }) => {
+  const key = stablePayloadKey(payload);
+  return unstable_cache(
+    async () => {
+      const metaMap = await fetchVariantMeta(payload.ids, payload.slugs, payload.skus);
+      return Array.from(metaMap.entries());
+    },
+    // include payload in key to avoid returning stale meta from unrelated requests
+    ["catalog:variant-meta:v3", key],
+    {
+      revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
+      tags: [PRODUCT_COLLECTION_TAG],
+    },
+  )();
+};
+
+const fetchCatalogMetaCached = (ids: string[]) => {
+  const key = JSON.stringify(Array.from(new Set(ids)).sort());
+  return unstable_cache(
+    async () => {
+      const { productById, brandById } = await fetchCatalogMeta(ids);
+      return {
+        productEntries: Array.from(productById.entries()),
+        brandEntries: Array.from(brandById.entries()),
+      };
+    },
+    ["catalog:meta:v3", key],
+    {
+      revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
+      tags: [PRODUCT_COLLECTION_TAG],
+    },
+  )();
+};
 
 function buildStructuredData(products: Product[]) {
   const rawOrigin = process.env.NEXT_SITE_URL ?? "";
@@ -500,10 +627,25 @@ function buildStructuredData(products: Product[]) {
 function filterProductsByTaxonomy(products: Product[], filters: ProductFilters): Product[] {
   const brandSelection = filters.brand ?? "all";
   const modelSelection = filters.model ?? "all";
+  const categorySelection = filters.category ?? "all";
 
   return products.filter((product) => {
     if (filters.dataset && filters.dataset !== "all" && product.dataset !== filters.dataset) {
       return false;
+    }
+
+    if (categorySelection && categorySelection !== "all") {
+      const normalizedSelection = categorySelection.trim().toLowerCase();
+      if (normalizedSelection) {
+        const productCategory = (product.categorySlug ?? product.category ?? "").trim().toLowerCase();
+        if (!productCategory) return false;
+        // allow matching parent/child slugs like "phones" vs "phones/android"
+        const matchesDirect = productCategory === normalizedSelection;
+        const matchesNested = productCategory.startsWith(`${normalizedSelection}/`);
+        if (!matchesDirect && !matchesNested) {
+          return false;
+        }
+      }
     }
 
     if (brandSelection && brandSelection !== "all") {
@@ -827,6 +969,7 @@ export async function fetchProductsPage(filters: ProductFilters = {}, options?: 
     total: result.totalCount,
     categories: result.categories,
     structuredData: result.structuredData,
+    fetchError: result.fetchError ? (result.fetchError as any)?.message ?? String(result.fetchError) : null,
   };
 }
 
@@ -950,7 +1093,33 @@ async function loadProductsDataInternal(
   const meta = await resolveMetaForRows(fetchedRows);
   const products = mapRowsToProducts(fetchedRows, meta, 0);
 
-  const filteredProducts = filterProductsByTaxonomy(products, filters);
+  const availableCategorySlugs = new Set(
+    products
+      .map((product) => (product.categorySlug ?? product.category ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  const effectiveFilters: ProductFilters = { ...filters };
+  if (effectiveFilters.category) {
+    const normalizedCategory = effectiveFilters.category.trim().toLowerCase();
+    if (!availableCategorySlugs.has(normalizedCategory)) {
+      // если пользователь выбрал несуществующую/пустую категорию, сбрасываем на "all",
+      // чтобы фильтры не возвращали пустой список.
+      effectiveFilters.category = undefined;
+    }
+  }
+
+  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters);
+
+  // Safe fallback: если бренд/модель отфильтровали всё, ослабляем до категории, чтобы не показывать пустую выдачу.
+  if (
+    filteredProducts.length === 0 &&
+    ((effectiveFilters.brand && effectiveFilters.brand !== "all") || (effectiveFilters.model && effectiveFilters.model !== "all"))
+  ) {
+    const relaxed: ProductFilters = { ...effectiveFilters, brand: undefined, model: undefined };
+    filteredProducts = filterProductsByTaxonomy(products, relaxed);
+  }
+
   const categories = summarizeCategories(filteredProducts);
 
   const personalizedList = options?.personalize
@@ -989,9 +1158,9 @@ async function loadProductsDataInternal(
   }
 
   const totalForFilters =
-    (filters.dataset && filters.dataset !== "all") ||
-    (filters.brand && filters.brand !== "all") ||
-    (filters.model && filters.model !== "all")
+    (effectiveFilters.dataset && effectiveFilters.dataset !== "all") ||
+    (effectiveFilters.brand && effectiveFilters.brand !== "all") ||
+    (effectiveFilters.model && effectiveFilters.model !== "all")
       ? filteredProducts.length
       : totalCount || filteredProducts.length;
 
@@ -1070,7 +1239,7 @@ async function loadProductsDataCached(key: string, tags: string[]) {
         cursor: parsed.cursor,
       });
     },
-    ["products:list:data", ...uniqueTags],
+    ["products:list:data:v3", ...uniqueTags],
     {
       revalidate: PRODUCT_LIST_REVALIDATE_SECONDS,
       tags: uniqueTags,

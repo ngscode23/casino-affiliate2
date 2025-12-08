@@ -42,6 +42,7 @@
     "@vitest/coverage-v8": "^4.0.3",
     "archiver": "^7.0.1",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.9.4",
     "chokidar": "^4.0.3",
     "codex": "^0.2.3",
     "cross-env": "^10.1.0",

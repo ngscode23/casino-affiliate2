@@ -13,6 +13,7 @@ import { getValidAccessToken } from "@shared/lib/auth";
 import { HAS_SUPABASE } from "@shared/config";
 import { CheckoutAnalytics } from "@/components/analytics/EcommerceEvents";
 import FormField from "@/components/ui/form-field";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 const StripeElementsProvider = dynamic(
   () => import("@/components/stripe/StripeElementsProvider").then((m) => m.StripeElementsProvider),
@@ -468,6 +469,12 @@ export default function CheckoutClient() {
         </div>
         <Link href="/cart" className="text-sm text-blue-600 transition hover:text-blue-500">Back to cart</Link>
       </div>
+      {error ? (
+        <ErrorBanner
+          description={error}
+          onRetry={() => setError(null)}
+        />
+      ) : null}
       {isCartEmpty ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-neutral-600">Your cart is empty. Add items before checking out.</p>

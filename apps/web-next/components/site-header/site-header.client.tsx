@@ -12,13 +12,13 @@ import { useI18n } from "@shared/lib/i18n";
 import { useT } from "@shared/lib/useT";
 import { cn } from "@shared/lib/cn";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
-import { logRecEvent } from "@/lib/recs-events";
 import styles from "./SiteHeader.module.css";
 import type { HoverPanel } from "./CatalogPanel";
 import { useSiteHeaderState } from "./useSiteHeaderState";
 import { HeaderDesktopNav } from "./HeaderDesktopNav";
 import { HeaderActions, type ActionButton } from "./HeaderActions";
 import { HeaderMobileNav } from "./HeaderMobileNav";
+import { useHeaderTracking } from "./useHeaderTracking";
 
 export type NavItem = {
   href: string;
@@ -305,6 +305,7 @@ export function SiteHeaderClient({
   const router = useRouter();
   const t = useT();
   const { totalQty } = useCart();
+  const { trackSearch } = useHeaderTracking();
 
   const isActive = (href: string) => {
     if (!pathname) return false;
@@ -400,12 +401,7 @@ export function SiteHeaderClient({
     setSearchOpen(false);
     router.push(qs ? `${pathPart}?${qs}` : pathPart);
     if (trimmed) {
-      setTimeout(() => {
-        void logRecEvent({
-          event: "search",
-          metadata: { query: trimmed, source: "header_search" },
-        });
-      }, 0);
+      trackSearch(trimmed);
     }
   };
 

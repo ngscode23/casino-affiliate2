@@ -11,12 +11,13 @@ import { CATALOG_NAME, PRODUCT_PAGE_SIZE_DEFAULT, fetchProductsPage } from "./da
 import { serializeJsonLd } from "@shared/lib/jsonld";
 import { resolveFilterParams } from "./filter-params";
 import { siteConfig } from "@/lib/site-config";
+import { buildCanonical, getSiteOrigin } from "@/lib/env/siteUrl";
 import { ProductListAnalytics } from "@/components/analytics/EcommerceEvents";
 
 const SITE_NAME = siteConfig.name || "Neon Shop";
-const BASE_TITLE = `??????? ??????? | ${SITE_NAME}`;
+const BASE_TITLE = `Каталог товаров | ${SITE_NAME}`;
 const BASE_DESCRIPTION =
-  "??????? Neon Shop: ???????, ????? ? ?????????? ??????. ?????????? ????, ??????? ? ??????? ??????? ?? ??????????.";
+  "Каталог Neon Shop: смартфоны, ноутбуки и аксессуары. Сравнивайте цены, характеристики и находите лучшие предложения.";
 
 export const revalidate = 180;
 export const dynamic = "force-static";
@@ -71,12 +72,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
   const resolvedSearch = (await searchParams) ?? {};
   const categoryParam = normalizeCategoryParam(resolvedSearch.category);
 
-  const origin =
-    (process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.SITE_URL ||
-      process.env.NEXT_SITE_URL ||
-      "https://neon4.vercel.app").replace(/\/$/, "");
-  const baseCanonical = `${origin}/products`;
+  const baseCanonical = `${getSiteOrigin()}/products`;
 
   if (!categoryParam) {
     return {
@@ -101,7 +97,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
   const { category, productCount } = await fetchCategoryMeta(categoryParam);
 
   if (!category) {
-    const fallbackTitle = `${BASE_TITLE} - ????????? ?? ???????`;
+    const fallbackTitle = `${BASE_TITLE} - категория не найдена`;
     return {
       title: fallbackTitle,
       description: BASE_DESCRIPTION,
@@ -122,9 +118,9 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
     };
   }
 
-  const canonical = `${baseCanonical}?category=${encodeURIComponent(category.slug)}`;
+  const canonical = buildCanonical(`/products?category=${encodeURIComponent(category.slug)}`);
   const hasCount = typeof productCount === "number" && productCount > 0;
-  const countLabel = hasCount ? ` - ${productCount} ???????` : "";
+  const countLabel = hasCount ? ` - ${productCount} товаров` : "";
   const title = `${category.title}${countLabel} | ${SITE_NAME}`;
   const description = category.description?.trim() || BASE_DESCRIPTION;
 
@@ -168,11 +164,14 @@ function ProductsStream({
   listingPromise: Promise<ListingResponse>;
   filters: ReturnType<typeof resolveFilterParams>;
 }) {
+  // use() здесь держит streaming-поток: Suspense показывает CatalogSkeleton,
+  // а готовый список дорендеривается, не блокируя TTFB. Не заменяйте на await,
+  // чтобы не сломать потоковую загрузку.
   const { listing, fetchError } = use(listingPromise);
 
   const description =
     filters.query && filters.query.trim().length
-      ? `?????????? ?????? Ž${filters.query}Ż ? ???????? ${CATALOG_NAME || "????????"}`
+      ? `Результаты поиска «${filters.query}» в каталоге ${CATALOG_NAME || "каталога"}`
       : BASE_DESCRIPTION;
 
   const analyticsItems = listing.items.map((product, index) => ({
@@ -203,18 +202,18 @@ function ProductsStream({
       <section aria-busy={Boolean(fetchError)} aria-live="polite">
         <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
           <header className="flex flex-col gap-3 text-center sm:text-left">
-            <span className="text-sm font-medium text-muted">??????? ???????</span>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "???????"}</h1>
+            <span className="text-sm font-medium text-muted">Каталог товаров</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "Каталог"}</h1>
             <p className="text-base text-muted sm:max-w-3xl">{description}</p>
             {typeof listing.total === "number" ? (
-              <span className="text-sm text-muted">????? ???????: {listing.total}</span>
+              <span className="text-sm text-muted">Всего товаров: {listing.total}</span>
             ) : null}
           </header>
         </div>
         <ProductsClient
           products={listing.items}
           categories={listing.categories}
-          catalogName={CATALOG_NAME ?? "???????"}
+          catalogName={CATALOG_NAME ?? "Каталог"}
           initialQuery={filters.query}
           initialCategory={filters.category}
           initialDataset={filters.dataset}
@@ -228,10 +227,10 @@ function ProductsStream({
         />
         {fetchError ? (
           <div className="mx-auto max-w-screen-md px-6 pb-12 text-center text-sm text-red-400">
-            ?? ??????? ???????? ?????? ???????: {fetchError}
-            {" ú "}
+            Не получилось загрузить товары: {fetchError}
+            {" | "}
             <Link href="/contact" className="text-blue-400 hover:text-blue-300">
-              ???????? ? ?????????
+              Напишите в поддержку
             </Link>
           </div>
         ) : null}

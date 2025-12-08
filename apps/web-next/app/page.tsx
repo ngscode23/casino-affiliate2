@@ -3,21 +3,17 @@ import { Suspense } from "react";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { siteConfig } from "@/lib/site-config";
-import { headers } from "next/headers";
 
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { type ProductGridItem } from "@/components/ProductGrid";
 import { HeroSection, HeroSectionSkeleton } from "@/components/HeroSection";
 import { FeaturedSkeleton } from "@/components/product-grid/FeaturedSkeleton";
 import { HydratedProductGrid } from "@/components/ProductGrid/HydratedProductGrid";
 import { RecommendationsWidget } from "@/components/RecommendationsWidget";
 import { serializeJsonLd, makeOrganizationLD } from "@shared/lib/jsonld";
-import { createClient } from "@/utils/supabase/server";
 import { loadProductsData } from "./products/data";
 import type { Product } from "./products/types";
 import { formatPrice } from "./products/utils";
-import { fetchUserProfile } from "@/lib/personalization/rank";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -45,42 +41,7 @@ export const dynamic = "force-static";
 export const fetchCache = "force-cache";
 
 export default async function HomePage() {
-  const headerStore = new Headers(await headers());
-  const experimentCookieName = process.env.EXPERIMENT_COOKIE_NAME || "exp";
-  const getCookie = (name: string): string | null => {
-    const cookieHeader = headerStore.get("cookie") || "";
-    const match = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
-    return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
-  };
-
-  const anonId = headerStore.get("x-anon-id") || getCookie("anon_id");
-  const experimentVariant =
-    headerStore.get("x-experiment-variant") || getCookie(experimentCookieName) || null;
-  const country = headerStore.get("x-geo-country") || headerStore.get("x-country") || undefined;
-  const device = headerStore.get("x-device-class") || undefined;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user?.role && String(user.role).toLowerCase() === "admin") {
-    redirect("/admin");
-  }
-
-  const profile = anonId ? await fetchUserProfile(anonId) : null;
-
-  const { products, structuredData } = await loadProductsData(
-    {},
-    {
-      personalize: {
-        profile,
-        country: country ?? undefined,
-        device,
-        experimentVariant: experimentVariant ?? undefined,
-      },
-    },
-  );
+  const { products, structuredData } = await loadProductsData();
   const featuredProducts = products.slice(0, 4);
   const origin = (process.env.NEXT_SITE_URL || "").replace(/\/$/, "");
 

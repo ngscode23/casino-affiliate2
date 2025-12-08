@@ -1,433 +1,43 @@
-"use client";;
-import { mutedTextXs } from "@/styles/classnames";
-
-import { Fragment, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+"use client";
 
 import Section from "@ui/components/common/section";
-import { toast } from "@ui/components/common/toast";
-import {
-  cancelOrder,
-  confirmPayment,
-  getOrder,
-  getProductsByIds,
-  listOrders,
-} from "@shared/ecom/api/client";
-import { sanitizeSearchParam } from "@shared/lib/sanitize";
+
 import { AsyncSection } from "@/components/ui/AsyncSection";
-import type { CartItem, OrderDetail, OrderListItem, PaymentStatus } from "@/types/domain";
-import type { OrderListItem as OrderListItemDto } from "@shared/ecom/api/client";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
-const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "", label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "paid", label: "Paid" },
-  { value: "succeeded", label: "Succeeded" },
-  { value: "failed", label: "Failed" },
-  { value: "canceled", label: "Canceled" },
-  { value: "refunded", label: "Refunded" },
-  { value: "partial_refund", label: "Partial refund" },
-  { value: "requires_action", label: "Requires action" },
-];
-
-const CANCELLABLE_PAYMENT_STATUSES = new Set(["", "failed", "canceled", "cancelled"]);
-
-type OrderDetailDto = Awaited<ReturnType<typeof getOrder>>;
-
-type PaymentState = {
-  [orderId: string]: "pay" | "cancel" | null;
-};
-
-function toCents(value: unknown): number {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
-}
-
-function normalizePaymentStatus(value: string | null | undefined): PaymentStatus | null {
-  const normalized = (value ?? "").toLowerCase();
-  const allowed: PaymentStatus[] = [
-    "pending",
-    "succeeded",
-    "failed",
-    "authorized",
-    "captured",
-    "paid",
-    "canceled",
-    "refunded",
-    "partial_refund",
-    "requires_action",
-  ];
-  return allowed.includes(normalized as PaymentStatus) ? (normalized as PaymentStatus) : null;
-}
-
-function normalizeOrderStatus(value: string | null | undefined): OrderListItem["status"] {
-  const normalized = (value ?? "").toLowerCase();
-  switch (normalized) {
-    case "processing":
-      return "processing";
-    case "paid":
-    case "succeeded":
-      return "paid";
-    case "cancelled":
-    case "canceled":
-      return "cancelled";
-    case "refunded":
-      return "refunded";
-    case "failed":
-      return "failed";
-    default:
-      return "pending";
-  }
-}
-
-function normalizeOrderRow(row: OrderListItemDto): OrderListItem {
-  const createdAt =
-    typeof row.created_at === "string" && row.created_at ? row.created_at : new Date().toISOString();
-  return {
-    id: String(row.id ?? ""),
-    createdAt,
-    status: normalizeOrderStatus(row.status),
-    paymentStatus: normalizePaymentStatus(row.payment_status),
-    totalCents: toCents(row.amount_total ?? 0),
-    currency: ((row.currency ?? "EUR") as string).toUpperCase(),
-  };
-}
-
-function normalizeOrderDetail(dto: OrderDetailDto): OrderDetail {
-  const order = normalizeOrderRow({
-    id: dto.order.id,
-    created_at: dto.order.created_at,
-    amount_total: dto.order.amount_total,
-    currency: dto.order.currency,
-    status: dto.order.status,
-    payment_status: dto.order.payment_status,
-  } as OrderListItemDto);
-
-  const items: CartItem[] = (dto.items ?? []).map((item, index) => {
-    const quantity = Number(item.qty ?? 0);
-    const unitCents = toCents(item.unit_price ?? item.total ?? 0);
-    return {
-      id: item.id ? String(item.id) : `${order.id}-${index}`,
-      productId: item.product_id ?? "",
-      quantity,
-      priceCents: unitCents,
-      currency: order.currency,
-      title: item.title ?? item.product_id ?? "Item",
-      thumbnail: null,
-      sku: null,
-    };
-  });
-
-  const payment =
-    dto.payment && dto.payment.status
-      ? {
-          status: normalizePaymentStatus(dto.payment.status) ?? "pending",
-          amountCents: toCents(dto.payment.amount ?? 0),
-          currency: (dto.payment.currency ?? order.currency) as string,
-          provider: dto.payment.provider ?? null,
-          providerRef: dto.payment.provider_ref ?? null,
-        }
-      : null;
-
-  return {
-    ...order,
-    items,
-    subtotalCents: toCents(dto.order.amount_subtotal ?? dto.order.amount_total ?? 0),
-    discountCents: toCents(dto.order.amount_discounts ?? 0),
-    taxCents: toCents(dto.order.amount_tax ?? 0),
-    payment,
-  };
-}
-
-function statusLabel(value: string | null | undefined) {
-  const normalized = (value ?? "").toLowerCase();
-  switch (normalized) {
-    case "pending":
-      return "Pending";
-    case "processing":
-      return "Processing";
-    case "paid":
-    case "succeeded":
-      return "Succeeded";
-    case "failed":
-      return "Failed";
-    case "canceled":
-    case "cancelled":
-      return "Cancelled";
-    case "refunded":
-      return "Refunded";
-    case "partial_refund":
-      return "Partial refund";
-    case "requires_action":
-      return "Requires action";
-    case "authorized":
-      return "Authorized";
-    default:
-      return value || "-";
-  }
-}
-
-function statusClass(value: string | null | undefined) {
-  const normalized = (value ?? "").toLowerCase();
-  switch (normalized) {
-    case "pending":
-      return "bg-amber-500/10 text-amber-300 border border-amber-500/30";
-    case "processing":
-    case "authorized":
-      return "bg-sky-500/10 text-sky-200 border border-sky-500/30";
-    case "paid":
-    case "succeeded":
-    case "refunded":
-      return "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30";
-    case "partial_refund":
-      return "bg-amber-500/10 text-amber-200 border border-amber-500/30";
-    case "failed":
-    case "cancelled":
-    case "canceled":
-      return "bg-rose-500/10 text-rose-200 border border-rose-500/30";
-    case "requires_action":
-      return "bg-purple-500/10 text-purple-200 border border-purple-500/30";
-    default:
-      return "bg-neutral-100 text-slate-700 border border-neutral-200 dark:bg-white/10 dark:text-white dark:border-white/20";
-  }
-}
-
-function formatCurrency(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(value ?? 0);
-  } catch {
-    return `${value?.toFixed?.(2) ?? "0.00"} ${currency}`;
-  }
-}
-
-function formatDate(value: string) {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
+import { OrdersAnalytics } from "./components/OrdersAnalytics";
+import { OrdersFilters } from "./components/OrdersFilters";
+import { OrdersFooter } from "./components/OrdersFooter";
+import { OrdersList, STATUS_OPTIONS } from "./components/OrdersList";
+import { useOrders } from "./useOrders";
 
 export function OrdersClient() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const statusParam = searchParams.get("status") ?? "";
-  const queryParam = sanitizeSearchParam(searchParams.get("q"));
-  const cursorParam = searchParams.get("cursor");
-  const limitParam = Number.parseInt(searchParams.get("page_size") ?? searchParams.get("limit") ?? "10", 10);
-
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 10;
-
-  const [statusFilter, setStatusFilter] = useState(statusParam);
-  const [searchValue, setSearchValue] = useState(queryParam);
-  const [orders, setOrders] = useState<OrderListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [details, setDetails] = useState<Record<string, OrderDetail | null>>({});
-  const [pendingMap, setPendingMap] = useState<PaymentState>({});
-  const [slugMap, setSlugMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setStatusFilter(statusParam);
-  }, [statusParam]);
-
-  useEffect(() => {
-    setSearchValue(queryParam);
-  }, [queryParam]);
-
-  const updateParams = useCallback(
-    (updates: Record<string, string | number | null | undefined>, { resetCursor = false } = {}) => {
-      const next = new URLSearchParams(searchParams?.toString() ?? "");
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === "") {
-          next.delete(key);
-        } else {
-          next.set(key, String(value));
-        }
-      });
-      if (resetCursor) {
-        next.delete("cursor");
-      }
-      const search = next.toString();
-      router.replace(search ? `?${search}` : "?", { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await listOrders({
-        status: statusParam || undefined,
-        q: queryParam || undefined,
-        sort: "created_at desc",
-        cursor: cursorParam || undefined,
-        page_size: limit,
-      });
-      const normalizedItems = response.items.map(normalizeOrderRow);
-      setOrders((prev) => {
-        if (!cursorParam) {
-          return normalizedItems;
-        }
-        return [...prev, ...normalizedItems];
-      });
-      setTotal(response.count ?? normalizedItems.length);
-      setHasMore(Boolean(response.hasMore));
-      setNextCursor(response.nextCursor ?? null);
-      if (!cursorParam) {
-        setExpanded({});
-        setDetails({});
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message || "We couldn't load your orders.");
-    } finally {
-      setLoading(false);
-    }
-  }, [cursorParam, limit, queryParam, statusParam]);
-
-  useEffect(() => {
-    void fetchOrders();
-  }, [fetchOrders]);
-
-  const sectionStatus: "loading" | "error" | "success" = loading && orders.length === 0 ? "loading" : error ? "error" : "success";
-
-  const onSearchSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      updateParams({ q: searchValue || null }, { resetCursor: true });
-    },
-    [searchValue, updateParams],
-  );
-
-  const handleStatusSelect = useCallback(
-    (nextStatus: string) => {
-      if (nextStatus === statusFilter) return;
-      setStatusFilter(nextStatus);
-      updateParams({ status: nextStatus || null }, { resetCursor: true });
-    },
-    [statusFilter, updateParams],
-  );
-
-  const handlePageSizeSelect = useCallback(
-    (nextSize: number) => {
-      if (nextSize === limit) return;
-      updateParams({ page_size: nextSize }, { resetCursor: true });
-    },
-    [limit, updateParams],
-  );
-
-  const onLoadMore = useCallback(() => {
-    if (nextCursor) {
-      updateParams({ cursor: nextCursor });
-    }
-  }, [nextCursor, updateParams]);
-
-  const onResetCursor = useCallback(() => {
-    updateParams({ cursor: null }, { resetCursor: true });
-  }, [updateParams]);
-
-  const toggleOrder = useCallback(
-    async (orderId: string) => {
-      setExpanded((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
-
-      if (details[orderId]) return;
-
-      try {
-        const detailDto = await getOrder(orderId);
-        const detail = normalizeOrderDetail(detailDto);
-        setDetails((prev) => ({ ...prev, [orderId]: detail }));
-
-        const productIds = Array.from(
-          new Set(
-            detail.items
-              .map((item) => item.productId)
-              .filter((pid): pid is string => typeof pid === "string" && pid.trim().length > 0),
-          ),
-        ).filter((pid) => !slugMap[pid]);
-
-        if (productIds.length) {
-          const products = await getProductsByIds(productIds);
-          if (products.length) {
-            setSlugMap((prev) => {
-              const next = { ...prev };
-              for (const product of products) {
-                if (product.id && product.slug) {
-                  next[String(product.id)] = product.slug;
-                }
-              }
-              return next;
-            });
-          }
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        toast(message || "We couldn't load the order.", { variant: "error" });
-      }
-    },
-    [details, slugMap],
-  );
-
-  const performCancel = useCallback(
-    async (orderId: string) => {
-      try {
-        setPendingMap((prev) => ({ ...prev, [orderId]: "cancel" }));
-        await cancelOrder(orderId);
-        toast("Order cancelled.", { variant: "success" });
-        await fetchOrders();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (typeof message === "string" && message.toLowerCase().includes("payment_in_progress")) {
-          toast("Payment is still being processed. Please wait for the result.", { variant: "info" });
-        } else if (typeof message === "string" && message.toLowerCase().includes("cannot_cancel_in_this_status")) {
-          toast("We can’t cancel this order right now.", { variant: "info" });
-        } else {
-          toast(message || "We couldn't cancel the order.", { variant: "error" });
-        }
-      } finally {
-        setPendingMap((prev) => ({ ...prev, [orderId]: null }));
-      }
-    },
-    [fetchOrders],
-  );
-
-  const performPayment = useCallback(
-    async (orderId: string) => {
-      try {
-        setPendingMap((prev) => ({ ...prev, [orderId]: "pay" }));
-        const response = await confirmPayment(orderId);
-        if (response?.next_action?.url) {
-          toast("Additional 3DS verification required.", { variant: "info" });
-          window.open(response.next_action.url, "_blank", "noopener,noreferrer");
-        } else {
-          toast("Payment completed.", { variant: "success" });
-        }
-        await fetchOrders();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        toast(message || "We couldn't confirm the payment.", { variant: "error" });
-      } finally {
-        setPendingMap((prev) => ({ ...prev, [orderId]: null }));
-      }
-    },
-    [fetchOrders],
-  );
-
-  const isLoading = sectionStatus === "loading";
+  const {
+    statusFilter,
+    searchValue,
+    setSearchValue,
+    limit,
+    orders,
+    total,
+    hasMore,
+    nextCursor,
+    loading,
+    error,
+    sectionStatus,
+    expanded,
+    details,
+    pendingMap,
+    slugMap,
+    onSearchSubmit,
+    onStatusSelect,
+    onPageSizeSelect,
+    onLoadMore,
+    onResetCursor,
+    toggleOrder,
+    performCancel,
+    performPayment,
+    onRefresh,
+  } = useOrders();
 
   const ordersSkeleton = (
     <div className="space-y-3" aria-live="polite">
@@ -439,6 +49,7 @@ export function OrdersClient() {
 
   return (
     <Section className="py-12">
+      <OrdersAnalytics status={statusFilter} searchValue={searchValue} limit={limit} total={total} count={orders.length} />
       <div className="mx-auto flex max-w-6xl flex-col gap-8">
         <header className="space-y-3">
           <span className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">Account</span>
@@ -449,307 +60,52 @@ export function OrdersClient() {
         </header>
 
         <div className="space-y-6 rounded-3xl border border-border/35 bg-card/80 p-6 shadow-soft backdrop-blur">
-          <form onSubmit={onSearchSubmit} className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex-1 space-y-3">
-              <span id="orders-status-label" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
-                Status
-              </span>
-              <div className="rounded-2xl border border-border/30 bg-card/70 p-1.5">
-                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="orders-status-label">
-                  {STATUS_OPTIONS.map((option) => {
-                    const active = statusFilter === option.value;
-                    const baseClasses =
-                      "group inline-flex min-w-[120px] items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold tracking-normal transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
-                    const activeClasses =
-                      "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
-                    const inactiveClasses =
-                      "border-border/30 bg-transparent text-muted-foreground hover:border-primary/30 hover:text-primary";
-                    return (
-                      <button
-                        key={option.value || "all"}
-                        type="button"
-                        aria-pressed={active}
-                        className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
-                        onClick={() => handleStatusSelect(option.value)}
-                      >
-                        <span>{option.label}</span>
-                        <span
-                          className={`inline-flex h-2.5 w-2.5 rounded-full transition ${active ? "bg-primary" : "bg-border/40 group-hover:bg-primary/70"}`}
-                          aria-hidden
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-end">
-              <div className="flex-1 space-y-2">
-                <label htmlFor="order-search" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
-                  Search orders
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="order-search"
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder="Example: order-001"
-                    className="h-11 flex-1 rounded-xl border border-border/30 bg-card/70 px-4 text-sm text-fg shadow-inner transition focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/60 bg-primary px-5 text-sm font-semibold text-primaryfg shadow-[0_22px_50px_-30px_rgba(252,50,114,0.62)] transition hover:-translate-y-px"
-                  >
-                    Search
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2 sm:w-44">
-                <span id="orders-page-size-label" className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">
-                  Page size
-                </span>
-                <div className="rounded-2xl border border-border/30 bg-card/70 p-1.5">
-                  <div className="flex gap-2" role="group" aria-labelledby="orders-page-size-label">
-                    {[10, 20, 50].map((size) => {
-                      const active = limit === size;
-                      const baseClasses =
-                        "group inline-flex flex-1 items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
-                      const activeClasses =
-                        "border-primary/60 bg-primary/10 text-primary shadow-[0_16px_42px_-28px_rgba(252,50,114,0.6)]";
-                      const inactiveClasses =
-                        "border-border/30 bg-transparent text-muted-foreground hover:border-primary/30 hover:text-primary";
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          aria-pressed={active}
-                          className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
-                          onClick={() => handlePageSizeSelect(size)}
-                        >
-                          {size}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </form>
+          <OrdersFilters
+            status={statusFilter}
+            statusOptions={STATUS_OPTIONS}
+            onStatusChange={onStatusSelect}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onSubmit={onSearchSubmit}
+            limit={limit}
+            onPageSizeChange={onPageSizeSelect}
+          />
 
           <AsyncSection
             status={sectionStatus}
             skeleton={ordersSkeleton}
-            errorFallback={
-              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-100">
-                {error ?? "We couldn't load your orders."}
-              </div>
-            }
+            errorFallback={<ErrorBanner description={error ?? "We couldn't load your orders."} onRetry={onRefresh} />}
           >
             {orders.length === 0 ? (
               <div className="rounded-2xl border border-border/35 bg-card/70 p-6 text-sm text-muted-foreground">
                 No orders found. Try adjusting the filters or search query.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-3xl border border-border/35 bg-card/85 shadow-soft">
-                <table className="w-full text-sm">
-                <thead className="border-b border-border/30 text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-3 font-semibold text-muted-foreground">Order</th>
-                    <th className="px-5 py-3 font-semibold text-muted-foreground">Placed on</th>
-                    <th className="px-5 py-3 font-semibold text-muted-foreground">Status</th>
-                    <th className="px-5 py-3 font-semibold text-muted-foreground">Total</th>
-                    <th className="px-5 py-3 text-right font-semibold text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => {
-                    const orderId = order.id;
-                    const isOpen = !!expanded[orderId];
-                    const detail = details[orderId];
-                    const paymentState = pendingMap[orderId];
-                    const paymentStatus = (order.paymentStatus ?? "").toLowerCase();
-                    const canPay = order.status === "pending" || order.status === "processing";
-                    const canCancel =
-                      order.status === "pending" &&
-                      (!paymentStatus || CANCELLABLE_PAYMENT_STATUSES.has(paymentStatus));
-                    const toggleLabel = isOpen
-                      ? "Hide details"
-                      : detail
-                      ? `View items (${detail.items.length})`
-                      : "Load details";
-
-                    return (
-                      <Fragment key={orderId}>
-                        <tr className="border-b border-border/20 transition hover:bg-card/70">
-                          <td className="px-5 py-3 font-medium text-fg">{orderId}</td>
-                          <td className="px-5 py-3 text-muted-foreground">{formatDate(order.createdAt)}</td>
-                          <td className="px-5 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.status)}`}>
-                                {statusLabel(order.status)}
-                              </span>
-                              {order.paymentStatus ? (
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusClass(order.paymentStatus)}`}
-                                >
-                                  {statusLabel(order.paymentStatus)}
-                                </span>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 font-medium text-fg">
-                            {formatCurrency(order.totalCents / 100, order.currency || "EUR")}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void toggleOrder(orderId)}
-                                className="rounded-full border border-border/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-                              >
-                                {toggleLabel}
-                              </button>
-                              {canPay ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void performPayment(orderId)}
-                                  disabled={paymentState === "pay"}
-                                  className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {paymentState === "pay" ? "Paying..." : "Pay now"}
-                                </button>
-                              ) : null}
-                              {canCancel ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void performCancel(orderId)}
-                                  disabled={paymentState === "cancel"}
-                                  className="rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {paymentState === "cancel" ? "Cancelling..." : "Cancel order"}
-                                </button>
-                              ) : order.status === "pending" ? (
-                                <span className="inline-flex items-center rounded-full border border-border/30 px-3 py-1.5 text-xs font-semibold text-muted-foreground/70">
-                                  Payment pending…
-                                </span>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                        {isOpen ? (
-                          <tr className="border-b border-border/20 bg-card/75">
-                            <td colSpan={5} className="px-5 py-5">
-                              {!detail ? (
-                                <div className={mutedTextXs}>Loading order details...</div>
-                              ) : detail.items.length === 0 ? (
-                                <div className={mutedTextXs}>No items were recorded for this order.</div>
-                              ) : (
-                                <div className="space-y-4">
-                                  <div className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-                                    Items · {detail.items.length}
-                                  </div>
-                                  <ul className="space-y-3">
-                                    {detail.items.map((item) => {
-                                      const productId = item.productId ? String(item.productId) : "";
-                                      const slug = productId ? slugMap[productId] : undefined;
-                                      const quantity = item.quantity ?? 1;
-                                      const unit = formatCurrency(item.priceCents / 100, detail.currency);
-                                      const totalAmount = formatCurrency((item.priceCents * quantity) / 100, detail.currency);
-                                      return (
-                                        <li
-                                          key={`${orderId}-${productId}-${item.id}`}
-                                          className="flex flex-col gap-2 rounded-2xl border border-border/30 bg-card/70 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                        >
-                                          <div>
-                                            {slug ? (
-                                              <Link
-                                                href={`/products/${slug}`}
-                                                className="font-semibold text-fg transition hover:text-primary"
-                                              >
-                                                {item.title || productId}
-                                              </Link>
-                                            ) : (
-                                              <span className="font-semibold text-fg">{item.title || productId || "Item"}</span>
-                                            )}
-                                            <div className={mutedTextXs}>
-                                              Quantity: {quantity} × {unit}
-                                            </div>
-                                          </div>
-                                          <div className="text-sm font-semibold text-fg">{totalAmount}</div>
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                  <div className="flex flex-col items-end gap-1 text-sm text-muted-foreground">
-                                    <div>Subtotal: {formatCurrency((detail.subtotalCents ?? 0) / 100, detail.currency)}</div>
-                                    <div>Discounts: {formatCurrency((detail.discountCents ?? 0) / 100, detail.currency)}</div>
-                                    <div>Tax &amp; duties: {formatCurrency((detail.taxCents ?? 0) / 100, detail.currency)}</div>
-                                    <div className="text-base font-semibold text-fg">
-                                      Total: {formatCurrency(detail.totalCents / 100, detail.currency)}
-                                    </div>
-                                    {detail.payment ? (
-                                      <div className="text-xs text-muted-foreground/80">
-                                        Payment: {statusLabel(detail.payment.status)}
-                                        {detail.payment.amountCents != null
-                                          ? ` • ${formatCurrency(
-                                              (detail.payment.amountCents ?? 0) / 100,
-                                              detail.payment.currency || detail.currency,
-                                            )}`
-                                          : ""}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+              <OrdersList
+                orders={orders}
+                expanded={expanded}
+                details={details}
+                pendingMap={pendingMap}
+                slugMap={slugMap}
+                onToggle={toggleOrder}
+                onPay={performPayment}
+                onCancel={performCancel}
+              />
             )}
           </AsyncSection>
         </div>
 
-        {orders.length > 0 && !isLoading ? (
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Showing {orders.length} of {total} orders
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              {cursorParam ? (
-                <button
-                  type="button"
-                  className="rounded-full border border-border/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-                  onClick={onResetCursor}
-                >
-                  Back to first page
-                </button>
-              ) : null}
-              {hasMore ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-full border border-border/40 px-4 py-1.5 text-xs font-semibold text-fg transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={onLoadMore}
-                  disabled={!nextCursor}
-                >
-                  Load more
-                </button>
-              ) : (
-                <span className="text-muted-foreground/70">You're all caught up.</span>
-              )}
-            </div>
-          </div>
+        {orders.length > 0 && !loading ? (
+          <OrdersFooter
+            count={orders.length}
+            total={total}
+            hasMore={hasMore}
+            cursor={nextCursor}
+            onResetCursor={onResetCursor}
+            onLoadMore={onLoadMore}
+          />
         ) : null}
       </div>
     </Section>
   );
 }
-
-
-

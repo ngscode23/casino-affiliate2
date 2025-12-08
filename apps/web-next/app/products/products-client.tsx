@@ -1,66 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ProductGrid, ProductSkeleton, PRODUCT_GRID_LAYOUTS } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
-import type { Product } from "./types";
-import type { CategorySummary } from "./data";
-import { formatPrice } from "./utils";
-import { logRecEvent } from "@/lib/recs-events";
-import FilterSidebar, { type FilterSidebarProps, type TaxonomyOption } from "./FilterSidebar";
-import { DATASET_LABELS, DatasetType, SortMode } from "./filter-config";
-import RevealOnScroll from "@/components/animation/RevealOnScroll";
-import CatalogProductCarousel from "@/components/CatalogProductCarousel";
-import { useProductsSearchState } from "./useProductsSearchState";
-import { ProductFilterToolbar } from "./ProductFilterToolbar";
-import { ProductListShell } from "./ProductListShell";
-import { ProductPagination } from "./ProductPagination";
 
-type LayoutMode = "grid" | "single" | "masonry";
-const CHUNK_SIZE = 8; // fewer above-the-fold items for faster LCP on mobile
+import { useProductsSearchState } from "@/lib/hooks/useProductsSearchState";
+
+import { type FilterSidebarProps, type TaxonomyOption } from "./FilterSidebar";
+import { ProductsAnalytics } from "./ProductsAnalytics";
+import { ProductsLayout } from "./ProductsLayout";
+import { DATASET_LABELS, DatasetType, SortMode } from "./filter-config";
+import { useProductsData } from "./hooks/useProductsData";
+import type { CategorySummary } from "./data";
+import type { Product } from "./types";
+import type { LayoutMode, ThemeMode } from "./types.shared";
+import { formatPrice } from "./utils";
+
+const MIN_SKELETON_ITEMS = 8; // fewer above-the-fold placeholders for faster LCP on mobile
 const PAGE_SIZE = 24;
 const CAROUSEL_MAX_ITEMS = 16;
-type ProductGridStyle = CSSProperties & {
-  "--vc-grid-max-width"?: string;
-  "--vc-grid-max-width-desktop"?: string;
-  "--vc-card-min-width"?: string;
-  "--vc-card-width"?: string;
-  "--vc-grid-row-gap"?: string;
-  "--vc-grid-column-gap"?: string;
-};
-const GRID_SURFACE_CLASS_LIGHT =
-  "w-full min-w-0 rounded-[32px] border border-gray-200/80 bg-white/95 px-4 py-6 shadow-[0_32px_80px_-48px_rgba(15,23,42,0.35)] sm:px-8 sm:py-10";
-const GRID_SURFACE_CLASS_DARK =
-  "w-full min-w-0 rounded-[32px] border border-white/12 bg-white/5 px-4 py-6 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:px-8 sm:py-10";
-const GRID_STYLE: ProductGridStyle = {
-  "--vc-grid-max-width": "1480px",
-  "--vc-grid-max-width-desktop": "1480px",
-  "--vc-card-min-width": "260px",
-  "--vc-card-width": "360px",
-  "--vc-grid-row-gap": "36px",
-  "--vc-grid-column-gap": "24px",
-};
-
-function priceValue(product: Product): number {
-  if (typeof product.priceCents === "number" && Number.isFinite(product.priceCents)) {
-    return product.priceCents;
-  }
-  if (typeof product.price === "number" && Number.isFinite(product.price)) {
-    return Math.round(product.price * 100);
-  }
-  return 0;
-}
-
-const sortComparators: Record<SortMode, (a: Product, b: Product) => number> = {
-  recent: (a, b) => a.order - b.order,
-  popular: (a, b) => (b.clicks || 0) - (a.clicks || 0) || (b.impressions || 0) - (a.impressions || 0),
-  "price-asc": (a, b) => priceValue(a) - priceValue(b),
-  "price-desc": (a, b) => priceValue(b) - priceValue(a),
-  impressions: (a, b) => (b.impressions || 0) - (a.impressions || 0),
-};
 
 function datasetLabel(dataset: DatasetType | Product["dataset"]): string {
   if (dataset && dataset in DATASET_LABELS) {
@@ -68,18 +26,6 @@ function datasetLabel(dataset: DatasetType | Product["dataset"]): string {
   }
   return "All products";
 }
-
-const skeletonLayoutClass: Record<LayoutMode, string> = {
-  single: PRODUCT_GRID_LAYOUTS.single,
-  masonry: PRODUCT_GRID_LAYOUTS.masonry,
-  grid: PRODUCT_GRID_LAYOUTS.grid,
-};
-
-const skeletonItemWrapperClass: Record<LayoutMode, string> = {
-  single: "h-full",
-  masonry: "h-full",
-  grid: "h-full",
-};
 
 export default function ProductsClient({
   products: initialProducts,
@@ -188,24 +134,7 @@ export default function ProductsClient({
     minRating,
   } = filters;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [items, setItems] = useState<Product[]>(initialProducts);
-  const [categoriesState, setCategoriesState] = useState<CategorySummary[]>(initialCategories);
-  const [nextCursor, setNextCursor] = useState<number | null>(initialNextCursor);
-  const [totalCount, setTotalCount] = useState<number>(totalAvailable ?? initialProducts.length);
-  const [pageError, setPageError] = useState<string | null>(fetchError ?? null);
-  const [isFetchingPage, setIsFetchingPage] = useState(false);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const cacheRef = useRef<
-    Map<
-      string,
-      { items: Product[]; nextCursor: number | null; total: number; categories: CategorySummary[] }
-    >
-  >(new Map());
-
-  const [visible, setVisible] = useState(CHUNK_SIZE);
   const [hydrated, setHydrated] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const impressionLogged = useRef<Set<string>>(new Set());
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
@@ -238,83 +167,26 @@ export default function ProductsClient({
       priceRange.min,
     ],
   );
-
-  const fetchPageRemote = useCallback(
-    async ({ cursor = 0, append = false, signal }: { cursor?: number; append?: boolean; signal?: AbortSignal }) => {
-      const qs = buildQueryString(cursor);
-      const response = await fetch(`/api/catalog/products?${qs}`, {
-        cache: "no-store",
-        signal,
-      });
-      if (!response.ok) {
-        const message = await response.text().catch(() => null);
-        throw new Error(message || `Failed to load products (${response.status})`);
-      }
-      const payload = await response.json();
-      const incomingItems: Product[] = Array.isArray(payload?.items) ? (payload.items as Product[]) : [];
-      const incomingCategories: CategorySummary[] = Array.isArray(payload?.categories)
-        ? (payload.categories as CategorySummary[])
-        : initialCategories;
-      let next = payload?.nextCursor ?? null;
-      if (typeof next === "number" && Number.isFinite(next)) {
-        next = Number(next);
-      } else {
-        next = null;
-      }
-      let newItems: Product[] = [];
-      setItems((prev) => {
-        newItems = append ? [...prev, ...incomingItems] : incomingItems;
-        return newItems;
-      });
-      const newTotal =
-        typeof payload?.total === "number" && Number.isFinite(payload.total) ? Number(payload.total) : newItems.length;
-      setTotalCount(newTotal);
-      setCategoriesState(incomingCategories);
-      setNextCursor(next);
-      setPageError(null);
-      cacheRef.current.set(queryKey, {
-        items: newItems,
-        nextCursor: next,
-        total: newTotal,
-        categories: incomingCategories,
-      });
-    },
-    [buildQueryString, initialCategories, queryKey],
-  );
-
-  useEffect(() => {
-    setVisible(CHUNK_SIZE);
-    const cached = cacheRef.current.get(queryKey);
-    if (cached) {
-      setItems(cached.items);
-      setNextCursor(cached.nextCursor);
-      setTotalCount(cached.total);
-      setCategoriesState(cached.categories);
-      setPageError(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setIsFetchingPage(true);
-    setPageError(null);
-
-    fetchPageRemote({ cursor: 0, append: false, signal: controller.signal })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        setPageError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsFetchingPage(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [fetchPageRemote, queryKey]);
-
-  useEffect(() => {
-    setVisible(items.length);
-  }, [items.length]);
+  const {
+    items,
+    categories: categoriesState,
+    totalCount,
+    hasMore,
+    pageError,
+    isFetchingPage,
+    isFetchingMore,
+    sentinelRef,
+    loadMore,
+    retry,
+  } = useProductsData({
+    initialItems: initialProducts,
+    initialCategories,
+    initialNextCursor,
+    initialTotalCount: totalAvailable ?? initialProducts.length,
+    fetchError,
+    queryKey,
+    buildQueryString,
+  });
 
   const productById = useMemo(() => {
     const map = new Map<string, Product>();
@@ -357,28 +229,35 @@ export default function ProductsClient({
     [productById],
   );
 
-  const topCategoryLinks = useMemo(() => categoriesState.slice(0, 3), [categoriesState]);
-  const datasetLabelText = activeDataset === "all" ? "All products" : datasetLabel(activeDataset);
+  const categoriesForFilters: CategorySummary[] = useMemo(() => {
+    if (categoriesState.length) return categoriesState;
+    const counts = new Map<string, number>();
+    for (const product of items) {
+      const slug = product.categorySlug ?? product.category ?? null;
+      if (!slug) continue;
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([slug, count]) => ({ slug, label: humanize(slug), count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [categoriesState, items]);
 
-  const resetVisibleToFirstChunk = useCallback(() => {
-    setVisible(CHUNK_SIZE);
-  }, []);
+  const topCategoryLinks = useMemo(() => categoriesForFilters.slice(0, 3), [categoriesForFilters]);
+  const datasetLabelText = activeDataset === "all" ? "All products" : datasetLabel(activeDataset);
 
   const handleQueryChange = useCallback(
     (value: string) => {
       setQuery(value);
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setQuery],
+    [setQuery],
   );
 
   const handleDatasetChange = useCallback(
     (value: DatasetType) => {
       if (value === activeDataset) return;
       setDataset(value);
-      resetVisibleToFirstChunk();
     },
-    [activeDataset, resetVisibleToFirstChunk, setDataset],
+    [activeDataset, setDataset],
   );
 
   const handleCategoryChange = useCallback(
@@ -386,113 +265,192 @@ export default function ProductsClient({
       setCategory(value);
       setBrand("all");
       setModel("all");
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setBrand, setCategory, setModel],
+    [setBrand, setCategory, setModel],
   );
 
   const handleBrandChange = useCallback(
     (value: string) => {
       setBrand(value);
       setModel("all");
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setBrand, setModel],
+    [setBrand, setModel],
   );
 
   const handleModelChange = useCallback(
     (value: string) => {
       setModel(value);
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setModel],
+    [setModel],
   );
 
   const handleSortChange = useCallback(
     (value: SortMode) => {
       setSort(value);
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setSort],
+    [setSort],
   );
 
   const handlePriceMinChange = useCallback(
     (value: number | null) => {
       setPriceRange({ min: value, max: priceRange.max });
-      resetVisibleToFirstChunk();
     },
-    [priceRange.max, resetVisibleToFirstChunk, setPriceRange],
+    [priceRange.max, setPriceRange],
   );
 
   const handlePriceMaxChange = useCallback(
     (value: number | null) => {
       setPriceRange({ min: priceRange.min, max: value });
-      resetVisibleToFirstChunk();
     },
-    [priceRange.min, resetVisibleToFirstChunk, setPriceRange],
+    [priceRange.min, setPriceRange],
   );
 
   const handleRatingChange = useCallback(
     (value: number | null) => {
       setMinRating(value);
-      resetVisibleToFirstChunk();
     },
-    [resetVisibleToFirstChunk, setMinRating],
+    [setMinRating],
   );
 
   const handleResetFilters = useCallback(() => {
     resetFilters();
-    resetVisibleToFirstChunk();
-  }, [resetFilters, resetVisibleToFirstChunk]);
+  }, [resetFilters]);
 
   const handleHardReset = useCallback(() => {
     resetFilters({ method: "push" });
-    setVisible(CHUNK_SIZE);
-  }, [resetFilters]);
+    retry();
+  }, [resetFilters, retry]);
 
-  const filtered = useMemo(() => items, [items]);
+  const filtered = useMemo(
+    () => items.filter((product) => productMatchesCategory(product, activeCategory)),
+    [items, activeCategory],
+  );
   const displayed = filtered;
-  const hasMore = useMemo(() => nextCursor !== null, [nextCursor]);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  const loadMore = useCallback(() => {
-    if (isFetchingMore || nextCursor == null) return;
-    const controller = new AbortController();
-    setIsFetchingMore(true);
-    fetchPageRemote({ cursor: nextCursor, append: true, signal: controller.signal })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        setPageError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsFetchingMore(false);
-        }
-      });
-  }, [fetchPageRemote, isFetchingMore, nextCursor]);
+  const showSkeleton = !hydrated || isFetchingPage;
+  const skeletonCount = showSkeleton ? Math.max(displayed.length, MIN_SKELETON_ITEMS) : 0;
+  const layoutMode: LayoutMode = initialLayout;
+  const visibleCount = items.length;
+  const hasError = Boolean(pageError);
+
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+    try {
+      const stored = window.localStorage.getItem("catalog-theme");
+      if (stored === "light" || stored === "dark") {
+        setTheme(stored);
+        return;
+      }
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setTheme(prefersDark ? "dark" : "light");
+    } catch {
+      setTheme("dark");
+    }
+  }, []);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          if (nextCursor != null) {
-            loadMore();
-          }
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next: ThemeMode = prev === "dark" ? "light" : "dark";
+      try {
+        window.localStorage.setItem("catalog-theme", next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const focusSearch = useCallback(() => {
+    setIsFilterOpen(true);
+    setTimeout(() => {
+      const searchInput = document.querySelector<HTMLInputElement>("aside input[type='search']");
+      searchInput?.focus();
+    }, 60);
+  }, []);
+
+  const hasCatalogLinks = useMemo(() => items.some((p) => Boolean(p.catalogProductId)), [items]);
+
+  const brandOptions = useMemo<TaxonomyOption[]>(() => {
+    const counts = new Map<string, { count: number; label: string }>();
+    const accumulate = (source: Product[]) => {
+      for (const product of source) {
+        const key = normalizeTaxonomyValue(product.brandSlug ?? product.brand ?? product.brandName);
+        if (!key) continue;
+        const label = product.brandName?.trim() || taxonomyLabelFromValue(key);
+        const existing = counts.get(key);
+        counts.set(key, {
+          count: (existing?.count ?? 0) + 1,
+          label: existing?.label ?? label,
         });
-      },
-      { rootMargin: "160px" },
-    );
+      }
+    };
 
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadMore, nextCursor]);
+    // сначала считаем бренды внутри выбранной категории
+    const categoryFiltered = items.filter((product) => productMatchesCategory(product, activeCategory));
+    accumulate(categoryFiltered);
+
+    // если внутри категории брендов не осталось (или данные пришли без брендов), показываем общий список
+    if (counts.size === 0) {
+      accumulate(items);
+    }
+
+    return Array.from(counts.entries())
+      .map(([value, entry]) => ({
+        value,
+        count: entry.count,
+        label: entry.label || taxonomyLabelFromValue(value),
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [activeCategory, items]);
+
+  const modelOptions = useMemo<TaxonomyOption[]>(() => {
+    if (activeBrand === "all") return [];
+    const counts = new Map<string, { count: number; label: string }>();
+    for (const product of items) {
+      if (!productMatchesCategory(product, activeCategory)) continue;
+      if (!matchesBrand(product, activeBrand)) continue;
+      const key = normalizeTaxonomyValue(product.modelSlug ?? product.model ?? product.modelTitle);
+      if (!key) continue;
+      const label = product.modelTitle?.trim() || taxonomyLabelFromValue(key);
+      const existing = counts.get(key);
+      counts.set(key, {
+        count: (existing?.count ?? 0) + 1,
+        label: existing?.label ?? label,
+      });
+    }
+    return Array.from(counts.entries())
+      .map(([value, entry]) => ({
+        value,
+        count: entry.count,
+        label: entry.label || taxonomyLabelFromValue(value),
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [activeBrand, activeCategory, items]);
+
+  useEffect(() => {
+    // Не сбрасываем бренд, пока данные догружаются, чтобы выбор не «откатывался»
+    if (isFetchingPage || isFetchingMore) return;
+    if (activeBrand === "all") return;
+    if (!brandOptions.length) return;
+    const exists = brandOptions.some((option) => option.value === activeBrand);
+    if (!exists) {
+      setBrand("all");
+      setModel("all");
+    }
+  }, [activeBrand, brandOptions, isFetchingMore, isFetchingPage, setBrand, setModel]);
+
+  useEffect(() => {
+    if (activeModel === "all") return;
+    const exists = modelOptions.some((option) => option.value === activeModel);
+    if (!exists) {
+      setModel("all");
+    }
+  }, [activeModel, modelOptions, setModel]);
 
   const mapProductToGridItem = useCallback(
     (product: Product): ProductGridItem => {
@@ -522,11 +480,11 @@ export default function ProductsClient({
       const availabilityLabel = availabilityLabelMap.get(product.availability) ?? null;
       const statsLabel =
         product.clicks || product.impressions
-          ? numberFormatter.format(product.clicks || 0) + " clicks • " + numberFormatter.format(product.impressions || 0) + " views"
+          ? numberFormatter.format(product.clicks || 0) + " clicks  " + numberFormatter.format(product.impressions || 0) + " views"
           : null;
       const categoryLabel = product.categorySlug ? humanize(product.categorySlug) : null;
       const metaParts = [categoryLabel, statsLabel].filter(Boolean);
-      const meta = metaParts.length ? metaParts.join(" • ") : null;
+      const meta = metaParts.length ? metaParts.join("  ") : null;
       return {
         id: product.id,
         slug: product.slug,
@@ -573,239 +531,13 @@ export default function ProductsClient({
     [activeCategory, datasetLabelText],
   );
 
-  const hasCatalogLinks = useMemo(() => items.some((p) => Boolean(p.catalogProductId)), [items]);
-
-  const brandOptions = useMemo<TaxonomyOption[]>(() => {
-    const counts = new Map<string, { count: number; label: string }>();
-    for (const product of items) {
-      if (!productMatchesCategory(product, activeCategory)) continue;
-      const key = normalizeTaxonomyValue(product.brandSlug ?? product.brand ?? product.brandName);
-      if (!key) continue;
-      const label = product.brandName?.trim() || taxonomyLabelFromValue(key);
-      const existing = counts.get(key);
-      counts.set(key, {
-        count: (existing?.count ?? 0) + 1,
-        label: existing?.label ?? label,
-      });
-    }
-    return Array.from(counts.entries())
-      .map(([value, entry]) => ({
-        value,
-        count: entry.count,
-        label: entry.label || taxonomyLabelFromValue(value),
-      }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [activeCategory, items]);
-
-  const modelOptions = useMemo<TaxonomyOption[]>(() => {
-    if (activeBrand === "all") return [];
-    const counts = new Map<string, { count: number; label: string }>();
-    for (const product of items) {
-      if (!productMatchesCategory(product, activeCategory)) continue;
-      if (!matchesBrand(product, activeBrand)) continue;
-      const key = normalizeTaxonomyValue(product.modelSlug ?? product.model ?? product.modelTitle);
-      if (!key) continue;
-      const label = product.modelTitle?.trim() || taxonomyLabelFromValue(key);
-      const existing = counts.get(key);
-      counts.set(key, {
-        count: (existing?.count ?? 0) + 1,
-        label: existing?.label ?? label,
-      });
-    }
-    return Array.from(counts.entries())
-      .map(([value, entry]) => ({
-        value,
-        count: entry.count,
-        label: entry.label || taxonomyLabelFromValue(value),
-      }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [activeBrand, activeCategory, items]);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    console.log("[filters-debug]", {
-      activeCategory,
-      activeBrand,
-      activeModel,
-      brandOptionsCount: brandOptions.length,
-      modelOptionsCount: modelOptions.length,
-      brandSample: brandOptions.slice(0, 3),
-      modelSample: modelOptions.slice(0, 3),
-      firstProduct: items[0]
-        ? {
-            id: items[0].id,
-            brand: items[0].brand,
-            brandSlug: items[0].brandSlug,
-            brandName: items[0].brandName,
-            model: items[0].model,
-            modelSlug: items[0].modelSlug,
-            modelTitle: items[0].modelTitle,
-            catalogProductId: items[0].catalogProductId,
-          }
-        : null,
-    });
-  }, [activeBrand, activeCategory, activeModel, brandOptions, modelOptions, items]);
-
-  useEffect(() => {
-    if (activeBrand === "all") return;
-    const exists = brandOptions.some((option) => option.value === activeBrand);
-    if (!exists) {
-      setBrand("all");
-      setModel("all");
-    }
-  }, [activeBrand, brandOptions, setBrand, setModel]);
-
-  useEffect(() => {
-    if (activeModel === "all") return;
-    const exists = modelOptions.some((option) => option.value === activeModel);
-    if (!exists) {
-      setModel("all");
-    }
-  }, [activeModel, modelOptions, setModel]);
-
-  useEffect(() => {
-    const gridEl = document.querySelector("[data-product-grid=\"catalog\"]");
-    if (!gridEl || !recMetaById.size) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          const target = entry.target as HTMLElement;
-          const productId = target.dataset.productId;
-          if (!productId) {
-            observer.unobserve(target);
-            return;
-          }
-          const meta = recMetaById.get(productId);
-          if (!meta) {
-            observer.unobserve(target);
-            return;
-          }
-          const key = `${productId}:${meta.treatment ?? "control"}:${meta.rank ?? "na"}`;
-          if (impressionLogged.current.has(key)) {
-            observer.unobserve(target);
-            return;
-          }
-          impressionLogged.current.add(key);
-          const product = productById.get(productId);
-          void logRecEvent({
-            event: "impression",
-            productId,
-            category: product?.categorySlug ?? undefined,
-            priceCents: resolvePriceCents(productId),
-            metadata: {
-              placement: "catalog",
-              source: "catalog_mix",
-              treatment: meta.treatment ?? "control",
-              rank: meta.rank ?? null,
-              reason: meta.reason ?? null,
-              adjusted_score: meta.adjusted_score ?? null,
-              bandit_from: meta.bandit_from ?? null,
-              rollout: meta.rollout ?? null,
-            },
-          });
-        });
-      },
-      { rootMargin: "120px 0px 120px 0px", threshold: 0.35 },
-    );
-
-    const elements = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-product-id]"));
-    elements.forEach((el) => {
-      const productId = el.dataset.productId;
-      if (productId && recMetaById.has(productId)) {
-        observer.observe(el);
-      }
-    });
-
-    return () => observer.disconnect();
-  }, [displayed, productById, recMetaById, resolvePriceCents]);
-
-  useEffect(() => {
-    const gridEl = document.querySelector("[data-product-grid=\"catalog\"]");
-    if (!gridEl || !recMetaById.size) return;
-
-    const handleClick = (event: Event) => {
-      const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-product-id]");
-      if (!target) return;
-      const productId = target.dataset.productId;
-      if (!productId) return;
-      const meta = recMetaById.get(productId);
-      if (!meta) return;
-      const product = productById.get(productId);
-      void logRecEvent({
-        event: "click",
-        productId,
-        category: product?.categorySlug ?? undefined,
-        priceCents: resolvePriceCents(productId),
-        metadata: {
-          placement: "catalog",
-          source: "catalog_mix",
-          treatment: meta.treatment ?? "control",
-          rank: meta.rank ?? null,
-          reason: meta.reason ?? null,
-          adjusted_score: meta.adjusted_score ?? null,
-          bandit_from: meta.bandit_from ?? null,
-          rollout: meta.rollout ?? null,
-        },
-      });
-    };
-
-    gridEl.addEventListener("click", handleClick, true);
-    return () => gridEl.removeEventListener("click", handleClick, true);
-  }, [productById, recMetaById, resolvePriceCents]);
-
-  const showSkeleton = !hydrated || isFetchingPage;
-  const skeletonCount = showSkeleton ? Math.max(displayed.length, 8) : 0;
-  const layoutMode: LayoutMode = initialLayout;
-  const visibleCount = visible;
-  const hasError = Boolean(pageError);
-
-  type ThemeMode = "light" | "dark";
-  const [theme, setTheme] = useState<ThemeMode>("dark");
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("catalog-theme");
-      if (stored === "light" || stored === "dark") {
-        setTheme(stored);
-        return;
-      }
-      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
-    } catch {
-      setTheme("dark");
-    }
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next: ThemeMode = prev === "dark" ? "light" : "dark";
-      try {
-        window.localStorage.setItem("catalog-theme", next);
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
-
-  const gridSurfaceClass = theme === "dark" ? GRID_SURFACE_CLASS_DARK : GRID_SURFACE_CLASS_LIGHT;
-
-  const focusSearch = useCallback(() => {
-    setIsFilterOpen(true);
-    setTimeout(() => {
-      const searchInput = document.querySelector<HTMLInputElement>("aside input[type='search']");
-      searchInput?.focus();
-    }, 60);
-  }, []);
-
   const filterSidebarProps: FilterSidebarProps = {
     isOpen: isFilterOpen,
     onCloseAction: () => setIsFilterOpen(false),
     activeQuery,
     onQueryChangeAction: handleQueryChange,
     activeCategory,
-    categories: categoriesState,
+    categories: categoriesForFilters,
     onCategoryChangeAction: handleCategoryChange,
     brandOptions,
     modelOptions,
@@ -814,11 +546,11 @@ export default function ProductsClient({
     activeModel,
     onModelChangeAction: handleModelChange,
     brandEmptyMessage: hasCatalogLinks
-      ? "Выберите категорию, чтобы увидеть бренды."
-      : "Для этих товаров не настроена связь с каталогом. Задайте модель в админке, чтобы включить фильтр по бренду и моделям.",
+      ? "Бренды появятся после загрузки каталога или попробуйте другую категорию."
+      : "Мы не нашли брендов в выбранной категории. Попробуйте изменить фильтры.",
     modelEmptyMessage: hasCatalogLinks
-      ? "Для выбранного бренда нет моделей."
-      : "Сначала свяжите SKU с моделью каталога, затем фильтр станет доступен.",
+      ? "Модели станут доступны после выбора бренда."
+      : "Укажите SKU или выберите бренд, чтобы увидеть модели.",
     activeDataset,
     onDatasetChangeAction: handleDatasetChange,
     activeSort,
@@ -832,450 +564,136 @@ export default function ProductsClient({
     onResetAction: handleResetFilters,
   };
 
-  return (
-    <ProductListShell
-      theme={theme}
-      isFilterOpen={isFilterOpen}
-      onCloseFilters={() => setIsFilterOpen(false)}
-      filterSidebar={<FilterSidebar {...filterSidebarProps} />}
-      toolbar={
-        <ProductFilterToolbar
-          theme={theme}
-          query={activeQuery}
-          onQueryChange={handleQueryChange}
-          onToggleFilters={() => setIsFilterOpen((prev) => !prev)}
-          onToggleTheme={toggleTheme}
-          activeFiltersCount={activeFiltersCount}
-          activeDataset={activeDataset}
-          onDatasetChange={handleDatasetChange}
-          visibleCount={visibleCount}
-          totalCount={totalCount}
-          activeSort={activeSort}
-          onSortChange={handleSortChange}
-        />
-      }
-    >
-      <RevealOnScroll
-        className={
-          theme === "dark"
-            ? "w-full min-w-0 relative overflow-hidden rounded-[36px] border border-white/12 bg-white/5 px-6 py-10 text-center shadow-[0_30px_110px_-60px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:px-10 lg:py-12 lg:text-left"
-            : "w-full min-w-0 rounded-[36px] border border-gray-200 bg-gray-50/80 px-6 py-10 text-center shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)] lg:px-10 lg:py-12 lg:text-left"
-        }
-        startY={32}
-        startOpacity={0}
-        threshold={0.2}
-      >
-        {theme === "dark" ? (
-          <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_15%_20%,rgba(94,234,212,0.14),transparent_32%),radial-gradient(circle_at_85%_10%,rgba(129,140,248,0.2),transparent_30%)]" />
-        ) : null}
-        <div className={theme === "dark" ? "relative" : ""}>
-          <p
-            className={
-              theme === "dark"
-                ? "text-sm font-semibold uppercase tracking-wide text-emerald-200/80"
-                : "text-sm font-semibold uppercase tracking-wide text-gray-500"
-            }
-          >
-            Product catalog
-          </p>
-          <h2
-            className={
-              theme === "dark"
-                ? "mt-3 text-3xl font-semibold text-white sm:text-4xl"
-                : "mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl"
-            }
-          >
-            {catalogName}
-          </h2>
-          <p
-            className={
-              theme === "dark"
-                ? "mt-4 text-base text-slate-200/80 lg:max-w-3xl"
-                : "mt-4 text-base text-gray-600 lg:max-w-3xl"
-            }
-          >
-            Browse featured drops, compare performance stats, and blend Neon Shop with archived datasets to find the perfect fit for your workflow.
-          </p>
-          <div
-            className={
-              theme === "dark"
-                ? "mt-6 flex flex-wrap gap-3 text-sm text-slate-200/90"
-                : "mt-6 flex flex-wrap gap-3 text-sm text-gray-700"
-            }
-          >
-            <span
-              className={
-                theme === "dark"
-                  ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
-                  : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
-              }
-            >
-              <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-emerald-400" : "h-2 w-2 rounded-full bg-green-500"} />
-              Live catalog ú {totalCount} items
-            </span>
-            <span
-              className={
-                theme === "dark"
-                  ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
-                  : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
-              }
-            >
-              <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-sky-400" : "h-2 w-2 rounded-full bg-blue-500"} />
-              {datasetLabelText}
-            </span>
-            {activeFiltersCount ? (
-              <span
-                className={
-                  theme === "dark"
-                    ? "inline-flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-400/10 px-4 py-2 text-amber-100"
-                    : "inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-700"
-                }
-              >
-                <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-amber-300" : "h-2 w-2 rounded-full bg-amber-500"} />
-                {activeFiltersCount} filter{activeFiltersCount > 1 ? "s" : ""} applied
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </RevealOnScroll>
+  const toolbarProps = {
+    theme,
+    query: activeQuery,
+    onQueryChange: handleQueryChange,
+    onToggleFilters: () => setIsFilterOpen((prev) => !prev),
+    onToggleTheme: toggleTheme,
+    activeFiltersCount,
+    activeDataset,
+    onDatasetChange: handleDatasetChange,
+    visibleCount,
+    totalCount: totalCount ?? items.length,
+    activeSort,
+    onSortChange: handleSortChange,
+  };
 
-      {topCategoryLinks.length ? (
-        <RevealOnScroll startY={18} startOpacity={0} duration={0.5} threshold={0.15}>
-          <nav
-            aria-label="Popular categories"
-            className={
-              theme === "dark"
-                ? "flex flex-wrap items-center gap-2 text-sm text-slate-200/80"
-                : "flex flex-wrap items-center gap-2 text-sm text-gray-600"
-            }
-          >
-            <span className={theme === "dark" ? "font-semibold text-white" : "font-semibold text-gray-800"}>Popular categories:</span>
-            {topCategoryLinks.map((category) => (
-              <Link
-                key={category.slug}
-                href={`/products?category=${encodeURIComponent(category.slug)}`}
-                className={
-                  theme === "dark"
-                    ? "inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10"
-                    : "inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
-                }
-              >
-                {category.label}
-                <span className={theme === "dark" ? "text-xs text-slate-400" : "text-xs text-gray-500"}>({category.count})</span>
-              </Link>
-            ))}
-          </nav>
-        </RevealOnScroll>
-      ) : null}
+  const gridProps = {
+    theme,
+    layoutMode,
+    gridItems,
+    showSkeleton,
+    skeletonCount,
+    hasError,
+    pageError,
+    hasItems: displayed.length > 0,
+    onHardReset: handleHardReset,
+    onFocusSearch: focusSearch,
+  };
 
-      {carouselItems.length ? (
-        <RevealOnScroll className="mt-6 w-full min-w-0" startY={18} startOpacity={0} duration={0.45} threshold={0.12}>
-          <CatalogProductCarousel heading={carouselHeading} eyebrow={carouselEyebrow} caption={carouselCaption} products={carouselItems} />
-        </RevealOnScroll>
-      ) : null}
+  const paginationProps = {
+    theme,
+    sentinelRef,
+    hasMore,
+    isLoading: isFetchingMore || showSkeleton,
+    onLoadMore: loadMore,
+  };
 
-      <RevealOnScroll
-        className={gridSurfaceClass}
-        style={GRID_STYLE}
-        startY={24}
-        startOpacity={0}
-        threshold={0.12}
-        aria-live="polite"
-        role="region"
-      >
-        {showSkeleton ? (
-          <div className={skeletonLayoutClass[layoutMode]} role="status" aria-busy="true" aria-label="Loading products">
-            {Array.from({ length: skeletonCount }).map((_, index) => (
-              <div key={`skeleton-${index}`} className={skeletonItemWrapperClass[layoutMode]}>
-                <ProductSkeleton />
-              </div>
-            ))}
-          </div>
-        ) : hasError ? (
-          <EmptyState theme={theme} isError message={pageError ?? "?? ??????? ????????? ???????. ?????????? ??? ???."} onReset={handleHardReset} onSearch={focusSearch} />
-        ) : displayed.length > 0 ? (
-          <ProductGrid items={gridItems} layout={layoutMode} showAddToCart wrapWithContainer={false} gridId="catalog" />
-        ) : (
-          <EmptyState theme={theme} message="?????? ?? ??????? ?? ????????? ????????." onReset={handleHardReset} onSearch={focusSearch} />
-        )}
-      </RevealOnScroll>
-
-      <div ref={sentinelRef} aria-hidden data-testid="catalog-sentinel" />
-      <ProductPagination theme={theme} hasMore={hasMore} isLoading={isFetchingMore || showSkeleton} onLoadMore={loadMore} />
-    </ProductListShell>
+  const analyticsDebugInfo = useMemo(
+    () => ({
+      activeCategory,
+      activeBrand,
+      activeModel,
+      brandOptions,
+      modelOptions,
+      items,
+    }),
+    [activeBrand, activeCategory, activeModel, brandOptions, items, modelOptions],
   );
-}
-/*
-            className={
-              theme === "dark"
-                ? "w-full min-w-0 relative overflow-hidden rounded-[36px] border border-white/12 bg-white/5 px-6 py-10 text-center shadow-[0_30px_110px_-60px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:px-10 lg:py-12 lg:text-left"
-                : "w-full min-w-0 rounded-[36px] border border-gray-200 bg-gray-50/80 px-6 py-10 text-center shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)] lg:px-10 lg:py-12 lg:text-left"
-            }
-            startY={32}
-            startOpacity={0}
-            threshold={0.2}
-          >
-            {theme === "dark" ? (
-              <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_15%_20%,rgba(94,234,212,0.14),transparent_32%),radial-gradient(circle_at_85%_10%,rgba(129,140,248,0.2),transparent_30%)]" />
-            ) : null}
-            <div className={theme === "dark" ? "relative" : ""}>
-              <p
-                className={
-                  theme === "dark"
-                    ? "text-sm font-semibold uppercase tracking-wide text-emerald-200/80"
-                    : "text-sm font-semibold uppercase tracking-wide text-gray-500"
-                }
-              >
-                Product catalog
-              </p>
-              <h2
-                className={
-                  theme === "dark"
-                    ? "mt-3 text-3xl font-semibold text-white sm:text-4xl"
-                    : "mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl"
-                }
-              >
-                {catalogName}
-              </h2>
-              <p
-                className={
-                  theme === "dark"
-                    ? "mt-4 text-base text-slate-200/80 lg:max-w-3xl"
-                    : "mt-4 text-base text-gray-600 lg:max-w-3xl"
-                }
-              >
-                Browse featured drops, compare performance stats, and blend Neon Shop with archived datasets to find the perfect fit for your workflow.
-              </p>
-              <div
-                className={
-                  theme === "dark"
-                    ? "mt-6 flex flex-wrap gap-3 text-sm text-slate-200/90"
-                    : "mt-6 flex flex-wrap gap-3 text-sm text-gray-700"
-                }
-              >
-                <span
-                  className={
-                    theme === "dark"
-                      ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
-                      : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
-                  }
-                >
-                  <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-emerald-400" : "h-2 w-2 rounded-full bg-green-500"} />
-                  Live catalog · {totalCount} items
-                </span>
-                <span
-                  className={
-                    theme === "dark"
-                      ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2"
-                      : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2"
-                  }
-                >
-                  <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-sky-400" : "h-2 w-2 rounded-full bg-blue-500"} />
-                  {datasetLabelText}
-                </span>
-                {activeFiltersCount ? (
-                  <span
-                    className={
-                      theme === "dark"
-                        ? "inline-flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-400/10 px-4 py-2 text-amber-100"
-                        : "inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-700"
-                    }
-                  >
-                    <span className={theme === "dark" ? "h-2 w-2 rounded-full bg-amber-300" : "h-2 w-2 rounded-full bg-amber-500"} />
-                    {activeFiltersCount} filter{activeFiltersCount > 1 ? "s" : ""} applied
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </RevealOnScroll>
 
-          {topCategoryLinks.length ? (
-            <RevealOnScroll
-              startY={18}
-              startOpacity={0}
-              duration={0.5}
-              threshold={0.15}
-            >
-              <nav
-                aria-label="Popular categories"
-                className={
-                  theme === "dark"
-                    ? "flex flex-wrap items-center gap-2 text-sm text-slate-200/80"
-                    : "flex flex-wrap items-center gap-2 text-sm text-gray-600"
-                }
-              >
-                <span className={theme === "dark" ? "font-semibold text-white" : "font-semibold text-gray-800"}>
-                  Popular categories:
-                </span>
-                {topCategoryLinks.map((category) => (
-                  <Link
-                    key={category.slug}
-                    href={`/products?category=${encodeURIComponent(category.slug)}`}
-                    className={
-                      theme === "dark"
-                        ? "inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10"
-                        : "inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
-                    }
-                  >
-                    {category.label}
-                    <span className={theme === "dark" ? "text-xs text-slate-400" : "text-xs text-gray-500"}>
-                      ({category.count})
-                    </span>
-                  </Link>
-                ))}
-              </nav>
-            </RevealOnScroll>
-          ) : null}
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const normalized = normalizeTaxonomyValue(activeBrand);
+    const matching = matchesBrandSampleCount(items, activeBrand);
+    const sample = items.slice(0, 8).map((p) => ({
+      id: p.id,
+      brand: p.brand,
+      brandSlug: p.brandSlug,
+      brandName: p.brandName,
+      model: p.model ?? p.modelSlug ?? p.modelTitle,
+      category: p.categorySlug ?? p.category,
+    }));
+    // eslint-disable-next-line no-console
+    console.groupCollapsed(
+      `[catalog-brand-debug] category=${activeCategory} brand=${activeBrand} options=${brandOptions.length} items=${items.length}`,
+    );
+    // eslint-disable-next-line no-console
+    console.log({
+      activeCategory,
+      activeBrand,
+      normalizedBrand: normalized,
+      brandOptions,
+      brandOptionsValues: brandOptions.map((o) => o.value),
+      modelOptionsCount: modelOptions.length,
+      matchingItems: matching,
+      totalItems: items.length,
+    });
+    // eslint-disable-next-line no-console
+    console.table(sample);
+    // eslint-disable-next-line no-console
+    console.groupEnd();
+  }, [activeBrand, activeCategory, brandOptions, items, modelOptions]);
 
-          {carouselItems.length ? (
-            <RevealOnScroll
-              className="mt-6 w-full min-w-0"
-              startY={18}
-              startOpacity={0}
-              duration={0.45}
-              threshold={0.12}
-            >
-              <CatalogProductCarousel
-                heading={carouselHeading}
-                eyebrow={carouselEyebrow}
-                caption={carouselCaption}
-                products={carouselItems}
-              />
-            </RevealOnScroll>
-          ) : null}
+  useEffect(() => {
+    if (!pageError) return;
+    // eslint-disable-next-line no-console
+    console.warn("[catalog-page-error]", pageError);
+  }, [pageError]);
 
-          <RevealOnScroll
-            className={gridSurfaceClass}
-            style={GRID_STYLE}
-            startY={24}
-            startOpacity={0}
-            threshold={0.12}
-            aria-live="polite"
-            role="region"
-          >
-            {showSkeleton ? (
-              <div
-                className={skeletonLayoutClass[layoutMode]}
-                role="status"
-                aria-busy="true"
-                aria-label="Loading products"
-              >
-                {Array.from({ length: skeletonCount }).map((_, index) => (
-                  <div key={`skeleton-${index}`} className={skeletonItemWrapperClass[layoutMode]}>
-                    <ProductSkeleton />
-                  </div>
-                ))}
-              </div>
-            ) : hasError ? (
-              <EmptyState
-                theme={theme}
-                isError
-                message={pageError ?? "Не удалось загрузить каталог. Попробуйте еще раз."}
-                onReset={handleHardReset}
-                onSearch={focusSearch}
-              />
-            ) : displayed.length > 0 ? (
-              <ProductGrid
-                items={gridItems}
-                layout={layoutMode}
-                showAddToCart
-                wrapWithContainer={false}
-                gridId="catalog"
-              />
-            ) : (
-              <EmptyState
-                theme={theme}
-                message="Ничего не найдено по выбранным фильтрам."
-                onReset={handleHardReset}
-                onSearch={focusSearch}
-              />
-            )}
-          </RevealOnScroll>
-
-          <div ref={sentinelRef} aria-hidden data-testid="catalog-sentinel" />
-          {hasMore && !showSkeleton ? (
-            <RevealOnScroll
-              startY={10}
-              startOpacity={0}
-              duration={0.4}
-            >
-              <p className="py-6 text-center text-sm text-gray-500" role="status">
-                Loading more products...
-              </p>
-            </RevealOnScroll>
-          ) : null}
-        </section>
-      </div>
-
-      {isFilterOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-sm lg:hidden"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="h-full w-[85vw] max-w-xs bg-white shadow-2xl">
-            <FilterSidebar {...filterSidebarProps} />
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsFilterOpen(false)}
-            className="h-full flex-1"
-            aria-label="Close filters"
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-*/
-
-type EmptyStateProps = {
-  theme: "light" | "dark";
-  isError?: boolean;
-  message?: string;
-  onReset?: () => void;
-  onSearch?: () => void;
-};
-
-function EmptyState({ theme, isError = false, message, onReset, onSearch }: EmptyStateProps) {
-  const wrapperClass =
-    theme === "dark"
-      ? "flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-12 text-center shadow-md"
-      : "flex flex-col items-center justify-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-12 text-center shadow-md";
-  const textClass = theme === "dark" ? "text-sm text-slate-200/80" : "text-sm text-gray-600";
   return (
-    <div className={wrapperClass} role="status" aria-live="polite">
-      <p className={textClass}>
-        {message ??
-          (isError
-            ? "Произошла ошибка при загрузке каталога. Попробуйте снова или измените параметры."
-            : "По выбранным фильтрам нет товаров. Попробуйте изменить поиск или сбросить фильтры.")}
-      </p>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          className={
-            theme === "dark"
-              ? "rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 focus:ring-offset-2 focus:ring-offset-[#0b0f19]"
-              : "rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
-          }
-          onClick={() => onReset?.()}
-        >
-          Сбросить фильтры
-        </button>
-        <button
-          type="button"
-          className={
-            theme === "dark"
-              ? "rounded-full border border-white/20 bg-transparent px-4 py-2 text-sm font-semibold text-slate-100 hover:border-white/40 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:ring-offset-2 focus:ring-offset-[#0b0f19]"
-              : "rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:border-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:ring-offset-2 focus:ring-offset-white"
-          }
-          onClick={() => onSearch?.()}
-        >
-          Попробовать поиск
-        </button>
-      </div>
-    </div>
+    <>
+      <ProductsAnalytics
+        filters={{
+          dataset: activeDataset,
+          category: activeCategory,
+          brand: activeBrand,
+          model: activeModel,
+          sort: activeSort,
+          priceMin: priceRange.min,
+          priceMax: priceRange.max,
+          rating: normalizedRating,
+          query: activeQuery,
+          filtersCount: activeFiltersCount,
+        }}
+        productById={productById}
+        recMetaById={recMetaById}
+        resolvePriceCents={resolvePriceCents}
+        displayedDeps={[displayed]}
+        debugInfo={analyticsDebugInfo}
+      />
+      <ProductsLayout
+        theme={theme}
+        catalogName={catalogName}
+        datasetLabelText={datasetLabelText}
+        totalCount={totalCount ?? items.length}
+        activeFiltersCount={activeFiltersCount}
+        topCategoryLinks={topCategoryLinks}
+        carousel={{
+          items: carouselItems,
+          heading: carouselHeading,
+          caption: carouselCaption,
+          eyebrow: carouselEyebrow,
+        }}
+        filterSidebarProps={filterSidebarProps}
+        toolbarProps={toolbarProps}
+        gridProps={gridProps}
+        paginationProps={paginationProps}
+        isFilterOpen={isFilterOpen}
+        onCloseFilters={() => setIsFilterOpen(false)}
+        onToggleFilters={() => setIsFilterOpen((prev) => !prev)}
+      />
+    </>
   );
 }
 
@@ -1320,6 +738,11 @@ function matchesBrand(product: Product, selection: string): boolean {
   return candidates.includes(normalizedSelection);
 }
 
+function matchesBrandSampleCount(products: Product[], selection: string): number {
+  if (!selection || selection === "all") return products.length;
+  return products.filter((p) => matchesBrand(p, selection)).length;
+}
+
 function matchesModel(product: Product, selection: string): boolean {
   if (!selection || selection === "all") return true;
   const normalizedSelection = normalizeTaxonomyValue(selection);
@@ -1335,4 +758,3 @@ function matchesModel(product: Product, selection: string): boolean {
   if (product.catalogProductId && product.catalogProductId === selection) return true;
   return false;
 }
-

@@ -24,6 +24,7 @@ if (typeof EdgeRuntime === "string" && !globalForPatch.__importUnsupportedPatche
 import { NextResponse, type NextRequest } from "next/server";
 import { middleware as supabaseMiddleware } from "./utils/supabase/middleware";
 import { sanitizeSearchParam, isSanitized } from "@shared/lib/sanitize";
+import { getUserRoleFromRequest } from "@/lib/auth/roles";
 
 // ---------- Visitor cookies ----------
 const TEST_KEY = "cta_text";
@@ -250,7 +251,18 @@ export async function proxy(request: NextRequest) {
   // Публичные маршруты
   if (pathname === "/" || pathname.startsWith("/api/public") || pathname.startsWith("/login")) {
     const unsafe = sanitizeRequestUrl(request);
-    return unsafe ? withAb(request, unsafe) : nextWithAb(request);
+    const response = unsafe ? withAb(request, unsafe) : nextWithAb(request);
+
+    // Admin redirect for Home
+    if (pathname === "/") {
+      const { isAdmin } = await getUserRoleFromRequest({ cookies: request.cookies });
+      if (isAdmin) {
+        const url = new URL("/admin", request.url);
+        return withAb(request, NextResponse.redirect(url));
+      }
+    }
+
+    return response;
   }
 
   // Санитайзер GET

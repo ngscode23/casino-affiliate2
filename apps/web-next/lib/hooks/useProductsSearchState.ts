@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { resolveFilterParams } from "./filter-params";
-import { DATASET_OPTIONS, DatasetType, SORT_OPTIONS, SortMode } from "./filter-config";
-import { track } from "@shared/lib/analytics";
-import { useUrlSearchState } from "@/lib/hooks/useUrlSearchState";
+import { resolveFilterParams } from "@/app/products/filter-params";
+import { DATASET_OPTIONS, DatasetType, SORT_OPTIONS, SortMode } from "@/app/products/filter-config";
+import { useUrlSearchState } from "./useUrlSearchState";
 
 export type ProductsSearchState = {
   query: string;
@@ -32,7 +31,7 @@ type UseProductsSearchStateOptions = {
 
 type ResetOptions = { method?: "push" | "replace" };
 
-type UseProductsSearchStateReturn = {
+export type UseProductsSearchStateReturn = {
   state: ProductsSearchState;
   priceRange: { min: number | null; max: number | null };
   normalizedRating: number | null;
@@ -133,9 +132,8 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     ],
   );
 
-  const { state, setState, update } = useUrlSearchState<ProductsSearchState>({
-    initialState: defaultState,
-    parse: (params) => {
+  const parseSearchParams = useCallback(
+    (params: URLSearchParams) => {
       const parsed = resolveFilterParams(params);
       return sanitizeState({
         ...defaultState,
@@ -143,7 +141,18 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
         dataset: parsed.dataset ?? defaultState.dataset,
       });
     },
-    serialize: (value) => buildSearchParams(sanitizeState(value)),
+    [defaultState],
+  );
+
+  const serializeState = useCallback(
+    (value: ProductsSearchState) => buildSearchParams(sanitizeState(value)),
+    [],
+  );
+
+  const { state, setState, update } = useUrlSearchState<ProductsSearchState>({
+    initialState: defaultState,
+    parse: parseSearchParams,
+    serialize: serializeState,
     mode: "replace",
   });
   const restoredFromSession = useRef(false);
@@ -164,7 +173,7 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     } catch {
       /* ignore */
     }
-  }, [state, storageKey]);
+  }, [state, storageKey, setState]);
 
   useEffect(() => {
     try {
@@ -176,46 +185,16 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     }
   }, [state, storageKey]);
 
-  useEffect(() => {
-    if (!restoredFromSession.current) {
-      restoredFromSession.current = true;
-      return;
-    }
-    const filtersCount =
-      (state.query.trim() ? 1 : 0) +
-      (state.dataset !== "all" ? 1 : 0) +
-      (state.category !== "all" ? 1 : 0) +
-      (state.brand !== "all" ? 1 : 0) +
-      (state.model !== "all" ? 1 : 0) +
-      (state.priceMin != null ? 1 : 0) +
-      (state.priceMax != null ? 1 : 0) +
-      (state.minRating != null ? 1 : 0) +
-      (state.sort !== "recent" ? 1 : 0);
-    const payload = {
-      dataset: state.dataset,
-      category: state.category,
-      brand: state.brand,
-      model: state.model,
-      sort: state.sort,
-      priceMin: state.priceMin,
-      priceMax: state.priceMax,
-      rating: state.minRating,
-      query: state.query.trim() || undefined,
-      filtersCount,
-    };
-    track("filters:changed", payload);
-  }, [state]);
-
   const setQuery = useCallback((value: string) => {
     setState((prev) => ({ ...prev, query: value }));
-  }, []);
+  }, [setState]);
 
   const setDataset = useCallback((value: DatasetType) => {
     setState((prev) => {
       if (prev.dataset === value) return prev;
       return { ...prev, dataset: value };
     });
-  }, []);
+  }, [setState]);
 
   const setCategory = useCallback((value: string) => {
     setState((prev) => ({
@@ -224,7 +203,7 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
       brand: "all",
       model: "all",
     }));
-  }, []);
+  }, [setState]);
 
   const setBrand = useCallback((value: string) => {
     setState((prev) => ({
@@ -232,18 +211,18 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
       brand: value || "all",
       model: "all",
     }));
-  }, []);
+  }, [setState]);
 
   const setModel = useCallback((value: string) => {
     setState((prev) => ({
       ...prev,
       model: value || "all",
     }));
-  }, []);
+  }, [setState]);
 
   const setSort = useCallback((value: SortMode) => {
     setState((prev) => ({ ...prev, sort: value }));
-  }, []);
+  }, [setState]);
 
   const setPriceRange = useCallback((value: { min: number | null; max: number | null }) => {
     setState((prev) => {
@@ -255,11 +234,11 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
       }
       return { ...prev, priceMin: min, priceMax: nextMax };
     });
-  }, []);
+  }, [setState]);
 
   const setMinRating = useCallback((value: number | null) => {
     setState((prev) => ({ ...prev, minRating: normalizeRating(value) }));
-  }, []);
+  }, [setState]);
 
   const resetFilters = useCallback(
     (options?: ResetOptions) => {

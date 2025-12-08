@@ -1,4 +1,5 @@
-"use client";;
+"use client";
+
 import { labelTextSm } from "@/styles/classnames";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +13,7 @@ import Button from "@ui/components/common/button";
 import StatusBadge from "@ui/components/admin/StatusBadge";
 import { supabase } from "@shared/lib/supabase";
 import { fnUrl } from "@shared/lib/api";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 const PAGE_SIZE = 50;
 
@@ -258,7 +260,6 @@ export function PartnersClient() {
             >
               Prev
             </Button>
-            <span className="text-sm">Page {page + 1}</span>
             <Button
               variant="soft"
               className="h-10 min-h-0"
@@ -268,35 +269,71 @@ export function PartnersClient() {
             </Button>
           </div>
         </div>
-        {loading ? (
-          <div>Loading.</div>
-        ) : error ? (
-          <div className="text-red-400">{error}</div>
-        ) : rows.length ? (
-          <div className="space-y-1 text-sm">
-            {rows.map((partner) => (
-              <div key={partner.id} className="flex justify-between gap-3">
-                <span>
-                  {partner.name} · {partner.email || "-"} · {partner.plan}
-                </span>
-                <span className="text-[var(--text-dim)]">{partner.expires_at || "-"}</span>
-              </div>
-            ))}
+        {error ? (
+          <div className="mb-3">
+            <ErrorBanner description={error} onRetry={() => setError(null)} />
           </div>
-        ) : (
-          <div className="text-sm text-[var(--text-dim)]">No partners found.</div>
-        )}
+        ) : null}
+        <div className="overflow-hidden rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[var(--bg-subtle)] text-[var(--text-dim)]">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">Name</th>
+                <th className="px-4 py-2 text-left font-medium">Email</th>
+                <th className="px-4 py-2 text-left font-medium">Plan</th>
+                <th className="px-4 py-2 text-left font-medium">Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-t border-[var(--border-subtle)]">
+                  <td className="px-4 py-2">
+                    <span className="font-medium">{row.name}</span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="text-[var(--text-dim)]">{row.email ?? "-"}</span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={row.plan} />
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="text-[var(--text-dim)]">
+                      {row.expires_at ? new Date(row.expires_at).toLocaleDateString() : "-"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && !loading ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm text-[var(--text-dim)]" colSpan={4}>
+                    No partners found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </Card>
       <Card className="p-6">
-        <h2 className="mb-3 font-semibold">Create Checkout</h2>
+        <h2 className="mb-3 font-semibold">Create checkout</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={labelTextSm}>Name</label>
-            <Input className="h-11 w-full" value={name} onChange={(event) => setName(event.target.value)} />
+            <Input
+              className="h-11 w-full"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Partner name"
+            />
           </div>
           <div>
             <label className={labelTextSm}>Email</label>
-            <Input className="h-11 w-full" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <Input
+              className="h-11 w-full"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="partner@example.com"
+            />
           </div>
           <div>
             <label className={labelTextSm}>Plan</label>
@@ -307,18 +344,15 @@ export function PartnersClient() {
             </Select>
           </div>
           <div>
-            <label className={labelTextSm}>Duration (days)</label>
-            <Select
-              className="w-full"
-              value={String(days)}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setDays(Number.isFinite(next) ? next : 30);
-              }}
-            >
-              <option value="30">30</option>
-              <option value="90">90</option>
-            </Select>
+            <label className={labelTextSm}>Days</label>
+            <Input
+              type="number"
+              className="h-11 w-full"
+              value={days}
+              onChange={(event) => setDays(Number(event.target.value) || 0)}
+              min={1}
+              max={365}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className={labelTextSm}>Offer slugs (comma separated)</label>
@@ -330,39 +364,38 @@ export function PartnersClient() {
             />
           </div>
         </div>
-        <Button variant="soft" className="mt-4 h-11 min-h-0" onClick={startCheckout}>
-          Create Checkout
-        </Button>
+        <div className="mt-3">
+          <Button variant="primary" className="h-11 min-h-0" onClick={startCheckout}>
+            Start checkout
+          </Button>
+        </div>
       </Card>
-      <Card className="p-6">
-        <h2 className="mb-3 font-semibold">Subscriptions</h2>
-        <p className="mb-3 text-sm text-[var(--text-dim)]">
-          Subscribe partner to BASIC/FEATURED/TOP (Monthly/Yearly) and open Customer Portal.
-        </p>
+      <Card className="p-6 space-y-4">
+        <h2 className="font-semibold">Subscriptions</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className={labelTextSm}>Partner email</label>
+            <label className={labelTextSm}>Customer email</label>
             <Input
               className="h-11 w-full"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="editor@site.com"
+              placeholder="subscriber@example.com"
             />
           </div>
           <div>
-            <label className={labelTextSm}>Coupon / Promo code (optional)</label>
+            <label className={labelTextSm}>Coupon (optional)</label>
             <Input
               className="h-11 w-full"
               value={coupon}
               onChange={(event) => setCoupon(event.target.value)}
-              placeholder="PROMO10"
+              placeholder="PROMO2025"
             />
           </div>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {(["BASIC", "FEATURED", "TOP"] as const).map((planName) => (
-            <div key={planName} className="rounded border border-white/10 p-3">
-              <div className="mb-2 text-sm font-semibold">{planName}</div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {["BASIC", "FEATURED", "TOP"].map((planName) => (
+            <div key={planName} className="space-y-2 rounded border border-[var(--border-subtle)] p-3">
+              <div className="font-medium">{planName}</div>
               <div className="flex gap-2">
                 <Button variant="soft" className="h-10 min-h-0" onClick={() => subscribe(planName, "MONTHLY")}>
                   Monthly
@@ -515,33 +548,35 @@ function WebhookLogsCard() {
       {loading ? (
         <div>Loading logs.</div>
       ) : error ? (
-        <div className="text-red-400">{error}</div>
+        <ErrorBanner description={error} onRetry={() => setError(null)} />
       ) : rows.length ? (
         <div className="space-y-2 text-sm">
           {rows.map((row) => (
-            <div key={row.id} className="rounded border border-white/10 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-[var(--text-bright)]">{row.event_type}</span>
-                <StatusBadge status={row.log_status} />
-                {row.source ? <span className="text-xs text-[var(--text-dim)]">{row.source}</span> : null}
-                <span className="ml-auto text-xs text-[var(--text-dim)]">
+            <div
+              key={row.id}
+              className="rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 text-[var(--text-main)]"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xs text-[var(--text-dim)]">{row.id}</span>
+                <span className="text-xs text-[var(--text-dim)]">
                   {new Date(row.created_at).toLocaleString()}
                 </span>
               </div>
-              {row.message ? <div className="mt-2 text-xs">{row.message}</div> : null}
-              {row.error ? (
-                <details className="mt-2 text-xs">
-                  <summary className="cursor-pointer text-[var(--text-dim)]">details</summary>
-                  <pre className="whitespace-pre-wrap break-words text-xs">
-                    {JSON.stringify(row.error, null, 2)}
-                  </pre>
-                </details>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
+                <span className="rounded bg-[var(--bg-subtle)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide">
+                  {row.event_type}
+                </span>
+                <span>{row.log_status}</span>
+                {row.source ? <span className="text-[var(--text-soft)]">({row.source})</span> : null}
+              </div>
+              {row.message ? (
+                <p className="mt-1 text-xs text-[var(--text-soft)]">{row.message}</p>
               ) : null}
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-[var(--text-dim)]">No logs found.</div>
+        <div className="text-sm text-[var(--text-dim)]">No webhook logs found.</div>
       )}
     </Card>
   );

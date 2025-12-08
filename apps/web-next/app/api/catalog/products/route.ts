@@ -105,6 +105,7 @@ export async function GET(request: Request) {
         nextCursor: page.nextCursor,
         total: page.total,
         categories: page.categories,
+        error: page.fetchError ?? null,
       },
       {
         headers: {

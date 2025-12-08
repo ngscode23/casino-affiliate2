@@ -7,6 +7,7 @@ import { ButtonPrimary } from "@ui/components/ui/Buttons";
 import { supabase } from "@shared/lib/supabase";
 import { getUser } from "@shared/lib/auth";
 import { fnUrl } from "@shared/lib/api";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 type Row = { offer_slug: string; plan: string; expires_at: string | null };
 
@@ -99,14 +100,14 @@ export default function PartnerPortalClient() {
           </p>
         </div>
         <ButtonPrimary onClick={openPortal} disabled={!email || billingLoading}>
-          {billingLoading ? "Opening…" : "Billing"}
+          {billingLoading ? "Opening." : "Billing"}
         </ButtonPrimary>
       </div>
       <Card className="p-4">
         {loading ? (
-          <div>Loading…</div>
+          <div>Loading.</div>
         ) : error ? (
-          <div className="text-red-500">{error}</div>
+          <ErrorBanner description={error} onRetry={() => setError(null)} />
         ) : !email ? (
           <div className="text-sm text-neutral-500">
             Sign in to access partner benefits.

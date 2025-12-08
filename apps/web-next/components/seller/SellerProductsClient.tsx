@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { supabase } from "@shared/lib/supabase";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 const SELLER_STATUS_LABELS = {
   active: "активен",
@@ -174,9 +175,7 @@ export default function SellerProductsClient({
           </button>
         </div>
       </header>
-      {error ? (
-        <p className="rounded-xl border border-red-400/30 bg-red-500/15 p-3 text-sm text-red-100">{error}</p>
-      ) : null}
+      {error ? <ErrorBanner description={error} onRetry={() => setError(null)} /> : null}
       {successMessage ? (
         <p className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
           {successMessage}

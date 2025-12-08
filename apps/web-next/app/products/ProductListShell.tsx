@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 type Props = {
   theme: "light" | "dark";
   isFilterOpen: boolean;
-  filterSidebar: ReactNode;
+  renderFilterSidebar: (options: { variant: "desktop" | "mobile" }) => ReactNode;
   onCloseFilters: () => void;
   toolbar: ReactNode;
   children: ReactNode;
 };
 
-export function ProductListShell({ theme, isFilterOpen, filterSidebar, onCloseFilters, toolbar, children }: Props) {
+export function ProductListShell({ theme, isFilterOpen, renderFilterSidebar, onCloseFilters, toolbar, children }: Props) {
   return (
     <div
       data-theme={theme}
@@ -34,13 +34,13 @@ export function ProductListShell({ theme, isFilterOpen, filterSidebar, onCloseFi
       </div>
 
       <div className="mx-auto flex w-full gap-6 px-4 py-10 sm:px-8 lg:px-12">
-        {isFilterOpen ? <div className="hidden lg:block lg:w-[280px] lg:flex-none">{filterSidebar}</div> : null}
+        <div className="hidden lg:block lg:w-[280px] lg:flex-none">{renderFilterSidebar({ variant: "desktop" })}</div>
         <section className="flex-1 min-w-0 space-y-10">{children}</section>
       </div>
 
       {isFilterOpen ? (
         <div className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-sm lg:hidden" role="dialog" aria-modal="true">
-          <div className="h-full w-[85vw] max-w-xs bg-white shadow-2xl">{filterSidebar}</div>
+          <div className="h-full w-[85vw] max-w-xs bg-white shadow-2xl">{renderFilterSidebar({ variant: "mobile" })}</div>
           <button type="button" onClick={onCloseFilters} className="h-full flex-1" aria-label="Close filters" />
         </div>
       ) : null}

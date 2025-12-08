@@ -1,39 +1,32 @@
-'use client';;
-import { mutedTextSm, mutedTextXs, sectionTitle } from "@/styles/classnames";
+'use client';
+
+import { mutedTextSm } from "@/styles/classnames";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import ProductImpression from "@/app/products/components/ProductImpression";
 import TrackClickButton from "@/app/products/components/TrackClickButton";
-import ProductGallery from "@/components/ProductGallery";
 import ProductSpecs from "@/components/ProductSpecs";
-import { ProductGrid } from "@/components/ProductGrid";
 import { RecommendationsWidget } from "@/components/RecommendationsWidget";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
 import { formatCurrency } from "../currency";
 import { track } from "@shared/lib/analytics";
-import { cn } from "@shared/lib/cn";
 import { logRecEvent } from "@/lib/recs-events";
 import ProductTechBlock from "./ProductTechBlock";
-
-type AdminStats = {
-  isAdmin: boolean;
-  clicks: number;
-  impressions: number;
-};
-
-type Breadcrumb = { name: string; href: string };
-
-type ProductViewProps = {
-  product: ProductData;
-  breadcrumbs: Breadcrumb[];
-  admin: AdminStats;
-  similar: ProductGridItem[];
-};
-
-type SelectionState = Record<string, ProductVariantOption | undefined>;
+import { PdpActions } from "./components/PdpActions";
+import { PdpAdminStats } from "./components/PdpAdminStats";
+import { PdpInfo } from "./components/PdpInfo";
+import { PdpMedia } from "./components/PdpMedia";
+import { PdpSimilar } from "./components/PdpSimilar";
+import {
+  type AdminStats,
+  type Breadcrumb,
+  type ReviewBucket,
+  type ReviewBucketScore,
+  type SelectionState,
+} from "./components/pdp-types";
 
 const ProductStickyCTA = dynamic(() => import("@/components/ProductStickyCTA"), {
   ssr: false,
@@ -44,15 +37,8 @@ const ProductReviews = dynamic(() => import("@/components/ProductReviews"), {
   ssr: false,
   loading: () => <ReviewsSkeleton />,
 });
-const TrustPanel = dynamic(() => import("./TrustPanel.client"), {
-  ssr: false,
-  loading: () => null,
-});
+
 const RecentProducts = dynamic(() => import("./RecentProducts.client"), {
-  ssr: false,
-  loading: () => null,
-});
-const ProductActionPanel = dynamic(() => import("./ProductActionPanel.client"), {
   ssr: false,
   loading: () => null,
 });
@@ -100,7 +86,6 @@ function ReviewsSkeleton() {
   );
 }
 
-
 type IdleCleanup = () => void;
 
 function runOnIdle(callback: () => void): IdleCleanup | undefined {
@@ -121,9 +106,7 @@ function runOnIdle(callback: () => void): IdleCleanup | undefined {
   return () => clearTimeout(timeout);
 }
 
-const REVIEW_BUCKET_ORDER = [5, 4, 3, 2, 1] as const;
-type ReviewBucketScore = (typeof REVIEW_BUCKET_ORDER)[number];
-type ReviewBucket = { score: ReviewBucketScore; count: number; percent: number };
+const REVIEW_BUCKET_ORDER: ReviewBucketScore[] = [5, 4, 3, 2, 1];
 
 type ReviewStatsEventDetail = {
   summary?: { average?: number | null; count?: number | null };
@@ -132,9 +115,9 @@ type ReviewStatsEventDetail = {
 
 type ReviewFilterEventDetail = { rating: number | null };
 
-const REVIEW_SET_FILTER_EVENT = 'product-reviews:set-filter';
-const REVIEW_FILTER_CHANGE_EVENT = 'product-reviews:filter-change';
-const REVIEW_STATS_EVENT = 'product-reviews:stats';
+const REVIEW_SET_FILTER_EVENT = "product-reviews:set-filter";
+const REVIEW_FILTER_CHANGE_EVENT = "product-reviews:filter-change";
+const REVIEW_STATS_EVENT = "product-reviews:stats";
 
 function buildInitialSelection(variants: ProductVariantGroup[]): SelectionState {
   const next: SelectionState = {};
@@ -287,36 +270,12 @@ function ProductClientEffects({ product }: { product: ProductData }) {
   return null;
 }
 
-function ReviewFilterChip({
-  label,
-  active,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => {
-        if (!disabled) onClick();
-      }}
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-        active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border/40 text-muted-foreground hover:border-border/70 hover:text-fg",
-        disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-[1px]",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
+type ProductViewProps = {
+  product: ProductData;
+  breadcrumbs: Breadcrumb[];
+  admin: AdminStats;
+  similar: ProductGridItem[];
+};
 
 export default function ProductView({ product, breadcrumbs, admin, similar }: ProductViewProps) {
   const [selection, setSelection] = useState<SelectionState>(() => buildInitialSelection(product.variants));
@@ -371,7 +330,8 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
   const variantLabel = useMemo(() => formatVariantLabel(product.variants, selection), [product.variants, selection]);
   const reviewAverage = Number.isFinite(reviewStats.average) ? reviewStats.average : 0;
   const reviewCount = Number.isFinite(reviewStats.count) ? reviewStats.count : 0;
-  const reviewAverageLabel = reviewCount > 0 ? reviewAverage.toFixed(1) : "—";
+  const reviewAverageLabel = reviewCount > 0 ? reviewAverage.toFixed(1) : "-";
+  const resolvedFinalPrice = finalPrice ?? product.price ?? 0;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -511,14 +471,14 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         params: {
           product_id: product.id,
           slug: product.slug,
-          price: finalPrice,
+          price: resolvedFinalPrice ?? product.price ?? 0,
           variant: variantLabel ?? undefined,
         },
       });
     } catch {
       /* noop */
     }
-  }, [product.id, product.slug, finalPrice, variantLabel]);
+  }, [product.id, product.slug, product.price, resolvedFinalPrice, variantLabel]);
 
   return (
     <div className="space-y-12">
@@ -529,195 +489,70 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         category={product.category?.slug}
         priceBucket={priceBucket}
       />
-      <nav aria-label="Хлебные крошки" className={mutedTextSm}>
+      <nav aria-label="??????? ??????" className={mutedTextSm}>
         <ol className="flex flex-wrap items-center gap-2">
           <li className="flex items-center gap-2">
             <Link href="/" className="transition hover:text-primary hover:underline">
-              Главная
+              ???????
             </Link>
           </li>
           {breadcrumbs.map((crumb) => (
             <li key={crumb.href} className="flex items-center gap-2">
-              <span aria-hidden>›</span>
+              <span aria-hidden>&gt;</span>
               <Link href={crumb.href} className="transition hover:text-primary hover:underline">
                 {crumb.name}
               </Link>
             </li>
           ))}
           <li className="flex items-center gap-2">
-            <span aria-hidden>›</span>
+            <span aria-hidden>&gt;</span>
             <span aria-current="page" className="font-medium text-fg">
               {product.title}
             </span>
           </li>
         </ol>
       </nav>
+
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] max-[923px]:-mx-6 max-[923px]:flex max-[923px]:snap-x max-[923px]:space-x-6 max-[923px]:overflow-x-auto max-[923px]:px-6">
-        <div className="max-[923px]:min-w-[calc(100vw-3rem)] max-[923px]:snap-center">
-          <ProductGallery
-            title={product.title}
-            images={gallery}
-            fallbackImage={product.fallbackImage ?? "/logo.png"}
-            activeImage={activeImage}
-            onActiveChangeAction={(_, idx) =>
-              handleGalleryChange(gallery[idx] ?? product.fallbackImage ?? "/logo.png")
-            }
-          />
-        </div>
+        <PdpMedia
+          title={product.title}
+          images={gallery}
+          fallbackImage={product.fallbackImage ?? "/logo.png"}
+          activeImage={activeImage}
+          onActiveChange={handleGalleryChange}
+        />
 
         <aside className="mt-8 space-y-6 max-[923px]:min-w-[calc(100vw-3rem)] max-[923px]:snap-center max-[923px]:mt-0 xl:mt-0 xl:pl-4">
-          <div className="space-y-4 rounded-3xl border border-border/40 bg-card/70 p-6">
-            <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted">
-              <span>Каталог</span>
-              {product.category.name ? <span>{product.category.name}</span> : null}
-            </div>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{product.title}</h1>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-400">
-                {product.availabilityLabel}
-              </span>
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-fg">
-                ★ {reviewAverageLabel}
-                <span className="text-muted-foreground">
-                  ({reviewCount} отзыв{reviewCount % 10 === 1 && reviewCount % 100 !== 11 ? "" : "ов"})
-                </span>
-              </span>
-            </div>
+          <PdpInfo
+            title={product.title}
+            categoryName={product.category?.name ?? undefined}
+            availabilityLabel={product.availabilityLabel}
+            reviewAverageLabel={reviewAverageLabel}
+            reviewCount={reviewCount}
+            reviewBuckets={reviewBuckets}
+            activeReviewFilter={activeReviewFilter}
+            onReviewFilterSelect={handleReviewFilterSelect}
+            shortDescription={product.shortDescription}
+          />
 
-            {product.shortDescription ? (
-              <p className="text-sm leading-relaxed text-fg/80">{product.shortDescription}</p>
-            ) : null}
+          <PdpActions
+            product={product}
+            variants={product.variants}
+            selection={selection}
+            onVariantSelect={handleVariantSelect}
+            formattedPrice={formattedPrice}
+            compareAtPrice={compareAtPrice}
+            finalPrice={resolvedFinalPrice}
+            variantLabel={variantLabel}
+            onAdd={onAdd}
+            admin={admin}
+            paymentMethods={PAYMENT_METHODS}
+          />
 
-            <div className="rounded-2xl border border-border/40 bg-card/80 p-4 shadow-inner">
-              <div className="flex flex-col gap-1">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Отзывы покупателей</div>
-                <div className="flex items-end gap-2 text-2xl font-semibold text-fg">
-                  {reviewAverageLabel}
-                  <span className="text-xs font-medium text-muted-foreground">/ 5</span>
-                </div>
-                <div className={mutedTextXs}>
-                  На основе <span className="font-semibold text-fg">{reviewCount}</span> отзывов
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <ReviewFilterChip
-                  label={`Все (${reviewCount})`}
-                  active={activeReviewFilter === null}
-                  disabled={reviewCount === 0}
-                  onClick={() => handleReviewFilterSelect(null)}
-                />
-              </div>
-              <div className="mt-3 space-y-2">
-                {reviewBuckets.map((bucket) => {
-                  const active = activeReviewFilter === bucket.score;
-                  const disabled = bucket.count === 0;
-                  return (
-                    <button
-                      key={bucket.score}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => {
-                        if (!disabled) handleReviewFilterSelect(bucket.score);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                        active
-                          ? "border-primary/60 bg-primary/10 text-primary"
-                          : "border-border/40 text-muted-foreground hover:border-border/70 hover:text-fg",
-                        disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-[1px]",
-                      )}
-                      aria-pressed={active}
-                    >
-                      <span className="w-10 text-left font-medium text-fg">{bucket.score}★</span>
-                      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border/40" aria-hidden>
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-primary"
-                          style={{ width: `${bucket.percent}%` }}
-                        />
-                      </div>
-                      <span className="w-16 text-right text-xs text-muted-foreground">{bucket.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {product.variants.length ? (
-              <div className="space-y-4">
-                {product.variants.map((group) => (
-                  <div key={group.id} className="space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">{group.label}</div>
-                    <div className="flex flex-wrap gap-2">
-                      {group.options.map((option) => {
-                        const active = selection[group.id]?.value === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => handleVariantSelect(group, option)}
-                            disabled={option.disabled}
-                            className={cn(
-                              "rounded-full border px-4 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                              active
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border/40 bg-card text-fg hover:border-border/80",
-                              option.disabled ? "cursor-not-allowed opacity-40" : null,
-                            )}
-                            title={option.disabled ? "Недоступно" : option.label}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            <ProductActionPanel
-              productId={product.id}
-              title={product.title}
-              formattedPrice={formattedPrice}
-              compareAtPrice={compareAtPrice}
-              finalPrice={finalPrice}
-              priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
-              dataset={product.dataset}
-              category={product.category?.slug}
-              currency={product.currency}
-              variantLabel={variantLabel}
-              onAddAction={onAdd}
-              analyticsParams={{
-                product_id: product.id,
-                slug: product.slug,
-                variant: variantLabel ?? undefined,
-                dataset: product.dataset,
-              }}
-              isAdmin={admin.isAdmin}
-              paymentMethods={PAYMENT_METHODS}
-              availabilityCode={product.availabilityCode}
-            />
-
-            <div className={cn("pt-3 text-xs text-muted-foreground")}>
-              <span>Есть вопросы о товаре? </span>
-              <Link
-                href={{
-                  pathname: "/contact",
-                  query: {
-                    topic: "product",
-                    sku: product.sku ?? product.id,
-                  },
-                }}
-                className="font-semibold text-primary underline-offset-4 hover:underline"
-              >
-                Связаться с консультантом
-              </Link>
-            </div>
-          </div>
-
-          <TrustPanel isAdmin={admin.isAdmin} clicks={admin.clicks} impressions={admin.impressions} />
+          <PdpAdminStats admin={admin} />
         </aside>
       </div>
+
       <ProductSpecs specs={product.specs} description={product.description} />
       {product.techSpecs?.sections?.length ? (
         <ProductTechBlock data={product.techSpecs} defaultCollapsed />
@@ -728,39 +563,38 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         initialAverage={product.reviewSummary.average}
         initialCount={product.reviewSummary.count}
       />
-      {similar.length ? (
-        <section className="space-y-4">
-          <h2 className={sectionTitle}>Похожие товары</h2>
-          <ProductGrid items={similar} wrapWithContainer={false} />
-        </section>
-      ) : null}
+      <PdpSimilar items={similar} />
       <RecommendationsWidget limit={8} />
       <RecentProducts currentSlug={product.slug} />
-      <ProductStickyCTA
-        productId={product.id}
-        title={product.title}
-        price={formattedPrice}
-        dataset={product.dataset}
-        selectedVariantLabel={variantLabel}
-        priceCents={Math.round(Math.max(0, (finalPrice ?? product.price ?? 0) * 100))}
-        category={product.category?.slug}
-        currency={product.currency}
-        recMetadata={{ source: "sticky_cta" }}
-        secondaryAction={
-          admin.isAdmin ? (
-            <TrackClickButton productId={product.id} dataset={product.dataset} category={product.category?.slug} />
-          ) : null
-        }
-        analyticsParams={{
-          product_id: product.id,
-          slug: product.slug,
-          price: finalPrice,
-          variant: variantLabel ?? undefined,
-          dataset: product.dataset,
-        }}
-      />
+
+      {(() => {
+        const resolvedPriceCents = Math.round(Math.max(0, resolvedFinalPrice * 100));
+        return (
+          <ProductStickyCTA
+            productId={product.id}
+            title={product.title}
+            price={formattedPrice}
+            dataset={product.dataset}
+            selectedVariantLabel={variantLabel}
+            priceCents={resolvedPriceCents}
+            category={product.category?.slug}
+            currency={product.currency}
+            recMetadata={{ source: "sticky_cta" }}
+            secondaryAction={
+              admin.isAdmin ? (
+                <TrackClickButton productId={product.id} dataset={product.dataset} category={product.category?.slug} />
+              ) : null
+            }
+            analyticsParams={{
+              product_id: product.id,
+              slug: product.slug,
+              price: resolvedFinalPrice,
+              variant: variantLabel ?? undefined,
+              dataset: product.dataset,
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
-
-

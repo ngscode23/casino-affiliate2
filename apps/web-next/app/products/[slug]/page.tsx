@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import ProductMetadata from "@/components/ProductMetadata";
 import ProductView from "./ProductView";
 import { fetchProduct, fetchSimilarProducts } from "./data";
 import { siteConfig } from "@/lib/site-config";
 import { ProductAnalytics } from "@/components/analytics/EcommerceEvents";
+import { getUserRoleFromRequest } from "@/lib/auth/roles";
+import { buildCanonical } from "@/lib/env/siteUrl";
 
 type RouteParams = Promise<{ slug: string }>;
 type ProductPageProps = {
@@ -13,64 +14,6 @@ type ProductPageProps = {
 };
 
 export const revalidate = 90;
-
-function decodeJwtPayload(token: string): Record<string, any> | null {
-  if (!token || typeof token !== "string") return null;
-  const parts = token.split(".");
-  if (parts.length < 2) return null;
-  const base64Payload = parts[1]?.replace(/-/g, "+").replace(/_/g, "/") ?? "";
-  const padded = base64Payload.padEnd(Math.ceil(base64Payload.length / 4) * 4, "=");
-  try {
-    const decoded = Buffer.from(padded, "base64").toString("utf8");
-    return JSON.parse(decoded);
-  } catch {
-    return null;
-  }
-}
-
-async function resolveUserRoleFromCookies(): Promise<{ role: string; isAdmin: boolean }> {
-  const cookieStore = await cookies();
-  const all = cookieStore.getAll();
-
-  const directToken = all.find((cookie) => {
-    if (!cookie?.value) return false;
-    if (cookie.name === "sb-access-token") return true;
-    return /-access-token$/.test(cookie.name ?? "");
-  });
-
-  let accessToken = directToken?.value ?? null;
-  if (!accessToken) {
-    const supabaseAuth = all.find((cookie) => cookie.name === "supabase-auth-token");
-    if (supabaseAuth?.value) {
-      try {
-        const parsed = JSON.parse(supabaseAuth.value);
-        const tokenValue = parsed?.access_token;
-        if (typeof tokenValue === "string" && tokenValue.trim()) {
-          accessToken = tokenValue.trim();
-        }
-      } catch {
-        // ignore malformed cookie
-      }
-    }
-  }
-
-  if (!accessToken) {
-    return { role: "user", isAdmin: false };
-  }
-
-  const payload = decodeJwtPayload(accessToken) ?? {};
-  const appMeta = (payload.app_metadata ?? payload.user_metadata ?? {}) as Record<string, unknown>;
-
-  const rawRole =
-    typeof appMeta.role === "string"
-      ? appMeta.role
-      : Array.isArray(appMeta.roles) && typeof appMeta.roles[0] === "string"
-        ? appMeta.roles[0]
-        : "user";
-
-  const role = rawRole.trim() || "user";
-  return { role, isAdmin: role === "admin" };
-}
 
 function buildBreadcrumbs(product: Awaited<ReturnType<typeof fetchProduct>>) {
   const trail: { name: string; url: string }[] = [{ name: "Каталог", url: "/products" }];
@@ -104,10 +47,8 @@ export async function generateMetadata({ params }: Pick<ProductPageProps, "param
     };
   }
 
-  const origin =
-    (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_SITE_URL || "https://neon4.vercel.app").replace(/\/$/, "");
   const canonicalPath = `/products/${product.slug}`;
-  const canonicalUrl = origin ? `${origin}${canonicalPath}` : canonicalPath;
+  const canonicalUrl = buildCanonical(canonicalPath);
   const metaTitle = `${product.title} | ${brand}`;
   const descriptionSource = product.description ?? product.shortDescription ?? product.title;
   const metaDescription = descriptionSource ? descriptionSource.slice(0, 160) : brand;
@@ -144,7 +85,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const [similar, roleInfo] = await Promise.all([
     fetchSimilarProducts(product.category?.slug ?? "", product.id, 8),
-    resolveUserRoleFromCookies(),
+    getUserRoleFromRequest(),
   ]);
   const isAdmin = roleInfo.isAdmin;
   const breadcrumbs = buildBreadcrumbs(product);

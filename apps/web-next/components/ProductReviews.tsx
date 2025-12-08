@@ -12,6 +12,7 @@ import ReviewsList from "@/components/product-reviews/ReviewsList";
 import { useProductReviews } from "./product-reviews/useProductReviews";
 import { useReviewForm } from "./product-reviews/useReviewForm";
 import { AsyncSection } from "@/components/ui/AsyncSection";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 type ProductReviewsProps = {
   productId: string;
@@ -357,6 +358,12 @@ export default function ProductReviews({ productId, slug, initialAverage, initia
           <AsyncSection
             status={error ? "error" : loading ? "loading" : "success"}
             skeleton={<ReviewsPlaceholder />}
+            errorFallback={
+              <ErrorBanner
+                description={error ?? "Не удалось загрузить отзывы. Попробуйте позже."}
+                onRetry={() => refresh({ resetCursor: true })}
+              />
+            }
           >
             <ReviewsList
               items={items}
