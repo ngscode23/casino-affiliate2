@@ -661,7 +661,7 @@ function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
   const trimmedQuery = sanitizedQuery ? sanitizedQuery.trim().slice(0, 120) : "";
   if (trimmedQuery) normalized.query = trimmedQuery;
 
-  const category = filters.category?.trim();
+  const category = filters.category?.trim().toLowerCase();
   if (category && category !== "all") normalized.category = category;
 
   const brand = normalizeBrandSlug(filters.brand);
@@ -854,7 +854,7 @@ function toProductListFilters(filters: ProductFilters): ProductListFilters {
   if (search) normalized.search = search;
 
   if (filters.category && filters.category !== "all") {
-    normalized.category = filters.category;
+    normalized.category = filters.category.trim().toLowerCase();
   }
 
   if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {

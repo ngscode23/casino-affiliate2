@@ -391,9 +391,11 @@ export default function ProductsClient({
     const counts = new Map<string, { count: number; label: string }>();
     const accumulate = (source: Product[]) => {
       for (const product of source) {
-        const key = normalizeBrandSlug(product.brandSlug ?? product.brand ?? product.brandName);
-        if (!key) continue;
-        const label = brandLabelFromSlug(key, product.brandName ?? product.brand);
+        const key = normalizeBrandSlug(product.brandSlug ?? product.brand ?? product.brandName) ?? "unbranded";
+        const label =
+          key === "unbranded"
+            ? "Unbranded"
+            : brandLabelFromSlug(key, product.brandName ?? product.brand);
         const existing = counts.get(key);
         counts.set(key, {
           count: (existing?.count ?? 0) + 1,
@@ -740,7 +742,7 @@ function productMatchesCategory(product: Product, category: string): boolean {
 function matchesBrand(product: Product, selection: string): boolean {
   if (!selection || selection === "all") return true;
   const normalizedSelection = normalizeBrandSlug(selection);
-  if (!normalizedSelection) return true;
+  if (!normalizedSelection) return selection === "unbranded";
   const candidates = [
     product.brand,
     product.brandSlug,
@@ -748,6 +750,9 @@ function matchesBrand(product: Product, selection: string): boolean {
   ]
     .map((value) => normalizeBrandSlug(value))
     .filter(Boolean) as string[];
+  if (normalizedSelection === "unbranded") {
+    return candidates.length === 0;
+  }
   return candidates.includes(normalizedSelection);
 }
 

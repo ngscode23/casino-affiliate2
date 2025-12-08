@@ -93,7 +93,7 @@ function parseQuery(searchParams?: SearchParamsLike): string {
 }
 
 function parseCategory(searchParams?: SearchParamsLike): string {
-  const slug = toSingleValue(getParam(searchParams, "category"))?.trim() ?? "";
+  const slug = toSingleValue(getParam(searchParams, "category"))?.trim().toLowerCase() ?? "";
   return slug || "all";
 }
 

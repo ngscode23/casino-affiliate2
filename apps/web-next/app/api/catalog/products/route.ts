@@ -121,6 +121,23 @@ export async function GET(request: Request) {
       cursor: parsed.cursor,
     });
 
+    if (process.env.NODE_ENV !== "production") {
+      const sample = Array.isArray(page.items) && page.items.length
+        ? page.items.slice(0, 2).map((item) => ({
+            id: item.id,
+            brandSlug: (item as any)?.brandSlug ?? null,
+            brandName: (item as any)?.brandName ?? null,
+            catalogProductId: (item as any)?.catalogProductId ?? null,
+            category: (item as any)?.categorySlug ?? (item as any)?.category ?? null,
+          }))
+        : [];
+      console.log("[catalog-debug] api response sample", {
+        items: page.items.length,
+        total: page.total,
+        sample,
+      });
+    }
+
     return NextResponse.json(
       {
         items: page.items,
