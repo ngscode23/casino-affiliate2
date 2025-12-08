@@ -11,10 +11,12 @@ import type { Product } from "./types";
 import { formatCurrency } from "./currency";
 import { createSupabaseFetchLogger } from "@/utils/supabase/fetch-logger";
 import { getAdminClient } from "@/utils/supabase/admin";
-import { normalizeBrandSlug } from "./taxonomy";
+import { normalizeBrandSlug, brandLabelFromSlug } from "./taxonomy";
 import { logDebug } from "@/utils/debug-logger";
 
 export type CategorySummary = { slug: string; label: string; count: number };
+export type TaxonomyFacet = { value: string; label: string; count: number };
+export type ModelFacetMap = Record<string, TaxonomyFacet[]>;
 
 export const CATALOG_NAME = "Neon Shop Product Catalog";
 export const PRODUCT_LIST_REVALIDATE_SECONDS = 180;
@@ -577,23 +579,24 @@ function filterProductsByTaxonomy(
     }
 
     if (brandSelection && brandSelection !== "all") {
-      if (!(allowedVariantIds && allowedVariantIds.size > 0)) {
-        const normalizedSelection = normalizeBrandSlug(brandSelection);
-        if (normalizedSelection) {
-          const candidates = [product.brand, product.brandSlug, product.brandName]
-            .map((value) => (typeof value === "string" ? normalizeBrandSlug(value) : null))
-            .filter(Boolean) as string[];
-          const matchesMeta = candidates.includes(normalizedSelection);
-          const matchesCatalog =
-            !matchesMeta &&
-            brandCatalogIds &&
-            brandCatalogIds.size > 0 &&
-            typeof product.catalogProductId === "string" &&
-            brandCatalogIds.has(product.catalogProductId);
-          if (!matchesMeta && !matchesCatalog) {
-            return false;
-          }
+      const normalizedSelection = normalizeBrandSlug(brandSelection);
+      const matchesByVariant =
+        typeof product.id === "string" && allowedVariantIds && allowedVariantIds.size > 0
+          ? allowedVariantIds.has(product.id)
+          : false;
+      let matchesByMeta = false;
+      if (normalizedSelection) {
+        const candidates = [product.brand, product.brandSlug, product.brandName]
+          .map((value) => (typeof value === "string" ? normalizeBrandSlug(value) : null))
+          .filter(Boolean) as string[];
+        matchesByMeta =
+          normalizedSelection === "unbranded" ? candidates.length === 0 : candidates.includes(normalizedSelection);
+        if (!matchesByMeta && brandCatalogIds && brandCatalogIds.size > 0 && typeof product.catalogProductId === "string") {
+          matchesByMeta = brandCatalogIds.has(product.catalogProductId);
         }
+      }
+      if (!matchesByVariant && !matchesByMeta) {
+        return false;
       }
     }
 
@@ -638,6 +641,72 @@ function summarizeCategories(products: Product[]): CategorySummary[] {
   return Array.from(counts.entries())
     .map(([slug, value]) => ({ slug, label: value.label, count: value.count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function normalizeTaxonomyValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  return trimmed.replace(/\s+/g, "-");
+}
+
+function taxonomyLabelFromValue(value: string | null | undefined): string {
+  if (!value) return "Unknown";
+  return humanizeSlug(value.replace(/\//g, " "));
+}
+
+function buildBrandFacets(products: Product[]): TaxonomyFacet[] {
+  const counts = new Map<string, { count: number; label: string }>();
+
+  for (const product of products) {
+    const brandKey = normalizeBrandSlug(product.brandSlug ?? product.brand ?? product.brandName) ?? "unbranded";
+    const label =
+      brandKey === "unbranded"
+        ? "Unbranded"
+        : brandLabelFromSlug(brandKey, product.brandName ?? product.brand ?? undefined);
+    const existing = counts.get(brandKey);
+    counts.set(brandKey, {
+      count: (existing?.count ?? 0) + 1,
+      label: existing?.label ?? label,
+    });
+  }
+
+  return Array.from(counts.entries())
+    .map(([value, entry]) => ({ value, label: entry.label || taxonomyLabelFromValue(value), count: entry.count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function buildModelFacets(products: Product[]): ModelFacetMap {
+  const bucket = new Map<string, Map<string, { count: number; label: string }>>();
+
+  for (const product of products) {
+    const brandKey = normalizeBrandSlug(product.brandSlug ?? product.brand ?? product.brandName) ?? "unbranded";
+    const modelKey = normalizeTaxonomyValue(
+      product.modelSlug ?? product.model ?? product.modelTitle?.toLowerCase().replace(/\s+/g, "-"),
+    );
+    if (!modelKey) continue;
+    const modelLabel = product.modelTitle?.trim() || taxonomyLabelFromValue(modelKey);
+
+    const brandBucket = bucket.get(brandKey) ?? new Map<string, { count: number; label: string }>();
+    const existing = brandBucket.get(modelKey);
+    brandBucket.set(modelKey, {
+      count: (existing?.count ?? 0) + 1,
+      label: existing?.label ?? modelLabel,
+    });
+    bucket.set(brandKey, brandBucket);
+  }
+
+  const result: ModelFacetMap = {};
+  for (const [brandKey, models] of bucket.entries()) {
+    result[brandKey] = Array.from(models.entries())
+      .map(([value, entry]) => ({
+        value,
+        label: entry.label || taxonomyLabelFromValue(value),
+        count: entry.count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }
+  return result;
 }
 
 type NormalizedCachePayload = {
@@ -1033,6 +1102,8 @@ export async function fetchProductsPage(filters: ProductFilters = {}, options?: 
     nextCursor,
     total: result.totalCount,
     categories: result.categories,
+    brandFacets: result.brandFacets,
+    modelFacets: result.modelFacets,
     structuredData: result.structuredData,
     fetchError: result.fetchError ? (result.fetchError as any)?.message ?? String(result.fetchError) : null,
     debug: result.debug ?? null,
@@ -1093,6 +1164,8 @@ async function loadProductsDataInternal(
   fetchError: unknown;
   structuredData: Record<string, unknown> | null;
   categories: CategorySummary[];
+  brandFacets: TaxonomyFacet[];
+  modelFacets: ModelFacetMap;
   catalogName: string;
   totalCount: number;
   debug?: Record<string, unknown>;
@@ -1169,7 +1242,7 @@ async function loadProductsDataInternal(
         offset,
         withCount: offset === 0,
       },
-      allowedVariantIds ? Array.from(allowedVariantIds) : null,
+      null,
     );
 
     if (page.error) {
@@ -1218,6 +1291,8 @@ async function loadProductsDataInternal(
       fetchError,
       structuredData: null,
       categories: [],
+      brandFacets: [],
+      modelFacets: {},
       catalogName: CATALOG_NAME,
       totalCount: 0,
     };
@@ -1225,6 +1300,9 @@ async function loadProductsDataInternal(
 
   const meta = await resolveMetaForRows(fetchedRows);
   const products = mapRowsToProducts(fetchedRows, meta, 0);
+  let brandFacets = buildBrandFacets(products);
+  let modelFacets = buildModelFacets(products);
+  let categories = summarizeCategories(products);
 
   const availableCategorySlugs = new Set(
     products
@@ -1255,7 +1333,11 @@ async function loadProductsDataInternal(
     filteredProducts = filterProductsByTaxonomy(products, relaxed, brandCatalogIds, allowedVariantIds);
   }
 
-  const categories = summarizeCategories(filteredProducts);
+  // Пересобираем фасеты и категории из уже отфильтрованного набора (до пагинации),
+  // чтобы counts и списки всегда соответствовали текущим фильтрам/URL.
+  brandFacets = buildBrandFacets(filteredProducts);
+  modelFacets = buildModelFacets(filteredProducts);
+  categories = summarizeCategories(filteredProducts);
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] post-filter", {
@@ -1321,6 +1403,8 @@ async function loadProductsDataInternal(
     fetchError: null,
     structuredData,
     categories,
+    brandFacets,
+    modelFacets,
     catalogName: CATALOG_NAME,
     totalCount: totalForFilters,
     debug: {
@@ -1331,6 +1415,8 @@ async function loadProductsDataInternal(
       allowedVariantCount: allowedVariantIds?.size ?? 0,
       fetchedRows: fetchedRows.length,
       filteredRows: filteredProducts.length,
+      brandFacetsCount: brandFacets.length,
+      modelFacetsBrands: Object.keys(modelFacets).length,
     },
   };
 }

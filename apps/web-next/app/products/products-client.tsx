@@ -35,6 +35,8 @@ export default function ProductsClient({
   initialLayout = "grid",
   initialQuery = "",
   initialCategory = "all",
+  initialBrandFacets = [],
+  initialModelFacets = {},
   initialDataset = "all",
   initialSort = "recent",
   initialPriceMin = null,
@@ -54,6 +56,8 @@ export default function ProductsClient({
   initialLayout?: LayoutMode;
   initialQuery?: string;
   initialCategory?: string;
+  initialBrandFacets?: TaxonomyOption[];
+  initialModelFacets?: Record<string, TaxonomyOption[]>;
   initialDataset?: DatasetType;
   initialSort?: SortMode;
   initialPriceMin?: number | null;
@@ -179,6 +183,8 @@ export default function ProductsClient({
   const {
     items,
     categories: categoriesState,
+    brandFacets,
+    modelFacets,
     totalCount,
     hasMore,
     pageError,
@@ -190,6 +196,8 @@ export default function ProductsClient({
   } = useProductsData({
     initialItems: initialProducts,
     initialCategories,
+    initialBrandFacets,
+    initialModelFacets,
     initialNextCursor,
     initialTotalCount: totalAvailable ?? initialProducts.length,
     fetchError,
@@ -333,11 +341,8 @@ export default function ProductsClient({
     retry();
   }, [resetFilters, retry]);
 
-  const filtered = useMemo(
-    () => items.filter((product) => productMatchesCategory(product, activeCategory)),
-    [items, activeCategory],
-  );
-  const displayed = filtered;
+  const displayed = items;
+  const filtered = displayed;
 
   useEffect(() => {
     setHydrated(true);
@@ -388,6 +393,7 @@ export default function ProductsClient({
   const hasCatalogLinks = useMemo(() => items.some((p) => Boolean(p.catalogProductId)), [items]);
 
   const brandOptions = useMemo<TaxonomyOption[]>(() => {
+    if (brandFacets?.length) return brandFacets;
     const counts = new Map<string, { count: number; label: string }>();
     const accumulate = (source: Product[]) => {
       for (const product of source) {
@@ -420,14 +426,18 @@ export default function ProductsClient({
         label: entry.label || taxonomyLabelFromValue(value),
       }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [activeCategory, items]);
+  }, [activeCategory, brandFacets, items]);
 
   const modelOptions = useMemo<TaxonomyOption[]>(() => {
-    if (activeBrand === "all") return [];
+    const normalizedBrand = normalizeBrandSlug(activeBrand) ?? "all";
+    if (normalizedBrand !== "all" && modelFacets[normalizedBrand]?.length) {
+      return modelFacets[normalizedBrand];
+    }
+    if (normalizedBrand === "all") return [];
     const counts = new Map<string, { count: number; label: string }>();
     for (const product of items) {
       if (!productMatchesCategory(product, activeCategory)) continue;
-      if (!matchesBrand(product, activeBrand)) continue;
+      if (!matchesBrand(product, normalizedBrand)) continue;
       const key = normalizeTaxonomyValue(product.modelSlug ?? product.model ?? product.modelTitle);
       if (!key) continue;
       const label = product.modelTitle?.trim() || taxonomyLabelFromValue(key);
@@ -444,7 +454,7 @@ export default function ProductsClient({
         label: entry.label || taxonomyLabelFromValue(value),
       }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [activeBrand, activeCategory, items]);
+  }, [activeBrand, activeCategory, items, modelFacets]);
 
   useEffect(() => {
     // Не сбрасываем бренд, пока данные догружаются, чтобы выбор не «откатывался»
@@ -761,18 +771,4 @@ function matchesBrandSampleCount(products: Product[], selection: string): number
   return products.filter((p) => matchesBrand(p, selection)).length;
 }
 
-function matchesModel(product: Product, selection: string): boolean {
-  if (!selection || selection === "all") return true;
-  const normalizedSelection = normalizeTaxonomyValue(selection);
-  if (!normalizedSelection) return true;
-  const candidates = [
-    product.model,
-    product.modelSlug,
-    product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
-  ]
-    .map((value) => normalizeTaxonomyValue(value))
-    .filter(Boolean);
-  if (candidates.includes(normalizedSelection)) return true;
-  if (product.catalogProductId && product.catalogProductId === selection) return true;
-  return false;
-}
+

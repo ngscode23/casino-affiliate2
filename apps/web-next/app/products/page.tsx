@@ -216,6 +216,8 @@ function ProductsStream({
         <ProductsClient
           products={listing.items}
           categories={listing.categories}
+          initialBrandFacets={listing.brandFacets ?? []}
+          initialModelFacets={listing.modelFacets ?? {}}
           catalogName={CATALOG_NAME ?? "???????"}
           debug={listing.debug ?? null}
           initialQuery={filters.query}
@@ -298,6 +300,8 @@ async function getListing(filters: ReturnType<typeof resolveFilterParams>): Prom
         nextCursor: null,
         total: 0,
         categories: [],
+        brandFacets: [],
+        modelFacets: {},
         structuredData: null,
         debug: null,
         fetchError: (error as Error)?.message ?? String(error),

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 
-import type { CategorySummary } from "../data";
+import type { CategorySummary, ModelFacetMap, TaxonomyFacet } from "../data";
 import type { Product } from "../types";
 
 type CacheEntry = {
   items: Product[];
   categories: CategorySummary[];
+  brandFacets: TaxonomyFacet[];
+  modelFacets: ModelFacetMap;
   nextCursor: number | null;
   total: number;
 };
@@ -16,6 +18,8 @@ type FetchArgs = { cursor?: number; append?: boolean; signal?: AbortSignal };
 type Options = {
   initialItems: Product[];
   initialCategories: CategorySummary[];
+  initialBrandFacets: TaxonomyFacet[];
+  initialModelFacets: ModelFacetMap;
   initialNextCursor: number | null;
   initialTotalCount?: number | null;
   fetchError?: string | null;
@@ -26,6 +30,8 @@ type Options = {
 export type UseProductsDataReturn = {
   items: Product[];
   categories: CategorySummary[];
+  brandFacets: TaxonomyFacet[];
+  modelFacets: ModelFacetMap;
   totalCount: number;
   nextCursor: number | null;
   hasMore: boolean;
@@ -69,6 +75,8 @@ function normalizeErrorMessage(error: unknown): string {
 export function useProductsData({
   initialItems,
   initialCategories,
+  initialBrandFacets,
+  initialModelFacets,
   initialNextCursor,
   initialTotalCount,
   fetchError = null,
@@ -79,6 +87,8 @@ export function useProductsData({
   const initialKeyRef = useRef(queryKey);
   const [items, setItems] = useState<Product[]>(initialItems);
   const [categories, setCategories] = useState<CategorySummary[]>(initialCategories);
+  const [brandFacets, setBrandFacets] = useState<TaxonomyFacet[]>(initialBrandFacets);
+  const [modelFacets, setModelFacets] = useState<ModelFacetMap>(initialModelFacets);
   const [nextCursor, setNextCursor] = useState<number | null>(initialNextCursor);
   const [totalCount, setTotalCount] = useState<number>(initialTotalCount ?? initialItems.length);
   const [pageError, setPageError] = useState<string | null>(fetchError ? normalizeErrorMessage(fetchError) : null);
@@ -91,10 +101,12 @@ export function useProductsData({
     cacheRef.current.set(initialKeyRef.current, {
       items: initialItems,
       categories: initialCategories,
+      brandFacets: initialBrandFacets,
+      modelFacets: initialModelFacets,
       nextCursor: initialNextCursor,
       total: initialTotalCount ?? initialItems.length,
     });
-  }, [initialCategories, initialItems, initialNextCursor, initialTotalCount]);
+  }, [initialBrandFacets, initialCategories, initialItems, initialModelFacets, initialNextCursor, initialTotalCount]);
 
   useEffect(() => () => loadControllerRef.current?.abort(), []);
 
@@ -119,6 +131,13 @@ export function useProductsData({
       const incomingCategories: CategorySummary[] = Array.isArray(payload?.categories)
         ? (payload.categories as CategorySummary[])
         : initialCategories;
+      const incomingBrandFacets: TaxonomyFacet[] = Array.isArray(payload?.brandFacets)
+        ? (payload.brandFacets as TaxonomyFacet[])
+        : initialBrandFacets;
+      const incomingModelFacets: ModelFacetMap =
+        payload?.modelFacets && typeof payload.modelFacets === "object"
+          ? (payload.modelFacets as ModelFacetMap)
+          : initialModelFacets;
       const payloadError: string | null = typeof payload?.error === "string" && payload.error.trim() ? payload.error : null;
       let next = payload?.nextCursor ?? null;
       if (typeof next === "number" && Number.isFinite(next)) {
@@ -137,6 +156,8 @@ export function useProductsData({
         typeof payload?.total === "number" && Number.isFinite(payload.total) ? Number(payload.total) : newItems.length;
 
       setCategories(incomingCategories);
+      setBrandFacets(incomingBrandFacets);
+      setModelFacets(incomingModelFacets);
       setNextCursor(next);
       setTotalCount(newTotal);
       setPageError(payloadError);
@@ -144,11 +165,13 @@ export function useProductsData({
       cacheRef.current.set(queryKey, {
         items: newItems,
         categories: incomingCategories,
+        brandFacets: incomingBrandFacets,
+        modelFacets: incomingModelFacets,
         nextCursor: next,
         total: newTotal,
       });
     },
-    [buildQueryString, initialCategories, queryKey],
+    [buildQueryString, initialBrandFacets, initialCategories, initialModelFacets, queryKey],
   );
 
   useEffect(() => {
@@ -156,6 +179,8 @@ export function useProductsData({
     if (cached) {
       setItems(cached.items);
       setCategories(cached.categories);
+      setBrandFacets(cached.brandFacets);
+      setModelFacets(cached.modelFacets);
       setNextCursor(cached.nextCursor);
       setTotalCount(cached.total);
       setPageError(null);
@@ -240,6 +265,8 @@ export function useProductsData({
   return {
     items,
     categories,
+    brandFacets,
+    modelFacets,
     totalCount,
     nextCursor,
     hasMore,

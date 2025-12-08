@@ -144,6 +144,8 @@ export async function GET(request: Request) {
         nextCursor: page.nextCursor,
         total: page.total,
         categories: page.categories,
+        brandFacets: page.brandFacets,
+        modelFacets: page.modelFacets,
         error: page.fetchError ?? null,
       },
       {

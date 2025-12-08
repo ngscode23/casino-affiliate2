@@ -227,10 +227,6 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     setState((prev) => ({
       ...prev,
       category: value || "all",
-      // сохраняем бренд, чтобы можно было фильтровать по brand+category одновременно
-      brand: prev.brand || "all",
-      // модель сбрасываем, т.к. она, как правило, привязана к конкретной категории/бренду
-      model: "all",
     }));
   }, [setState]);
 
@@ -340,3 +336,4 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     resetFilters,
   };
 }
+

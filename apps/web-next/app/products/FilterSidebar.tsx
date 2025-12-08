@@ -280,12 +280,12 @@ export default function FilterSidebar({
           </button>
           <button
             type="button"
-            onClick={onCloseAction}
-            className="flex-1 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
-          >
-            Show results
-          </button>
-        </div>
+          onClick={onCloseAction}
+          className="flex-1 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
+        >
+          Close
+        </button>
+      </div>
       </div>
 
       <style jsx>{`
