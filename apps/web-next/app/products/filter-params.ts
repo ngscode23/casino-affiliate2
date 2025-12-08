@@ -1,4 +1,5 @@
 import type { ProductFilters } from "./data";
+import { normalizeBrandSlug } from "./taxonomy";
 
 export type SortOption = NonNullable<ProductFilters["sort"]>;
 
@@ -88,8 +89,9 @@ function parseCategory(searchParams?: SearchParamsLike): string {
 }
 
 function parseBrand(searchParams?: SearchParamsLike): string {
-  const slug = toSingleValue(getParam(searchParams, "brand"))?.trim()?.toLowerCase() ?? "";
-  return slug || "all";
+  const slug = toSingleValue(getParam(searchParams, "brand"))?.trim() ?? "";
+  const normalized = normalizeBrandSlug(slug);
+  return normalized ?? "all";
 }
 
 function parseModel(searchParams?: SearchParamsLike): string {

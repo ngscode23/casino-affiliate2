@@ -23,6 +23,7 @@ type QueryConfig = {
   limit: number;
   offset?: number;
   withCount?: boolean;
+  allowedIds?: string[] | null;
 };
 
 type QueryResult<Row> = {
@@ -38,13 +39,14 @@ export async function fetchProductListingPage<Row = Record<string, unknown>>({
   limit,
   offset = 0,
   withCount = false,
+  allowedIds = null,
 }: QueryConfig): Promise<QueryResult<Row>> {
   const safeLimit = Math.max(0, Math.floor(limit));
   if (safeLimit === 0) {
     return { rows: [], count: 0, error: null };
   }
 
-  const query = buildProductListingQuery(supabase, select, filters, withCount);
+  const query = buildProductListingQuery(supabase, select, filters, withCount, allowedIds);
   const start = Math.max(0, offset);
   const end = start + safeLimit - 1;
   const { data, error, count } = await query.range(start, end);
@@ -61,8 +63,13 @@ function buildProductListingQuery(
   select: string,
   filters: ProductListFilters,
   withCount: boolean,
+  allowedIds: string[] | null,
 ) {
   const query = supabase.from(PRODUCT_TABLE).select(select, withCount ? { count: "exact" } : undefined);
+
+  if (allowedIds && allowedIds.length) {
+    query.in("id", allowedIds);
+  }
 
   // Dataset handling:
   // - "all" (или пусто) трактуем как основной каталог ("shop"), чтобы legacy-товары по умолчанию не попадали в публичный список.

@@ -279,6 +279,8 @@ async function getListing(filters: ReturnType<typeof resolveFilterParams>): Prom
         minRating: filters.minRating,
         sort: filters.sort,
         category: filters.category,
+        brand: filters.brand,
+        model: filters.model,
       },
       { limit: PRODUCT_PAGE_SIZE_DEFAULT, cursor: 0 },
     );

@@ -15,6 +15,7 @@ import type { CategorySummary } from "./data";
 import type { Product } from "./types";
 import type { LayoutMode, ThemeMode } from "./types.shared";
 import { formatPrice } from "./utils";
+import { brandLabelFromSlug, normalizeBrandSlug } from "./taxonomy";
 
 const MIN_SKELETON_ITEMS = 8; // fewer above-the-fold placeholders for faster LCP on mobile
 const PAGE_SIZE = 24;
@@ -379,9 +380,9 @@ export default function ProductsClient({
     const counts = new Map<string, { count: number; label: string }>();
     const accumulate = (source: Product[]) => {
       for (const product of source) {
-        const key = normalizeTaxonomyValue(product.brandSlug ?? product.brand ?? product.brandName);
+        const key = normalizeBrandSlug(product.brandSlug ?? product.brand ?? product.brandName);
         if (!key) continue;
-        const label = product.brandName?.trim() || taxonomyLabelFromValue(key);
+        const label = brandLabelFromSlug(key, product.brandName ?? product.brand);
         const existing = counts.get(key);
         counts.set(key, {
           count: (existing?.count ?? 0) + 1,
@@ -614,8 +615,8 @@ export default function ProductsClient({
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
-    const normalized = normalizeTaxonomyValue(activeBrand);
-    const matching = matchesBrandSampleCount(items, activeBrand);
+      const normalized = normalizeBrandSlug(activeBrand);
+      const matching = matchesBrandSampleCount(items, activeBrand);
     const sample = items.slice(0, 8).map((p) => ({
       id: p.id,
       brand: p.brand,
@@ -721,15 +722,15 @@ function productMatchesCategory(product: Product, category: string): boolean {
 
 function matchesBrand(product: Product, selection: string): boolean {
   if (!selection || selection === "all") return true;
-  const normalizedSelection = normalizeTaxonomyValue(selection);
+  const normalizedSelection = normalizeBrandSlug(selection);
   if (!normalizedSelection) return true;
   const candidates = [
     product.brand,
     product.brandSlug,
     product.brandName,
   ]
-    .map((value) => normalizeTaxonomyValue(value))
-    .filter(Boolean);
+    .map((value) => normalizeBrandSlug(value))
+    .filter(Boolean) as string[];
   return candidates.includes(normalizedSelection);
 }
 

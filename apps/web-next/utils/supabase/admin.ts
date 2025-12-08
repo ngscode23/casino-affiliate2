@@ -15,6 +15,7 @@ function resolveConfig() {
 
   // Prefer new API names; fall back to legacy
   const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE;

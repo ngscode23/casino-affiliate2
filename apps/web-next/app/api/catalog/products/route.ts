@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
+import { normalizeBrandSlug } from "@/app/products/taxonomy";
 
 import {
   PRODUCT_COLLECTION_TAG,
@@ -72,7 +73,10 @@ function toFilters(input: z.infer<typeof querySchema>): ProductFilters {
 
   if (input.q) filters.query = input.q;
   if (input.category && input.category !== "all") filters.category = input.category;
-  if (input.brand && input.brand !== "all") filters.brand = input.brand.toLowerCase();
+  if (input.brand && input.brand !== "all") {
+    const normalizedBrand = normalizeBrandSlug(input.brand);
+    if (normalizedBrand) filters.brand = normalizedBrand;
+  }
   if (input.model && input.model !== "all") filters.model = input.model.toLowerCase();
 
   if (typeof input.price_min === "number" && Number.isFinite(input.price_min)) {
