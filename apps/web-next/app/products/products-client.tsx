@@ -144,7 +144,6 @@ export default function ProductsClient({
   useEffect(() => {
     if (!debug) return;
     // Клиентский лог в браузер
-    // eslint-disable-next-line no-console
     console.log("[catalog-debug-client]", { filters: { brand: initialBrand, model: initialModel }, ...debug });
   }, [debug, initialBrand, initialModel]);
 
@@ -200,7 +199,6 @@ export default function ProductsClient({
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
-    // eslint-disable-next-line no-console
     console.log("[catalog-debug-client:queryKey]", { queryKey, filters });
   }, [filters, queryKey]);
 
