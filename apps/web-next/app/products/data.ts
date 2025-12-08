@@ -12,6 +12,7 @@ import { formatCurrency } from "./currency";
 import { createSupabaseFetchLogger } from "@/utils/supabase/fetch-logger";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { normalizeBrandSlug } from "./taxonomy";
+import { logDebug } from "@/utils/debug-logger";
 
 export type CategorySummary = { slug: string; label: string; count: number };
 
@@ -454,35 +455,8 @@ async function fetchVariantMeta(
             .filter((value): value is string => typeof value === "string" && value.length > 0);
     if (!sanitizedValues.length) return;
 
-    for (const chunk of chunkValues(sanitizedValues, SUPABASE_IN_FILTER_CHUNK)) {
-      const rows = await fetchChunk("products", column, chunk);
-      if (!rows.length) continue;
-      for (const row of rows) {
-        const id = typeof row?.id === "string" ? row.id : null;
-        const slug = typeof row?.slug === "string" ? row.slug : null;
-        const sku = typeof row?.sku === "string" ? row.sku : null;
-        const catalogProductRaw = (row as Record<string, unknown>)?.catalog_product_id ?? null;
-        const catalogProductId =
-          typeof catalogProductRaw === "string" && catalogProductRaw.trim()
-            ? catalogProductRaw.trim()
-            : typeof catalogProductRaw === "number"
-              ? String(catalogProductRaw)
-              : null;
-        const meta: VariantMeta = { id, slug, sku, catalogProductId };
-
-        const upsertIfMissingCatalog = (key: string | null) => {
-          if (!key) return;
-          const existing = variantByKey.get(key);
-          if (!existing || !existing.catalogProductId) {
-            variantByKey.set(key, meta);
-          }
-        };
-
-        upsertIfMissingCatalog(id);
-        upsertIfMissingCatalog(slug);
-        upsertIfMissingCatalog(sku);
-      }
-    }
+    // Disabled: legacy "products" table doesn't carry catalog_product_id and causes 42703 errors.
+    return;
   };
 
   await loadByColumn("id", variantIds);
@@ -869,7 +843,7 @@ function buildCachePayload(filters: ProductFilters, options?: LoadProductsOption
 const PRODUCT_SELECT_COLUMNS =
   "id, sku, name, slug, basePriceCents, effectivePriceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail, thumbnail_path, dataset";
 
-const PRODUCTS_DATA_CACHE_KEY = "products:list:data:v4";
+const PRODUCTS_DATA_CACHE_KEY = "products:list:data:v5";
 
 function toProductListFilters(filters: ProductFilters): ProductListFilters {
   const normalized: ProductListFilters = {
@@ -1040,6 +1014,15 @@ export async function fetchProductsPage(filters: ProductFilters = {}, options?: 
   );
   const cursor = Math.max(0, Math.floor(options?.cursor ?? 0));
 
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      console.log("[catalog-debug] fetchProductsPage filters", { filters: normalized, options: { limit, cursor } });
+      logDebug("fetchProductsPage", { filters: normalized, options: { limit, cursor } });
+    } catch {
+      /* noop */
+    }
+  }
+
   const result = await loadProductsData(normalized, { ...options, limit, cursor });
 
   const items = result.products;
@@ -1052,6 +1035,7 @@ export async function fetchProductsPage(filters: ProductFilters = {}, options?: 
     categories: result.categories,
     structuredData: result.structuredData,
     fetchError: result.fetchError ? (result.fetchError as any)?.message ?? String(result.fetchError) : null,
+    debug: result.debug ?? null,
   };
 }
 
@@ -1111,6 +1095,7 @@ async function loadProductsDataInternal(
   categories: CategorySummary[];
   catalogName: string;
   totalCount: number;
+  debug?: Record<string, unknown>;
 }> {
   const supabase = getCatalogClient();
   const effectiveLimit = Math.min(
@@ -1146,6 +1131,14 @@ async function loadProductsDataInternal(
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] variant-id-prep", {
+      brand: filters.brand,
+      brandVariantCount: brandVariantIds?.size ?? 0,
+      brandCatalogCount: brandCatalogIds?.size ?? 0,
+      model: filters.model,
+      modelVariantCount: modelVariantIds?.size ?? 0,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
+    logDebug("variant-id-prep", {
       brand: filters.brand,
       brandVariantCount: brandVariantIds?.size ?? 0,
       brandCatalogCount: brandCatalogIds?.size ?? 0,
@@ -1209,6 +1202,14 @@ async function loadProductsDataInternal(
       limit: effectiveLimit,
       allowedVariantCount: allowedVariantIds?.size ?? 0,
     });
+    logDebug("supabase-fetch", {
+      requested: targetCount,
+      fetched: fetchedRows.length,
+      totalCount,
+      cursor: effectiveCursor,
+      limit: effectiveLimit,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
   }
 
   if (fetchError || !fetchedRows.length) {
@@ -1258,6 +1259,13 @@ async function loadProductsDataInternal(
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] post-filter", {
+      brand: effectiveFilters.brand,
+      model: effectiveFilters.model,
+      filtered: filteredProducts.length,
+      totalRows: products.length,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
+    logDebug("post-filter", {
       brand: effectiveFilters.brand,
       model: effectiveFilters.model,
       filtered: filteredProducts.length,
@@ -1315,6 +1323,15 @@ async function loadProductsDataInternal(
     categories,
     catalogName: CATALOG_NAME,
     totalCount: totalForFilters,
+    debug: {
+      brand: effectiveFilters.brand ?? "all",
+      model: effectiveFilters.model ?? "all",
+      brandVariantCount: brandVariantIds?.size ?? 0,
+      modelVariantCount: modelVariantIds?.size ?? 0,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      fetchedRows: fetchedRows.length,
+      filteredRows: filteredProducts.length,
+    },
   };
 }
 

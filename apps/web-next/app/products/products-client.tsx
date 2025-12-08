@@ -45,10 +45,12 @@ export default function ProductsClient({
   totalAvailable,
   initialNextCursor = null,
   fetchError = null,
+  debug = null,
 }: {
   products: Product[];
   categories: CategorySummary[];
   catalogName: string;
+  debug?: Record<string, unknown> | null;
   initialLayout?: LayoutMode;
   initialQuery?: string;
   initialCategory?: string;
@@ -139,6 +141,13 @@ export default function ProductsClient({
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
+  useEffect(() => {
+    if (!debug) return;
+    // Клиентский лог в браузер
+    // eslint-disable-next-line no-console
+    console.log("[catalog-debug-client]", { filters: { brand: initialBrand, model: initialModel }, ...debug });
+  }, [debug, initialBrand, initialModel]);
+
   const buildQueryString = useCallback(
     (cursorValue: number) => {
       const params = new URLSearchParams();
@@ -188,6 +197,12 @@ export default function ProductsClient({
     queryKey,
     buildQueryString,
   });
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    // eslint-disable-next-line no-console
+    console.log("[catalog-debug-client:queryKey]", { queryKey, filters });
+  }, [filters, queryKey]);
 
   const productById = useMemo(() => {
     const map = new Map<string, Product>();
@@ -264,10 +279,8 @@ export default function ProductsClient({
   const handleCategoryChange = useCallback(
     (value: string) => {
       setCategory(value);
-      setBrand("all");
-      setModel("all");
     },
-    [setBrand, setCategory, setModel],
+    [setCategory],
   );
 
   const handleBrandChange = useCallback(
@@ -714,10 +727,16 @@ function taxonomyLabelFromValue(value: string | null | undefined): string {
 
 function productMatchesCategory(product: Product, category: string): boolean {
   if (!category || category === "all") return true;
-  if (product.categorySlug && product.categorySlug === category) return true;
-  const normalizedCategory = normalizeTaxonomyValue(category);
-  const productCategory = normalizeTaxonomyValue(product.category);
-  return productCategory === normalizedCategory;
+  const normalizedSelection = category.trim().toLowerCase();
+  if (!normalizedSelection) return true;
+
+  const productCategory = normalizeTaxonomyValue(product.categorySlug ?? product.category);
+  if (!productCategory) return false;
+
+  // Совпадение точного слага или дочерних ("phones/android" должно матчить "phones")
+  if (productCategory === normalizedSelection) return true;
+  if (productCategory.startsWith(`${normalizedSelection}/`)) return true;
+  return false;
 }
 
 function matchesBrand(product: Product, selection: string): boolean {

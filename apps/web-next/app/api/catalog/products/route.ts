@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import { normalizeBrandSlug } from "@/app/products/taxonomy";
+import { logDebug } from "@/utils/debug-logger";
 
 import {
   PRODUCT_COLLECTION_TAG,
@@ -12,8 +13,12 @@ import {
   type ProductFilters,
 } from "@/app/products/data";
 
-export const revalidate = 180;
-export const dynamic = "force-static";
+// API должен всегда учитывать текущие query-параметры (brand/model/category).
+// Статическое кеширование ломало фильтры: Next кешировал первый ответ без brand/model
+// и отдавал его для всех последующих запросов. Делаем хэндлер полностью динамическим.
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 const querySchema = z.object({
   limit: z
@@ -98,6 +103,19 @@ export async function GET(request: Request) {
     const parsed = querySchema.parse(Object.fromEntries(url.searchParams.entries()));
     const filters = toFilters(parsed);
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[catalog-debug] api/catalog/products query", {
+        raw: Object.fromEntries(url.searchParams.entries()),
+        parsed,
+        filters,
+      });
+      logDebug("api/catalog/products", {
+        raw: Object.fromEntries(url.searchParams.entries()),
+        parsed,
+        filters,
+      });
+    }
+
     const page = await fetchProductsPage(filters, {
       limit: parsed.limit,
       cursor: parsed.cursor,
@@ -113,7 +131,8 @@ export async function GET(request: Request) {
       },
       {
         headers: {
-          "Cache-Control": `public, s-maxage=${PRODUCT_LIST_REVALIDATE_SECONDS}, stale-while-revalidate=${PRODUCT_LIST_REVALIDATE_SECONDS}`,
+          // Не кэшируем на CDN/браузере, т.к. данные зависят от query-параметров.
+          "Cache-Control": "no-store",
         },
       },
     );

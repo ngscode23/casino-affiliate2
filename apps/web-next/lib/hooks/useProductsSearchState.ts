@@ -132,6 +132,32 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     ],
   );
 
+  const hasExplicitInitialFilters = useMemo(
+    () =>
+      Boolean(
+        (options.initialQuery && options.initialQuery.trim()) ||
+          (options.initialDataset && options.initialDataset !== "all") ||
+          (options.initialCategory && options.initialCategory !== "all") ||
+          (options.initialBrand && options.initialBrand !== "all") ||
+          (options.initialModel && options.initialModel !== "all") ||
+          (options.initialPriceMin != null && Number.isFinite(options.initialPriceMin)) ||
+          (options.initialPriceMax != null && Number.isFinite(options.initialPriceMax)) ||
+          (options.initialMinRating != null && Number.isFinite(options.initialMinRating)) ||
+          (options.initialSort && options.initialSort !== "recent"),
+      ),
+    [
+      options.initialBrand,
+      options.initialCategory,
+      options.initialDataset,
+      options.initialMinRating,
+      options.initialModel,
+      options.initialPriceMax,
+      options.initialPriceMin,
+      options.initialQuery,
+      options.initialSort,
+    ],
+  );
+
   const parseSearchParams = useCallback(
     (params: URLSearchParams) => {
       const parsed = resolveFilterParams(params);
@@ -159,6 +185,7 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
 
   useEffect(() => {
     if (restoredFromSession.current) return;
+    if (hasExplicitInitialFilters) return; // при прямом заходе с фильтрами из URL не затираем их состоянием из сессии
     try {
       const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(storageKey) : null;
       if (!raw) return;
@@ -173,7 +200,7 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     } catch {
       /* ignore */
     }
-  }, [state, storageKey, setState]);
+  }, [hasExplicitInitialFilters, setState, state, storageKey]);
 
   useEffect(() => {
     try {
@@ -200,7 +227,9 @@ export function useProductsSearchState(options: UseProductsSearchStateOptions): 
     setState((prev) => ({
       ...prev,
       category: value || "all",
-      brand: "all",
+      // сохраняем бренд, чтобы можно было фильтровать по brand+category одновременно
+      brand: prev.brand || "all",
+      // модель сбрасываем, т.к. она, как правило, привязана к конкретной категории/бренду
       model: "all",
     }));
   }, [setState]);

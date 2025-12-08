@@ -19,21 +19,24 @@ const BASE_TITLE = `Каталог товаров | ${SITE_NAME}`;
 const BASE_DESCRIPTION =
   "Каталог Neon Shop: смартфоны, ноутбуки и аксессуары. Сравнивайте цены, характеристики и находите лучшие предложения.";
 
-export const revalidate = 180;
-export const dynamic = "force-static";
-export const fetchCache = "force-cache";
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 type ListingResult = Awaited<ReturnType<typeof fetchProductsPage>>;
 type ListingResponse = { listing: ListingResult; fetchError: string | null };
 
+type SearchParamsObject = Record<string, string | string[] | undefined>;
+type MaybePromise<T> = T | Promise<T>;
+
 type ProductsMetadataProps = {
-  params?: Promise<Record<string, string | string[] | undefined>>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  params?: MaybePromise<SearchParamsObject>;
+  searchParams?: MaybePromise<SearchParamsObject>;
 };
 
 type ProductsPageProps = {
-  params?: Promise<Record<string, string | string[] | undefined>>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  params?: MaybePromise<SearchParamsObject>;
+  searchParams?: MaybePromise<SearchParamsObject>;
 };
 
 function normalizeCategoryParam(input: string | string[] | undefined): string | null {
@@ -144,8 +147,8 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  const resolvedSearchParams = await searchParams;
-  const filters = resolveFilterParams(resolvedSearchParams);
+  const resolvedSearch = (await searchParams) ?? {};
+  const filters = resolveFilterParams(resolvedSearch);
   const listingPromise = getListing(filters);
 
   return (
@@ -213,9 +216,12 @@ function ProductsStream({
         <ProductsClient
           products={listing.items}
           categories={listing.categories}
-          catalogName={CATALOG_NAME ?? "Каталог"}
+          catalogName={CATALOG_NAME ?? "???????"}
+          debug={listing.debug ?? null}
           initialQuery={filters.query}
           initialCategory={filters.category}
+          initialBrand={filters.brand}
+          initialModel={filters.model}
           initialDataset={filters.dataset}
           initialSort={filters.sort}
           initialPriceMin={filters.priceMin}
@@ -293,6 +299,7 @@ async function getListing(filters: ReturnType<typeof resolveFilterParams>): Prom
         total: 0,
         categories: [],
         structuredData: null,
+        debug: null,
         fetchError: (error as Error)?.message ?? String(error),
       },
       fetchError: (error as Error)?.message ?? String(error),

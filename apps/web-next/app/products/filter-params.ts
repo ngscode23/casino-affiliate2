@@ -17,7 +17,10 @@ export type ResolvedFilterParams = {
   minRating: number | null;
 };
 
-type SearchParamsLike = URLSearchParams | Record<string, string | string[] | undefined> | undefined;
+type SearchParamsLike =
+  | { getAll: (name: string) => string[] } // URLSearchParams / ReadonlyURLSearchParams shape
+  | Record<string, string | string[] | undefined>
+  | undefined;
 
 export function resolveFilterParams(searchParams?: SearchParamsLike): ResolvedFilterParams {
   const dataset = parseDataset(searchParams);
@@ -45,7 +48,7 @@ export function resolveFilterParams(searchParams?: SearchParamsLike): ResolvedFi
 
 function getParam(searchParams: SearchParamsLike, key: string): string | string[] | undefined {
   if (!searchParams) return undefined;
-  if (typeof URLSearchParams !== "undefined" && searchParams instanceof URLSearchParams) {
+  if (isURLSearchParamsLike(searchParams)) {
     const all = searchParams.getAll(key);
     if (all.length === 0) return undefined;
     return all.length === 1 ? all[0] : all;
@@ -54,11 +57,17 @@ function getParam(searchParams: SearchParamsLike, key: string): string | string[
   return undefined;
 }
 
+function isURLSearchParamsLike(
+  value: SearchParamsLike,
+): value is { getAll: (name: string) => string[] } {
+  return Boolean(value && typeof (value as { getAll?: unknown }).getAll === "function");
+}
+
 function isRecordParams(
   value: SearchParamsLike,
 ): value is Record<string, string | string[] | undefined> {
   if (!value) return false;
-  if (typeof URLSearchParams !== "undefined" && value instanceof URLSearchParams) return false;
+  if (isURLSearchParamsLike(value)) return false;
   return typeof value === "object";
 }
 
