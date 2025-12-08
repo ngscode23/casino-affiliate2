@@ -291,6 +291,7 @@ async function getListing(filters: ReturnType<typeof resolveFilterParams>): Prom
         total: 0,
         categories: [],
         structuredData: null,
+        fetchError: (error as Error)?.message ?? String(error),
       },
       fetchError: (error as Error)?.message ?? String(error),
     };
