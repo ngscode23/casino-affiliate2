@@ -82,16 +82,14 @@ let catalogSupabase: SupabaseClient | null = null;
 function getCatalogClient(): SupabaseClient {
   if (!catalogSupabase) {
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serverKey =
+    const key =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.SUPABASE_SERVICE_ROLE ||
       process.env.SUPABASE_SECRET_KEY ||
       process.env.SUPABASE_SECRET;
-    const publicKey =
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const key = serverKey || publicKey;
+
     if (!url || !key) {
-      throw new Error("Missing SUPABASE_URL and key for catalog client");
+      throw new Error("Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for catalog client");
     }
     catalogSupabase = createSupabaseClient(url, key, {
       auth: {
@@ -243,12 +241,7 @@ async function fetchCatalogMeta(
   let catalogSupabase: SupabaseClient | null = null;
   let adminCatalog: SupabaseClient | null = null;
 
-  try {
-    adminCatalog = getAdminClient();
-  } catch {
-    adminCatalog = null;
-  }
-
+  adminCatalog = getAdminClient();
   catalogSupabase = getCatalogClient();
   for (const chunk of chunkValues(uniqueIds, SUPABASE_IN_FILTER_CHUNK)) {
     const client = adminCatalog ?? catalogSupabase;
@@ -343,13 +336,8 @@ async function fetchVariantMeta(
 ): Promise<Map<string, VariantMeta>> {
   const variantByKey = new Map<string, VariantMeta>();
   const enableProductsFallback = process.env.SUPABASE_ENABLE_PRODUCTS_FALLBACK === "true";
-  const supabase = getCatalogClient();
-  let adminClient: SupabaseClient | null = null;
-  try {
-    adminClient = getAdminClient();
-  } catch {
-    adminClient = null;
-  }
+  const supabase = getCatalogClient(); // service-role
+  let adminClient: SupabaseClient | null = getAdminClient();
 
   const fetchChunk = async (
     source: "ecom_products" | "products",
@@ -589,6 +577,7 @@ function filterProductsByTaxonomy(
   products: Product[],
   filters: ProductFilters,
   brandCatalogIds?: Set<string>,
+  allowedVariantIds?: Set<string>,
 ): Product[] {
   const brandSelection = filters.brand ?? "all";
   const modelSelection = filters.model ?? "all";
@@ -614,20 +603,22 @@ function filterProductsByTaxonomy(
     }
 
     if (brandSelection && brandSelection !== "all") {
-      const normalizedSelection = normalizeBrandSlug(brandSelection);
-      if (normalizedSelection) {
-        const candidates = [product.brand, product.brandSlug, product.brandName]
-          .map((value) => (typeof value === "string" ? normalizeBrandSlug(value) : null))
-          .filter(Boolean) as string[];
-        const matchesMeta = candidates.includes(normalizedSelection);
-        const matchesCatalog =
-          !matchesMeta &&
-          brandCatalogIds &&
-          brandCatalogIds.size > 0 &&
-          typeof product.catalogProductId === "string" &&
-          brandCatalogIds.has(product.catalogProductId);
-        if (!matchesMeta && !matchesCatalog) {
-          return false;
+      if (!(allowedVariantIds && allowedVariantIds.size > 0)) {
+        const normalizedSelection = normalizeBrandSlug(brandSelection);
+        if (normalizedSelection) {
+          const candidates = [product.brand, product.brandSlug, product.brandName]
+            .map((value) => (typeof value === "string" ? normalizeBrandSlug(value) : null))
+            .filter(Boolean) as string[];
+          const matchesMeta = candidates.includes(normalizedSelection);
+          const matchesCatalog =
+            !matchesMeta &&
+            brandCatalogIds &&
+            brandCatalogIds.size > 0 &&
+            typeof product.catalogProductId === "string" &&
+            brandCatalogIds.has(product.catalogProductId);
+          if (!matchesMeta && !matchesCatalog) {
+            return false;
+          }
         }
       }
     }
@@ -643,7 +634,10 @@ function filterProductsByTaxonomy(
           .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
           .filter(Boolean);
         if (!candidates.includes(normalizedSelection)) {
-          if (!product.catalogProductId || product.catalogProductId !== modelSelection) {
+          if (
+            !(allowedVariantIds && allowedVariantIds.has(product.id ?? "")) &&
+            (!product.catalogProductId || product.catalogProductId !== modelSelection)
+          ) {
             return false;
           }
         }
@@ -797,12 +791,13 @@ async function fetchVariantIdsForBrand(brandSlug: string): Promise<Set<string>> 
 
 async function fetchVariantIdsForModel(modelSlug: string): Promise<Set<string>> {
   const supabase = getCatalogClient();
+  const catalogAdmin = getAdminClient("catalog");
   const normalized = modelSlug?.trim().toLowerCase();
   if (!normalized || normalized === "all") return new Set();
 
   const modelIds = new Set<string>();
-  const { data: products, error } = await supabase
-    .from("catalog.products")
+  const { data: products, error } = await catalogAdmin
+    .from("products")
     .select("id")
     .eq("slug", normalized);
 
@@ -1126,22 +1121,38 @@ async function loadProductsDataInternal(
 
   // Pre-resolve brand/model variant ids for server-side filtering to avoid empty results when meta is missing.
   let brandCatalogIds: Set<string> | undefined;
+  let brandVariantIds: Set<string> | undefined;
+  let modelVariantIds: Set<string> | undefined;
   let allowedVariantIds: Set<string> | undefined;
+
   if (filters.brand && filters.brand !== "all") {
     brandCatalogIds = await fetchBrandCatalogProductIds(filters.brand);
     const variantIds = await fetchVariantIdsForBrand(filters.brand);
     if (variantIds.size > 0) {
+      brandVariantIds = variantIds;
       allowedVariantIds = variantIds;
     }
   }
 
   if (filters.model && filters.model !== "all") {
-    const modelVariantIds = await fetchVariantIdsForModel(filters.model);
-    if (modelVariantIds.size > 0) {
+    const mIds = await fetchVariantIdsForModel(filters.model);
+    if (mIds.size > 0) {
+      modelVariantIds = mIds;
       allowedVariantIds = allowedVariantIds
-        ? new Set(Array.from(allowedVariantIds).filter((id) => modelVariantIds.has(id)))
-        : modelVariantIds;
+        ? new Set(Array.from(allowedVariantIds).filter((id) => mIds.has(id)))
+        : mIds;
     }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[catalog-debug] variant-id-prep", {
+      brand: filters.brand,
+      brandVariantCount: brandVariantIds?.size ?? 0,
+      brandCatalogCount: brandCatalogIds?.size ?? 0,
+      model: filters.model,
+      modelVariantCount: modelVariantIds?.size ?? 0,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
   }
 
   const needsDeepScan =
@@ -1189,6 +1200,17 @@ async function loadProductsDataInternal(
     }
   }
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[catalog-debug] supabase-fetch", {
+      requested: targetCount,
+      fetched: fetchedRows.length,
+      totalCount,
+      cursor: effectiveCursor,
+      limit: effectiveLimit,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
+  }
+
   if (fetchError || !fetchedRows.length) {
     return {
       products: [],
@@ -1221,7 +1243,7 @@ async function loadProductsDataInternal(
 
   // brandCatalogIds already resolved above (if brand filter is set)
 
-  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds);
+  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds, allowedVariantIds);
 
   // Safe fallback: если бренд/модель отфильтровали всё, ослабляем до категории, чтобы не показывать пустую выдачу.
   if (
@@ -1229,10 +1251,20 @@ async function loadProductsDataInternal(
     ((effectiveFilters.brand && effectiveFilters.brand !== "all") || (effectiveFilters.model && effectiveFilters.model !== "all"))
   ) {
     const relaxed: ProductFilters = { ...effectiveFilters, brand: undefined, model: undefined };
-    filteredProducts = filterProductsByTaxonomy(products, relaxed, brandCatalogIds);
+    filteredProducts = filterProductsByTaxonomy(products, relaxed, brandCatalogIds, allowedVariantIds);
   }
 
   const categories = summarizeCategories(filteredProducts);
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[catalog-debug] post-filter", {
+      brand: effectiveFilters.brand,
+      model: effectiveFilters.model,
+      filtered: filteredProducts.length,
+      totalRows: products.length,
+      allowedVariantCount: allowedVariantIds?.size ?? 0,
+    });
+  }
 
   const personalizedList = options?.personalize
     ? applyPersonalizedRanking(filteredProducts, {
