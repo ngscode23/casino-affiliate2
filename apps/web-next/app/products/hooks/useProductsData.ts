@@ -161,7 +161,6 @@ export function useProductsData({
 
     return () => controller.abort();
     // initial* deps intentionally excluded: we reset state on queryKey change only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPageRemote, queryKey]);
 
   const hasMore = useMemo(() => nextCursor !== null, [nextCursor]);

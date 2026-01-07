@@ -1210,9 +1210,9 @@ async function loadProductsDataInternal(
   // so options stay visible within the current category.
   const facetBase = filterProductsByTaxonomy(products, { ...filters, brand: undefined, model: undefined });
 
-  let brandFacets = buildBrandFacets(facetBase);
-  let modelFacets = buildModelFacets(facetBase);
-  let categories = summarizeCategories(facetBase);
+  const brandFacets = buildBrandFacets(facetBase);
+  const modelFacets = buildModelFacets(facetBase);
+  const categories = summarizeCategories(facetBase);
 
   const availableCategorySlugs = new Set(
     products
@@ -1232,7 +1232,7 @@ async function loadProductsDataInternal(
 
   // brandCatalogIds already resolved above (if brand filter is set)
 
-  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds);
+  const filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds);
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] post-filter", {
