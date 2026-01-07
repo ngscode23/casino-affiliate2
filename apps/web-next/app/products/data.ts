@@ -5,13 +5,13 @@ import { Pool } from "pg";
 import { applyPersonalizedRanking, type UserProfile } from "@/lib/personalization/rank";
 import { fetchProductListingPage, type ProductListFilters } from "@/lib/catalog/product-source";
 import { mapDbProduct, type DbProductRow } from "@/lib/catalog/mapDbProduct";
-import { sanitizeSearchParam } from "@shared/lib/sanitize";
 import { normalizeImageUrl } from "./[slug]/data";
 import type { Product } from "./types";
 import { formatCurrency } from "./currency";
 import { createSupabaseFetchLogger } from "@/utils/supabase/fetch-logger";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { normalizeBrandSlug, brandLabelFromSlug } from "./taxonomy";
+import { normalizeProductFilters, type ProductFilters } from "./filter-schema";
 import { logDebug } from "@/utils/debug-logger";
 
 export type CategorySummary = { slug: string; label: string; count: number };
@@ -107,17 +107,7 @@ function getCatalogClient(): SupabaseClient {
   return catalogSupabase;
 }
 
-export type ProductFilters = {
-  query?: string;
-  category?: string;
-  dataset?: "all" | "shop";
-  brand?: string;
-  model?: string;
-  priceMin?: number | null;
-  priceMax?: number | null;
-  minRating?: number | null;
-  sort?: "recent" | "popular" | "price-asc" | "price-desc" | "impressions";
-};
+export type { ProductFilters } from "./filter-schema";
 
 export type LoadProductsOptions = {
   limit?: number;
@@ -549,81 +539,58 @@ function buildStructuredData(products: Product[]) {
   } satisfies Record<string, unknown>;
 }
 
+
 function filterProductsByTaxonomy(
   products: Product[],
   filters: ProductFilters,
   brandCatalogIds?: Set<string>,
-  allowedVariantIds?: Set<string>,
 ): Product[] {
   const brandSelection = filters.brand ?? "all";
-  const modelSelection = filters.model ?? "all";
-  const categorySelection = filters.category ?? "all";
+  const normalizedModelSelection =
+    filters.model && filters.model !== "all" ? normalizeTaxonomyValue(filters.model) : null;
 
   return products.filter((product) => {
+    // dataset filter
     if (filters.dataset && filters.dataset !== "all" && product.dataset !== filters.dataset) {
       return false;
     }
 
-    if (categorySelection && categorySelection !== "all") {
-      const normalizedSelection = categorySelection.trim().toLowerCase();
-      if (normalizedSelection) {
-        const productCategory = (product.categorySlug ?? product.category ?? "").trim().toLowerCase();
-        if (!productCategory) return false;
-        // allow matching parent/child slugs like "phones" vs "phones/android"
-        const matchesDirect = productCategory === normalizedSelection;
-        const matchesNested = productCategory.startsWith(`${normalizedSelection}/`);
-        if (!matchesDirect && !matchesNested) {
-          return false;
-        }
-      }
-    }
-
     if (brandSelection && brandSelection !== "all") {
       const normalizedSelection = normalizeBrandSlug(brandSelection);
-      const matchesByVariant =
-        typeof product.id === "string" && allowedVariantIds && allowedVariantIds.size > 0
-          ? allowedVariantIds.has(product.id)
-          : false;
       let matchesByMeta = false;
       if (normalizedSelection) {
         const candidates = [product.brand, product.brandSlug, product.brandName]
           .map((value) => (typeof value === "string" ? normalizeBrandSlug(value) : null))
           .filter(Boolean) as string[];
-        matchesByMeta =
-          normalizedSelection === "unbranded" ? candidates.length === 0 : candidates.includes(normalizedSelection);
+        matchesByMeta = normalizedSelection === "unbranded" ? candidates.length === 0 : candidates.includes(normalizedSelection);
         if (!matchesByMeta && brandCatalogIds && brandCatalogIds.size > 0 && typeof product.catalogProductId === "string") {
           matchesByMeta = brandCatalogIds.has(product.catalogProductId);
         }
       }
-      if (!matchesByVariant && !matchesByMeta) {
+      if (!matchesByMeta) {
         return false;
       }
     }
 
-    if (modelSelection && modelSelection !== "all") {
-      const normalizedSelection = modelSelection.trim().toLowerCase();
-      if (normalizedSelection) {
-        const candidates = [
-          product.model,
-          product.modelSlug,
-          product.modelTitle ? product.modelTitle.toLowerCase().replace(/\s+/g, "-") : null,
-        ]
-          .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
-          .filter(Boolean);
-        if (!candidates.includes(normalizedSelection)) {
-          if (
-            !(allowedVariantIds && allowedVariantIds.has(product.id ?? "")) &&
-            (!product.catalogProductId || product.catalogProductId !== modelSelection)
-          ) {
-            return false;
-          }
-        }
+    if (normalizedModelSelection) {
+      const candidates = [
+        product.modelSlug,
+        product.model,
+        product.modelTitle,
+        product.catalogProductId, // allow direct catalog product id match
+      ]
+        .map((value) => normalizeTaxonomyValue(typeof value === "string" ? value : null))
+        .filter(Boolean) as string[];
+
+      if (!candidates.includes(normalizedModelSelection)) {
+        return false;
       }
     }
 
     return true;
   });
 }
+
 
 function summarizeCategories(products: Product[]): CategorySummary[] {
   const counts = new Map<string, { label: string; count: number }>();
@@ -723,56 +690,6 @@ type NormalizedCachePayload = {
   cursor: number;
 };
 
-function normalizeFilters(filters: ProductFilters = {}): ProductFilters {
-  const normalized: ProductFilters = {};
-
-  const sanitizedQuery = sanitizeSearchParam(filters.query ?? "");
-  const trimmedQuery = sanitizedQuery ? sanitizedQuery.trim().slice(0, 120) : "";
-  if (trimmedQuery) normalized.query = trimmedQuery;
-
-  const category = filters.category?.trim().toLowerCase();
-  if (category && category !== "all") normalized.category = category;
-
-  const brand = normalizeBrandSlug(filters.brand);
-  if (brand && brand !== "all") {
-    normalized.brand = brand;
-  }
-
-  const model = filters.model?.trim().toLowerCase();
-  if (model && model !== "all") {
-    normalized.model = model;
-  }
-
-  normalized.dataset = filters.dataset === "shop" ? "shop" : "all";
-
-  if (typeof filters.priceMin === "number" && Number.isFinite(filters.priceMin) && filters.priceMin >= 0) {
-    normalized.priceMin = Math.max(0, Math.round(filters.priceMin * 100) / 100);
-  }
-
-  if (typeof filters.priceMax === "number" && Number.isFinite(filters.priceMax) && filters.priceMax >= 0) {
-    normalized.priceMax = Math.max(0, Math.round(filters.priceMax * 100) / 100);
-  }
-
-  if (
-    normalized.priceMin != null &&
-    normalized.priceMax != null &&
-    normalized.priceMax < normalized.priceMin
-  ) {
-    normalized.priceMax = normalized.priceMin;
-  }
-
-  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating)) {
-    const rating = filters.minRating;
-    if (rating >= 4.5) normalized.minRating = 4.5;
-    else if (rating >= 4) normalized.minRating = 4;
-    else if (rating >= 3) normalized.minRating = 3;
-  }
-
-  normalized.sort = filters.sort ?? "recent";
-
-  return normalized;
-}
-
 async function fetchBrandCatalogProductIds(brandSlug: string): Promise<Set<string>> {
   const supabase = getCatalogClient();
   const normalized = normalizeBrandSlug(brandSlug);
@@ -813,12 +730,15 @@ async function fetchVariantIdsForBrand(brandSlug: string): Promise<Set<string>> 
       .select("id, catalog_product_id")
       .in("catalog_product_id", chunk);
 
-    if (error && process.env.NODE_ENV !== "production") {
-      console.error("[catalog-meta] brand variant lookup error", {
-        brand: brandSlug,
-        message: error.message,
-        details: (error as PostgrestError | null)?.details,
-      });
+    if (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[catalog-meta] brand variant lookup error", {
+          brand: brandSlug,
+          message: (error as PostgrestError | null)?.message ?? String(error),
+          details: (error as PostgrestError | null)?.details ?? null,
+        });
+      }
+      continue; // skip this chunk, keep best-effort
     }
 
     if (Array.isArray(data)) {
@@ -844,12 +764,15 @@ async function fetchVariantIdsForModel(modelSlug: string): Promise<Set<string>> 
     .select("id")
     .eq("slug", normalized);
 
-  if (error && process.env.NODE_ENV !== "production") {
-    console.error("[catalog-meta] model lookup error", {
-      model: normalized,
-      message: error.message,
-      details: (error as PostgrestError | null)?.details,
-    });
+  if (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[catalog-meta] model lookup error", {
+        model: normalized,
+        message: (error as PostgrestError | null)?.message ?? String(error),
+        details: (error as PostgrestError | null)?.details ?? null,
+      });
+    }
+    return new Set();
   }
 
   if (Array.isArray(products)) {
@@ -868,12 +791,15 @@ async function fetchVariantIdsForModel(modelSlug: string): Promise<Set<string>> 
       .select("id, catalog_product_id")
       .in("catalog_product_id", chunk);
 
-    if (variantError && process.env.NODE_ENV !== "production") {
-      console.error("[catalog-meta] model variant lookup error", {
-        model: normalized,
-        message: variantError.message,
-        details: (variantError as PostgrestError | null)?.details,
-      });
+    if (variantError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[catalog-meta] model variant lookup error", {
+          model: normalized,
+          message: (variantError as PostgrestError | null)?.message ?? String(variantError),
+          details: (variantError as PostgrestError | null)?.details ?? null,
+        });
+      }
+      continue;
     }
 
     if (Array.isArray(data)) {
@@ -1076,7 +1002,7 @@ function mapRowsToProducts(
   });
 }
 export async function fetchProductsPage(filters: ProductFilters = {}, options?: LoadProductsOptions) {
-  const normalized = normalizeFilters(filters);
+  const normalized = normalizeProductFilters(filters);
   const limit = Math.min(
     Math.max(1, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT)),
     PRODUCT_PAGE_HARD_CAP,
@@ -1179,50 +1105,29 @@ async function loadProductsDataInternal(
 
   // Pre-resolve brand/model variant ids for server-side filtering to avoid empty results when meta is missing.
   let brandCatalogIds: Set<string> | undefined;
-  let brandVariantIds: Set<string> | undefined;
-  let modelVariantIds: Set<string> | undefined;
-  let allowedVariantIds: Set<string> | undefined;
 
   if (filters.brand && filters.brand !== "all") {
     brandCatalogIds = await fetchBrandCatalogProductIds(filters.brand);
-    const variantIds = await fetchVariantIdsForBrand(filters.brand);
-    if (variantIds.size > 0) {
-      brandVariantIds = variantIds;
-      allowedVariantIds = variantIds;
-    }
-  }
-
-  if (filters.model && filters.model !== "all") {
-    const mIds = await fetchVariantIdsForModel(filters.model);
-    if (mIds.size > 0) {
-      modelVariantIds = mIds;
-      allowedVariantIds = allowedVariantIds
-        ? new Set(Array.from(allowedVariantIds).filter((id) => mIds.has(id)))
-        : mIds;
-    }
   }
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] variant-id-prep", {
       brand: filters.brand,
-      brandVariantCount: brandVariantIds?.size ?? 0,
       brandCatalogCount: brandCatalogIds?.size ?? 0,
       model: filters.model,
-      modelVariantCount: modelVariantIds?.size ?? 0,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      modelVariantCount: 0,
+      allowedVariantCount: 0,
     });
     logDebug("variant-id-prep", {
       brand: filters.brand,
-      brandVariantCount: brandVariantIds?.size ?? 0,
       brandCatalogCount: brandCatalogIds?.size ?? 0,
       model: filters.model,
-      modelVariantCount: modelVariantIds?.size ?? 0,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      modelVariantCount: 0,
+      allowedVariantCount: 0,
     });
   }
 
-  const needsDeepScan =
-    (filters.brand && filters.brand !== "all") || (filters.model && filters.model !== "all");
+  const needsDeepScan = false;
   const targetCount = Math.min(
     PRODUCT_FETCH_HARD_CAP,
     effectiveCursor + effectiveLimit + (needsDeepScan ? PRODUCT_FETCH_CHUNK : 0),
@@ -1273,7 +1178,7 @@ async function loadProductsDataInternal(
       totalCount,
       cursor: effectiveCursor,
       limit: effectiveLimit,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      allowedVariantCount: 0,
     });
     logDebug("supabase-fetch", {
       requested: targetCount,
@@ -1281,7 +1186,7 @@ async function loadProductsDataInternal(
       totalCount,
       cursor: effectiveCursor,
       limit: effectiveLimit,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      allowedVariantCount: 0,
     });
   }
 
@@ -1300,9 +1205,14 @@ async function loadProductsDataInternal(
 
   const meta = await resolveMetaForRows(fetchedRows);
   const products = mapRowsToProducts(fetchedRows, meta, 0);
-  let brandFacets = buildBrandFacets(products);
-  let modelFacets = buildModelFacets(products);
-  let categories = summarizeCategories(products);
+
+  // Build facets on a base that ignores brand/model filters (but keeps category/query/price/rating/dataset),
+  // so options stay visible within the current category.
+  const facetBase = filterProductsByTaxonomy(products, { ...filters, brand: undefined, model: undefined });
+
+  let brandFacets = buildBrandFacets(facetBase);
+  let modelFacets = buildModelFacets(facetBase);
+  let categories = summarizeCategories(facetBase);
 
   const availableCategorySlugs = new Set(
     products
@@ -1322,22 +1232,7 @@ async function loadProductsDataInternal(
 
   // brandCatalogIds already resolved above (if brand filter is set)
 
-  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds, allowedVariantIds);
-
-  // Safe fallback: если бренд/модель отфильтровали всё, ослабляем до категории, чтобы не показывать пустую выдачу.
-  if (
-    filteredProducts.length === 0 &&
-    ((effectiveFilters.brand && effectiveFilters.brand !== "all") || (effectiveFilters.model && effectiveFilters.model !== "all"))
-  ) {
-    const relaxed: ProductFilters = { ...effectiveFilters, brand: undefined, model: undefined };
-    filteredProducts = filterProductsByTaxonomy(products, relaxed, brandCatalogIds, allowedVariantIds);
-  }
-
-  // Пересобираем фасеты и категории из уже отфильтрованного набора (до пагинации),
-  // чтобы counts и списки всегда соответствовали текущим фильтрам/URL.
-  brandFacets = buildBrandFacets(filteredProducts);
-  modelFacets = buildModelFacets(filteredProducts);
-  categories = summarizeCategories(filteredProducts);
+  let filteredProducts = filterProductsByTaxonomy(products, effectiveFilters, brandCatalogIds);
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[catalog-debug] post-filter", {
@@ -1345,14 +1240,14 @@ async function loadProductsDataInternal(
       model: effectiveFilters.model,
       filtered: filteredProducts.length,
       totalRows: products.length,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      allowedVariantCount: 0,
     });
     logDebug("post-filter", {
       brand: effectiveFilters.brand,
       model: effectiveFilters.model,
       filtered: filteredProducts.length,
       totalRows: products.length,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      allowedVariantCount: 0,
     });
   }
 
@@ -1410,9 +1305,9 @@ async function loadProductsDataInternal(
     debug: {
       brand: effectiveFilters.brand ?? "all",
       model: effectiveFilters.model ?? "all",
-      brandVariantCount: brandVariantIds?.size ?? 0,
-      modelVariantCount: modelVariantIds?.size ?? 0,
-      allowedVariantCount: allowedVariantIds?.size ?? 0,
+      brandVariantCount: 0,
+      modelVariantCount: 0,
+      allowedVariantCount: 0,
       fetchedRows: fetchedRows.length,
       filteredRows: filteredProducts.length,
       brandFacetsCount: brandFacets.length,
@@ -1422,7 +1317,7 @@ async function loadProductsDataInternal(
 }
 
 export async function loadProductsData(filters: ProductFilters = {}, options?: LoadProductsOptions) {
-  const normalized = normalizeFilters(filters);
+  const normalized = normalizeProductFilters(filters);
   const limit = Math.min(
     Math.max(1, Math.floor(options?.limit ?? PRODUCT_PAGE_SIZE_DEFAULT)),
     PRODUCT_PAGE_HARD_CAP,
@@ -1501,3 +1396,5 @@ export function formatPrice(priceCents: number | null | undefined, currency: str
   const cur = (currency ?? "EUR").toUpperCase();
   return formatCurrency(price, cur);
 }
+
+

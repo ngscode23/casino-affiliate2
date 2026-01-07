@@ -4,15 +4,6 @@ import type { RefObject } from "react";
 import type { CategorySummary, ModelFacetMap, TaxonomyFacet } from "../data";
 import type { Product } from "../types";
 
-type CacheEntry = {
-  items: Product[];
-  categories: CategorySummary[];
-  brandFacets: TaxonomyFacet[];
-  modelFacets: ModelFacetMap;
-  nextCursor: number | null;
-  total: number;
-};
-
 type FetchArgs = { cursor?: number; append?: boolean; signal?: AbortSignal };
 
 type Options = {
@@ -83,8 +74,6 @@ export function useProductsData({
   queryKey,
   buildQueryString,
 }: Options): UseProductsDataReturn {
-  const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
-  const initialKeyRef = useRef(queryKey);
   const [items, setItems] = useState<Product[]>(initialItems);
   const [categories, setCategories] = useState<CategorySummary[]>(initialCategories);
   const [brandFacets, setBrandFacets] = useState<TaxonomyFacet[]>(initialBrandFacets);
@@ -96,17 +85,6 @@ export function useProductsData({
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    cacheRef.current.set(initialKeyRef.current, {
-      items: initialItems,
-      categories: initialCategories,
-      brandFacets: initialBrandFacets,
-      modelFacets: initialModelFacets,
-      nextCursor: initialNextCursor,
-      total: initialTotalCount ?? initialItems.length,
-    });
-  }, [initialBrandFacets, initialCategories, initialItems, initialModelFacets, initialNextCursor, initialTotalCount]);
 
   useEffect(() => () => loadControllerRef.current?.abort(), []);
 
@@ -161,32 +139,11 @@ export function useProductsData({
       setNextCursor(next);
       setTotalCount(newTotal);
       setPageError(payloadError);
-
-      cacheRef.current.set(queryKey, {
-        items: newItems,
-        categories: incomingCategories,
-        brandFacets: incomingBrandFacets,
-        modelFacets: incomingModelFacets,
-        nextCursor: next,
-        total: newTotal,
-      });
     },
     [buildQueryString, initialBrandFacets, initialCategories, initialModelFacets, queryKey],
   );
 
   useEffect(() => {
-    const cached = cacheRef.current.get(queryKey);
-    if (cached) {
-      setItems(cached.items);
-      setCategories(cached.categories);
-      setBrandFacets(cached.brandFacets);
-      setModelFacets(cached.modelFacets);
-      setNextCursor(cached.nextCursor);
-      setTotalCount(cached.total);
-      setPageError(null);
-      return;
-    }
-
     const controller = new AbortController();
     setIsFetchingPage(true);
     setPageError(null);
@@ -203,6 +160,8 @@ export function useProductsData({
       });
 
     return () => controller.abort();
+    // initial* deps intentionally excluded: we reset state on queryKey change only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPageRemote, queryKey]);
 
   const hasMore = useMemo(() => nextCursor !== null, [nextCursor]);

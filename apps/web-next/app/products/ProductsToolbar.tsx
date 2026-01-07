@@ -7,6 +7,7 @@ export type ProductsToolbarProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onToggleFilters: () => void;
+  isLoading: boolean;
   onToggleTheme: () => void;
   activeFiltersCount: number;
   activeDataset: DatasetType;
@@ -22,6 +23,7 @@ export function ProductsToolbar({
   query,
   onQueryChange,
   onToggleFilters,
+  isLoading,
   onToggleTheme,
   activeFiltersCount,
   activeDataset,
@@ -43,6 +45,7 @@ export function ProductsToolbar({
       onDatasetChange={onDatasetChange}
       visibleCount={visibleCount}
       totalCount={totalCount}
+      isLoading={isLoading}
       activeSort={activeSort}
       onSortChange={onSortChange}
     />

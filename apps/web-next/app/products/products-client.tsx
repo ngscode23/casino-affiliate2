@@ -10,6 +10,7 @@ import { type FilterSidebarProps, type TaxonomyOption } from "./FilterSidebar";
 import { ProductsAnalytics } from "./ProductsAnalytics";
 import { ProductsLayout } from "./ProductsLayout";
 import { DATASET_LABELS, DatasetType, SortMode } from "./filter-config";
+import { serializeFilterState } from "./filter-schema";
 import { useProductsData } from "./hooks/useProductsData";
 import type { CategorySummary } from "./data";
 import type { Product } from "./types";
@@ -153,32 +154,12 @@ export default function ProductsClient({
 
   const buildQueryString = useCallback(
     (cursorValue: number) => {
-      const params = new URLSearchParams();
+      const params = serializeFilterState(filters);
       params.set("limit", String(PAGE_SIZE));
       params.set("cursor", String(Math.max(0, cursorValue)));
-      if (activeDataset !== "all") params.set("dataset", activeDataset);
-      if (activeCategory !== "all") params.set("category", activeCategory);
-      if (activeBrand !== "all") params.set("brand", activeBrand);
-      if (activeModel !== "all") params.set("model", activeModel);
-      if (activeSort !== "recent") params.set("sort", activeSort);
-      if (priceRange.min != null) params.set("price_min", String(priceRange.min));
-      if (priceRange.max != null) params.set("price_max", String(priceRange.max));
-      if (normalizedRating != null) params.set("rating_min", String(normalizedRating));
-      const trimmedQuery = activeQuery.trim();
-      if (trimmedQuery) params.set("q", trimmedQuery);
       return params.toString();
     },
-    [
-      activeBrand,
-      activeCategory,
-      activeDataset,
-      activeModel,
-      activeQuery,
-      activeSort,
-      normalizedRating,
-      priceRange.max,
-      priceRange.min,
-    ],
+    [filters],
   );
   const {
     items,
@@ -348,7 +329,8 @@ export default function ProductsClient({
     setHydrated(true);
   }, []);
 
-  const showSkeleton = !hydrated || isFetchingPage;
+  // Показываем skeleton только при первой загрузке или если нет ни одного товара.
+  const showSkeleton = (!hydrated || isFetchingPage) && displayed.length === 0;
   const skeletonCount = showSkeleton ? Math.max(displayed.length, MIN_SKELETON_ITEMS) : 0;
   const layoutMode: LayoutMode = initialLayout;
   const visibleCount = items.length;
@@ -593,6 +575,7 @@ export default function ProductsClient({
     query: activeQuery,
     onQueryChange: handleQueryChange,
     onToggleFilters: () => setIsFilterOpen((prev) => !prev),
+    isLoading: isFetchingPage || isFetchingMore,
     onToggleTheme: toggleTheme,
     activeFiltersCount,
     activeDataset,

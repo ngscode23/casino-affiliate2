@@ -9,6 +9,7 @@ type Props = {
   query: string;
   onQueryChange: (value: string) => void;
   onToggleFilters: () => void;
+  isLoading: boolean;
   onToggleTheme: () => void;
   activeFiltersCount: number;
   activeDataset: DatasetType;
@@ -25,6 +26,7 @@ export function ProductFilterToolbar({
   query,
   onQueryChange,
   onToggleFilters,
+  isLoading,
   onToggleTheme,
   activeFiltersCount,
   activeDataset,
@@ -150,6 +152,17 @@ export function ProductFilterToolbar({
           >
             {visibleCount} of {totalCount} products
           </span>
+          {isLoading ? (
+            <span
+              className={
+                theme === "dark"
+                  ? "inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100"
+                  : "inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
+              }
+            >
+              Loading…
+            </span>
+          ) : null}
           <ProductSortBar theme={theme} activeSort={activeSort} onChange={onSortChange} />
         </div>
       </div>
