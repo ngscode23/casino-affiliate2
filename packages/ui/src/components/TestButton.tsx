@@ -4,12 +4,12 @@ import posthog from "posthog-js";
 
 export default function TestButton() {
   const throwError = () => {
-    throw new Error("? ???????? ?????? ??? Sentry");
+    throw new Error("Test error for Sentry");
   };
 
   const sendEvent = () => {
     posthog.capture("test_button_clicked", { foo: "bar", time: Date.now() });
-    alert("?? ??????? ?????????? ? PostHog!");
+    alert("Test event sent to PostHog!");
   };
 
   return (
@@ -18,14 +18,14 @@ export default function TestButton() {
         onClick={throwError}
         className="rounded-lg border border-transparent bg-red-600 px-5 py-2.5 text-white transition hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
       >
-        ???? Sentry (??????)
+        Send Sentry error (test)
       </button>
 
       <button
         onClick={sendEvent}
         className="rounded-lg border border-transparent bg-blue-600 px-5 py-2.5 text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
       >
-        ???? PostHog (???????)
+        Send PostHog event (test)
       </button>
     </div>
   );

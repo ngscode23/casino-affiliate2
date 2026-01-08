@@ -120,11 +120,12 @@ export default function FilterSidebar({
   const modelItems = buildFacetItems(modelOptions, "All models");
   const datasetItems = DATASET_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
   const sortItems = SORT_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
+  const isVisible = hasEntered && isOpen;
 
   return (
     <aside
-      className={`pointer-events-auto lg:pointer-events-auto lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/30 bg-card/90 px-4 py-5 shadow-[var(--elevation-2)] backdrop-blur-2xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 ${
-        hasEntered ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+      className={`lg:sticky lg:top-24 lg:min-h-[calc(100vh-96px)] flex h-full min-h-screen w-[280px] shrink-0 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border/30 bg-card/90 px-4 py-5 shadow-[var(--elevation-2)] backdrop-blur-2xl transition-[transform,opacity] duration-500 ease-[0.22,1,0.36,1] will-change-transform dark:border-white/10 ${
+        isVisible ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0"
       }`}
       aria-label="Product filters"
       aria-hidden={!isOpen}

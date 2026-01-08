@@ -33,15 +33,15 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
+      setError(null);
     try {
       if (!user?.id) {
-        throw new Error("????? ???????????");
+        throw new Error("Authentication required");
       }
 
       const normalizedSlug = slug.trim() ? normalizeSlug(slug) : normalizeSlug(displayName);
       if (!normalizedSlug) {
-        throw new Error("Slug ??????????. ??????????? ????????, ????? ? ?????.");
+        throw new Error("Slug is required. Provide a name or slug.");
       }
 
       const { error: insertError } = await supabase.from("sellers").insert({
@@ -55,7 +55,7 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
 
       router.replace("/seller");
     } catch (err: any) {
-      setError(err?.message ?? "?? ??????? ??????? ??????? ????????");
+      setError(err?.message ?? "Unable to create seller profile");
     } finally {
       setSubmitting(false);
     }
@@ -63,9 +63,9 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
 
   return (
     <div className="mx-auto max-w-2xl rounded-3xl border border-white/15 bg-neutral-950/80 p-6 text-white shadow-2xl">
-      <h1 className="text-2xl font-semibold text-white">????? ?????????</h1>
+      <h1 className="text-2xl font-semibold text-white">Seller onboarding</h1>
       <p className="mt-2 text-sm text-white/60">
-        ???????? ??????? ???????? ? ??????? ?????? ? ????????. ?? ??????? ????????? ????????, ????????? ? ????????.
+        Create your seller profile to list products and manage your storefront. You can update the details later.
       </p>
       {error ? (
         <div className="mt-4">
@@ -74,12 +74,12 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
       ) : null}
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className={overlineDark}>???????? ????????</label>
+          <label className={overlineDark}>Display name</label>
           <input
             className="mt-1 w-full rounded-xl border border-white/15 bg-neutral-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="????????, Nordic Gaming Store"
+            placeholder="e.g., Nordic Gaming Store"
             required
             maxLength={80}
           />
@@ -94,11 +94,11 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
             maxLength={60}
           />
           <p className="mt-1 text-xs text-white/40">
-            ??????????? ????????, ????? ? ??????. ???? ????? - ??????? ?????????????.
+            Use lowercase letters, numbers, and dashes. Leave blank to auto-generate.
           </p>
         </div>
         <div>
-          <label className={overlineDark}>?????????? email</label>
+          <label className={overlineDark}>Contact email</label>
           <input
             type="email"
             className="mt-1 w-full rounded-xl border border-white/15 bg-neutral-900/70 px-3 py-2 text-sm text-white outline-none transition focus:border-white/40 focus:ring-1 focus:ring-white/30"
@@ -112,10 +112,9 @@ export default function SellerOnboarding({ defaultEmail }: SellerOnboardingProps
           className="inline-flex w-full items-center justify-center rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/25 disabled:opacity-60"
           disabled={submitting}
         >
-          {submitting ? "?????????." : "??????? ???????"}
+          {submitting ? "Creating..." : "Create profile"}
         </button>
       </form>
     </div>
   );
 }
-

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 
 import { createClient } from "@/utils/supabase/server";
 import { AUTH_CALLBACK_URL } from "@shared/config";
@@ -30,25 +29,11 @@ export async function loginAction(
   }
 
   const supabase = await createClient();
-  const cookieStore = await cookies();
-  const anonId = cookieStore.get("anon_id")?.value ?? null;
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { success: false, error: error.message || "Unable to sign in." };
-  }
-
-  if (anonId) {
-    try {
-      const { data } = await supabase.auth.getUser();
-      const userId = data?.user?.id ?? null;
-      if (userId) {
-        await supabase.rpc("merge_recent_views", { _anon_id: anonId, _user_id: userId });
-      }
-    } catch {
-      // Ignore merge failures to avoid breaking login flow
-    }
   }
 
   // invalidate layout to refresh user-aware content

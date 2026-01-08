@@ -11,7 +11,7 @@ const SUPABASE_ORIGIN = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUP
 let derivedSupabaseOrigin: string | null = SUPABASE_ORIGIN || null;
 const BLOCKED_REMOTE_IMAGE_HOSTS = new Set(["cdn.example.com"]);
 const PUBLIC_DATASET: ProductData["dataset"] = "shop";
-const ALLOWED_PUBLIC_STATUSES = new Set(["published", "active"]);
+const ALLOWED_PUBLIC_STATUSES = new Set(["published"]);
 const BLOCKED_SLUG_PATTERN = /^(?:admin|test|draft)/i;
 
 export const PRODUCT_PAGE_REVALIDATE_SECONDS = 1;
@@ -147,6 +147,8 @@ function resolveThumbnail(row: Record<string, unknown> | null | undefined): stri
   const source = row as Record<string, unknown>;
   const candidates: Array<unknown> = [
     source?.thumbnail,
+    source?.thumbnail_url,
+    source?.thumbnailUrl,
     source?.thumbnail_path,
     source?.thumbnailPath,
     source?.main_image_url,
@@ -434,8 +436,9 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const datasetSource = row?.dataset ?? (row as Record<string, unknown>)?.source_dataset ?? payload.dataset ?? PUBLIC_DATASET;
   const datasetValue = castString(datasetSource).toLowerCase();
   const dataset = (datasetValue === "legacy" ? "legacy" : PUBLIC_DATASET) as "shop" | "legacy";
-  const statusSource = row?.status ?? (row as Record<string, unknown>)?.product_status ?? payload.status ?? "active";
-  const status = normalizeStatus(castString(statusSource) || "active") || "active";
+  const statusSource =
+    row?.status ?? (row as Record<string, unknown>)?.product_status ?? payload.status ?? "published";
+  const status = normalizeStatus(castString(statusSource) || "published") || "published";
   const inventoryStatus =
     castString(
       (row as Record<string, unknown>).inventory_status ?? (payload as Record<string, unknown>).inventory_status ?? null,
@@ -445,7 +448,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     (payload.product as Record<string, unknown> | undefined)?.catalog_product_id ??
     payload.catalog_product_id ??
     null;
-  const catalogProductId = castString(catalogProductRaw).trim() || null;
+  const catalogProductId = castString(catalogProductRaw).trim() || id || null;
 
   const priceInfo = resolvePriceDetails(row);
   const price = priceInfo.price;
@@ -459,10 +462,12 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
 
   const specsPayload = payload.specs_payload ?? row.specs_payload ?? row.specs ?? payload.specs ?? null;
   const parsed = parseSpecsPayload(specsPayload);
+  const techSpecs = normalizeProductTechSpecs(specsPayload ?? null);
 
   const gallerySources: string[] = [];
   gallerySources.push(...toStringArray(payload.gallery_urls ?? row.gallery_urls ?? row.gallery));
   gallerySources.push(...toStringArray(row.images ?? payload.images ?? []));
+  gallerySources.push(castString(row.thumbnail_url ?? row.thumbnailUrl ?? payload.thumbnail_url ?? ""));
   gallerySources.push(castString(row.main_image_url ?? row.image_url ?? payload.main_image_url ?? ""));
   gallerySources.push(castString(row.image_path ?? payload.image_path ?? ""));
   const normalizedGallery = dedupe(
@@ -496,10 +501,23 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
   const impressions = Number(metrics.impressions ?? metrics.total_impressions ?? row.total_impressions ?? payload.total_impressions ?? payload.impressions ?? 0) || 0;
 
   const categorySlug = castString(row.category_slug ?? payload.category_slug ?? null) || null;
-  const categoryName = castString(payload.category_name ?? row.category_name ?? (payload.category as any)?.name ?? (row.category as any)?.name ?? "") || null;
+  const categoryName =
+    castString(
+      payload.category_title ??
+        row.category_title ??
+        payload.category_name ??
+        row.category_name ??
+        (payload.category as any)?.title ??
+        (payload.category as any)?.name ??
+        (row.category as any)?.title ??
+        (row.category as any)?.name ??
+        "",
+    ) || null;
 
   const shippingEstimate = parsed.shippingEstimate || castString(payload.shipping_estimate ?? row.shipping_estimate ?? null) || null;
-  const brand = parsed.brand ?? (castString(payload.brand ?? row.brand ?? null) || null);
+  const brand =
+    parsed.brand ??
+    (castString(payload.brand ?? row.brand ?? payload.brand_name ?? row.brand_name ?? row.brand_slug ?? null) || null);
 
   const derivedPriceCents =
     typeof priceCents === "number" && Number.isFinite(priceCents)
@@ -526,7 +544,8 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     id,
     slug,
     title: resolvedTitle,
-    shortDescription: castString(row.short_desc ?? row.short_description ?? payload.short_desc ?? null) || null,
+    shortDescription:
+      castString(row.short_desc ?? row.short_description ?? payload.short_desc ?? row.description ?? payload.description ?? null) || null,
     description: castString(row.description ?? row.long_description ?? payload.description ?? null) || null,
     price,
     priceCents: derivedPriceCents,
@@ -545,7 +564,7 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     category: { slug: categorySlug, name: categoryName },
     tags,
     specs: parsed.specs,
-    techSpecs: null,
+    techSpecs,
     variants: parsed.variants,
     shippingEstimate,
     availabilityLabel,
@@ -571,7 +590,12 @@ function getProductFetcher(slug: string) {
     cached = unstable_cache(
       async () => {
         const admin = getAdminClient();
-        const { data, error } = await admin.rpc("get_product_page", { _slug: slug }).maybeSingle();
+        const { data, error } = await admin
+          .from("catalog_products_v")
+          .select("*")
+          .eq("slug", slug)
+          .eq("status", "published")
+          .maybeSingle();
         if (error || !data) {
           return null;
         }
@@ -592,197 +616,32 @@ export async function fetchProduct(slug: string): Promise<ProductData | null> {
   if (!slug) return null;
   const product = await getProductFetcher(slug)();
   if (!product) return null;
-  try {
-    const admin = getAdminClient();
 
-    let catalogProductId = product.catalogProductId;
-    try {
-      const { data: metaRow } = await admin
-        .from("ecom_products")
-        .select("catalog_product_id")
-        .eq("slug", product.slug)
-        .maybeSingle();
-      const rawCatalogId = (metaRow as Record<string, unknown> | null | undefined)?.catalog_product_id ?? null;
-      const normalizedId = castString(rawCatalogId).trim() || null;
-      if (normalizedId) {
-        catalogProductId = normalizedId;
-        product.catalogProductId = normalizedId;
-      }
-    } catch (metaError) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[catalog] failed to load variant meta from ecom_products (catalog_product_id)", metaError);
-        }
-      }
+  if (product.priceCents == null) {
+    product.priceCents = Math.round(product.price * 100);
+  }
 
-      const pricePromise = admin
-        .from("product_with_discount_public")
-        .select("*")
-        .eq("id", product.id)
-        .maybeSingle();
-      const catalogPromise = catalogProductId
-        ? admin
-            .from("catalog_products")
-            .select("id, specs")
-            .eq("id", catalogProductId)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null } as { data: null; error: null });
-      const mediaPromise = admin
-        .from("ecom_products")
-        .select("images, main_image_url, image_path, stock_quantity, is_available, inventory_status")
-        .eq("id", product.id)
-        .maybeSingle();
-
-      const [priceResult, catalogResult, mediaResult] = await Promise.all([
-        pricePromise,
-        catalogPromise,
-        mediaPromise,
-      ]);
-      const { data: pricedRow, error: priceError } = priceResult;
-      const { data: catalogRow, error: catalogError } = catalogResult as {
-        data: { specs?: unknown } | null;
-        error: { message?: string } | null;
-      };
-      const { data: mediaRow, error: mediaError } = mediaResult as {
-        data: { images?: unknown; main_image_url?: unknown; image_path?: unknown; stock_quantity?: unknown; is_available?: unknown; inventory_status?: unknown } | null;
-        error: { message?: string } | null;
-      };
-
-    if (!priceError && pricedRow) {
-      const pricing = resolvePriceDetails(pricedRow as Record<string, unknown>);
-      const currencyOverride = resolveCurrency(pricedRow as Record<string, unknown>);
-      product.price = pricing.price;
-      product.priceCents = pricing.priceCents;
-      product.originalPrice = pricing.originalPrice ?? product.originalPrice;
-      product.originalPriceCents = pricing.originalPriceCents ?? product.originalPriceCents;
-      product.discountPercent = pricing.discountPercent ?? product.discountPercent;
-      product.discountAmountCents = pricing.discountAmountCents ?? product.discountAmountCents;
-        if (currencyOverride) {
-          product.currency = ensureCurrency(currencyOverride, product.dataset);
-        }
-        product.formattedPrice = formatCurrency(product.price, product.currency);
-      } else if (product.priceCents == null) {
-        product.priceCents = Math.round(product.price * 100);
-      }
-      if (!catalogError) {
-        const normalizedSpecs = normalizeProductTechSpecs((catalogRow ?? undefined)?.specs ?? null);
-        product.techSpecs = normalizedSpecs;
-      }
-
-      // Try to enhance gallery/main image and inventory info from products table for newly created products.
-      if (!mediaError && mediaRow) {
-        try {
-          const rawImages = Array.isArray(mediaRow.images)
-            ? (mediaRow.images as unknown[]).map((value) => castString(value).trim()).filter(Boolean)
-            : [];
-
-          const gallerySources: string[] = [];
-          gallerySources.push(castString(mediaRow.main_image_url ?? ""));
-          gallerySources.push(castString(mediaRow.image_path ?? ""));
-          gallerySources.push(...rawImages);
-
-          const normalizedGallery = dedupe(
-            gallerySources
-              .map((value) => normalizeImageUrl(value))
-              .filter((value): value is string => Boolean(value)),
-          );
-
-          const mainImageCandidate = normalizedGallery[0] ?? product.mainImage ?? product.fallbackImage;
-          // Keep any images we already had from the RPC while adding media table images.
-          const extraImages = dedupe([
-            ...normalizedGallery.slice(1),
-            ...product.gallery.filter((url) => url !== mainImageCandidate),
-          ]);
-          const gallery = mergeGallery(mainImageCandidate, extraImages, product.fallbackImage);
-
-          product.mainImage = mainImageCandidate ?? product.mainImage;
-          product.gallery = gallery;
-
-          const stockQuantity =
-            typeof mediaRow.stock_quantity === "number" && Number.isFinite(mediaRow.stock_quantity)
-              ? mediaRow.stock_quantity
-              : null;
-          const isAvailable =
-            typeof mediaRow.is_available === "boolean"
-              ? mediaRow.is_available
-              : null;
-          const inventoryStatus =
-            castString(mediaRow.inventory_status ?? product.inventoryStatus ?? null).trim() || null;
-
-          product.stockQuantity = stockQuantity;
-          product.isAvailable = isAvailable;
-          product.inventoryStatus = inventoryStatus ?? product.inventoryStatus ?? null;
-
-          const availabilityCode = mapInventoryToAvailability(product.inventoryStatus, product.status);
-          product.availabilityCode = availabilityCode;
-          product.availabilityLabel = resolveAvailabilityLabel(product.status, product.shippingEstimate);
-        } catch (mediaErr) {
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("[catalog] failed to merge products.images into gallery", mediaErr);
-          }
-        }
-      }
-
-      // Ultimate fallback: if галерея до сих пор пустая — попробуем взять изображения прямо из ecom_products
-      if (!product.gallery.length) {
-        try {
-          const { data: rawProduct } = await admin
-            .from("ecom_products")
-            .select("images, main_image_url, image_path")
-            .eq("id", product.id)
-            .maybeSingle();
-          if (rawProduct) {
-            const gallerySources: string[] = [];
-            gallerySources.push(...toStringArray(rawProduct.images ?? []));
-            gallerySources.push(castString(rawProduct.main_image_url ?? ""));
-            gallerySources.push(castString(rawProduct.image_path ?? ""));
-
-            const normalizedGallery = dedupe(
-              gallerySources
-                .map((value) => normalizeImageUrl(value))
-                .filter((value): value is string => Boolean(value)),
-            );
-
-            const mainImageCandidate = normalizedGallery[0] ?? product.mainImage ?? product.fallbackImage;
-            const extraImages = dedupe([
-              ...normalizedGallery.slice(1),
-              ...product.gallery.filter((url) => url !== mainImageCandidate),
-            ]);
-            const gallery = mergeGallery(mainImageCandidate, extraImages, product.fallbackImage);
-
-            product.mainImage = mainImageCandidate ?? product.mainImage;
-            product.gallery = gallery;
-          }
-        } catch (fallbackErr) {
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("[catalog] fallback fetch from ecom_products failed", fallbackErr);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("[catalog] failed to load product discount view", error);
-    }
   if (process.env.NODE_ENV !== "production") {
     try {
       console.debug("product:image", {
         id: product.id,
         slug: product.slug,
         image: product.mainImage,
-        source: "product_with_discount_public",
+        source: "catalog_products_v",
       });
     } catch (debugError) {
       console.warn("[catalog] debug logging failed", debugError);
     }
   }
+
   return product;
 }
 
-function formatViewPrice(
-  priceCents: number | string | null | undefined,
-  currency: string | null | undefined,
-): string {
-  const price = Number(priceCents ?? 0) / 100;
+function formatViewPrice(price: number | string | null | undefined, currency: string | null | undefined): string {
+  const numeric = Number(price ?? 0);
+  const priceValue = Number.isFinite(numeric) ? numeric : 0;
   const cur = castString(currency).toUpperCase() || "EUR";
-  return formatCurrency(price, cur);
+  return formatCurrency(priceValue, cur);
 }
 
 export async function fetchSimilarProducts(
@@ -795,24 +654,23 @@ export async function fetchSimilarProducts(
   const admin = getAdminClient();
   try {
     const { data, error } = await admin
-      .from("products")
-      .select("id, slug, title, description, price_cents, currency, main_image_url, status, rating")
+      .from("catalog_products_v")
+      .select("id, slug, title, description, price, currency, thumbnail_url, status, category_slug")
       .eq("category_slug", slug)
       .neq("id", excludeId)
-      .in("status", ["active", "published"])
-      .order("rating", { ascending: false, nullsFirst: false })
+      .eq("status", "published")
+      .order("created_at", { ascending: false, nullsFirst: false })
       .limit(limit);
     if (error || !data) return [];
     return data.map((row) => {
-      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? null;
-      const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.thumbnail_url) ?? null;
       return {
         id: String(row.id ?? ""),
         slug: String(row.slug ?? ""),
         title: String(row.title ?? ""),
         subtitle: row.description ? String(row.description) : undefined,
-        price: formatViewPrice(row.price_cents, row.currency),
-        meta,
+        price: formatViewPrice(row.price, row.currency),
+        meta: null,
         image,
       } satisfies ProductGridItem;
     });
@@ -827,24 +685,23 @@ export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise
   const admin = getAdminClient();
   try {
     const { data, error } = await admin
-      .from("products")
-      .select("id, slug, title, description, price_cents, currency, main_image_url, status, rating")
+      .from("catalog_products_v")
+      .select("id, slug, title, description, price, currency, thumbnail_url, status")
       .in("slug", unique)
-      .in("status", ["active", "published"]);
+      .eq("status", "published");
     if (error || !data) return [];
- const bySlug = new Map<string, ProductGridItem>();
+    const bySlug = new Map<string, ProductGridItem>();
     for (const row of data) {
       const slug = String(row.slug ?? "");
       if (!slug) continue;
-      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.main_image_url) ?? null;
-      const meta = typeof row.rating === "number" && Number.isFinite(row.rating) ? `★ ${row.rating.toFixed(1)}` : null;
+      const image = resolveThumbnail(row) ?? normalizeImageUrl(row.thumbnail_url) ?? null;
       bySlug.set(slug, {
         id: String(row.id ?? ""),
         slug,
         title: String(row.title ?? ""),
         subtitle: row.description ? String(row.description) : undefined,
-        price: formatViewPrice(row.price_cents, row.currency),
-        meta,
+        price: formatViewPrice(row.price, row.currency),
+        meta: null,
         image,
       });
     }
@@ -858,8 +715,3 @@ export async function fetchProductsBySlugs(slugs: string[], limit = 12): Promise
     return [];
   }
 }
-
-
-
-
-

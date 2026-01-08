@@ -19,16 +19,32 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await (supabase as any)
-      .from("ecom_products_view")
-      .select("id,slug,title,price,rating,images,short_desc,category_slug,tags,specs,created_at")
+      .from("catalog_products_v")
+      .select("id, slug, title, description, price, currency, thumbnail_url, category_slug, specs, status")
       .eq("slug", slug)
+      .eq("status", "published")
       .single();
 
     if (error || !data) {
       return json({ error: "not_found" }, 404);
     }
 
-    return json({ item: data }, 200);
+    const row = data as Record<string, unknown>;
+    const thumbnail = typeof row.thumbnail_url === "string" ? row.thumbnail_url : null;
+    const item = {
+      id: row.id ?? null,
+      slug: row.slug ?? null,
+      title: row.title ?? row.slug ?? "Product",
+      price: row.price ?? 0,
+      rating: 0,
+      images: thumbnail ? [thumbnail] : [],
+      short_desc: row.description ?? null,
+      category_slug: row.category_slug ?? null,
+      tags: [],
+      specs: row.specs ?? null,
+    };
+
+    return json({ item }, 200);
   } catch (error: any) {
     return json({ error: String(error?.message ?? error) }, 500);
   }

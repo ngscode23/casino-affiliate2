@@ -31,7 +31,7 @@ export function ReviewStats({ averageLabel, count, buckets, activeRating, onBuck
           />
         ))}
       </div>
-      <p className={styles.statsCount}>{count} ???????</p>
+      <p className={styles.statsCount}>{count} reviews</p>
       <ul className={styles.bucketList}>
         {buckets.map((bucket) => {
           const active = activeRating === bucket.score;
@@ -43,12 +43,12 @@ export function ReviewStats({ averageLabel, count, buckets, activeRating, onBuck
                 className={cn(styles.bucketButton, active ? styles.bucketButtonActive : styles.bucketButtonIdle)}
                 aria-pressed={active}
               >
-                <span className={styles.bucketScore}>{bucket.score}?</span>
+                <span className={styles.bucketScore}>{bucket.score} stars</span>
                 <div className={styles.bucketBar}>
                   <div className={styles.bucketFill} style={{ width: `${bucket.percent}%` }} aria-hidden />
                 </div>
                 <span className={styles.bucketCount}>
-                  {bucket.count}  {bucket.percent}%
+                  {bucket.count} | {bucket.percent}%
                 </span>
               </button>
             </li>

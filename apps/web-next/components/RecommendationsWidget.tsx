@@ -1,7 +1,7 @@
 "use client";;
 import { sectionTitle, mutedTextSm } from "@/styles/classnames";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import ProductCard, { type ProductGridItem } from "@/components/ProductCard";
@@ -12,48 +12,31 @@ import { cn } from "@shared/lib/cn";
 import { isRecsOptedOut, logRecEvent, setRecsOptOut } from "@/lib/recs-events";
 import { AsyncSection } from "@/components/ui/AsyncSection";
 
-type ApiRecProduct = {
-  id?: string | null;
-  slug?: string | null;
-  title?: string | null;
-  meta?: string | null;
-  price?: string | null;
-  price_cents?: number | null;
-  rating?: number | null;
-  image?: string | null;
-  category?: string | null;
-};
-
-type ApiRec = {
-  product_id: string | null;
-  reason: string | null;
-  score: number | null;
-  adjusted_score?: number | null;
-  treatment?: string | null;
-  rank?: number | null;
-  bandit?: { from_rank?: number | null; rollout?: number | null } | null;
-  product?: ApiRecProduct | null;
+type ApiRecItem = ProductGridItem & {
+  score?: number | null;
+  reason?: string | null;
+  is_featured?: boolean;
+  category_slug?: string | null;
 };
 
 type State = {
   loading: boolean;
-  items: ApiRec[];
-  treatment: string | null;
+  items: ApiRecItem[];
   optOut: boolean;
   error: string | null;
+  personalizationEnabled: boolean;
 };
 
-function buildGridItem(rec: ApiRec): ProductGridItem | null {
-  const product = rec.product;
-  if (!product || (!product.slug && !product.id)) return null;
+function buildGridItem(rec: ApiRecItem): ProductGridItem | null {
+  if (!rec || (!rec.slug && !rec.id)) return null;
   return {
-    id: product.id ?? rec.product_id ?? product.slug ?? "",
-    slug: product.slug ?? product.id ?? rec.product_id ?? "",
-    title: product.title ?? "Product",
-    subtitle: product.rating ? `⭐ ${Number(product.rating).toFixed(1)}` : undefined,
-    price: product.price ?? null,
-    meta: rec.reason ?? product.meta ?? null,
-    image: product.image ?? undefined,
+    id: rec.id ?? rec.slug ?? "",
+    slug: rec.slug ?? rec.id ?? "",
+    title: rec.title ?? "Product",
+    subtitle: rec.subtitle ?? undefined,
+    price: rec.price ?? null,
+    meta: rec.meta ?? null,
+    image: rec.image ?? undefined,
   };
 }
 
@@ -73,17 +56,52 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
   const [state, setState] = useState<State>(() => ({
     loading: true,
     items: [],
-    treatment: null,
     optOut: isRecsOptedOut(),
     error: null,
+    personalizationEnabled: false,
   }));
+  const [isSavingOptOut, setIsSavingOptOut] = useState(false);
+  const [profileSynced, setProfileSynced] = useState(false);
   const impressions = useRef<Set<string>>(new Set());
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [navState, setNavState] = useState({ canScrollPrev: false, canScrollNext: false });
 
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/profile", {
+          signal: controller.signal,
+          headers: { accept: "application/json" },
+        });
+        const json = (await res.json().catch(() => ({}))) as { opt_out?: boolean };
+        if (!active || controller.signal.aborted) return;
+        const optOut = json.opt_out;
+        if (res.ok && typeof optOut === "boolean") {
+          setRecsOptOut(optOut);
+          setState((prev) => ({ ...prev, optOut }));
+        }
+      } catch {
+        // ignore profile sync errors
+      } finally {
+        if (active && !controller.signal.aborted) {
+          setProfileSynced(true);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!profileSynced) return;
     if (state.optOut) {
-      setState((prev) => ({ ...prev, loading: false, items: [], error: null }));
+      setState((prev) => ({ ...prev, loading: false, items: [], error: null, personalizationEnabled: false }));
       return;
     }
     const controller = new AbortController();
@@ -94,25 +112,58 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
           signal: controller.signal,
           headers: { accept: "application/json" },
         });
-        const json = (await res.json().catch(() => ({}))) as { recommendations?: ApiRec[]; treatment?: string | null };
+        const json = (await res.json().catch(() => ({}))) as {
+          items?: ApiRecItem[];
+          recommendations?: ApiRecItem[];
+          personalization?: { enabled?: boolean };
+          opt_out?: boolean;
+          error?: string | null;
+          message?: string | null;
+        };
         if (!controller.signal.aborted) {
+          if (res.status === 403 || json.opt_out) {
+            setRecsOptOut(true);
+            setState({
+              loading: false,
+              items: [],
+              optOut: true,
+              error: null,
+              personalizationEnabled: false,
+            });
+            return;
+          }
+          if (!res.ok) {
+            const message = json.error || json.message || res.statusText || "Failed to load recommendations.";
+            throw new Error(message);
+          }
+          const items = Array.isArray(json.items)
+            ? json.items
+            : Array.isArray(json.recommendations)
+              ? json.recommendations
+              : [];
           setState({
             loading: false,
-            items: Array.isArray(json.recommendations) ? json.recommendations : [],
-            treatment: json.treatment ?? null,
+            items,
             optOut: false,
             error: null,
+            personalizationEnabled: Boolean(json.personalization?.enabled),
           });
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          const message = err instanceof Error ? err.message : "Не удалось загрузить рекомендации";
-          setState((prev) => ({ ...prev, loading: false, items: [], treatment: null, error: message || null }));
+          const message = err instanceof Error ? err.message : "Failed to load recommendations.";
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            items: [],
+            error: message || null,
+            personalizationEnabled: false,
+          }));
         }
       }
     })();
     return () => controller.abort();
-  }, [limit, state.optOut]);
+  }, [limit, state.optOut, profileSynced]);
 
   const gridItems = useMemo(
     () =>
@@ -121,68 +172,82 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
           const item = buildGridItem(rec);
           return item ? { rec, item } : null;
         })
-        .filter(Boolean) as Array<{ rec: ApiRec; item: ProductGridItem }>,
+        .filter(Boolean) as Array<{ rec: ApiRecItem; item: ProductGridItem }>,
     [state.items],
   );
 
-  // Fire impressions once per product/treatment combo
+  // Fire impressions once per product/reason combo
   useEffect(() => {
     if (!gridItems.length) return;
     const timer = setTimeout(() => {
       gridItems.forEach(({ rec }, idx) => {
-        const key = `${rec.product_id ?? "unknown"}:${state.treatment ?? rec.treatment ?? "control"}`;
+        const key = `${rec.id ?? "unknown"}:${rec.reason ?? "default"}`;
         if (impressions.current.has(key)) return;
         impressions.current.add(key);
         void logRecEvent({
           event: "impression",
-          productId: rec.product_id ?? undefined,
-          category: rec.product?.category ?? undefined,
+          productId: rec.id ?? undefined,
+          category: rec.category_slug ?? undefined,
           metadata: {
             reason: rec.reason,
-            rank: rec.rank ?? idx + 1,
+            rank: idx + 1,
             score: rec.score,
-            adjusted_score: rec.adjusted_score,
-            treatment: rec.treatment ?? state.treatment ?? "control",
-            bandit_from: rec.bandit?.from_rank ?? null,
-            rollout: rec.bandit?.rollout ?? null,
+            featured: rec.is_featured ?? false,
           },
         });
       });
     }, 120);
     return () => clearTimeout(timer);
-  }, [gridItems, state.treatment]);
+  }, [gridItems]);
 
   const handleClick = useCallback(
-    (rec: ApiRec, index: number) => {
+    (rec: ApiRecItem, index: number) => {
       void logRecEvent({
         event: "click",
-        productId: rec.product_id ?? undefined,
-        category: rec.product?.category ?? undefined,
+        productId: rec.id ?? undefined,
+        category: rec.category_slug ?? undefined,
         metadata: {
           reason: rec.reason,
-          rank: rec.rank ?? index + 1,
+          rank: index + 1,
           score: rec.score,
-          adjusted_score: rec.adjusted_score,
-          treatment: rec.treatment ?? state.treatment ?? "control",
-          bandit_from: rec.bandit?.from_rank ?? null,
-          rollout: rec.bandit?.rollout ?? null,
+          featured: rec.is_featured ?? false,
         },
       });
     },
-    [state.treatment],
+    [],
   );
 
   const handleOptToggle = useCallback(
-    (value: boolean) => {
-      setRecsOptOut(value);
-      setState((prev) => ({
-        ...prev,
-        optOut: value,
-        items: value ? [] : prev.items,
-        treatment: value ? null : prev.treatment,
-      }));
+    async (value: boolean) => {
+      if (isSavingOptOut) return;
+      setIsSavingOptOut(true);
+      try {
+        const res = await fetch("/api/profile", {
+          method: value ? "DELETE" : "POST",
+          headers: { accept: "application/json" },
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        if (!res.ok) {
+          const message = json.error || json.message || res.statusText || "Unable to update personalization.";
+          throw new Error(message);
+        }
+        setRecsOptOut(value);
+        setState((prev) => ({
+          ...prev,
+          loading: !value,
+          items: [],
+          optOut: value,
+          error: null,
+          personalizationEnabled: false,
+        }));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to update personalization.";
+        setState((prev) => ({ ...prev, error: message || prev.error }));
+      } finally {
+        setIsSavingOptOut(false);
+      }
     },
-    [],
+    [isSavingOptOut],
   );
 
   const updateNavState = useCallback(() => {
@@ -256,6 +321,7 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
           <button
             type="button"
             onClick={() => handleOptToggle(false)}
+            disabled={isSavingOptOut}
             className="text-xs font-medium text-primary underline-offset-4 hover:underline"
           >
             Turn on
@@ -297,12 +363,12 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
       <div className="flex items-center justify-between">
         <h2 className={sectionTitle}>Recommended for you</h2>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {state.treatment ? <span className="capitalize">variant: {state.treatment}</span> : null}
           <label className="inline-flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               className="h-4 w-4 accent-primary"
               checked={!state.optOut}
+              disabled={isSavingOptOut}
               onChange={(e) => handleOptToggle(!e.target.checked ? true : false)}
             />
             <span className="select-none">Personalization</span>
@@ -321,26 +387,43 @@ export function RecommendationsWidget({ limit = 8 }: { limit?: number }) {
               aria-roledescription="carousel"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              {gridItems.map(({ rec, item }, index) => (
-                <div
-                  key={item.slug || item.id}
-                  className="flex-shrink-0 basis-[85%] snap-start sm:basis-[45%] lg:basis-[30%] xl:basis-[25%]"
-                  role="listitem"
-                  data-carousel-card
-                  onClickCapture={() => handleClick(rec, index)}
-                >
-                  <ProductCard
-                    product={item}
-                    index={index}
-                    href={`/products/${item.slug}`}
-                    showAddToCart
-                    addLabel={addLabel}
-                    noImageLabel={noImageLabel}
-                    translate={translate}
-                    variant="carousel"
-                  />
-                </div>
-              ))}
+              {gridItems.map(({ rec, item }, index) => {
+                const isFeatured = Boolean(rec.is_featured && index === 0);
+                const cardClass = isFeatured
+                  ? "basis-[95%] sm:basis-[70%] lg:basis-[45%] xl:basis-[38%]"
+                  : "basis-[85%] sm:basis-[45%] lg:basis-[30%] xl:basis-[25%]";
+                const featuredStyle: CSSProperties | undefined = isFeatured
+                  ? ({
+                      "--vc-card-width": "420px",
+                      "--vc-card-radius": "28px",
+                      "--vc-card-image-radius": "16px",
+                    } as CSSProperties)
+                  : undefined;
+                return (
+                  <div
+                    key={item.slug || item.id}
+                    className={cn("flex-shrink-0 snap-start", cardClass)}
+                    style={featuredStyle}
+                    role="listitem"
+                    data-carousel-card
+                    onClickCapture={() => handleClick(rec, index)}
+                  >
+                    {rec.reason ? (
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">{rec.reason}</p>
+                    ) : null}
+                    <ProductCard
+                      product={item}
+                      index={index}
+                      href={`/products/${item.slug}`}
+                      showAddToCart
+                      addLabel={addLabel}
+                      noImageLabel={noImageLabel}
+                      translate={translate}
+                      variant={isFeatured ? "default" : "carousel"}
+                    />
+                  </div>
+                );
+              })}
             </div>
             {gridItems.length > 1 ? (
               <>

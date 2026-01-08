@@ -25,7 +25,6 @@ async function loadFavorites(): Promise<ProductGridItem[]> {
   }
 
   // 2) Читаем данные через админ-клиент (service_role), чтобы обойти ограничения
-  //    на view product_with_discount_with_dataset, но фильтруем по user_id вручную.
   const admin = getAdminClient();
 
   const { data: favs, error: favError } = await admin
@@ -42,13 +41,11 @@ async function loadFavorites(): Promise<ProductGridItem[]> {
   const ids = favs.map((f) => f.product_id).filter(Boolean);
   if (!ids.length) return [];
 
-  // Витрина product_with_discount_with_dataset (колонки в camelCase)
   const { data: products, error: prodError } = await admin
-    .from("product_with_discount_with_dataset")
-    .select(
-      'id, slug, name, "priceCents", "effectivePriceCents", "basePriceCents", currency, thumbnail, thumbnail_path, rating',
-    )
-    .in("id", ids);
+    .from("catalog_products_v")
+    .select("id, slug, title, price, currency, thumbnail_url, status")
+    .in("id", ids)
+    .eq("status", "published");
 
   if (prodError || !Array.isArray(products)) {
     return [];
@@ -62,10 +59,7 @@ async function loadFavorites(): Promise<ProductGridItem[]> {
     if (!row) continue;
 
     const product = mapDbProduct(row as DbProductRow);
-    const price =
-      product.priceCents != null ? formatCurrency(product.priceCents / 100, product.currency) : null;
-    const rating =
-      typeof product.rating === "number" && Number.isFinite(product.rating) ? product.rating.toFixed(1) : null;
+    const price = Number.isFinite(product.price) ? formatCurrency(product.price, product.currency) : null;
     const image = product.mainImage ?? normalizeImageUrl(product.thumbnailPath) ?? null;
 
     items.push({
@@ -73,7 +67,7 @@ async function loadFavorites(): Promise<ProductGridItem[]> {
       slug: product.slug ?? product.id,
       title: product.title ?? product.slug ?? "Избранный товар",
       price,
-      meta: rating ? `? ${rating}` : null,
+      meta: null,
       image,
       availability: product.availability ?? null,
     });

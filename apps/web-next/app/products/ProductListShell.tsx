@@ -33,8 +33,18 @@ export function ProductListShell({ theme, isFilterOpen, renderFilterSidebar, onC
         {toolbar}
       </div>
 
-      <div className="mx-auto flex w-full gap-6 px-4 py-10 sm:px-8 lg:px-12">
-        <div className="hidden lg:block lg:w-[280px] lg:flex-none">{renderFilterSidebar({ variant: "desktop" })}</div>
+      <div
+        className={`mx-auto flex w-full px-4 py-10 sm:px-8 lg:px-12 ${isFilterOpen ? "gap-6" : "gap-0"}`}
+      >
+        <div
+          className={`hidden lg:block lg:flex-none transition-[width,opacity] duration-300 ${
+            isFilterOpen
+              ? "lg:w-[280px] opacity-100"
+              : "lg:w-0 opacity-0 pointer-events-none overflow-hidden"
+          }`}
+        >
+          {renderFilterSidebar({ variant: "desktop" })}
+        </div>
         <section className="flex-1 min-w-0 space-y-10">{children}</section>
       </div>
 

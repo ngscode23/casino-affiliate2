@@ -30,7 +30,7 @@ export function PdpInfo({
   return (
     <div className="space-y-4 rounded-3xl border border-border/40 bg-card/70 p-6">
       <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted">
-        <span>???????</span>
+        <span>Category</span>
         {categoryName ? <span>{categoryName}</span> : null}
       </div>
       <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{title}</h1>
@@ -41,10 +41,8 @@ export function PdpInfo({
           </span>
         ) : null}
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-fg">
-          ? {reviewAverageLabel}
-          <span className="text-muted-foreground">
-            ({reviewCount} ?????{reviewCount % 10 === 1 && reviewCount % 100 !== 11 ? "" : "??"})
-          </span>
+          {reviewAverageLabel}
+          <span className="text-muted-foreground">({reviewCount} reviews)</span>
         </span>
       </div>
 
@@ -52,18 +50,18 @@ export function PdpInfo({
 
       <div className="rounded-2xl border border-border/40 bg-card/80 p-4 shadow-inner">
         <div className="flex flex-col gap-1">
-          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">?????? ???????????</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Customer rating</div>
           <div className="flex items-end gap-2 text-2xl font-semibold text-fg">
             {reviewAverageLabel}
             <span className="text-xs font-medium text-muted-foreground">/ 5</span>
           </div>
           <div className={mutedTextXs}>
-            ?? ?????? <span className="font-semibold text-fg">{reviewCount}</span> ???????
+            Based on <span className="font-semibold text-fg">{reviewCount}</span> reviews
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <ReviewFilterChip
-            label={`??? (${reviewCount})`}
+            label={`All (${reviewCount})`}
             active={activeReviewFilter === null}
             disabled={reviewCount === 0}
             onClick={() => onReviewFilterSelect(null)}
@@ -90,7 +88,7 @@ export function PdpInfo({
                 )}
                 aria-pressed={active}
               >
-                <span className="w-10 text-left font-medium text-fg">{bucket.score}?</span>
+                <span className="w-10 text-left font-medium text-fg">{bucket.score} star</span>
                 <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border/40" aria-hidden>
                   <div
                     className="absolute inset-y-0 left-0 rounded-full bg-primary"

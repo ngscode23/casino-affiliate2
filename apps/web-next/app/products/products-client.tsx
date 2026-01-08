@@ -152,6 +152,13 @@ export default function ProductsClient({
     console.log("[catalog-debug-client]", { filters: { brand: initialBrand, model: initialModel }, ...debug });
   }, [debug, initialBrand, initialModel]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setIsFilterOpen(true);
+    }
+  }, []);
+
   const buildQueryString = useCallback(
     (cursorValue: number) => {
       const params = serializeFilterState(filters);

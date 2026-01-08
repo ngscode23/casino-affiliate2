@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// Edge-safe middleware: ?? ????? supabase-js/realtime, ?????? ???? ? ?????????
+// Edge-safe middleware: avoid supabase-js/realtime, rely on cookie-based auth.
 export const config = { matcher: ["/dashboard/:path*", "/account/:path*"] };
 
 const RAW_SUPABASE_URL =
@@ -49,4 +49,3 @@ export function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
-

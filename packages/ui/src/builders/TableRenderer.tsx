@@ -26,7 +26,7 @@ export default function TableRenderer({ vertical: vOverride, products, columns, 
 
   const [registry, setRegistry] = useState<AttributeRegistryItem[] | null>(null);
   const [values, setValues] = useState<Record<string, Record<string, any>>>({});
-  const [slugToId, setSlugToId] = useState<Record<string, number>>({});
+  const [slugToId, setSlugToId] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let active = true;

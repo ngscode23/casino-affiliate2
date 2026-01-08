@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ProductGrid } from "@/components/ProductGrid";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import ProductCard from "@/components/ProductCard";
+import { isRecsOptedOut, setRecsOptOut } from "@/lib/recs-events";
 
 type RecentProductsProps = {
   currentSlug: string;
@@ -28,6 +29,14 @@ function getRecentSlugs(): string[] {
     return parsed.filter((value): value is string => typeof value === "string");
   } catch {
     return [];
+  }
+}
+
+function persistRecentSlugs(slugs: string[]) {
+  try {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(slugs.slice(0, 20)));
+  } catch {
+    /* ignore */
   }
 }
 
@@ -59,6 +68,7 @@ async function fetchRecommendations(currentSlug: string, signal: AbortSignal) {
     ok?: boolean;
     recent?: ProductGridItem[];
     recommended?: ProductGridItem[];
+    opt_out?: boolean;
   };
 }
 
@@ -78,23 +88,24 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
         const response = await fetchRecommendations(currentSlug, controller.signal);
         if (controller.signal.aborted) return;
 
-        let recentItems = Array.isArray(response.recent) ? response.recent : [];
-        const recommendedItems = Array.isArray(response.recommended) ? response.recommended : [];
+        const optedOut = Boolean(response.opt_out);
+        if (optedOut) setRecsOptOut(true);
 
-        if (!recentItems.length) {
-          const fallbackSlugs = getRecentSlugs().filter((slug) => slug !== currentSlug).slice(0, 8);
-          if (fallbackSlugs.length) {
-            try {
-              recentItems = await loadFallbackFromLocal(fallbackSlugs, controller.signal);
-            } catch {
-              // ignore fallback failures
-            }
-          }
-        }
+        let recentItems = optedOut ? [] : Array.isArray(response.recent) ? response.recent : [];
+        const recommendedItems = optedOut ? [] : Array.isArray(response.recommended) ? response.recommended : [];
+
+        const serverSlugs = recentItems
+          .map((item) => item.slug)
+          .filter((slug): slug is string => typeof slug === "string" && slug.trim().length > 0);
+        persistRecentSlugs(serverSlugs);
 
         setState({ loading: false, recent: recentItems, recommended: recommendedItems });
       } catch {
         if (controller.signal.aborted) return;
+        if (isRecsOptedOut()) {
+          setState({ loading: false, recent: [], recommended: [] });
+          return;
+        }
         const fallbackSlugs = getRecentSlugs().filter((slug) => slug !== currentSlug).slice(0, 8);
         if (!fallbackSlugs.length) {
           setState({ loading: false, recent: [], recommended: [] });

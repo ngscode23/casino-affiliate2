@@ -61,7 +61,7 @@ export function PdpActions({
                           : "border-border/40 bg-card text-fg hover:border-border/80",
                         option.disabled ? "cursor-not-allowed opacity-40" : null,
                       )}
-                      title={option.disabled ? "??????????" : option.label}
+                      title={option.disabled ? "Unavailable" : option.label}
                     >
                       {option.label}
                     </button>
@@ -97,7 +97,7 @@ export function PdpActions({
       />
 
       <div className="pt-3 text-xs text-muted-foreground">
-        <span>???? ??????? ? ??????? </span>
+        <span>Not sure? Contact </span>
         <Link
           href={{
             pathname: "/contact",
@@ -108,7 +108,7 @@ export function PdpActions({
           }}
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
-          ????????? ? ?????????????
+          customer support
         </Link>
       </div>
     </div>

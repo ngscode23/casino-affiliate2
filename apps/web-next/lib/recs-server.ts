@@ -3,6 +3,7 @@ import { normalizeImageUrl } from "@/app/products/[slug]/data";
 
 const DEFAULT_EXPLORE_ROLLOUT = 0.2;
 const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const CATALOG_VIEW = "catalog_products_v";
 
 type FeatureFlagRow = {
   enabled: boolean | null;
@@ -101,14 +102,6 @@ async function fetchExploreFlag(supabase: SupabaseClient) {
   }
 }
 
-function mapRecRpcRow(row: RecRpcRowDto | null | undefined): RpcRec {
-  return {
-    product_id: typeof row?.product_id === "string" ? row.product_id : null,
-    reason: normalizeText(row?.reason),
-    score: parseNumber(row?.score),
-  };
-}
-
 function applyBanditVariant(items: RpcRec[], rollout: number) {
   if (!items.length || rollout <= 0) {
     return { variant: "control" as const, banditFrom: null as number | null, recs: items };
@@ -134,86 +127,70 @@ function applyBanditVariant(items: RpcRec[], rollout: number) {
 async function fetchProductsByIds(supabase: SupabaseClient, ids: string[]) {
   if (!ids.length) return { data: [], error: null };
   return supabase
-    .from("ecom_products")
+    .from(CATALOG_VIEW)
     .select(
-      "id, slug, title, short_desc, description, price, price_cents, rating, main_image_url, image_path, images, currency, category_slug, status, deleted_at",
+      "id, slug, title, description, price, currency, category_slug, status, thumbnail_url, created_at",
     )
     .in("id", ids)
-    .in("status", ["active", "published"])
-    .is("deleted_at", null);
+    .eq("status", "published");
 }
 
 function buildRecProduct(product: any): RecProduct {
-  const priceCentsRaw =
-    product?.price_cents != null
-      ? parseNumber(product.price_cents)
-      : null;
   const priceCents =
-    priceCentsRaw != null
-      ? priceCentsRaw
-      : product?.price != null && Number.isFinite(Number(product.price))
-        ? Math.round(Number(product.price) * 100)
-        : null;
+    product?.price != null && Number.isFinite(Number(product.price))
+      ? Math.round(Number(product.price) * 100)
+      : null;
   const price = priceCents != null ? Math.max(0, priceCents) / 100 : null;
-  const rating = parseNumber(product?.rating) ?? 0;
   const image =
-    normalizeImageUrl(product?.main_image_url ?? null) ||
-    normalizeImageUrl(product?.image_path ?? null) ||
-    (Array.isArray(product?.images)
-      ? normalizeImageUrl(
-          (() => {
-            const first = product.images.find((x: unknown) => typeof x === "string" && x.trim());
-            return first ?? null;
-          })(),
-        )
-      : null);
+    normalizeImageUrl(product?.thumbnail_url ?? null) ?? null;
 
   return {
     id: product.id,
     slug: product.slug ?? "",
     title: product.title ?? "",
-    meta: product.short_desc ?? product.description ?? null,
+    meta: product.description ?? null,
     price: price != null ? formatPrice(price, product.currency) : null,
     price_cents: priceCents ?? null,
-    rating,
+    rating: 0,
     image,
     category: product.category_slug ?? null,
   };
 }
 
-async function fetchFallback(supabase: SupabaseClient, limit: number): Promise<RecommendationResult> {
-  const fallback = await supabase
-    .from("ecom_products")
-    .select(
-      "id, slug, title, description, short_desc, price, price_cents, rating, main_image_url, image_path, images, currency, category_slug, status, deleted_at",
-    )
-    .in("status", ["active", "published"])
-    .is("deleted_at", null)
-    .order("rating", { ascending: false, nullsFirst: false })
-    .limit(limit);
+async function fetchFallbackRecs(
+  supabase: SupabaseClient,
+  params: { limit: number; category?: string | null; query?: string | null },
+): Promise<RpcRec[]> {
+  const limit = Math.min(Math.max(Number(params.limit ?? 12), 1), 50);
+  let query = supabase
+    .from(CATALOG_VIEW)
+    .select("id, category_slug, created_at, title, slug")
+    .eq("status", "published")
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(Math.max(limit * 4, 30));
 
-  const products = Array.isArray(fallback.data) ? fallback.data : [];
-  const items: RecItem[] = products.map((product, index) => {
-    const recProduct = buildRecProduct(product);
-    const rating = recProduct.rating ?? 0;
-    return {
-      product_id: recProduct.id,
-      reason: "trending",
-      score: rating,
-      adjusted_score: rating,
-      treatment: "fallback",
-      rank: index + 1,
-      bandit: null,
-      product: recProduct,
-    };
-  });
+  const category = normalizeText(params.category);
+  if (category) {
+    query = query.eq("category_slug", category);
+  }
 
-  return {
-    actor: "",
-    treatment: "fallback",
-    items,
-    error: null,
-  };
+  const search = normalizeText(params.query);
+  if (search) {
+    const pattern = `%${search.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+    query = query.or(`title.ilike.${pattern},slug.ilike.${pattern}`);
+  }
+
+  const { data, error } = await query;
+  if (error || !Array.isArray(data)) return [];
+
+  const rows = data as Array<{ id?: string | null }>;
+  const uniqueIds = Array.from(new Set(rows.map((row) => (typeof row?.id === "string" ? row.id : null)).filter(Boolean))) as string[];
+
+  return uniqueIds.slice(0, limit).map((id, index) => ({
+    product_id: id,
+    reason: "trending",
+    score: Math.max(0, limit - index) / limit,
+  }));
 }
 
 export async function getRecommendationsForActor(params: RecommendationParams): Promise<RecommendationResult> {
@@ -223,22 +200,13 @@ export async function getRecommendationsForActor(params: RecommendationParams): 
   const p_category = normalizeText(params.category);
   const p_query = normalizeText(params.query);
 
-  const { data, error } = await supabase.rpc("get_recs", {
-    p_actor: actor,
-    p_limit,
-    p_category: p_category ?? null,
-    p_query: p_query ?? null,
+  const recs: RpcRec[] = await fetchFallbackRecs(supabase, {
+    limit: p_limit,
+    category: p_category,
+    query: p_query,
   });
-
-  if (error) {
-    const fallback = await fetchFallback(supabase, p_limit);
-    return { ...fallback, actor, error: error.message ?? "rpc_failed" };
-  }
-
-  const recs: RpcRec[] = Array.isArray(data) ? (data as RecRpcRowDto[]).map(mapRecRpcRow) : [];
   if (!recs.length) {
-    const fallback = await fetchFallback(supabase, p_limit);
-    return { ...fallback, actor, error: null };
+    return { actor, treatment: "fallback", items: [], error: null };
   }
 
   const ids = recs

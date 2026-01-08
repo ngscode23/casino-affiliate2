@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import type { Product } from "@shared/ecom/lib/types";
-import { products } from "@shared/ecom/data/products";
 import { getProductsByIds } from "@shared/ecom/api/client";
 
 export type CartItem = { id: string; qty: number };
@@ -91,9 +90,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   const [dbMap, setDbMap] = useState<Map<string, Product>>(new Map());
 
   useEffect(() => {
-    // figure out which ids we don't have locally nor in dbMap
-    const known = new Set(products.map((p) => p.id));
-    const missing = state.items.map((i) => i.id).filter((id) => !known.has(id) && !dbMap.has(id));
+    const missing = state.items.map((i) => i.id).filter((id) => !dbMap.has(id));
     if (!missing.length) return;
     let cancelled = false;
     (async () => {
@@ -115,8 +112,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   }, [state.items, dbMap]);
 
   const value: Ctx = useMemo(() => {
-    const map = new Map<string, Product>(products.map((p) => [p.id, p] as const));
-    dbMap.forEach((v, k) => map.set(k, v));
+    const map = new Map<string, Product>(dbMap);
 
     function fallbackProduct(id: string): Product {
       return {

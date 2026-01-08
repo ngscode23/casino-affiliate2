@@ -1,8 +1,7 @@
 "use client";
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { products } from "@shared/ecom/data/products";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Product } from "@shared/ecom/lib/types";
-import { API_BASE } from "@shared/ecom/api/client";
+import { API_BASE, getProductsByIds } from "@shared/ecom/api/client";
 import { getValidAccessToken, onAuthStateChange } from "@shared/lib/auth";
 import { envFlag } from "../../lib/env";
 
@@ -74,6 +73,7 @@ export function WishlistProvider({ children }: React.PropsWithChildren) {
   // Synchronous hydration at init prevents first-click flicker
   const [state, dispatch] = useReducer(reducer, undefined as any, () => readState());
   const stateRef = useRef(state.ids);
+  const [productMap, setProductMap] = useState<Map<string, Product>>(() => new Map());
 
   useEffect(() => {
     stateRef.current = state.ids;
@@ -197,11 +197,32 @@ export function WishlistProvider({ children }: React.PropsWithChildren) {
     dispatch({ type: "clear" });
   }, []);
 
+  useEffect(() => {
+    const missing = state.ids.filter((id) => !productMap.has(id));
+    if (!missing.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getProductsByIds(missing);
+        if (cancelled || !rows.length) return;
+        setProductMap((prev) => {
+          const next = new Map(prev);
+          rows.forEach((product) => next.set(product.id, product));
+          return next;
+        });
+      } catch {
+        // ignore fetch errors
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.ids, productMap]);
+
   const value: Ctx = useMemo(() => {
-    const set = new Set(state.ids);
-    const items = products.filter((p) => set.has(p.id));
+    const items = state.ids.map((id) => productMap.get(id)).filter(Boolean) as Product[];
     return { ids: state.ids, items, add, toggle, remove, clear };
-  }, [state.ids, add, toggle, remove, clear]);
+  }, [state.ids, productMap, add, toggle, remove, clear]);
 
   useEffect(() => {
     const syncFromStorage = () => {

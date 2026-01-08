@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const supabase = getAdminClient();
     const { error } = await supabase
-      .from("ecom_wishlist")
+      .from("user_favorites")
       .delete()
       .eq("user_id", auth.user.id)
       .eq("product_id", productId);

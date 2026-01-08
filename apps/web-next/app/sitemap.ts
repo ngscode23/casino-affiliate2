@@ -5,8 +5,7 @@ import { getSiteOrigin } from "@/lib/env/siteUrl";
 import { getAdminClient } from "@/utils/supabase/admin";
 
 const PRODUCT_LIMIT = 5000;
-const PUBLIC_DATASET = "shop";
-const PUBLIC_STATUSES = new Set(["published", "active"]);
+const PUBLIC_STATUSES = new Set(["published"]);
 const BLOCKED_SLUG_PATTERN = /^(?:admin|test|draft)/i;
 
 type SupabaseAdminClient = ReturnType<typeof getAdminClient>;
@@ -14,19 +13,9 @@ type ProductRow = {
   id: string | null;
   slug: string | null;
   created_at: string | null;
-  category_slug: string | null;
-  dataset: string | null;
-};
-
-type ProductMetaRow = {
-  id: string;
-  slug: string | null;
+  updated_at: string | null;
   status: string | null;
-  catalog_product_id: string | null;
-  created_at: string | null;
 };
-
-type TimestampMap = Map<string, number>;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
@@ -62,9 +51,9 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
   const productEntries: MetadataRoute.Sitemap = [];
 
   const { data, error } = await supabase
-    .from("product_with_discount_with_dataset")
-    .select("id, slug, created_at, category_slug, dataset")
-    .eq("dataset", PUBLIC_DATASET)
+    .from("catalog_products_v")
+    .select("id, slug, created_at, updated_at, status")
+    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(PRODUCT_LIMIT);
 
@@ -74,20 +63,6 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
   }
 
   const rows = Array.isArray(data) ? (data as ProductRow[]) : [];
-  const idList = rows.map((row) => row?.id).filter((value): value is string => Boolean(value));
-  const metaMap = await fetchProductMeta(supabase, idList);
-  const catalogUpdateMap = await fetchCatalogUpdates(
-    supabase,
-    Array.from(
-      new Set(
-        Array.from(metaMap.values())
-          .map((row) => row.catalog_product_id)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    ),
-  );
-  const stockUpdateMap = await fetchStockUpdates(supabase, idList);
-
   const seenSlugs = new Set<string>();
 
   for (const row of rows) {
@@ -96,14 +71,10 @@ async function fetchProductEntries(supabase: SupabaseAdminClient, origin: string
     if (!slug || seenSlugs.has(slug) || BLOCKED_SLUG_PATTERN.test(slug)) continue;
     seenSlugs.add(slug);
 
-    const dataset = (row.dataset ?? "").toLowerCase() === "legacy" ? "legacy" : PUBLIC_DATASET;
-    if (dataset !== PUBLIC_DATASET) continue;
-
-    const meta = row.id ? metaMap.get(row.id) : undefined;
-    const status = normalizeStatus(meta?.status ?? null);
+    const status = normalizeStatus(row.status ?? null);
     if (!isPublishableStatus(status)) continue;
 
-    const lastModified = resolveProductLastModified(row, meta, stockUpdateMap, catalogUpdateMap);
+    const lastModified = parseTimestamp(row.updated_at ?? row.created_at);
     if (!lastModified) continue;
 
     productEntries.push({
@@ -123,114 +94,6 @@ function normalizeStatus(value: string | null | undefined): string {
 function isPublishableStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   return PUBLIC_STATUSES.has(status.toLowerCase());
-}
-
-function chunkValues<T>(values: T[], size = 200): T[][] {
-  if (!values.length) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
-async function fetchProductMeta(client: SupabaseAdminClient, ids: string[]): Promise<Map<string, ProductMetaRow>> {
-  const meta = new Map<string, ProductMetaRow>();
-  for (const chunk of chunkValues(ids, 200)) {
-    if (!chunk.length) continue;
-    const { data, error } = await client
-      .from("ecom_products")
-      .select("id, slug, status, catalog_product_id, created_at")
-      .in("id", chunk);
-    if (error) {
-      console.error("[sitemap] failed to load product meta", error);
-      continue;
-    }
-    const rows = Array.isArray(data) ? (data as ProductMetaRow[]) : [];
-    for (const row of rows) {
-      if (!row?.id) continue;
-      meta.set(row.id, row);
-    }
-  }
-  return meta;
-}
-
-async function fetchCatalogUpdates(client: SupabaseAdminClient, ids: string[]): Promise<TimestampMap> {
-  const timestamps: TimestampMap = new Map();
-  for (const chunk of chunkValues(ids, 200)) {
-    if (!chunk.length) continue;
-    const { data, error } = await client.from("catalog_products").select("id, updated_at").in("id", chunk);
-    if (error) {
-      console.error("[sitemap] failed to load catalog updates", error);
-      continue;
-    }
-    const rows = Array.isArray(data)
-      ? (data as { id: string | null; updated_at: string | null }[])
-      : [];
-    for (const row of rows) {
-      if (!row?.id) continue;
-      recordTimestamp(timestamps, row.id, row.updated_at);
-    }
-  }
-  return timestamps;
-}
-
-async function fetchStockUpdates(client: SupabaseAdminClient, ids: string[]): Promise<TimestampMap> {
-  const timestamps: TimestampMap = new Map();
-  for (const chunk of chunkValues(ids, 200)) {
-    if (!chunk.length) continue;
-    const { data, error } = await client.from("stock_items").select("product_id, updated_at").in("product_id", chunk);
-    if (error) {
-      console.error("[sitemap] failed to load stock updates", error);
-      continue;
-    }
-    const rows = Array.isArray(data)
-      ? (data as { product_id: string | null; updated_at: string | null }[])
-      : [];
-    for (const row of rows) {
-      if (!row?.product_id) continue;
-      recordTimestamp(timestamps, row.product_id, row.updated_at);
-    }
-  }
-  return timestamps;
-}
-
-function recordTimestamp(target: TimestampMap, key: string | null | undefined, raw: string | null | undefined) {
-  if (!key) return;
-  const parsed = parseTimestamp(raw);
-  if (!parsed) return;
-  const ms = parsed.getTime();
-  const current = target.get(key);
-  if (!current || ms > current) {
-    target.set(key, ms);
-  }
-}
-
-function resolveProductLastModified(
-  row: ProductRow,
-  meta: ProductMetaRow | undefined,
-  stockMap: TimestampMap,
-  catalogMap: TimestampMap,
-): Date | undefined {
-  const candidates: number[] = [];
-  if (row.id) {
-    const stockTimestamp = stockMap.get(row.id);
-    if (stockTimestamp) candidates.push(stockTimestamp);
-  }
-  if (meta?.catalog_product_id) {
-    const catalogTimestamp = catalogMap.get(meta.catalog_product_id);
-    if (catalogTimestamp) candidates.push(catalogTimestamp);
-  }
-  if (meta?.created_at) {
-    const parsed = parseTimestamp(meta.created_at);
-    if (parsed) candidates.push(parsed.getTime());
-  }
-  if (row.created_at) {
-    const parsed = parseTimestamp(row.created_at);
-    if (parsed) candidates.push(parsed.getTime());
-  }
-  if (!candidates.length) return undefined;
-  return new Date(Math.max(...candidates));
 }
 
 function normalizeSlug(value: string | null | undefined): string | null {

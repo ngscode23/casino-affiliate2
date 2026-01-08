@@ -1,330 +1,234 @@
 {
   "nav": {
-    "home": "Главная",
-    "compare": "Сравнение",
-    "offers": "??????",
-    "catalog": "Каталог",
-    "cart": "Корзина",
-    "orders": "Мои заказы",
-    "favorites": "Избранное",
-    "privacy": "Политика конфиденциальности",
-    "terms": "Условия",
-    "cookies": "Файлы cookie",
-    "responsible": "Ответственная игра",
-    "affiliateDisclosure": "Партнёрское раскрытие",
-    "contact": "Контакты",
-    "affiliate": "Партнёрство",
-    "partner": "Партнёрам",
-    "account": "Личный кабинет",
-    "myReviews": "Мои отзывы"
-  },
-  "home": {
-    "heroTitle": "Лучшие казино‑офферы и честные обзоры",
-    "heroSubtitle": "Проверенные лицензии MGA/UKGC и быстрые выплаты, играйте с умом и в рамках бюджета.",
-    "primaryCta": "Начать сравнение",
-    "collectionsCta": "Смотреть все"
+    "home": "Home",
+    "compare": "Compare",
+    "offers": "Offers",
+    "catalog": "Catalog",
+    "cart": "Cart",
+    "orders": "My Orders",
+    "favorites": "Favorites",
+    "privacy": "Privacy Policy",
+    "terms": "Terms",
+    "cookies": "Cookies",
+    "responsible": "Responsible Gaming",
+    "affiliateDisclosure": "Affiliate Disclosure",
+    "contact": "Contact",
+    "affiliate": "Affiliate",
+    "partner": "Partner",
+    "account": "Account"
   },
   "compare": {
-    "title": "Сравнение офферов",
-    "subtitle": "Фильтруйте по лицензии, методам и рейтингу",
-    "field": "Параметр",
-    "clear": "Очистить",
-    "open": "Открыть сравнение",
-    "share": "Скопировать ссылку",
-    "empty": "Вы ещё не добавили офферы для сравнения.",
-    "resetFilters": "Сбросить фильтры",
-    "add": "Добавить",
-    "selected": "Выбрано",
-    "addTo": "Добавить к сравнению",
-    "selectedFor": "Для сравнения",
-    "compareLink": "Сравнить",
-    "maxLimit": "Можно сравнить не более 4 офферов",
-    "hintAddOneMore": "Добавьте ещё один, чтобы открыть сравнение"
+    "title": "Compare",
+    "subtitle": "smart filters",
+    "clear": "Clear",
+    "open": "Apply",
+    "selected": "Selected",
+    "addTo": "Add to compare",
+    "compareLink": "Compare",
+    "share": "Share",
+    "hintAddOneMore": "Add one more to open compare",
+    "maxLimit": "You can compare up to 4 offers"
   },
   "offer": {
-    "pros": "Плюсы",
-    "cons": "Минусы",
-    "bonus": "Бонус",
-    "payout": "Выплата",
-    "license": "Лицензия",
-    "ratingLabel": "рейтинг",
-    "details": "Подробнее",
-    "cta": "Перейти к офферу",
-    "tc": "Условия и ограничения",
-    "payoutFast": "Выплата ~{hours}ч",
-    "sponsoredShort": "Партнёрская ссылка. 18+",
-    "ourDisclosure": "Пожалуйста, ознакомьтесь с",
-    "tcShort": "и правилами оператора"
+    "payout": "Payout",
+    "license": "License",
+    "ratingLabel": "Rating",
+    "details": "Details",
+    "cta": "Go"
   },
   "filters": {
-    "all": "Все",
-    "search": "Поиск",
-    "searchPlaceholder": "Казино, способ оплаты...",
-    "noResults": "Нет офферов по выбранным фильтрам.",
-    "methods": "Методы",
-    "action": "Действие",
-    "title": "Фильтры",
-    "apply": "Применить",
-    "reset": "Сбросить",
-    "min": "мин",
-    "max": "макс"
-  },
-  "legal": {
-    "affiliateDisclosure": "Мы используем партнёрские ссылки; при переходе и регистрации мы можем получить вознаграждение без дополнительных затрат для вас.",
-    "responsibleHeader": "Играйте ответственно. 18+",
-    "privacy.title": "Политика конфиденциальности",
-    "privacy.desc": "Как мы собираем и используем данные.",
-    "cookies.title": "Файлы cookie",
-    "cookies.desc": "Использование cookie и настройки.",
-    "terms.title": "Условия использования",
-    "terms.desc": "Правила использования сайта.",
-    "resp.title": "Ответственная игра",
-    "resp.desc": "Помощь и ресурсы для безопасной игры."
-  },
-  "cookies": {
-    "title": "Настройки файлов cookie",
-    "analytics": "Аналитика",
-    "marketing": "Маркетинг",
-    "save": "Сохранить"
+    "all": "All",
+    "methods": "Methods",
+    "action": "Action",
+    "search": "Search",
+    "searchPlaceholder": "Search casinos, licenses, methods…",
+    "title": "Filters",
+    "apply": "Apply",
+    "reset": "Reset",
+    "min": "min",
+    "max": "max"
   },
   "offers": {
-    "collectionTitle": "Все казино‑офферы",
-    "title": "Все казино‑офферы",
-    "subtitle": "поиск и фильтры",
-    "description": "Просматривайте все офферы и фильтруйте по лицензии или поиску.",
-    "all": "Все офферы",
-    "found": "Найдено",
-    "sortBy": "Сортировка",
+    "collectionTitle": "All Casino Offers",
+    "title": "All Casino Offers",
+    "subtitle": "browse & filter",
+    "description": "Browse all casino offers and filter by license or search.",
+    "all": "All Offers",
+    "found": "Found",
+    "sortBy": "Sort by",
     "sort": {
-      "ratingDesc": "Рейтинг: по убыванию",
-      "ratingAsc": "Рейтинг: по возрастанию",
-      "payoutAsc": "Выплаты: сначала быстрые",
-      "payoutDesc": "Выплаты: сначала медленные",
-      "nameAsc": "Название: A→Z",
-      "nameDesc": "Название: Z→A"
+      "ratingDesc": "Rating: high to low",
+      "ratingAsc": "Rating: low to high",
+      "payoutAsc": "Payout time: fast first",
+      "payoutDesc": "Payout time: slow first",
+      "nameAsc": "Name: A→Z",
+      "nameDesc": "Name: Z→A"
     },
-    "showN": "Показать",
-    "recent": "Недавно просмотренные",
-    "tryCompare": "Нужен сравнительный вид? Откройте Сравнение.",
-    "goToCompare": "Перейти к сравнению",
-    "loadingError": "загрузка офферов"
+    "showN": "Show",
+    "recent": "Recently Viewed",
+    "tryCompare": "Want a side-by-side view? Try Compare.",
+    "goToCompare": "Go to Compare",
+    "loadingError": "loading offers"
   },
-  "how": {
-    "title": "Как мы ранжируем",
-    "lead": "Проверяем лицензии, тестируем скорость выплат и прозрачность условий. Без воды и скрытой рекламы.",
-    "criteriaTitle": "Что учитываем",
-    "criteria": {
-      "licenses": "Лицензии и аудит",
-      "payout": "Скорость выплат",
-      "methods": "Способы платежей",
-      "jurisdiction": "Юрисдикция и KYC",
-      "transparency": "Прозрачность условий",
-      "ux": "Поддержка и опыт игрока"
-    },
-    "methodTitle": "Методика в 3 шага",
-    "step1": "Сбор данных: лицензии, платежи, лимиты, KYC, отзывы.",
-    "step2": "Тест выплат: контрольные заявки и фактическое время зачисления.",
-    "step3": "Взвешивание метрик: считаем итоговый рейтинг без ручных правок.",
-    "disclosureTitle": "Раскрытие",
-    "disclosureText": "Мы используем партнёрские ссылки. Спонсорские размещения помечены и не влияют на методику и основные рейтинги.",
-    "desc": {
-      "licenses": "Проверяем официальные реестры (MGA/UKGC и др.), фон бренда и признаки комплаенса.",
-      "payout": "Делаем контрольные выводы и фиксируем время до зачисления для популярных методов.",
-      "methods": "Диапазон способов ввода/вывода с понятными комиссиями и лимитами.",
-      "jurisdiction": "Страны, ограничения, KYC‑потоки и справедливость дополнительных проверок.",
-      "transparency": "Понятные правила, условия бонусов и отсутствие скрытых ловушек.",
-      "ux": "Скорость ответа поддержки и качество решения типовых кейсов."
-    }
-  },
-  "reviews": {
-    "loginToVote": "Пожалуйста, войдите, чтобы проголосовать.",
-    "voteFailed": "Не удалось сохранить голос.",
-    "helpfulQuestion": "Этот отзыв был полезен?",
-    "voteHelpful": "Полезно",
-    "voteNotHelpful": "Не очень"
+  "common": {
+    "error": "Error",
+    "clear": "Clear",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "notFound": "Not found",
+    "linkCopied": "Link copied",
+    "copyLink": "Copy link:"
   },
   "attributes": {
     "rating": {
-      "label": "Рейтинг"
+      "label": "Rating"
     },
     "compliance_license": {
-      "label": "Лицензия"
+      "label": "License"
     },
     "payout_time_hours": {
-      "label": "Выплата (ч)"
+      "label": "Payout (h)"
     },
     "payout_methods": {
-      "label": "Методы",
+      "label": "Methods",
       "options": {
-        "cards": "Карты",
+        "cards": "Cards",
         "sepa": "SEPA",
-        "crypto": "Крипто",
+        "crypto": "Crypto",
         "paypal": "PayPal",
         "skrill": "Skrill",
-        "bank_transfer": "Банковский перевод"
-      }
-    },
-    "license": {
-      "options": {
-        "MGA": "MGA",
-        "UKGC": "UKGC",
-        "Curaçao": "Кюрасао",
-        "Other": "Другое"
-      }
-    },
-    "methods": {
-      "options": {
-        "Cards": "Карты",
-        "SEPA": "SEPA",
-        "Crypto": "Крипто",
-        "Paypal": "PayPal",
-        "Skrill": "Skrill"
-      }
-    }
-  },
-  "verticals": {
-    "casino": {
-      "disclosures": {
-        "card": "Партнёрская ссылка. 18+",
-        "footer": "Мы можем получать комиссию по ссылкам на сайте. 18+"
-      }
-    },
-    "hosting": {
-      "disclosures": {
-        "card": "Партнёрская ссылка.",
-        "footer": "Мы можем получать комиссию по ссылкам на сайте."
+        "bank_transfer": "Bank transfer"
       }
     }
   },
   "favorites": {
-    "clear": "Очистить избранное",
-    "clearConfirm": "Очистить весь список избранного?",
-    "share": "Поделиться списком",
-    "savedSubtitle": "Ваши сохранённые офферы.",
-    "description": "Быстрый доступ к сохранённым офферам.",
-    "importFound": "Найден список к импорту:",
-    "items": "элементов",
-    "import": "Импортировать",
-    "hide": "Скрыть",
-    "empty": "Вы ещё ничего не добавили.",
-    "goToOffers": "Перейти к офферам",
-    "copied": "Скопировано",
-    "copyManual": "Скопируйте ссылку вручную:"
-  },
-  "common": {
-    "error": "Ошибка",
-    "clear": "Очистить",
-    "loadMore": "Показать ещё",
-    "loading": "Загрузка…",
-    "notFound": "Ничего не найдено",
-    "linkCopied": "Ссылка скопирована",
-    "copyLink": "Скопируйте ссылку:"
+    "clear": "Clear favorites",
+    "clearConfirm": "Clear all favorites?",
+    "share": "Share list",
+    "savedSubtitle": "Your saved offers.",
+    "description": "Quick access to your saved offers.",
+    "importFound": "Found a list to import:",
+    "items": "items",
+    "import": "Import",
+    "hide": "Hide",
+    "empty": "You haven't added anything yet.",
+    "goToOffers": "Go to offers",
+    "copied": "Copied",
+    "copyManual": "Copy link manually:"
   },
   "layout": {
-    "tagline": "Инструменты для партнёрского и e-commerce роста"
+    "tagline": "Affiliate and e-commerce tooling for growth teams"
   },
   "header": {
-    "searchPlaceholder": "Поиск товаров...",
-    "searchLabel": "Поиск",
-    "searchButton": "Искать"
+    "searchPlaceholder": "Search products",
+    "searchButton": "Search",
+    "searchMobile": "Search site"
   },
   "affiliate": {
     "hero": {
-      "tagline": "Платформа для аффилиатов",
-      "title": "Масштабируйте партнёрские кампании с проверенными офферами и живой аналитикой",
-      "body": "Получайте заранее согласованные условия, реальные сроки выплат и подсказки по локализации без бесконечных таблиц. Подключайте наш каталог к рабочему процессу и соблюдайте требования комплаенса.",
-      "primaryCta": "Перейти в каталог",
-      "secondaryCta": "Связаться с командой"
+      "tagline": "Affiliate launchpad",
+      "title": "Scale affiliate campaigns with vetted offers and live performance data",
+      "body": "Unlock pre-negotiated deals, real payout timings, and localisation notes without digging through spreadsheets. Plug our catalogue into your workflow and stay compliant.",
+      "primaryCta": "Browse catalogue",
+      "secondaryCta": "Talk to the partner team"
     },
     "sections": {
-      "valueProps": "Почему лидеры подключаются к нам",
-      "timeline": "Как выглядит запуск",
-      "faq": "Частые вопросы",
-      "featured": "Избранные программы"
+      "valueProps": "Why top affiliates onboard here",
+      "timeline": "Campaign timeline",
+      "faq": "Frequently asked",
+      "featured": "Featured programs"
     },
     "table": {
-      "brand": "Бренд",
-      "rating": "Рейтинг",
-      "payout": "Выплаты (ч)",
-      "license": "Лицензия",
-      "action": "Действие",
-      "viewOffer": "Подробнее"
+      "brand": "Brand",
+      "rating": "Rating",
+      "payout": "Payout (h)",
+      "license": "Licence",
+      "action": "Action",
+      "viewOffer": "Explore"
     },
     "valueProps": {
       "licensing": {
-        "title": "Только лицензированные партнёры",
-        "description": "Мы проверяем каждого оператора: регулятор, бенефициары, жалобы и репутация до публикации."
+        "title": "Licensed partners only",
+        "description": "We screen every brand for regulator status, ownership, and complaint history before listing it."
       },
       "payouts": {
-        "title": "Прозрачные выплаты",
-        "description": "Тестовые выводы поддерживают честный SLA. Если сроки срываются, предложение ставится на паузу."
+        "title": "Transparent payouts",
+        "description": "Real withdrawal tests keep the SLA honest. If timings slip, the offer is paused."
       },
       "performance": {
-        "title": "Фокус на перформанс",
-        "description": "Мы делимся CTR, FTD и ARPU по историям запусков, чтобы вы выбрали лучший стартовый пул."
+        "title": "Performance-first insights",
+        "description": "Benchmark CTR, FTD, and ARPU from historical campaigns to prioritise your launch list."
       },
       "coverage": {
-        "title": "Глобальное покрытие",
-        "description": "Готовые флоу по рынкам, локализованные креативы и заметки по KYC для вашей команды медиабаинга."
+        "title": "Global coverage",
+        "description": "Multi-market payment flows, localised creatives, and KYC notes ready for your media buyers."
       }
     },
     "timeline": {
       "steps": {
         "audit": {
-          "title": "1. Аудит и таргетинг",
-          "description": "Расскажите о целевых вертикалях. Мы подбираем бренды с нужными лицензиями, платежами и GEO."
+          "title": "1. Audit & targeting",
+          "description": "Share your vertical focus. We shortlist partners with matching licences, payment flows, and GEO reach."
         },
         "creative": {
-          "title": "2. Креативы и трекинг",
-          "description": "Вы получите пакеты локализации, конвертационные меседжи и чек-листы QA для пикселей и postback."
+          "title": "2. Creative & tracking",
+          "description": "Receive localisation packs, conversion hooks, and QA templates for pixels, postback, or S2S."
         },
         "optimise": {
-          "title": "3. Оптимизация",
-          "description": "Еженедельные синки показывают отклонения по выплатам, рискам и точки роста."
+          "title": "3. Optimise",
+          "description": "Weekly reporting syncs highlight payout variance, risk events, and upsell opportunities."
         }
       }
     },
     "faq": {
       "selection": {
-        "q": "Как вы отбираете бренды в витрину?",
-        "a": "Оценку дают лицензии, скорость выплат, методы и готовность партнёра к коммуникации. Платное размещение не перекрывает базовый рейтинг."
+        "q": "How do you select featured brands?",
+        "a": "Licensing, payout speed, payment coverage, and partner responsiveness each carry a score. Sponsored placement never overrides the base rating."
       },
       "onboarding": {
-        "q": "Можно ли подключиться новичку?",
-        "a": "Да, мы работаем с новыми аффилиатами, но просим дорожную карту трафика и уважение к responsible gaming."
+        "q": "Can new affiliates join?",
+        "a": "Yes. We onboard new affiliates, but expect to see traffic plans and respect for responsible gaming guidelines."
       },
       "support": {
-        "q": "Какие каналы поддержки доступны?",
-        "a": "Приоритетные партнёры получают выделенного аккаунт-менеджера и доступ к общему Slack для стратегии."
+        "q": "What support channels are available?",
+        "a": "Every priority partner receives a dedicated account manager plus access to our shared strategy Slack."
       },
       "markets": {
-        "q": "Какие рынки сейчас конвертят лучше всего?",
-        "a": "Сейчас сильны CEE и LatAm, но свежие данные по когортам обсудим после контакта с командой."
+        "q": "Which markets perform best right now?",
+        "a": "CEE and LatAm funnels are strongest this quarter, but we share fresh cohort data once you connect with the team."
       }
     }
   },
-  "footer": {
-    "allRightsReserved": "Все права защищены.",
-    "contact": "Контакты",
-    "explore": "Изучить",
-    "connect": "Соцсети",
-    "legal": "Юридический раздел"
-  },
   "products": {
-    "addToCart": "Добавить в корзину",
-    "noImage": "Нет изображения",
-    "viewDetails": "Подробнее",
+    "addToCart": "Add to cart",
+    "noImage": "No image",
+    "viewDetails": "View details",
     "badges": {
-      "new": "Новинка",
-      "bestseller": "Хит продаж",
-      "sale": "Скидка"
+      "new": "New",
+      "bestseller": "Bestseller",
+      "sale": "Sale"
     },
     "dataset": {
-      "shop": "Каталог",
-      "legacy": "Архив"
+      "shop": "Shop",
+      "legacy": "Legacy"
     }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy"
+    },
+    "terms": {
+      "title": "Terms of Service"
+    },
+    "cookies": {
+      "title": "Cookie Notice"
+    }
+  },
+  "footer": {
+    "contact": "Contact",
+    "explore": "Explore",
+    "connect": "Connect",
+    "legal": "Legal",
+    "allRightsReserved": "All rights reserved."
   }
 }
-
-
-

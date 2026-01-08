@@ -4,7 +4,7 @@ import { sanitizeSearchParam } from "@shared/lib/sanitize";
 
 import { getAdminClient } from "@/utils/supabase/admin";
 
-const TABLE = "product_with_discount_with_dataset";
+const TABLE = "catalog_products_v";
 const MAX_LIMIT = 10;
 const DEFAULT_LIMIT = 5;
 const CACHE_CONTROL = "s-maxage=120, stale-while-revalidate=300";
@@ -46,10 +46,9 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from(TABLE)
-    .select("id, name, slug, category_slug, rating")
-    .eq("dataset", "shop")
-    .or(`name.ilike.${pattern},slug.ilike.${pattern}`)
-    .order("rating", { ascending: false, nullsFirst: true })
+    .select("id, title, slug, category_slug, status")
+    .eq("status", "published")
+    .or(`title.ilike.${pattern},slug.ilike.${pattern}`)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -65,10 +64,10 @@ export async function GET(request: Request) {
   const items =
     data?.map((row) => ({
       id: row.id ?? "",
-      label: row.name ?? row.slug ?? "Product",
+      label: row.title ?? row.slug ?? "Product",
       slug: row.slug ?? null,
       category: row.category_slug ?? null,
-      rating: typeof row.rating === "number" ? row.rating : null,
+      rating: null,
     })) ?? [];
 
   const response = NextResponse.json({ items });

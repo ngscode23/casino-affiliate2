@@ -30,12 +30,10 @@ export async function POST(request: Request) {
   if (tokenError) return tokenError;
 
   try {
-    const supabase = getAdminClient();
-    const { error } = await (supabase as any).rpc("cleanup_recent_views");
-    if (error) {
-      return json({ ok: false, code: "db", message: error.message }, 500);
-    }
-    return json({ ok: true });
+    // recent_views is legacy (tied to ecom products). We now use user_events as canonical stream.
+    // Keeping this endpoint for backwards-compat, but no cleanup is required anymore.
+    void getAdminClient(); // ensure env/config is still valid
+    return json({ ok: true, deprecated: true, message: "recent_views cleanup is deprecated; use user_events." });
   } catch (error: any) {
     return json(
       { ok: false, code: "internal", message: String(error?.message ?? error) },
@@ -47,4 +45,3 @@ export async function POST(request: Request) {
 export function GET() {
   return json({ ok: false, code: "method_not_allowed" }, 405);
 }
-

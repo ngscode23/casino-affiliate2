@@ -142,7 +142,7 @@ async function loadCompareProducts(rawSearchParams: SearchParams): Promise<Compa
 
   const products = await Promise.all(slugs.map((slug) => fetchProduct(slug)));
   const resolved = (products.filter(Boolean) as ProductData[]).filter(
-    (product) => product.status === "active" || product.status === "published",
+    (product) => product.status === "published",
   );
 
   return resolved.map((product) => ({

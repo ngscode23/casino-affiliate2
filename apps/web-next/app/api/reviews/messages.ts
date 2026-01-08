@@ -57,24 +57,13 @@ async function resolveProductId(
   const uid = coerceString(productUid);
   if (!uid) return null;
 
-  const direct = await supabase.from("ecom_products").select("id").eq("id", uid).maybeSingle();
-  if (!direct.error && direct.data?.id) return coerceString(direct.data.id);
+  const { data, error } = await supabase
+    .from("catalog_products_v")
+    .select("id")
+    .eq("id", uid)
+    .maybeSingle();
+  if (!error && data?.id) return coerceString(data.id);
 
-  const { data: catalogRows, error } = await supabase
-    .from("product_catalog")
-    .select("source_pk, source_table")
-    .eq("product_uid", uid)
-    .eq("source_schema", "public");
-  if (!error && Array.isArray(catalogRows)) {
-    for (const row of catalogRows) {
-      const sourcePk = coerceString((row as any)?.source_pk);
-      if (!sourcePk) continue;
-      const candidate = await supabase.from("ecom_products").select("id").eq("id", sourcePk).maybeSingle();
-      if (!candidate.error && candidate.data?.id) {
-        return coerceString(candidate.data.id);
-      }
-    }
-  }
   return null;
 }
 

@@ -15,9 +15,8 @@ import { buildCanonical, getSiteOrigin } from "@/lib/env/siteUrl";
 import { ProductListAnalytics } from "@/components/analytics/EcommerceEvents";
 
 const SITE_NAME = siteConfig.name || "Neon Shop";
-const BASE_TITLE = `Каталог товаров | ${SITE_NAME}`;
-const BASE_DESCRIPTION =
-  "Каталог Neon Shop: смартфоны, ноутбуки и аксессуары. Сравнивайте цены, характеристики и находите лучшие предложения.";
+const BASE_TITLE = `Product catalog | ${SITE_NAME}`;
+const BASE_DESCRIPTION = "Browse the Neon Shop catalog: curated picks, transparent pricing, and fresh arrivals.";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -100,7 +99,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
   const { category, productCount } = await fetchCategoryMeta(categoryParam);
 
   if (!category) {
-    const fallbackTitle = `${BASE_TITLE} - категория не найдена`;
+    const fallbackTitle = `${BASE_TITLE} - Category not found`;
     return {
       title: fallbackTitle,
       description: BASE_DESCRIPTION,
@@ -123,7 +122,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
 
   const canonical = buildCanonical(`/products?category=${encodeURIComponent(category.slug)}`);
   const hasCount = typeof productCount === "number" && productCount > 0;
-  const countLabel = hasCount ? ` - ${productCount} товаров` : "";
+  const countLabel = hasCount ? ` - ${productCount} products` : "";
   const title = `${category.title}${countLabel} | ${SITE_NAME}`;
   const description = category.description?.trim() || BASE_DESCRIPTION;
 
@@ -167,14 +166,14 @@ function ProductsStream({
   listingPromise: Promise<ListingResponse>;
   filters: ReturnType<typeof resolveFilterParams>;
 }) {
-  // use() здесь держит streaming-поток: Suspense показывает CatalogSkeleton,
-  // а готовый список дорендеривается, не блокируя TTFB. Не заменяйте на await,
-  // чтобы не сломать потоковую загрузку.
+  // use() enables streaming: Suspense renders CatalogSkeleton while data resolves,
+  // improving TTFB versus awaiting before render.
+
   const { listing, fetchError } = use(listingPromise);
 
   const description =
     filters.query && filters.query.trim().length
-      ? `Результаты поиска «${filters.query}» в каталоге ${CATALOG_NAME || "каталога"}`
+      ? `Search results for "${filters.query}" in ${CATALOG_NAME || "catalog"}`
       : BASE_DESCRIPTION;
 
   const analyticsItems = listing.items.map((product, index) => ({
@@ -205,11 +204,11 @@ function ProductsStream({
       <section aria-busy={Boolean(fetchError)} aria-live="polite">
         <div className="mx-auto max-w-screen-xl space-y-6 px-6 pt-12 pb-0 sm:px-8 sm:pt-14 lg:px-10 lg:pt-16">
           <header className="flex flex-col gap-3 text-center sm:text-left">
-            <span className="text-sm font-medium text-muted">Каталог товаров</span>
-            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "Каталог"}</h1>
+            <span className="text-sm font-medium text-muted">Product catalog</span>
+            <h1 className="text-3xl font-semibold text-fg sm:text-4xl">{CATALOG_NAME ?? "Catalog"}</h1>
             <p className="text-base text-muted sm:max-w-3xl">{description}</p>
             {typeof listing.total === "number" ? (
-              <span className="text-sm text-muted">Всего товаров: {listing.total}</span>
+              <span className="text-sm text-muted">Total products: {listing.total}</span>
             ) : null}
           </header>
         </div>
@@ -218,7 +217,7 @@ function ProductsStream({
           categories={listing.categories}
           initialBrandFacets={listing.brandFacets ?? []}
           initialModelFacets={listing.modelFacets ?? {}}
-          catalogName={CATALOG_NAME ?? "???????"}
+          catalogName={CATALOG_NAME ?? "Catalog"}
           debug={listing.debug ?? null}
           initialQuery={filters.query}
           initialCategory={filters.category}
@@ -235,10 +234,10 @@ function ProductsStream({
         />
         {fetchError ? (
           <div className="mx-auto max-w-screen-md px-6 pb-12 text-center text-sm text-red-400">
-            Не получилось загрузить товары: {fetchError}
+            Failed to load catalog: {fetchError}
             {" | "}
             <Link href="/contact" className="text-blue-400 hover:text-blue-300">
-              Напишите в поддержку
+              Contact support
             </Link>
           </div>
         ) : null}

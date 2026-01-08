@@ -169,7 +169,7 @@ export default function AddToCartButton({
   };
   const variantClass = variantClassMap[variant] ?? variantClassMap.solid;
   const displayLabel =
-    isOutOfStock ? outOfStockLabel ?? "??? ? ???????" : label;
+    isOutOfStock ? outOfStockLabel ?? "Out of stock" : label;
   const isDisabled = pending || isOutOfStock;
   const computedAriaLabel = `${displayLabel} ${title ?? ""}`.trim();
 

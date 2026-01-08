@@ -13,10 +13,6 @@ const PRODUCT_FIELDS =
 const PRODUCT_STATUSES = ["draft", "published", "archived"] as const;
 type CatalogProductStatus = (typeof PRODUCT_STATUSES)[number];
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 type ProductPayload = {
   id?: string;
   title?: string;
@@ -152,29 +148,7 @@ export async function GET(request: Request) {
   let items = data ?? [];
 
   if ((includeSkuCount || hasSkuFilter) && items.length) {
-    const ids = items.map((item) => item.id).filter(isNonEmptyString);
-    const { data: skuRows, error: skuError } = await createAuthenticatedClient(auth.accessToken, "catalog-admin")
-      .from("ecom_products")
-      .select("catalog_product_id")
-      .in("catalog_product_id", ids);
-    if (!skuError && Array.isArray(skuRows)) {
-      const counts = new Map<string, number>();
-      for (const row of skuRows) {
-        const pid = typeof row?.catalog_product_id === "string" ? row.catalog_product_id : null;
-        if (!pid) continue;
-        counts.set(pid, (counts.get(pid) ?? 0) + 1);
-      }
-      items = items
-        .map((item) => {
-          const productId = typeof item.id === "string" ? item.id : null;
-          const skuCount = productId ? counts.get(productId) ?? 0 : 0;
-          return {
-            ...item,
-            sku_count: skuCount,
-          };
-        })
-        .filter((item) => (hasSkuFilter ? (item as any).sku_count > 0 : true));
-    }
+    items = items.map((item) => ({ ...item, sku_count: 0 }));
   }
 
   return json({ ok: true, items }, 200);
@@ -268,18 +242,7 @@ export async function DELETE(request: Request) {
 
   const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
 
-  // prevent archiving when SKUs are linked
-  const { count: skuCount, error: skuCheckError } = await supabase
-    .from("ecom_products")
-    .select("id", { count: "exact", head: true })
-    .eq("catalog_product_id", id);
-  if (!skuCheckError && typeof skuCount === "number" && skuCount > 0) {
-    return json(
-      { ok: false, error: "has_sku", message: "К модели привязаны SKU. Сначала отвяжите их." },
-      409,
-    );
-  }
-
+  
   const { data, error } = await supabase
     .from("catalog_products")
     .update({ status: "archived" })

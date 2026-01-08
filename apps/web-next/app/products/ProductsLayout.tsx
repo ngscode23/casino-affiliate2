@@ -59,7 +59,7 @@ export function ProductsLayout({
       isFilterOpen={isFilterOpen}
       onCloseFilters={onCloseFilters}
       renderFilterSidebar={({ variant }) => (
-        <FilterSidebar {...filterSidebarProps} isOpen={variant === "desktop" ? true : filterSidebarProps.isOpen} />
+        <FilterSidebar {...filterSidebarProps} isOpen={filterSidebarProps.isOpen} />
       )}
       toolbar={<ProductsToolbar {...toolbarProps} onToggleFilters={onToggleFilters} />}
     >

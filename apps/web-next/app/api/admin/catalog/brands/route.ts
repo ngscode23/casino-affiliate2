@@ -147,20 +147,16 @@ export async function DELETE(request: Request) {
 
   const supabase = getAdminClient();
 
-  // Guard: check linked products/SKU
-  const { data: models } = await supabase.from("catalog_products").select("id").eq("brand_id", id);
-  const modelIds = (models ?? []).map((row) => String(row.id)).filter(Boolean);
-  if (modelIds.length) {
-    const { count: skuCount } = await supabase
-      .from("ecom_products")
-      .select("id", { count: "exact", head: true })
-      .in("catalog_product_id", modelIds);
-    if (typeof skuCount === "number" && skuCount > 0) {
-      return json(
-        { ok: false, error: "has_sku", message: "К бренду привязаны SKU через модели. Отвяжите их перед удалением." },
-        409,
-      );
-    }
+    // Guard: block deletion when catalog products exist
+  const { count: productCount } = await supabase
+    .from("catalog_products")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", id);
+  if (typeof productCount === "number" && productCount > 0) {
+    return json(
+      { ok: false, error: "has_products", message: "У бренда есть товары. Сначала удалите их." },
+      409,
+    );
   }
 
   const { data, error } = await supabase

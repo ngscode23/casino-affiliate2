@@ -11,7 +11,8 @@ export async function getCategories(): Promise<Category[]> {
     return [];
   }
 
-  const endpoint = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/ecom_categories?select=slug,name,icon&order=name.asc`;
+  // Новый канонический каталог: public.categories (view на catalog.categories)
+  const endpoint = `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/categories?select=slug,title&is_active=eq.true&order=sort_order.asc,title.asc`;
   const headers: Record<string, string> = {
     apikey: SUPABASE_ANON_KEY,
     Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -43,12 +44,11 @@ export async function getCategories(): Promise<Category[]> {
     throw new Error(message);
   }
 
-  const rows = (await response.json()) as Array<{ slug: string; name: string; icon?: string | null }>;
+  const rows = (await response.json()) as Array<{ slug: string; title: string }>;
   return rows.map((row) => ({
     id: row.slug,
     slug: row.slug,
-    name: row.name,
-    icon: row.icon ?? undefined,
+    name: row.title,
   }));
 }
 

@@ -12,7 +12,7 @@ import { sanitizeSearchParam as sanitize } from "@shared/lib/sanitize";
 
 const STAR_INDEXES = [0, 1, 2, 3, 4] as const;
 const DATE_FORMATTER =
-  typeof Intl !== "undefined" ? new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }) : null;
+  typeof Intl !== "undefined" ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }) : null;
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
@@ -67,7 +67,7 @@ export function ApprovedReviewsClient() {
       setReviews(items);
       setState("ready");
     } catch (err: any) {
-      setError(err?.message ?? "?? ??????? ????????? ??????");
+      setError(err?.message ?? "Failed to load reviews.");
       setState("error");
     }
   }, []);
@@ -88,9 +88,9 @@ export function ApprovedReviewsClient() {
     <div className="space-y-6 p-6 text-sm text-white/90">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-white">?????? (??????????)</h1>
+          <h1 className="text-xl font-semibold text-white">Reviews (approved)</h1>
           <p className="text-xs text-white/60">
-            ????? ???????????? ?????? ?? ???????? <strong>approved</strong>. ??????? ?????? - ????? ??????.
+            Only reviews with status <strong>approved</strong> are shown here. New reviews go to pending.
           </p>
         </div>
         <button
@@ -103,24 +103,24 @@ export function ApprovedReviewsClient() {
           disabled={state === "loading"}
         >
           <RefreshCw size={14} className={state === "loading" ? "animate-spin" : undefined} />
-          ????????
+          Refresh
         </button>
       </header>
       <section className="rounded-xl border border-white/10 bg-white/[0.05] p-4 shadow-lg">
         <dl className="grid gap-4 text-xs sm:grid-cols-3">
           <div>
-            <dt className="text-white/50">?????</dt>
+            <dt className="text-white/50">Total</dt>
             <dd className={headingLgOnDark}>{total}</dd>
           </div>
           <div>
-            <dt className="text-white/50">?????? ??????????</dt>
+            <dt className="text-white/50">Last refreshed</dt>
             <dd className={headingLgOnDark}>
-              {state === "loading" ? "????????." : new Date().toLocaleTimeString("ru-RU")}
+              {state === "loading" ? "Loading..." : new Date().toLocaleTimeString("en-US")}
             </dd>
           </div>
           <div>
-            <dt className="text-white/50">????????? ????????</dt>
-            <dd className="text-white/70">?????? ????????. ????????? ??????????? ? ??????? pending.</dd>
+            <dt className="text-white/50">Moderation queue</dt>
+            <dd className="text-white/70">No items here. New reviews are waiting in pending.</dd>
           </div>
         </dl>
       </section>
@@ -159,9 +159,9 @@ export function ApprovedReviewsClient() {
                   <article className="space-y-3 rounded-2xl border border-white/10 bg-black/30 p-4 shadow-lg">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <div className="text-xs uppercase tracking-[0.24em] text-white/40">???????</div>
+                        <div className="text-xs uppercase tracking-[0.24em] text-white/40">Product</div>
                         <div className="text-base font-semibold text-white">
-                          {review.product_title || "??? ????????"}
+                          {review.product_title || "Untitled product"}
                           {review.product_slug ? (
                             <Link
                               href={`/products/${review.product_slug}`}
@@ -175,7 +175,7 @@ export function ApprovedReviewsClient() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-white/70">
-                        <span className="text-xs uppercase tracking-[0.24em] text-white/40">??????</span>
+                        <span className="text-xs uppercase tracking-[0.24em] text-white/40">Rating</span>
                         <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1">
                           {STAR_INDEXES.map((index) => (
                             <Star
@@ -195,20 +195,20 @@ export function ApprovedReviewsClient() {
                           <div className="text-sm font-semibold text-white">{review.review_title}</div>
                         ) : null}
                         <p className="whitespace-pre-line text-sm text-white/80">
-                          {sanitize(review.review_body ?? "") || "????? ?????? ???????????."}
+                          {sanitize(review.review_body ?? "") || "Review text is missing."}
                         </p>
                       </div>
                       <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/60">
                         <div>
-                          <div className="uppercase tracking-[0.24em] text-white/40">ID ??????</div>
+                          <div className="uppercase tracking-[0.24em] text-white/40">Review ID</div>
                           <div className="font-mono text-white/70 break-all">{review.review_id ?? "-"}</div>
                         </div>
                         <div>
-                          <div className="uppercase tracking-[0.24em] text-white/40">????????????</div>
-                          <div className="font-mono text-white/70 break-all">{review.reviewer_id ?? "??????"}</div>
+                          <div className="uppercase tracking-[0.24em] text-white/40">Reviewer</div>
+                          <div className="font-mono text-white/70 break-all">{review.reviewer_id ?? "unknown"}</div>
                         </div>
                         <div>
-                          <div className="uppercase tracking-[0.24em] text-white/40">???????</div>
+                          <div className="uppercase tracking-[0.24em] text-white/40">Created</div>
                           <div className="text-white/70">{formatDate(review.created_at)}</div>
                         </div>
                       </div>
@@ -216,7 +216,7 @@ export function ApprovedReviewsClient() {
 
                     {nodes.length ? (
                       <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                        <div className="text-xs uppercase tracking-[0.24em] text-white/40">?????????</div>
+                        <div className="text-xs uppercase tracking-[0.24em] text-white/40">Thread</div>
                         <MessageTree nodes={nodes} />
                       </div>
                     ) : null}
@@ -235,13 +235,13 @@ function EmptyState({ state }: { state: ViewState }) {
   if (state === "loading") {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
-        ???????? ?????????? ???????.
+        Loading approved reviews.
       </div>
     );
   }
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/60">
-      ???? ??? ?????????? ???????.
+      No approved reviews yet.
     </div>
   );
 }
@@ -259,9 +259,9 @@ function MessageTree({ nodes }: { nodes: MessageNode[] }) {
 function MessageNodeItem({ node, depth }: { node: MessageNode; depth: number }) {
   const label =
     node.message.author_role === "admin"
-      ? "?????"
+      ? "Admin"
       : node.message.author_role === "user"
-        ? "????????????"
+        ? "Customer"
         : node.message.author_role;
   return (
     <li className={clsx("rounded-xl border border-white/10 bg-black/30 p-3", depth > 0 && "ml-4")}>

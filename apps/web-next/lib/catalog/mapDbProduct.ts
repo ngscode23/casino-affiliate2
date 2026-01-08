@@ -3,10 +3,9 @@ import { resolveCurrency, resolvePriceDetails } from "@/app/products/price-utils
 import type { Product, RecMeta, CurrencyCode } from "@/types/domain";
 import type { Database } from "@/types/supabase";
 
-type ProductViewRow = Database["public"]["Views"]["product_with_discount_with_dataset"]["Row"];
-type EcomProductRow = Database["public"]["Tables"]["ecom_products"]["Row"];
+type CatalogProductRow = Database["public"]["Views"]["catalog_products"]["Row"] & Record<string, unknown>;
 
-export type DbProductRow = ProductViewRow | EcomProductRow | (ProductViewRow & EcomProductRow);
+export type DbProductRow = CatalogProductRow;
 
 type VariantMeta = {
   catalogProductId?: string | null;
@@ -45,7 +44,7 @@ function asNumber(value: unknown): number | null {
 
 function resolveDataset(input: string | null | undefined): Product["dataset"] {
   const normalized = (input ?? "").toLowerCase();
-  return normalized === "legacy" || normalized === "products" ? "legacy" : "shop";
+  return normalized === "legacy" ? "legacy" : "shop";
 }
 
 export function mapDbProduct(row: DbProductRow, options: MapDbProductOptions = {}): Product {
@@ -53,14 +52,16 @@ export function mapDbProduct(row: DbProductRow, options: MapDbProductOptions = {
   const slug = asString((row as Record<string, unknown>)?.slug) ?? id;
   const sku = asString((row as Record<string, unknown>)?.sku);
   const title =
-    asString((row as Record<string, unknown>)?.name) ??
     asString((row as Record<string, unknown>)?.title) ??
+    asString((row as Record<string, unknown>)?.name) ??
     (slug || "Product");
 
   const priceDetails = resolvePriceDetails(row as Record<string, unknown>);
   const currency: CurrencyCode = (resolveCurrency(row as Record<string, unknown>) ?? "EUR").toUpperCase();
 
   const thumbnailPath =
+    asString((row as Record<string, unknown>)?.thumbnail_url) ??
+    asString((row as Record<string, unknown>)?.thumbnailUrl) ??
     asString((row as Record<string, unknown>)?.thumbnail_path) ??
     asString((row as Record<string, unknown>)?.thumbnail) ??
     asString((row as Record<string, unknown>)?.image_path) ??
@@ -73,6 +74,12 @@ export function mapDbProduct(row: DbProductRow, options: MapDbProductOptions = {
     ) ?? null;
 
   const categorySlug = asString((row as Record<string, unknown>)?.category_slug);
+  const categoryName =
+    asString((row as Record<string, unknown>)?.category_title) ??
+    asString((row as Record<string, unknown>)?.categoryTitle) ??
+    asString((row as Record<string, unknown>)?.category_name) ??
+    asString((row as Record<string, unknown>)?.categoryName) ??
+    null;
   const createdAt =
     asString((row as Record<string, unknown>)?.created_at) ??
     asString((row as Record<string, unknown>)?.createdAt) ??
@@ -81,6 +88,26 @@ export function mapDbProduct(row: DbProductRow, options: MapDbProductOptions = {
 
   const dataset = resolveDataset(options.dataset ?? asString((row as Record<string, unknown>)?.dataset));
   const rating = asNumber((row as Record<string, unknown>)?.rating);
+  const brandSlug =
+    options.meta?.brandSlug ??
+    asString((row as Record<string, unknown>)?.brand_slug) ??
+    asString((row as Record<string, unknown>)?.brandSlug) ??
+    null;
+  const brandName =
+    options.meta?.brandName ??
+    asString((row as Record<string, unknown>)?.brand_name) ??
+    asString((row as Record<string, unknown>)?.brandName) ??
+    null;
+  const modelSlug =
+    options.meta?.modelSlug ??
+    asString((row as Record<string, unknown>)?.model_slug) ??
+    asString((row as Record<string, unknown>)?.modelSlug) ??
+    slug;
+  const modelTitle =
+    options.meta?.modelTitle ??
+    asString((row as Record<string, unknown>)?.model_title) ??
+    asString((row as Record<string, unknown>)?.modelTitle) ??
+    title;
 
   return {
     id,
@@ -88,14 +115,14 @@ export function mapDbProduct(row: DbProductRow, options: MapDbProductOptions = {
     sku,
     title,
     description: asString((row as Record<string, unknown>)?.description),
-    category: categorySlug,
-    brand: options.meta?.brandSlug ?? null,
-    brandSlug: options.meta?.brandSlug ?? null,
-    brandName: options.meta?.brandName ?? null,
-    model: options.meta?.modelSlug ?? null,
-    modelSlug: options.meta?.modelSlug ?? null,
-    modelTitle: options.meta?.modelTitle ?? null,
-    catalogProductId: options.meta?.catalogProductId ?? null,
+    category: categoryName ?? categorySlug,
+    brand: brandName ?? brandSlug ?? null,
+    brandSlug,
+    brandName,
+    model: modelSlug ?? null,
+    modelSlug,
+    modelTitle,
+    catalogProductId: options.meta?.catalogProductId ?? id,
     price: priceDetails.price,
     priceCents: priceDetails.priceCents,
     originalPrice: priceDetails.originalPrice,

@@ -12,7 +12,7 @@ export type ProductListFilters = {
   sort?: ProductListSort;
 };
 
-const PRODUCT_TABLE = "product_with_discount_with_dataset";
+const PRODUCT_TABLE = "catalog_products_v";
 
 type AnySupabase = SupabaseClient<any, string, any>;
 
@@ -41,6 +41,11 @@ export async function fetchProductListingPage<Row = Record<string, unknown>>({
   withCount = false,
   allowedIds = null,
 }: QueryConfig): Promise<QueryResult<Row>> {
+  // Legacy dataset is intentionally unsupported for the new catalog.
+  if (filters.dataset === "legacy") {
+    return { rows: [], count: withCount ? 0 : null, error: null };
+  }
+
   const safeLimit = Math.max(0, Math.floor(limit));
   if (safeLimit === 0) {
     return { rows: [], count: 0, error: null };
@@ -71,15 +76,9 @@ function buildProductListingQuery(
     query.in("id", allowedIds);
   }
 
-  // Dataset handling:
-  // - "all" (или пусто) трактуем как основной каталог ("shop"), чтобы legacy-товары по умолчанию не попадали в публичный список.
-  // - "shop" явно ограничивает только новые товары.
-  // - "legacy" оставляем как опцию для архивных карточек (например, в админке).
-  if (filters.dataset === "shop") {
-    query.eq("dataset", "shop");
-  } else if (filters.dataset === "legacy") {
-    query.eq("dataset", "legacy");
-  }
+  // Новый каталог не использует dataset; legacy выдачу не поддерживаем.
+  // Public storefront should only show published products.
+  query.eq("status", "published");
 
   if (filters.category) {
     // Match exact slug or nested paths like "electronics/phones" and "phones/smart"
@@ -95,20 +94,20 @@ function buildProductListingQuery(
   }
 
   if (typeof filters.priceMinCents === "number" && Number.isFinite(filters.priceMinCents)) {
-    query.gte("effectivePriceCents", Math.max(0, filters.priceMinCents));
+    const minPrice = Math.max(0, filters.priceMinCents) / 100;
+    query.gte("price", minPrice);
   }
 
   if (typeof filters.priceMaxCents === "number" && Number.isFinite(filters.priceMaxCents)) {
-    query.lte("effectivePriceCents", Math.max(0, filters.priceMaxCents));
+    const maxPrice = Math.max(0, filters.priceMaxCents) / 100;
+    query.lte("price", maxPrice);
   }
 
-  if (typeof filters.minRating === "number" && Number.isFinite(filters.minRating)) {
-    query.gte("rating", filters.minRating);
-  }
+  // В новом каталоге рейтинги отсутствуют — фильтр игнорируем.
 
   if (filters.search) {
     const pattern = `%${escapeForILike(filters.search)}%`;
-    query.or(`name.ilike.${pattern},slug.ilike.${pattern}`);
+    query.or(`title.ilike.${pattern},slug.ilike.${pattern}`);
   }
 
   applySort(query, filters.sort ?? "recent");
@@ -123,15 +122,14 @@ function applySort(query: SortableQuery, sort: ProductListSort) {
   const normalized = sort ?? "recent";
   switch (normalized) {
     case "price-asc":
-      query.order("effectivePriceCents", { ascending: true, nullsFirst: false });
+      query.order("price", { ascending: true, nullsFirst: false });
       query.order("created_at", { ascending: false, nullsFirst: false });
       break;
     case "price-desc":
-      query.order("effectivePriceCents", { ascending: false, nullsFirst: false });
+      query.order("price", { ascending: false, nullsFirst: false });
       query.order("created_at", { ascending: false, nullsFirst: false });
       break;
     case "popular":
-      query.order("rating", { ascending: false, nullsFirst: true });
       query.order("created_at", { ascending: false, nullsFirst: false });
       break;
     case "impressions":

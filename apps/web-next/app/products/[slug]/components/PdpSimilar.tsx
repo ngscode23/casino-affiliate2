@@ -7,7 +7,7 @@ export function PdpSimilar({ items }: PdpSimilarProps) {
   if (!items.length) return null;
   return (
     <section className="space-y-4">
-      <h2 className={sectionTitle}>??????? ??????</h2>
+      <h2 className={sectionTitle}>Similar products</h2>
       <ProductGrid items={items} wrapWithContainer={false} />
     </section>
   );

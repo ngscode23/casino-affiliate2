@@ -86,34 +86,44 @@ function buildPayload(input: RecEventPayload): Record<string, unknown> {
   return base;
 }
 
-async function send(body: Record<string, unknown>) {
+async function send(body: Record<string, unknown>): Promise<boolean> {
   if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
     try {
       const ok = navigator.sendBeacon(ENDPOINT, new Blob([JSON.stringify(body)], { type: "application/json" }));
-      if (ok) return;
+      if (ok) return true;
     } catch {
       /* fall back to fetch */
     }
   }
 
   try {
-    await fetch(ENDPOINT, {
+    const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       keepalive: true,
     });
+    if (res.status === 403) {
+      try {
+        const payload = (await res.json()) as { opt_out?: boolean };
+        if (payload?.opt_out) setRecsOptOut(true);
+      } catch {
+        /* ignore parse errors */
+      }
+      return true;
+    }
+    return res.ok;
   } catch {
-    /* swallow network errors */
+    return false;
   }
 }
 
-export async function logRecEvent(payload: RecEventPayload) {
-  if (typeof window === "undefined") return;
-  if (isRecsOptedOut()) return;
-  if (!payload?.event) return;
+export async function logRecEvent(payload: RecEventPayload): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (isRecsOptedOut()) return true;
+  if (!payload?.event) return false;
   const body = buildPayload(payload);
-  await send(body);
+  return send(body);
 }
 
 export function useRecLogger() {

@@ -73,9 +73,9 @@ async function fetchBrands(): Promise<CatalogBrandRecord[]> {
   const payload = (await response.json().catch(() => ({}))) as ApiListResponse;
   if (!response.ok || !payload.ok) {
     const code = payload.error;
-    let message = payload.message || payload.error || "Не удалось загрузить бренды.";
+    let message = payload.message || payload.error || "Failed to load brands.";
     if (code === "fetch_failed") {
-      message = "Не удалось загрузить бренды. Попробуйте обновить страницу.";
+      message = "Failed to load brands. Please refresh the page.";
     }
     throw new Error(message);
   }
@@ -92,15 +92,15 @@ async function saveBrand(payload: Partial<CatalogBrandRecord>) {
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse;
   if (!response.ok || !result.ok || !result.item) {
     const code = result.error;
-    let message = result.message || result.error || "Не удалось сохранить бренд.";
+    let message = result.message || result.error || "Failed to save brand.";
     if (code === "name_required") {
-      message = "Введите название бренда.";
+      message = "Brand name is required.";
     } else if (code === "slug_required") {
-      message = "Введите слаг бренда.";
+      message = "Brand slug is required.";
     } else if (code === "duplicate_slug") {
-      message = "Бренд с таким слагом уже существует.";
+      message = "A brand with this slug already exists.";
     } else if (code === "bad_json") {
-      message = "Неверный формат данных запроса.";
+      message = "Invalid request payload.";
     }
     throw new Error(message);
   }
@@ -117,13 +117,13 @@ async function deleteBrand(id: string) {
   const result = (await response.json().catch(() => ({}))) as ApiMutationResponse;
   if (!response.ok || !result.ok) {
     const code = result.error;
-    let message = result.message || result.error || "Не удалось удалить бренд.";
+    let message = result.message || result.error || "Failed to delete brand.";
     if (code === "id_required") {
-      message = "Не удалось удалить бренд: не передан идентификатор.";
+      message = "Failed to delete brand: missing id.";
     } else if (code === "has_sku") {
-      message = "У бренда есть связанные SKU. Сначала отвяжите их от бренда.";
+      message = "This brand has linked SKUs. Detach them first.";
     } else if (code === "delete_failed") {
-      message = "Ошибка при удалении бренда.";
+      message = "Brand delete failed.";
     }
     throw new Error(message);
   }
@@ -178,7 +178,7 @@ export function BrandsClient() {
         setBrands(activeBrands);
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Не удалось загрузить бренды.", { variant: "error" });
+      toast(error?.message || "Failed to load brands.", { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -193,12 +193,12 @@ export function BrandsClient() {
     if (saving) return;
     const name = form.name.trim();
     if (!name) {
-      toast("Введите название бренда.", { variant: "error" });
+      toast("Brand name is required.", { variant: "error" });
       return;
     }
     const slug = form.slug.trim() || slugify(name);
     if (!slug) {
-      toast("Введите слаг бренда.", { variant: "error" });
+      toast("Slug is required.", { variant: "error" });
       return;
     }
     setSaving(true);
@@ -219,11 +219,11 @@ export function BrandsClient() {
           }
           return next;
         });
-      toast(editMode ? "Бренд обновлён." : "Бренд создан.", { variant: "success" });
+      toast(editMode ? "Brand updated." : "Brand created.", { variant: "success" });
       resetForm();
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Не удалось сохранить бренд.", { variant: "error" });
+      toast(error?.message || "Failed to save brand.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -233,7 +233,7 @@ export function BrandsClient() {
     const usage = await brandSkuUsage(record.id).catch(() => 0);
     if (usage > 0) {
       window.alert(
-        `К этому бренду привязано ${usage} SKU через модели. Сначала отвяжите или перенесите их, затем удалите бренд.`,
+        `This brand has ${usage} SKUs attached. Please reassign or archive those products first, then try again.`
       );
       return;
     }
@@ -246,10 +246,10 @@ export function BrandsClient() {
       if (form.id === record.id) {
         resetForm();
       }
-      toast("Бренд удалён.", { variant: "success" });
+      toast("Brand archived.", { variant: "success" });
     } catch (error: any) {
       console.error(error);
-      toast(error?.message || "Не удалось удалить бренд.", { variant: "error" });
+      toast(error?.message || "Failed to archive brand.", { variant: "error" });
     } finally {
       setDeletingId(null);
     }
@@ -292,7 +292,7 @@ export function BrandsClient() {
                 placeholder="acme"
               />
               <Button type="button" variant="neutral" onClick={handleGenerateSlug}>
-                Сгенерировать
+                Generate
               </Button>
             </div>
           </div>
@@ -328,16 +328,16 @@ export function BrandsClient() {
               onChange={(event) => setForm((prev) => ({ ...prev, isActive: event.target.checked }))}
             />
             <label htmlFor="brand-active" className="text-sm text-admin-text">
-              ????? Ñ'¥?ÑæÑ«Ñï ?????????
+              Visible on storefront
             </label>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={saving}>
-              {saving ? "Сохранение..." : editMode ? "Сохранить изменения" : "Создать бренд"}
+              {saving ? "Saving..." : editMode ? "Update brand" : "Create brand"}
             </Button>
             <Button type="button" variant="soft" onClick={resetForm} disabled={saving}>
-              {editMode ? "Отменить редактирование" : "Сбросить"}
+              {editMode ? "Cancel editing" : "Clear form"}
             </Button>
           </div>
         </form>
@@ -346,28 +346,28 @@ export function BrandsClient() {
       <AdminSurface>
         <div className="flex items-center justify-between gap-4 border-b border-admin-border pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-admin-text">Бренды</h2>
-            <p className="text-sm text-admin-textSoft">Всего: {brands.length}</p>
+            <h2 className="text-lg font-semibold text-admin-text">Brands</h2>
+            <p className="text-sm text-admin-textSoft">Total: {brands.length}</p>
           </div>
           <Button variant="neutral" onClick={load} disabled={loading}>
-            Обновить
+            Refresh
           </Button>
         </div>
 
         {loading ? (
-          <LoadingMessage>Загрузка брендов...</LoadingMessage>
+          <LoadingMessage>Loading brands...</LoadingMessage>
         ) : sortedBrands.length === 0 ? (
-          <p className="py-6 text-sm text-admin-textSoft">Бренды пока не добавлены.</p>
+          <p className="py-6 text-sm text-admin-textSoft">No brands have been added yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="mt-4 w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
-                  <th className="px-3 py-2">Название</th>
-                  <th className="px-3 py-2">Слаг</th>
-                  <th className="px-3 py-2">Сайт</th>
-                  <th className="px-3 py-2">Создан</th>
-                  <th className="px-3 py-2 text-right">Действия</th>
+                  <th className="px-3 py-2">Brand</th>
+                  <th className="px-3 py-2">Slug</th>
+                  <th className="px-3 py-2">Website</th>
+                  <th className="px-3 py-2">Created</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -404,7 +404,7 @@ export function BrandsClient() {
                           onClick={() => startEdit(brand)}
                           className="min-h-[36px] px-3 py-2 text-sm"
                         >
-                          Редактировать
+                          Edit
                         </Button>
                         <Button
                           variant="soft"
@@ -415,7 +415,7 @@ export function BrandsClient() {
                           disabled={deletingId === brand.id}
                           onClick={() => handleDelete(brand)}
                         >
-                          {deletingId === brand.id ? "Удаление..." : "Удалить"}
+                          {deletingId === brand.id ? "Archiving..." : "Archive"}
                         </Button>
                       </div>
                     </td>

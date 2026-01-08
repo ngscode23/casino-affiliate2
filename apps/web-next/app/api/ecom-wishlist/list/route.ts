@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const supabase = getAdminClient();
     const { data, error } = await supabase
-      .from("ecom_wishlist")
+      .from("user_favorites")
       .select("product_id, created_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false });

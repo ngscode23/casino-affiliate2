@@ -16,12 +16,6 @@ export async function refreshCatalogAfterDiscountChange(
   const admin = getAdminClient();
 
   try {
-    await admin.rpc("sync_catalog_published");
-  } catch (error) {
-    console.error("[catalog] sync_catalog_published failed", error);
-  }
-
-  try {
     revalidateTag(PRODUCT_COLLECTION_TAG, "max");
   } catch (error) {
     console.error("[catalog] revalidateTag(products:list) failed", error);
@@ -43,7 +37,7 @@ export async function refreshCatalogAfterDiscountChange(
   if (productIds.size > 0) {
     try {
       const { data, error } = await admin
-        .from("products")
+        .from("catalog_products_v")
         .select("id, slug, category_slug")
         .in("id", Array.from(productIds));
 

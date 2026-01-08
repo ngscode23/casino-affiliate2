@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const supabase = getAdminClient();
     const { error } = await supabase
-      .from("ecom_wishlist")
+      .from("user_favorites")
       .upsert(
         [{ user_id: auth.user.id, product_id: productId }],
         { onConflict: "user_id,product_id" },

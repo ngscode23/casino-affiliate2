@@ -388,8 +388,8 @@ export async function getCatalogDiscountSnapshot(
   try {
     const admin = getAdminClient();
     const { data, error } = await admin
-      .from("products")
-      .select("id, price_cents, price, currency")
+      .from("catalog_products_v")
+      .select("id, price, currency")
       .in("id", pendingIds);
 
     if (error) {
@@ -403,13 +403,7 @@ export async function getCatalogDiscountSnapshot(
         const current = currentPriceLookup.get(id);
         if (!current) continue;
 
-        const basePriceCents = coerceNumber(row?.price_cents);
-        const basePrice =
-          basePriceCents != null
-            ? basePriceCents / 100
-            : Number.isFinite(Number(row?.price))
-              ? Number(row?.price)
-              : null;
+        const basePrice = coerceNumber(row?.price);
 
         if (basePrice == null || !Number.isFinite(basePrice) || basePrice <= 0) continue;
         if (!Number.isFinite(current.price) || current.price <= 0) continue;

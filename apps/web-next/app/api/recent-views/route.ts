@@ -34,15 +34,17 @@ export async function POST(request: Request) {
   let anonId = identity.anonId;
   let shouldSetAnonCookie = false;
 
-  if (!userId && !anonId) {
-    anonId = crypto.randomUUID();
+  // Prefer stable anon_id cookie for event attribution. If missing/invalid, fall back to userId (when available)
+  // or generate a new UUID and persist it as anon_id.
+  const hasValidAnon = anonId && UUID_PATTERN.test(anonId);
+  if (!hasValidAnon) {
+    anonId = userId && UUID_PATTERN.test(userId) ? userId : crypto.randomUUID();
     shouldSetAnonCookie = true;
   }
 
   const weightRaw = Number(body.weight ?? RECENT_WEIGHT_DEFAULT);
   const weight = Number.isFinite(weightRaw) && weightRaw > 0 ? Math.min(weightRaw, 100) : RECENT_WEIGHT_DEFAULT;
   const supabase = getAdminClient();
-  const now = new Date().toISOString();
   const withAnonCookie = (response: ReturnType<typeof json>) => {
     if (shouldSetAnonCookie && anonId) {
       response.cookies.set({
@@ -59,36 +61,30 @@ export async function POST(request: Request) {
   };
 
   try {
-    if (userId) {
-      if (anonId) {
-        const { error: mergeError } = await supabase.rpc("merge_recent_views", { _anon_id: anonId, _user_id: userId });
-        if (mergeError) {
-          console.warn("merge_recent_views RPC failed", mergeError);
-        }
-      }
-      await supabase.from("recent_views").delete().eq("user_id", userId).eq("product_id", productId);
-      const { error } = await supabase.from("recent_views").insert({
-        user_id: userId,
-        product_id: productId,
-        seen_at: now,
-        weight,
-      });
-      if (error) {
-        return json({ ok: false, code: "insert_failed", message: error.message }, 500);
-      }
-      return withAnonCookie(json({ ok: true }, 200));
-    }
-
     if (!anonId) {
       return json({ ok: false, code: "anon_missing", message: "Unable to resolve anonymous identity" }, 400);
     }
 
-    await supabase.from("recent_views").delete().eq("anon_id", anonId).eq("product_id", productId);
-    const { error } = await supabase.from("recent_views").insert({
+    const { data: profile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("opt_out")
+      .eq("anon_id", anonId)
+      .maybeSingle();
+
+    if (profileError) {
+      return withAnonCookie(json({ ok: false, code: "db_error", message: profileError.message }, 500));
+    }
+
+    if (profile?.opt_out) {
+      return withAnonCookie(json({ ok: false, opt_out: true }, 403));
+    }
+
+    const { error } = await supabase.from("user_events").insert({
       anon_id: anonId,
+      event: "view",
       product_id: productId,
-      seen_at: now,
       weight,
+      metadata: { source: "api/recent-views", user_id: userId },
     });
     if (error) {
       return json({ ok: false, code: "insert_failed", message: error.message }, 500);

@@ -71,8 +71,10 @@ export async function applyPromotionsToOrder(input: ApplyPromotionsInput): Promi
       row.total != null ? Number(row.total) : roundCurrency(unitPrice * qty);
     const meta =
       row.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : undefined;
+    const metaProductId =
+      meta && typeof meta.catalog_product_id === "string" ? String(meta.catalog_product_id) : "";
     return {
-      productId: row.product_id ? String(row.product_id) : "",
+      productId: row.product_id ? String(row.product_id) : metaProductId,
       qty,
       unitPrice,
       subtotal: subtotalRow,

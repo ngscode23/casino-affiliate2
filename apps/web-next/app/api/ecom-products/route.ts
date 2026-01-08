@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/utils/supabase/admin";
 import { fetchProductListingPage, type ProductListFilters } from "@/lib/catalog/product-source";
 import { sanitizeSearchParam } from "@shared/lib/sanitize";
+import { requireAdmin } from "@/utils/auth/guard";
 
 const SORT_WHITELIST = new Set(["rating", "price", "title", "created_at"]);
 const DEFAULT_BUCKET = process.env.SUPABASE_PRODUCT_BUCKET || "product-images";
@@ -9,7 +10,8 @@ const MAX_FETCH_LIMIT = 500;
 const CACHE_CONTROL = "s-maxage=300, stale-while-revalidate=600";
 const DEFAULT_CURRENCY = "EUR";
 const PRODUCT_SELECT_COLUMNS =
-  "id, slug, name, basePriceCents, effectivePriceCents, priceCents, hasDiscount, currency, category_slug, rating, created_at, thumbnail_path, thumbnail, dataset";
+  "id, slug, title, description, price, currency, status, category_slug, category_title, thumbnail_url, specs, created_at, updated_at, brand_slug, brand_name";
+const ADMIN_STATUS_VALUES = new Set(["draft", "published", "archived"]);
 
 function toInt(value: string | null, def: number, min: number, max: number) {
   const num = Number(value);
@@ -76,13 +78,11 @@ function resolveListSort(column: string, direction: "asc" | "desc"): ProductList
   }
 }
 
-function parseCents(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
+async function hasAdminAccess(request: Request): Promise<boolean> {
+  const header = request.headers.get("authorization") ?? request.headers.get("Authorization");
+  if (!header) return false;
+  const auth = await requireAdmin(request);
+  return !("response" in auth);
 }
 
 export async function GET(request: Request) {
@@ -101,7 +101,6 @@ export async function GET(request: Request) {
     const page = toInt(params.get("page"), 1, 1, 1000);
     const limit = toInt(params.get("limit"), 24, 1, MAX_FETCH_LIMIT);
     const statusFilterParam = (params.get("status") || "").trim().toLowerCase();
-    const datasetParam = (params.get("dataset") || "").trim().toLowerCase();
     const minRating = params.get("min_rating");
     const idsCsv = (params.get("ids") || "").trim();
     const ids = idsCsv ? idsCsv.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -110,8 +109,44 @@ export async function GET(request: Request) {
 
     const supabaseUrl = pickSupabaseUrl();
     const bucket = DEFAULT_BUCKET;
+    const isAdmin = await hasAdminAccess(request);
+    const statusFilter =
+      isAdmin && statusFilterParam && statusFilterParam !== "all" && ADMIN_STATUS_VALUES.has(statusFilterParam)
+        ? statusFilterParam
+        : null;
 
-    // Special case: admin editor requests precise IDs (no other filters) -> need full rows with SKU, category, etc.
+    const mapRow = (row: Record<string, unknown>) => {
+      const id = row?.id != null ? String(row.id) : "";
+      const slug = typeof row.slug === "string" ? row.slug : "";
+      const title = typeof row.title === "string" ? row.title : slug || "Product";
+      const priceValue = typeof row.price === "number" ? row.price : Number(row.price ?? 0);
+      const price = Number.isFinite(priceValue) ? priceValue : 0;
+      const currencyValue = String((row as any).currency || DEFAULT_CURRENCY).toUpperCase();
+      const status = typeof row.status === "string" ? row.status : null;
+      const categorySlug = typeof row.category_slug === "string" ? row.category_slug : null;
+      const shortDesc = typeof row.description === "string" ? row.description : null;
+      const imageUrl = toPublicUrl(supabaseUrl, bucket, (row as any).thumbnail_url ?? null);
+
+      return {
+        id,
+        slug,
+        title,
+        price,
+        rating: null,
+        created_at: (row as any).created_at ?? null,
+        thumbnail_path: (row as any).thumbnail_url ?? null,
+        category_slug: categorySlug,
+        status,
+        currency: currencyValue,
+        short_desc: shortDesc,
+        catalog_product_id: id,
+        image_url: imageUrl,
+        images: imageUrl ? [imageUrl] : [],
+        tags: [],
+        specs: (row as any).specs ?? null,
+      };
+    };
+
     if (
       ids.length &&
       !category &&
@@ -119,113 +154,24 @@ export async function GET(request: Request) {
       !min &&
       !max &&
       !minRating &&
-      !statusFilterParam &&
+      !statusFilter &&
       !catalogProductIdFilter
     ) {
-      const fallbackColumns =
-        "id, slug, sku, title, price, rating, images, short_desc, category_slug, tags, status, currency, catalog_product_id, specs, created_at, main_image_url, image_path";
-
-      const fetchDirectRows = async (table: "products" | "ecom_products", idList: string[]) => {
-        if (!idList.length) return [];
-        const { data, error } = await supabase.from(table).select(fallbackColumns).in("id", idList);
-        if (error) {
-          console.warn("ecom-products: direct lookup failed", { table, error, ids: idList });
-          return [];
-        }
-        if (!Array.isArray(data) || !data.length) return [];
-        return data as Array<Record<string, unknown>>;
-      };
-
-      const rowsById = new Map<string, Record<string, unknown>>();
-      const pushRows = (rows: Array<Record<string, unknown>>) => {
-        for (const row of rows) {
-          const rawId = (row as Record<string, unknown>)?.id;
-          const id = typeof rawId === "string" ? rawId : rawId != null ? String(rawId) : "";
-          if (!id) continue;
-          if (!rowsById.has(id)) {
-            rowsById.set(id, row);
-          }
-        }
-      };
-
-      const productRows = await fetchDirectRows("products", ids);
-      pushRows(productRows);
-
-      const missingIds = ids.filter((id) => !rowsById.has(id));
-      if (missingIds.length) {
-        const legacyRows = await fetchDirectRows("ecom_products", missingIds);
-        pushRows(legacyRows);
+      let query = supabase.from("catalog_products_v").select(PRODUCT_SELECT_COLUMNS).in("id", ids);
+      if (!isAdmin) {
+        query = query.eq("status", "published");
+      } else if (statusFilter) {
+        query = query.eq("status", statusFilter);
       }
 
-      if (!rowsById.size) {
-        console.warn("ecom-products: fallback lookup failed for ids", ids);
+      const { data, error } = await query;
+
+      if (error || !Array.isArray(data)) {
+        console.warn("ecom-products: direct lookup failed", { error, ids });
         return json({ items: [], page: 1, limit: ids.length, total: 0 });
       }
 
-      const orderedRows = ids
-        .map((id) => rowsById.get(id))
-        .filter((row): row is Record<string, unknown> => Boolean(row));
-      const fallbackRows = orderedRows.length ? orderedRows : Array.from(rowsById.values());
-
-      const items = fallbackRows.map((row: any) => {
-        const id = String(row.id ?? "");
-        const slug = typeof row.slug === "string" ? row.slug : "";
-        const title = typeof row.title === "string" ? row.title : "";
-        const priceValue =
-          typeof row.price === "number"
-            ? row.price
-            : Number(row.price ?? row.price_cents ?? 0);
-        const price = Number.isFinite(priceValue) ? priceValue : 0;
-          const ratingValue =
-            typeof row.rating === "number"
-              ? row.rating
-              : row.rating != null
-                ? Number(row.rating)
-                : null;
-        const rating = Number.isFinite(ratingValue ?? NaN) ? Number(ratingValue) : null;
-        const imagesArray = Array.isArray(row.images)
-          ? (row.images as (string | null | undefined)[])
-              .map((value) => (value ? String(value) : ""))
-              .filter(Boolean)
-          : [];
-        const rawImage =
-          imagesArray[0] ??
-          (typeof row.main_image_url === "string" ? row.main_image_url : null) ??
-          null;
-          const fallbackImage =
-            rawImage ??
-            (typeof row.image_path === "string"
-              ? toPublicUrl(supabaseUrl, bucket, row.image_path)
-              : null);
-        const currencyValue = String(row.currency || DEFAULT_CURRENCY).toUpperCase();
-
-        const tagsArray = Array.isArray(row.tags)
-          ? (row.tags as (string | null | undefined)[])
-              .map((value) => (value ? String(value) : ""))
-              .filter(Boolean)
-          : [];
-
-        return {
-          id,
-          slug,
-          title,
-          price,
-          rating,
-          created_at: row.created_at ?? null,
-          thumbnail_path: null,
-          category_slug: row.category_slug ?? null,
-          status: row.status ?? null,
-          currency: currencyValue,
-          short_desc: row.short_desc ?? null,
-          catalog_product_id: row.catalog_product_id ?? null,
-          image_url: fallbackImage,
-          images: imagesArray.length ? imagesArray : fallbackImage ? [fallbackImage] : [],
-          sku: typeof row.sku === "string" ? row.sku : null,
-          tags: tagsArray,
-          specs: row.specs ?? null,
-        };
-      });
-
+      const items = data.map((row) => mapRow(row as Record<string, unknown>));
       items.sort((a, b) => {
         const ai = idsOrder.get(String(a.id)) ?? 0;
         const bi = idsOrder.get(String(b.id)) ?? 0;
@@ -244,40 +190,87 @@ export async function GET(request: Request) {
       );
     }
 
+    // Admin browsing: allow draft/archived visibility, keep consistent pagination (count + range).
+    if (isAdmin) {
+      const priceMinCents = parsePriceBound(min);
+      const priceMaxCents = parsePriceBound(max);
+      const sortColumn = SORT_WHITELIST.has(sortRaw) ? sortRaw : "created_at";
+      const direction = dir === "asc" ? "asc" : "desc";
+
+      let query = supabase
+        .from("catalog_products_v")
+        .select(PRODUCT_SELECT_COLUMNS, { count: "exact" });
+
+      if (category) {
+        query = query.eq("category_slug", category);
+      }
+
+      if (q) {
+        const pattern = `%${q.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+        query = query.or(`title.ilike.${pattern},slug.ilike.${pattern}`);
+      }
+
+      if (typeof priceMinCents === "number" && Number.isFinite(priceMinCents)) {
+        query = query.gte("price", Math.max(0, priceMinCents) / 100);
+      }
+      if (typeof priceMaxCents === "number" && Number.isFinite(priceMaxCents)) {
+        query = query.lte("price", Math.max(0, priceMaxCents) / 100);
+      }
+
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+
+      if (catalogProductIdFilter) {
+        query = query.eq("id", catalogProductIdFilter);
+      }
+
+      switch (sortColumn) {
+        case "price":
+          query = query.order("price", { ascending: direction === "asc", nullsFirst: false });
+          query = query.order("created_at", { ascending: false, nullsFirst: false });
+          break;
+        case "title":
+          query = query.order("title", { ascending: direction === "asc", nullsFirst: false });
+          query = query.order("created_at", { ascending: false, nullsFirst: false });
+          break;
+        case "created_at":
+        default:
+          query = query.order("created_at", { ascending: direction === "asc", nullsFirst: false });
+          break;
+      }
+
+      const start = Math.max(0, (page - 1) * limit);
+      const end = start + limit - 1;
+      const { data, error, count } = await query.range(start, end);
+
+      if (error) {
+        console.error("ecom-products: admin query failed", error);
+        return json({ error: "db" }, 500);
+      }
+
+      const items = Array.isArray(data) ? data.map((row) => mapRow(row as Record<string, unknown>)) : [];
+      return json({ items, page, limit, total: typeof count === "number" ? count : items.length }, 200, CACHE_CONTROL);
+    }
+
     const priceMinCents = parsePriceBound(min);
     const priceMaxCents = parsePriceBound(max);
-    const minRatingValue = (() => {
-      if (minRating == null || minRating === "") return null;
-      const parsed = Number(minRating);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-    })();
-
     const sortColumn = SORT_WHITELIST.has(sortRaw) ? sortRaw : "rating";
     const direction = dir === "asc" ? "asc" : "desc";
-    const requiresPostFilter =
-      Boolean(catalogProductIdFilter) || (statusFilterParam && statusFilterParam !== "all");
+    const requiresPostFilter = Boolean(catalogProductIdFilter);
 
     const listFilters: ProductListFilters = {
       search: q ?? undefined,
       category: category ?? undefined,
-      dataset:
-        datasetParam === "shop" || datasetParam === "legacy"
-          ? (datasetParam as ProductListFilters["dataset"])
-          : "all",
       priceMinCents,
       priceMaxCents,
-      minRating: minRatingValue,
       sort: resolveListSort(sortColumn, direction),
     };
 
     const queryOffset = requiresPostFilter ? 0 : (page - 1) * limit;
     const queryLimit = requiresPostFilter ? MAX_FETCH_LIMIT : limit;
 
-    const {
-      rows: baseRows,
-      count,
-      error,
-    } = await fetchProductListingPage({
+    const { rows: baseRows, count, error } = await fetchProductListingPage({
       supabase,
       select: PRODUCT_SELECT_COLUMNS,
       filters: listFilters,
@@ -291,134 +284,29 @@ export async function GET(request: Request) {
       return json({ error: "db" }, 500);
     }
 
-    const baseIds = baseRows
-      .map((row) => (row?.id != null ? String(row.id) : ""))
-      .filter((value) => value.length > 0);
+    let items = baseRows.map((row) => mapRow(row as Record<string, unknown>)).filter((item) => item.id);
 
-    let metadataRows: Array<Record<string, unknown>> = [];
-    if (baseIds.length) {
-      try {
-        const { data: metaData, error: metaError } = await supabase
-          .from("products")
-          .select("id, status, category_slug, short_desc, currency, catalog_product_id")
-          .in("id", baseIds);
-        if (!metaError && Array.isArray(metaData)) {
-          metadataRows = metaData as Array<Record<string, unknown>>;
-        } else if (metaError) {
-          console.warn("ecom-products: meta fetch failed", metaError);
-        }
-      } catch (metaErr) {
-        console.warn("ecom-products: meta fetch threw", metaErr);
-      }
-    }
-
-    const metaById = new Map<string, Record<string, unknown>>(
-      metadataRows.map((row) => [String(row.id), row]),
-    );
-
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        for (const row of baseRows) {
-          console.debug("rpc item", row?.thumbnail_path, row?.slug);
-        }
-      } catch {
-        // ignore debug logging failures
-      }
-    }
-
-    const normalized = baseRows.map((row) => {
-      const id = row?.id != null ? String(row.id) : "";
-      const slug = row?.slug != null ? String(row.slug) : "";
-      const titleSource = row?.title ?? row?.name ?? "";
-      const title = typeof titleSource === "string" ? titleSource : "";
-      const priceCentsValue =
-        parseCents((row as Record<string, unknown>)?.effectivePriceCents) ??
-        parseCents((row as Record<string, unknown>)?.priceCents) ??
-        null;
-      const price =
-        priceCentsValue != null
-          ? Math.max(priceCentsValue, 0) / 100
-          : typeof row?.price === "number" && Number.isFinite(row.price)
-            ? Math.max(row.price, 0)
-            : Number.isFinite(Number(row?.price))
-              ? Math.max(Number(row?.price), 0)
-              : 0;
-      const rating =
-        typeof row?.rating === "number" && Number.isFinite(row.rating) ? Number(row.rating) : null;
-      const createdAt = typeof row?.created_at === "string" ? row.created_at : null;
-      const thumbnailPath =
-        typeof row?.thumbnail_path === "string" && row.thumbnail_path.trim()
-          ? row.thumbnail_path.trim()
-          : null;
-      const meta = metaById.get(id) ?? null;
-      const statusValue =
-        typeof meta?.status === "string" && meta.status.trim() ? meta.status.trim() : null;
-      const catalogProductId =
-        typeof meta?.catalog_product_id === "string" && meta.catalog_product_id.trim()
-          ? meta.catalog_product_id.trim()
-          : null;
-      const currencySource =
-        typeof row?.currency === "string" && row.currency.trim()
-          ? String(row.currency).trim()
-          : typeof meta?.currency === "string" && meta.currency.trim()
-            ? meta.currency.trim()
-            : DEFAULT_CURRENCY;
-      const currencyValue = String(currencySource || DEFAULT_CURRENCY).toUpperCase();
-      const categorySlug =
-        typeof row?.category_slug === "string" && row.category_slug.trim()
-          ? row.category_slug.trim()
-          : typeof meta?.category_slug === "string" && meta.category_slug.trim()
-            ? meta.category_slug.trim()
-            : null;
-      const shortDesc =
-        typeof meta?.short_desc === "string" && meta.short_desc.trim() ? meta.short_desc.trim() : null;
-
-      const imageUrl = toPublicUrl(supabaseUrl, bucket, thumbnailPath);
-
-      return {
-        id,
-        slug,
-        title,
-        price,
-        rating,
-        created_at: createdAt,
-        thumbnail_path: thumbnailPath,
-        category_slug: categorySlug,
-        status: statusValue,
-        currency: currencyValue,
-        short_desc: shortDesc,
-        catalog_product_id: catalogProductId,
-        image_url: imageUrl,
-        images: imageUrl ? [imageUrl] : [],
-      };
-    });
-
-    let filtered = normalized.filter((item) => item.id);
+    items = items.filter((item) => (item.status?.toLowerCase() ?? "") === "published");
 
     if (catalogProductIdFilter) {
-      filtered = filtered.filter((item) => item.catalog_product_id === catalogProductIdFilter);
-    }
-
-    if (statusFilterParam && statusFilterParam !== "all") {
-      const statusFilter = statusFilterParam.toLowerCase();
-      filtered = filtered.filter((item) => (item.status?.toLowerCase() ?? "") === statusFilter);
+      items = items.filter((item) => item.catalog_product_id == catalogProductIdFilter || item.id == catalogProductIdFilter);
     }
 
     if (requiresPostFilter) {
       const start = Math.max(0, (page - 1) * limit);
       const end = start + limit;
-      const total = filtered.length;
-      const items = filtered.slice(start, end);
-      return json({ items, page, limit, total }, 200, CACHE_CONTROL);
+      const total = items.length;
+      const pageItems = items.slice(start, end);
+      return json({ items: pageItems, page, limit, total }, 200, CACHE_CONTROL);
     }
 
     if (sortColumn === "title") {
       const directionFactor = direction === "asc" ? 1 : -1;
-      filtered.sort((a, b) => directionFactor * a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+      items.sort((a, b) => directionFactor * a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
     }
 
-    const total = typeof count === "number" ? count : filtered.length + queryOffset;
-    return json({ items: filtered, page, limit, total }, 200, CACHE_CONTROL);
+    const total = typeof count === "number" ? count : items.length + queryOffset;
+    return json({ items, page, limit, total }, 200, CACHE_CONTROL);
   } catch (error) {
     console.error("ecom-products: unexpected error", error);
     return json({ error: "internal" }, 500);

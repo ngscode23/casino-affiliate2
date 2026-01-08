@@ -15,8 +15,8 @@ export function FavControl({
   id,
   className,
   onToggle,
-  titleOn = "?????? ?? ??????????",
-  titleOff = "? ?????????",
+  titleOn = "Remove from favorites",
+  titleOff = "Add to favorites",
 }: FavControlProps) {
   const { items = [], toggle } = useFavorites();
 
@@ -25,11 +25,11 @@ export function FavControl({
 
   const handleClick = (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.stopPropagation();
-    const toggled = toggle(key); // ????? ??????? boolean, ? ????? ??????
+    const toggled = toggle(key); // toggle() may return boolean or undefined
     const nextActive = typeof toggled === "boolean" ? toggled : !active;
 
     onToggle?.(nextActive);
-    // ??? try/catch: ??? track ?????? ??? ?????????
+    // Best-effort analytics.
     track("favorite_toggle", { offer_slug: key, active: nextActive });
   };
 
@@ -49,7 +49,7 @@ export function FavControl({
       aria-label={active ? "Remove from favorites" : "Add to favorites"}
     >
       <span aria-hidden className="text-[1.15rem] leading-none">
-        {active ? "?" : "?"}
+        {active ? "*" : "+"}
       </span>
     </button>
   );

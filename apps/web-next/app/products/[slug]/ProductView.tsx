@@ -13,7 +13,7 @@ import type { ProductGridItem } from "@/components/ProductGrid";
 import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
 import { formatCurrency } from "../currency";
 import { track } from "@shared/lib/analytics";
-import { logRecEvent } from "@/lib/recs-events";
+import { isRecsOptedOut, logRecEvent } from "@/lib/recs-events";
 import ProductTechBlock from "./ProductTechBlock";
 import { PdpActions } from "./components/PdpActions";
 import { PdpAdminStats } from "./components/PdpAdminStats";
@@ -44,7 +44,6 @@ const RecentProducts = dynamic(() => import("./RecentProducts.client"), {
 });
 
 const RECENT_KEY = "recent:products:v1";
-const RECENT_SYNC_ENDPOINT = "/api/recent-views";
 const PAYMENT_METHODS = ["Visa", "Mastercard", "Apple Pay", "Stripe"];
 
 function resolvePriceBucket(price: number | null | undefined): string | null {
@@ -154,26 +153,6 @@ function pushRecent(slug: string) {
   persistRecent(list);
 }
 
-function recordRecentView(productId: string) {
-  if (typeof window === "undefined" || !productId) return;
-  try {
-    const payload = JSON.stringify({ productId });
-    if (navigator.sendBeacon) {
-      const blob = new Blob([payload], { type: "application/json" });
-      navigator.sendBeacon(RECENT_SYNC_ENDPOINT, blob);
-      return;
-    }
-    void fetch(RECENT_SYNC_ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: payload,
-      keepalive: true,
-    });
-  } catch {
-    // ignore network errors
-  }
-}
-
 function formatVariantLabel(variants: ProductVariantGroup[], selection: SelectionState): string | null {
   if (!variants.length) return null;
   const parts = variants
@@ -253,15 +232,28 @@ function ProductClientEffects({ product }: { product: ProductData }) {
       } catch {
         /* noop */
       }
-      void logRecEvent({
-        event: "view",
-        productId: product.id,
-        category: product.category?.slug ?? undefined,
-        priceCents: product.priceCents ?? Math.round((product.price || 0) * 100),
-        metadata: { source: "product_page", dataset: product.dataset },
-      });
-      pushRecent(product.slug);
-      recordRecentView(product.id);
+      const record = async () => {
+        const optOut = isRecsOptedOut();
+        try {
+          await fetch("/api/events/view", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ productId: product.id, optOut }),
+            keepalive: true,
+          });
+        } catch {
+          /* ignore network errors */
+        }
+        const ok = await logRecEvent({
+          event: "view",
+          productId: product.id,
+          category: product.category?.slug ?? undefined,
+          priceCents: product.priceCents ?? Math.round((product.price || 0) * 100),
+          metadata: { source: "product_page", dataset: product.dataset },
+        });
+        if (!ok) pushRecent(product.slug);
+      };
+      void record();
     });
     return () => {
       cleanup?.();
@@ -489,11 +481,11 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         category={product.category?.slug}
         priceBucket={priceBucket}
       />
-      <nav aria-label="??????? ??????" className={mutedTextSm}>
+      <nav aria-label="Breadcrumb" className={mutedTextSm}>
         <ol className="flex flex-wrap items-center gap-2">
           <li className="flex items-center gap-2">
             <Link href="/" className="transition hover:text-primary hover:underline">
-              ???????
+              Home
             </Link>
           </li>
           {breadcrumbs.map((crumb) => (

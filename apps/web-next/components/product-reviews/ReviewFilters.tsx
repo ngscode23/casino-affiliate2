@@ -12,7 +12,7 @@ export function ReviewFilters({ sortKey, onSortChange }: Props) {
   return (
     <div className={styles.filters}>
       <span id="reviews-sort-label" className={styles.filtersLabel}>
-        ??????????
+        Sort by
       </span>
       <div className={styles.filtersShell}>
         <div className={styles.filtersGroup} role="group" aria-labelledby="reviews-sort-label">
