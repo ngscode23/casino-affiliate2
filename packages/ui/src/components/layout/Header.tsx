@@ -37,12 +37,6 @@ export default function Header() {
     }
   }, [location.search]);
 
-  // TEMP: switch header to e-commerce navigation; keep old links commented
-  // const oldNav = [
-  //   { to: "/offers", label: t("nav.offers"), preload: () => { import("@web/pages/Offers"); } },
-  //   { to: "/compare", label: t("nav.compare") },
-  //   { to: "/contact", label: t("nav.contact") },
-  // ];
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   useEffect(() => {
     let mounted = true;

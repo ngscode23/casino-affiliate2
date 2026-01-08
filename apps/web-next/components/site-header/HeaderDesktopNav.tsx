@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Suspense } from "react";
+import { Suspense, useCallback, useEffect, useRef } from "react";
 
 import { cn } from "@shared/lib/cn";
 import styles from "./SiteHeader.module.css";
@@ -25,6 +25,24 @@ type Props = {
 };
 
 export function HeaderDesktopNav({ items, primaryLabel, hoveredNav, onHoverChange, buildPanel }: Props) {
+  const closeTimerRef = useRef<number | null>(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      onHoverChange(null);
+    }, 220);
+  }, [clearCloseTimer, onHoverChange]);
+
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
+
   return (
     <nav className={styles.vhNav} aria-label={primaryLabel}>
       <ul className={styles.vhNavList}>
@@ -35,9 +53,15 @@ export function HeaderDesktopNav({ items, primaryLabel, hoveredNav, onHoverChang
             <li
               key={item.href}
               className={cn(styles.vhNavItem, panelOpen && styles.vhNavItemActive)}
-              onMouseEnter={() => onHoverChange(item.href)}
-              onMouseLeave={() => onHoverChange(null)}
-              onFocusCapture={() => onHoverChange(item.href)}
+              onMouseEnter={() => {
+                clearCloseTimer();
+                onHoverChange(item.href);
+              }}
+              onMouseLeave={scheduleClose}
+              onFocusCapture={() => {
+                clearCloseTimer();
+                onHoverChange(item.href);
+              }}
               onBlurCapture={(event) => {
                 const related = event.relatedTarget as Node | null;
                 if (!related || !event.currentTarget.contains(related)) {

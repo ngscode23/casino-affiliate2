@@ -105,6 +105,9 @@ export type SearchProductsRow = {
   source: "ecom" | "products";
 };
 
+/**
+ * @deprecated Legacy RPC (v1). Use searchProductsV2 instead.
+ */
 export async function searchProducts(params: SearchProductsParams = {}): Promise<SearchProductsRow[]> {
   const {
     q = null,
@@ -162,57 +165,6 @@ async function get<T = any>(path: string, params?: Record<string, any>): Promise
   const res = await apiRequest(path, { headers: { accept: "application/json" } }, params);
   if (!res.ok) throw new Error(`API ${path} ${res.status}`);
   return (await res.json()) as T;
-}
-
-/**
- * Список товаров из public.products
- * Фильтры: q (по title), category (slug)
- * Сортировки: rating_desc | price_asc | price_desc
- * Пагинация: limit/offset
- */
-export async function listProducts(params: {
-  q?: string;
-  category?: string;
-  sort?: "rating_desc" | "price_asc" | "price_desc";
-  limit?: number;
-  offset?: number;
-}) {
-  const { q, category, sort = "rating_desc", limit = 20, offset = 0 } = params;
-
-  // базовый селект; public.products уже безопасная вьюха
-  let query = supabase.from("products").select("*", { count: "exact" });
-
-  // фильтр по категории (slug)
-  if (category && category.trim()) {
-    query = query.eq("slug", category.trim());
-  }
-
-  // поиск. Надёжно ищем по title через ILIKE.
-  // Если добавишь description в вьюху — можешь заменить на .or(`title.ilike.%${q}%,description.ilike.%${q}%`)
-  if (q && q.trim()) {
-    const needle = `%${q.trim()}%`;
-    query = query.ilike("title", needle);
-  }
-
-  // сортировки
-  if (sort === "rating_desc") {
-    // сперва по рейтингу, потом по количеству отзывов
-    query = query.order("rating", { ascending: false }).order("rating_count", { ascending: false });
-  } else if (sort === "price_asc") {
-    query = query.order("price", { ascending: true });
-  } else if (sort === "price_desc") {
-    query = query.order("price", { ascending: false });
-  }
-
-  // пагинация
-  const from = offset;
-  const to = offset + (limit ?? 20) - 1;
-  query = query.range(from, to);
-
-  const { data, error, count } = await query;
-  if (error) throw error;
-
-  return { items: data ?? [], total: count ?? 0 };
 }
 
 // отправка отзыва через Next.js endpoint
@@ -273,11 +225,14 @@ import type { Product } from "@shared/ecom/lib/types";
 
 function mapDbToProduct(p: any): Product {
   const images = Array.isArray(p?.images) ? p.images.map(String) : [];
+  const currencyRaw = typeof p?.currency === "string" ? p.currency.trim() : "";
+  const currency = currencyRaw ? currencyRaw.toUpperCase() : undefined;
   return {
     id: String(p.id),
     slug: String(p.slug),
     title: String(p.title ?? ""),
     price: Number(p.price ?? 0),
+    currency,
     rating: Number(p.rating ?? 0),
     images,
     category: String(p.category_slug ?? ""),

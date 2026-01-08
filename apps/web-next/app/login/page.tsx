@@ -5,7 +5,7 @@ import LoginForm from "./login-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Access your affiliate dashboard and manage saved offers.",
+  description: "Access your account, orders, and saved items.",
 };
 
 export default function LoginPage() {

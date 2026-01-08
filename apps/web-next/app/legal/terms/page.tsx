@@ -5,7 +5,7 @@ import Tagline from "@/components/tagline";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The rules for using Neon Shop and our affiliate tracking tools.",
+  description: "The rules for using Neon Shop and our online store.",
 };
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
         <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Terms of Service</h1>
         <p className="max-w-2xl text-sm text-muted">
           These terms explain what you can expect from Neon Shop and what we expect in return. Please read them
-          before creating an account or following our affiliate links.
+          before creating an account or placing an order.
         </p>
       </div>
       <SectionCard contentClassName="space-y-6">
@@ -38,10 +38,10 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className={sectionTitle}>Affiliate relationships</h2>
+          <h2 className={sectionTitle}>Third-party links</h2>
           <p className={mutedTextSmLegacy}>
-            Some links are affiliate links. We may receive a commission if you sign up through them. Our
-            reviews remain independent and paid placements are labelled.
+            Sometimes we reference third-party services for shipping, payments, or support. If you choose to
+            engage with them, their terms apply and we are not responsible for their services.
           </p>
         </div>
 
@@ -49,7 +49,7 @@ export default function TermsPage() {
           <h2 className={sectionTitle}>Liability</h2>
           <p className={mutedTextSmLegacy}>
             Neon Shop is provided without warranties. We are not responsible for losses that result from
-            decisions you make after reading our content or using partner sites.
+            decisions you make after reading our content or using external sites.
           </p>
         </div>
 

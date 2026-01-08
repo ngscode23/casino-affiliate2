@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
         <Tagline>Privacy first</Tagline>
         <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Privacy Policy</h1>
         <p className="max-w-2xl text-sm text-muted">
-          We only collect the information required to operate Neon Shop, honour our affiliate obligations,
+          We only collect the information required to operate Neon Shop, fulfil orders,
           and reply to the messages you send us. The rest stays on your device.
         </p>
       </div>

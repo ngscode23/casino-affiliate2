@@ -2,7 +2,6 @@
   "nav": {
     "home": "Home",
     "compare": "Compare",
-    "offers": "Offers",
     "catalog": "Catalog",
     "cart": "Cart",
     "orders": "My Orders",
@@ -10,11 +9,7 @@
     "privacy": "Privacy Policy",
     "terms": "Terms",
     "cookies": "Cookies",
-    "responsible": "Responsible Gaming",
-    "affiliateDisclosure": "Affiliate Disclosure",
     "contact": "Contact",
-    "affiliate": "Affiliate",
-    "partner": "Partner",
     "account": "Account"
   },
   "compare": {
@@ -27,48 +22,19 @@
     "compareLink": "Compare",
     "share": "Share",
     "hintAddOneMore": "Add one more to open compare",
-    "maxLimit": "You can compare up to 4 offers"
-  },
-  "offer": {
-    "payout": "Payout",
-    "license": "License",
-    "ratingLabel": "Rating",
-    "details": "Details",
-    "cta": "Go"
+    "maxLimit": "You can compare up to 4 products"
   },
   "filters": {
     "all": "All",
     "methods": "Methods",
     "action": "Action",
     "search": "Search",
-    "searchPlaceholder": "Search casinos, licenses, methods…",
+    "searchPlaceholder": "Search products, brands, specs…",
     "title": "Filters",
     "apply": "Apply",
     "reset": "Reset",
     "min": "min",
     "max": "max"
-  },
-  "offers": {
-    "collectionTitle": "All Casino Offers",
-    "title": "All Casino Offers",
-    "subtitle": "browse & filter",
-    "description": "Browse all casino offers and filter by license or search.",
-    "all": "All Offers",
-    "found": "Found",
-    "sortBy": "Sort by",
-    "sort": {
-      "ratingDesc": "Rating: high to low",
-      "ratingAsc": "Rating: low to high",
-      "payoutAsc": "Payout time: fast first",
-      "payoutDesc": "Payout time: slow first",
-      "nameAsc": "Name: A→Z",
-      "nameDesc": "Name: Z→A"
-    },
-    "showN": "Show",
-    "recent": "Recently Viewed",
-    "tryCompare": "Want a side-by-side view? Try Compare.",
-    "goToCompare": "Go to Compare",
-    "loadingError": "loading offers"
   },
   "common": {
     "error": "Error",
@@ -105,99 +71,24 @@
     "clear": "Clear favorites",
     "clearConfirm": "Clear all favorites?",
     "share": "Share list",
-    "savedSubtitle": "Your saved offers.",
-    "description": "Quick access to your saved offers.",
+    "savedSubtitle": "Your saved items.",
+    "description": "Quick access to your saved items.",
     "importFound": "Found a list to import:",
     "items": "items",
     "import": "Import",
     "hide": "Hide",
     "empty": "You haven't added anything yet.",
-    "goToOffers": "Go to offers",
+    "goToOffers": "Go to catalog",
     "copied": "Copied",
     "copyManual": "Copy link manually:"
   },
   "layout": {
-    "tagline": "Affiliate and e-commerce tooling for growth teams"
+    "tagline": "Modern e-commerce storefront for everyday shopping"
   },
   "header": {
     "searchPlaceholder": "Search products",
     "searchButton": "Search",
     "searchMobile": "Search site"
-  },
-  "affiliate": {
-    "hero": {
-      "tagline": "Affiliate launchpad",
-      "title": "Scale affiliate campaigns with vetted offers and live performance data",
-      "body": "Unlock pre-negotiated deals, real payout timings, and localisation notes without digging through spreadsheets. Plug our catalogue into your workflow and stay compliant.",
-      "primaryCta": "Browse catalogue",
-      "secondaryCta": "Talk to the partner team"
-    },
-    "sections": {
-      "valueProps": "Why top affiliates onboard here",
-      "timeline": "Campaign timeline",
-      "faq": "Frequently asked",
-      "featured": "Featured programs"
-    },
-    "table": {
-      "brand": "Brand",
-      "rating": "Rating",
-      "payout": "Payout (h)",
-      "license": "Licence",
-      "action": "Action",
-      "viewOffer": "Explore"
-    },
-    "valueProps": {
-      "licensing": {
-        "title": "Licensed partners only",
-        "description": "We screen every brand for regulator status, ownership, and complaint history before listing it."
-      },
-      "payouts": {
-        "title": "Transparent payouts",
-        "description": "Real withdrawal tests keep the SLA honest. If timings slip, the offer is paused."
-      },
-      "performance": {
-        "title": "Performance-first insights",
-        "description": "Benchmark CTR, FTD, and ARPU from historical campaigns to prioritise your launch list."
-      },
-      "coverage": {
-        "title": "Global coverage",
-        "description": "Multi-market payment flows, localised creatives, and KYC notes ready for your media buyers."
-      }
-    },
-    "timeline": {
-      "steps": {
-        "audit": {
-          "title": "1. Audit & targeting",
-          "description": "Share your vertical focus. We shortlist partners with matching licences, payment flows, and GEO reach."
-        },
-        "creative": {
-          "title": "2. Creative & tracking",
-          "description": "Receive localisation packs, conversion hooks, and QA templates for pixels, postback, or S2S."
-        },
-        "optimise": {
-          "title": "3. Optimise",
-          "description": "Weekly reporting syncs highlight payout variance, risk events, and upsell opportunities."
-        }
-      }
-    },
-    "faq": {
-      "selection": {
-        "q": "How do you select featured brands?",
-        "a": "Licensing, payout speed, payment coverage, and partner responsiveness each carry a score. Sponsored placement never overrides the base rating."
-      },
-      "onboarding": {
-        "q": "Can new affiliates join?",
-        "a": "Yes. We onboard new affiliates, but expect to see traffic plans and respect for responsible gaming guidelines."
-      },
-      "support": {
-        "q": "What support channels are available?",
-        "a": "Every priority partner receives a dedicated account manager plus access to our shared strategy Slack."
-      },
-      "markets": {
-        "q": "Which markets perform best right now?",
-        "a": "CEE and LatAm funnels are strongest this quarter, but we share fresh cohort data once you connect with the team."
-      }
-    }
   },
   "products": {
     "addToCart": "Add to cart",

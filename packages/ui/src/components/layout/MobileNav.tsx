@@ -8,14 +8,6 @@ import cn from "@shared/lib/cn"; // если нет, у тебя уже есть
 import { useT } from "@shared/lib/useT";
 import { useCart } from "@shared/ecom/lib/cart";
 
-// TEMP: switch mobile menu to e-commerce; keep old links commented below
-// const linksOld = [
-//   { to: "/", label: "Home" },
-//   { to: "/compare", label: "Compare" },
-//   { to: "/offers", label: "Offers" },
-//   { to: "/favorites", label: "Favorites" },
-//   { to: "/contact", label: "Contact" },
-// ];
 import { getUser } from "@shared/lib/auth";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? process.env.SITE_NAME ?? "SITE";
@@ -118,7 +110,7 @@ export default function MobileNav() {
           </nav>
 
           <div className="mt-5 border-t border-border pt-4 text-xs text-[var(--text-dim)]">
-            <p>18+ • Responsible Gaming • Affiliate disclosure</p>
+            <p>Secure checkout • Fast delivery • Easy returns</p>
           </div>
         </motion.div>
       </SheetContent>

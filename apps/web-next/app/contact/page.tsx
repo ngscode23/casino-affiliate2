@@ -7,7 +7,7 @@ import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Reach the Neon Shop crew for partnerships, support questions, or press enquiries.",
+  description: "Reach the Neon Shop crew for support questions, business enquiries, or press requests.",
 };
 
 type SearchState = {
@@ -41,7 +41,7 @@ export default async function ContactPage({ searchParams }: { searchParams?: Pro
           <Tagline>Let&apos;s build together</Tagline>
           <h1 className="text-3xl font-semibold text-fg sm:text-4xl">Contact the Neon Shop team</h1>
           <p className="max-w-2xl text-sm text-muted">
-            Drop us a line and we will reply within one business day. Partnerships, product questions,
+            Drop us a line and we will reply within one business day. Business enquiries, product questions,
             and support requests all land on the same inbox so nothing gets lost.
           </p>
           {alert ? (

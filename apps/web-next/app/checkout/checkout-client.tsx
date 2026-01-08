@@ -59,7 +59,18 @@ export default function CheckoutClient() {
     !HAS_SUPABASE || !REQUIRE_AUTH_FOR_CHECKOUT,
   );
   const isCartEmpty = items.length === 0;
-  const orderCurrency = "EUR";
+  const currencyInfo = useMemo(() => {
+    const codes = new Set(
+      items
+        .map((row) => (typeof row.product?.currency === "string" ? row.product.currency.trim() : ""))
+        .filter((code) => code)
+        .map((code) => code.toUpperCase()),
+    );
+    if (codes.size === 0) return { currency: "EUR", mixed: false, all: [] as string[] };
+    if (codes.size === 1) return { currency: Array.from(codes)[0] as string, mixed: false, all: [] as string[] };
+    return { currency: Array.from(codes)[0] as string, mixed: true, all: Array.from(codes) };
+  }, [items]);
+  const orderCurrency = currencyInfo.currency;
   const analyticsItems = useMemo(
     () =>
       items.map((row) => ({
@@ -142,7 +153,18 @@ export default function CheckoutClient() {
     setError(null);
     setIsSubmitting(true);
 
+    if (currencyInfo.mixed) {
+      console.warn("[cart:validation]", {
+        stage: "currency_mismatch",
+        currencies: currencyInfo.all,
+      });
+      setError("Your cart contains items with different currencies. Please split the order.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
+    let checkoutCurrency = orderCurrency;
 
     try {
       let accessToken: string | null = null;
@@ -265,6 +287,25 @@ export default function CheckoutClient() {
           setIsSubmitting(false);
           return;
         }
+
+        const catalogCurrencies = new Set(
+          catalogProducts
+            .map((product) => (typeof product.currency === "string" ? product.currency.trim() : ""))
+            .filter((code) => code)
+            .map((code) => code.toUpperCase()),
+        );
+        if (catalogCurrencies.size > 1) {
+          console.warn("[cart:validation]", {
+            stage: "catalog_currency_mismatch",
+            currencies: Array.from(catalogCurrencies),
+          });
+          setError("Your cart contains items with different currencies. Please split the order.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (catalogCurrencies.size === 1) {
+          checkoutCurrency = Array.from(catalogCurrencies)[0] as string;
+        }
       }
 
       // normalizedItems already computed above
@@ -296,7 +337,7 @@ export default function CheckoutClient() {
       const snapshotCopy = {
         items: items.map((row) => ({ ...row })),
         subtotal,
-        currency: orderCurrency,
+        currency: checkoutCurrency,
       } as CheckoutSnapshot;
 
       console.info("[cart:validation]", {
@@ -308,7 +349,7 @@ export default function CheckoutClient() {
         currency_source: currencySource,
       });
 
-      const result = await placeOrder(normalizedItems, { currency: orderCurrency, checkout: checkoutPayload });
+      const result = await placeOrder(normalizedItems, { currency: checkoutCurrency, checkout: checkoutPayload });
       const createdOrderId = result.order_id;
 
       if (!HAS_SUPABASE) {

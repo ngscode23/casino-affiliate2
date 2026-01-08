@@ -8,7 +8,7 @@ import RegisterForm from "./register-form";
 
 export const metadata: Metadata = {
   title: "Create account",
-  description: "Register for the affiliate portal to access partner offers.",
+  description: "Create an account to track orders and save favorites.",
 };
 
 export default function RegisterPage() {
@@ -18,7 +18,7 @@ export default function RegisterPage() {
         <div className="space-y-1 text-center">
           <h1 className="text-2xl font-semibold text-white">Create an account</h1>
           <p className="text-sm text-neutral-400">
-            Join the portal to pin offers, manage deals, and access billing.
+            Create an account to save favorites, track orders, and manage your profile.
           </p>
         </div>
         <RegisterForm />

@@ -37,7 +37,7 @@ export async function POST(request: Request, context: { params: Promise<{ orderI
   }
 
   const status = String((orderRow as any).status || "");
-  if (!["pending", "processing"].includes(status)) {
+  if (!["pending"].includes(status)) {
     return json({ ok: false, code: "conflict", message: "invalid_status_for_payment" }, 409);
   }
 
@@ -117,11 +117,16 @@ export async function POST(request: Request, context: { params: Promise<{ orderI
   }
 
   if (scenario === "authorized") {
-    await supabase.from("orders").update({ status: "processing" }).eq("id", orderId);
+    // Keep order pending until it is captured/paid.
+    await supabase.from("orders").update({ status: "pending" }).eq("id", orderId);
   }
 
   if (scenario === "succeeded") {
-    await supabase.from("orders").update({ status: "succeeded", paid_at: new Date().toISOString() }).eq("id", orderId);
+    await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", orderId);
+  }
+
+  if (scenario === "failed") {
+    await supabase.from("orders").update({ status: "failed" }).eq("id", orderId);
   }
 
   if (scenario === "requires_action") {

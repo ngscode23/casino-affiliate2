@@ -8,7 +8,7 @@ import ResetForm from "./reset-form";
 
 export const metadata: Metadata = {
   title: "Reset password",
-  description: "Request a password reset link for your affiliate account.",
+  description: "Request a password reset link for your account.",
 };
 
 export default function ResetPasswordPage() {

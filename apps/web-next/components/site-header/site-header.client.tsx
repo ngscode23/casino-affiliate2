@@ -103,7 +103,7 @@ const buildCatalogPanelFallback = (translate: PanelBuilderArgs["translate"]): Ho
 const NAV_PANEL_PRESETS: Record<string, PanelBuilder> = {
   "/": ({ translate }) => ({
     title: translate("nav.homeTitle", "Fresh arrivals"),
-    subtitle: translate("nav.homeSubtitle", "Daily drops and highlighted offers"),
+    subtitle: translate("nav.homeSubtitle", "Daily drops and highlighted products"),
     items: [
       {
         label: translate("nav.newArrivals", "New arrivals"),
@@ -204,7 +204,7 @@ const NAV_PANEL_PRESETS: Record<string, PanelBuilder> = {
   }),
   "/contact": ({ translate }) => ({
     title: translate("nav.contactTitle", "Contact routes"),
-    subtitle: translate("nav.contactSubtitle", "Partner, press and support forms"),
+    subtitle: translate("nav.contactSubtitle", "Support, press and business enquiries"),
     items: [
       {
         label: translate("nav.contactSupport", "Customer care"),
@@ -212,9 +212,9 @@ const NAV_PANEL_PRESETS: Record<string, PanelBuilder> = {
         description: translate("nav.contactSupportDesc", "Live chat & email within 24h"),
       },
       {
-        label: translate("nav.contactPartners", "Partners & affiliates"),
-        href: appendQuery("/contact", "topic=partners"),
-        description: translate("nav.contactPartnersDesc", "Onboarding within 48h"),
+        label: translate("nav.contactBusiness", "Business enquiries"),
+        href: appendQuery("/contact", "topic=business"),
+        description: translate("nav.contactBusinessDesc", "Wholesale, gifting, or bulk orders"),
       },
       {
         label: translate("nav.contactPress", "Press kit"),

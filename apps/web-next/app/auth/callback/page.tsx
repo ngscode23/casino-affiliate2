@@ -5,7 +5,7 @@ import Card from "@ui/components/common/card";
 
 export const metadata: Metadata = {
   title: "Authentication",
-  description: "Complete the sign-in flow for your affiliate account.",
+  description: "Complete the sign-in flow for your account.",
 };
 
 export default function AuthCallbackPage() {

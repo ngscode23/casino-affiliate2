@@ -195,14 +195,3 @@ export function trackPageview(path?: string): void {
   }
 }
 
-/* ------------------ Convenience ------------------ */
-
-/** Track affiliate click with optional position */
-export function trackAffiliateClick(offer_slug: string, position?: number): void {
-  track("click_affiliate_link", { offer_slug, position });
-}
-
-/** Track add-to-compare */
-export function trackAddToCompare(offer_slug: string, position?: number): void {
-  track("add_to_compare", { offer_slug, position });
-}

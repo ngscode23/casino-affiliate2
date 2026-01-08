@@ -225,6 +225,15 @@
   z-index: 20;
 }
 
+.vhNavPanel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -28px;
+  height: 28px;
+}
+
 .vhNavItemActive .vhNavPanel,
 .vhNavPanelVisible {
   opacity: 1;

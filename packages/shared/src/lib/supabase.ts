@@ -23,7 +23,7 @@ if (!KEY) {
 }
 
 // ---- общий ключ хранения (только для браузера)
-const storageKey = "sb-casino-affiliate-auth";
+const storageKey = "sb-neonshop-auth";
 
 // ---- фабрика: разные опции для браузера и сервера
 function createSupabase(isBrowser: boolean): SupabaseClient {

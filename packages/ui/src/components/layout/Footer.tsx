@@ -13,7 +13,7 @@ export default function Footer() {
         </div>
 
         <p className="max-w-xl text-sm text-[var(--text-dim)]">
-          This site may contain affiliate links. Some pages include product recommendations and sponsored placements.
+          Some pages include product recommendations and optional sponsored placements.
         </p>
         <button
           type="button"

@@ -9,7 +9,7 @@ import { AdminLoginForm } from "./login-form";
 
 export const metadata: Metadata = {
   title: "Admin Sign in",
-  description: "Sign in to manage offers, orders, and partners.",
+  description: "Sign in to manage products, orders, and customers.",
 };
 
 export default function AdminLoginPage() {

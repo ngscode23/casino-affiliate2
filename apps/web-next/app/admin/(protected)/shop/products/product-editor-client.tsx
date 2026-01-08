@@ -850,7 +850,7 @@ const handleSave = async (event: React.FormEvent) => {
                   <Input
                     value={tags}
                     onChange={(event) => setTags(event.currentTarget.value)}
-                    placeholder="casino, premium, roulette"
+                    placeholder="phone, laptop, accessory"
                   />
                 </div>
 

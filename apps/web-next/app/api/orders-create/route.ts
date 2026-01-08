@@ -297,7 +297,6 @@ export async function POST(request: Request) {
         qty: item.qty,
         title,
         unit_price: unitPrice,
-        total,
         variant_id: null,
         meta: {
           catalog_product_id: item.id,
@@ -308,11 +307,12 @@ export async function POST(request: Request) {
           category_title: (row as any).category_title ?? null,
           currency: effectiveCurrency,
           unit_price: unitPrice,
+          total,
         },
       };
     });
 
-    const subtotal = roundCurrency(orderItems.reduce((sum, item) => sum + Number(item.total ?? 0), 0));
+    const subtotal = roundCurrency(orderItems.reduce((sum, item) => sum + (item.meta?.total ?? 0), 0));
     if (!Number.isFinite(subtotal) || subtotal <= 0) {
       return json({ ok: false, code: "invalid_order_total", message: "Order total is zero" }, 400);
     }
@@ -330,7 +330,6 @@ export async function POST(request: Request) {
         status: "pending",
         payment_status: "pending",
         checkout_metadata: checkoutMeta ?? undefined,
-        contact_email: checkoutMeta?.contact?.email ?? undefined,
         coupon_codes: couponCodes,
         applied_promotions: [],
       })

@@ -34,7 +34,7 @@ export default function CookiesPage() {
             </thead>
             <tbody className="divide-y divide-border/40">
               <tr>
-                <td className="px-4 py-3 text-fg">sb-casino-affiliate-auth</td>
+                <td className="px-4 py-3 text-fg">sb-neonshop-auth</td>
                 <td className="px-4 py-3">Keeps you signed in with Supabase across sessions.</td>
                 <td className="px-4 py-3">1 week</td>
               </tr>

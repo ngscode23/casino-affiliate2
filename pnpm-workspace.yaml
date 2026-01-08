@@ -1,4 +1,4 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "apps/cms-admin"
+  - "!apps/cms-admin"

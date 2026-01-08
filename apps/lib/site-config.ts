@@ -1,16 +1,15 @@
 export const siteConfig = {
   name: "Neon Shop",
-  tagline: "Affiliate and e-commerce tooling for growth teams",
+  tagline: "Modern e-commerce storefront for everyday shopping",
   taglineKey: "layout.tagline",
   description:
-    "A modern affiliate storefront powered by Next.js and Supabase featuring real-time data, secure auth, and fast product browsing.",
+    "A modern e-commerce storefront powered by Next.js and Supabase with fast product browsing and secure auth.",
   nav: [
     { href: "/", label: "Home", labelKey: "nav.home" },
     { href: "/products", label: "Catalog", labelKey: "nav.catalog" },
     { href: "/cart", label: "Cart", labelKey: "nav.cart" },
     { href: "/checkout", label: "Checkout", labelKey: "nav.checkout" },
     { href: "/favorites", label: "Favorites", labelKey: "nav.favorites" },
-    { href: "/partner", label: "Partnership", labelKey: "nav.partner" },
     { href: "/contact", label: "Contact", labelKey: "nav.contact" },
     { href: "/account", label: "Account", labelKey: "nav.account" },
   ],

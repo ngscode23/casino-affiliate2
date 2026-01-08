@@ -2,7 +2,7 @@
 
 import React from "react";
 export type AbVariant = "A" | "B";
-export type AbEvent = "view" | "click" | "offer_click" | string;
+export type AbEvent = "view" | "click" | string;
 
 export function useClientVariant(testKey: string): AbVariant {
   const [v, setV] = React.useState<AbVariant>("A");

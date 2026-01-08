@@ -120,6 +120,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
         slug: id,
         title: "Товар",
         price: 0,
+        currency: undefined,
         rating: 0,
         images: [],
         category: "",

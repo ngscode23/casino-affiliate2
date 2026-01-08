@@ -43,7 +43,6 @@ function buildStaticEntries(origin: string): MetadataRoute.Sitemap {
     { url: `${origin}/`, priority: 1, changeFrequency: "weekly" },
     { url: `${origin}/products`, priority: 0.8, changeFrequency: "daily" },
     { url: `${origin}/contact`, priority: 0.5, changeFrequency: "monthly" },
-    { url: `${origin}/affiliate`, priority: 0.5, changeFrequency: "monthly" },
   ];
 }
 

@@ -12,12 +12,6 @@ main {
   padding: 20px;
 }
 
-.casino-list {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
 body {
   font-family: 'Inter', sans-serif;
 }
