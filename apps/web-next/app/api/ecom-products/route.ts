@@ -11,6 +11,8 @@ const CACHE_CONTROL = "s-maxage=300, stale-while-revalidate=600";
 const DEFAULT_CURRENCY = "EUR";
 const PRODUCT_SELECT_COLUMNS =
   "id, slug, title, description, price, currency, status, category_slug, category_title, thumbnail_url, specs, created_at, updated_at, brand_slug, brand_name";
+const ECOM_SELECT_COLUMNS =
+  "id, sku, slug, title, price, price_cents, currency, status, category_slug, short_desc, images, image_path, main_image_url, is_available, inventory_status, stock_quantity, created_at";
 const ADMIN_STATUS_VALUES = new Set(["draft", "published", "archived"]);
 
 function toInt(value: string | null, def: number, min: number, max: number) {
@@ -106,6 +108,8 @@ export async function GET(request: Request) {
     const ids = idsCsv ? idsCsv.split(",").map((s) => s.trim()).filter(Boolean) : [];
     const idsOrder = new Map(ids.map((id, index) => [id, index]));
     const catalogProductIdFilter = sanitizeSearchParam(params.get("catalog_product_id"));
+    const sourceParam = sanitizeSearchParam(params.get("source"))?.toLowerCase();
+    const wantsSkuSource = sourceParam === "sku";
 
     const supabaseUrl = pickSupabaseUrl();
     const bucket = DEFAULT_BUCKET;
@@ -114,6 +118,7 @@ export async function GET(request: Request) {
       isAdmin && statusFilterParam && statusFilterParam !== "all" && ADMIN_STATUS_VALUES.has(statusFilterParam)
         ? statusFilterParam
         : null;
+    let leadTimeMap = new Map<string, number>();
 
     const mapRow = (row: Record<string, unknown>) => {
       const id = row?.id != null ? String(row.id) : "";
@@ -129,9 +134,11 @@ export async function GET(request: Request) {
 
       return {
         id,
+        sku: typeof (row as any).sku === "string" ? (row as any).sku : null,
         slug,
         title,
         price,
+        price_cents: Math.round(price * 100),
         rating: null,
         created_at: (row as any).created_at ?? null,
         thumbnail_path: (row as any).thumbnail_url ?? null,
@@ -144,8 +151,140 @@ export async function GET(request: Request) {
         images: imageUrl ? [imageUrl] : [],
         tags: [],
         specs: (row as any).specs ?? null,
+        is_available: null,
+        inventory_status: null,
+        stock_quantity: null,
+        lead_time_days: null,
       };
     };
+
+    const mapEcomRow = (row: Record<string, unknown>) => {
+      const id = row?.id != null ? String(row.id) : "";
+      const slug = typeof row.slug === "string" ? row.slug : "";
+      const title = typeof row.title === "string" ? row.title : slug || "Product";
+      const priceCentsRaw =
+        typeof (row as any).price_cents === "number"
+          ? (row as any).price_cents
+          : Number((row as any).price_cents ?? NaN);
+      const priceRaw = typeof (row as any).price === "number" ? (row as any).price : Number((row as any).price ?? 0);
+      const priceCents = Number.isFinite(priceCentsRaw)
+        ? Math.round(priceCentsRaw)
+        : Number.isFinite(priceRaw)
+          ? Math.round(priceRaw * 100)
+          : 0;
+      const price = Number.isFinite(priceRaw) ? priceRaw : priceCents / 100;
+      const currencyValue = String((row as any).currency || DEFAULT_CURRENCY).toUpperCase();
+      const status = typeof row.status === "string" ? row.status : null;
+      const categorySlug = typeof row.category_slug === "string" ? row.category_slug : null;
+      const shortDesc = typeof row.short_desc === "string" ? row.short_desc : null;
+      const mainImage = (row as any).main_image_url ?? (row as any).image_path ?? null;
+      const imageUrl = toPublicUrl(supabaseUrl, bucket, mainImage);
+      const imagesSource = Array.isArray((row as any).images) ? (row as any).images : [];
+      const images = (imagesSource as unknown[])
+        .map((value: unknown) =>
+          typeof value === "string" ? toPublicUrl(supabaseUrl, bucket, value) ?? value : null,
+        )
+        .filter(Boolean) as string[];
+      const leadTimeDays =
+        leadTimeMap.has(id) && Number.isFinite(leadTimeMap.get(id) as number)
+          ? (leadTimeMap.get(id) as number)
+          : null;
+
+      return {
+        id,
+        slug,
+        title,
+        price,
+        price_cents: priceCents,
+        rating: null,
+        created_at: (row as any).created_at ?? null,
+        thumbnail_path: mainImage ?? null,
+        category_slug: categorySlug,
+        status,
+        currency: currencyValue,
+        short_desc: shortDesc,
+        catalog_product_id: (row as any).catalog_product_id ?? null,
+        image_url: imageUrl,
+        images: images.length ? images : imageUrl ? [imageUrl] : [],
+        tags: Array.isArray((row as any).tags) ? (row as any).tags : [],
+        specs: (row as any).specs ?? null,
+        is_available: typeof (row as any).is_available === "boolean" ? (row as any).is_available : null,
+        inventory_status: typeof (row as any).inventory_status === "string" ? (row as any).inventory_status : null,
+        stock_quantity:
+          typeof (row as any).stock_quantity === "number" ? (row as any).stock_quantity : null,
+        lead_time_days: leadTimeDays,
+      };
+    };
+
+    if (wantsSkuSource) {
+      if (!isAdmin) {
+        return json({ error: "forbidden" }, 403);
+      }
+
+      const pattern = q ? `%${q.replace(/[\\%_]/g, (match) => `\\${match}`)}%` : null;
+      let query = supabase.from("ecom_products").select(ECOM_SELECT_COLUMNS, { count: "exact" });
+
+      if (pattern) {
+        query = query.or(`sku.ilike.${pattern},slug.ilike.${pattern},title.ilike.${pattern}`);
+      }
+
+      if (category) {
+        query = query.eq("category_slug", category);
+      }
+
+      if (statusFilter) {
+        query = query.eq("status", statusFilter);
+      }
+
+      query = query.order("created_at", { ascending: false, nullsFirst: false });
+
+      const start = Math.max(0, (page - 1) * limit);
+      const end = start + limit - 1;
+      const { data, error, count } = await query.range(start, end);
+
+      if (error) {
+        console.error("ecom-products: sku source query failed", error);
+        return json({ error: "db" }, 500);
+      }
+
+      let leadTimeMap = new Map<string, number>();
+      const skuIds = Array.isArray(data)
+        ? data.map((row) => String((row as any)?.id ?? "")).filter(Boolean)
+        : [];
+      if (skuIds.length) {
+        const { data: leadRows, error: leadError } = await supabase
+          .from("supplier_skus")
+          .select("sku_id, lead_time_days")
+          .in("sku_id", skuIds);
+        if (!leadError && Array.isArray(leadRows)) {
+          leadTimeMap = new Map();
+          for (const row of leadRows) {
+            if (!row?.sku_id) continue;
+            const skuId = String((row as any).sku_id);
+            const lead = Number((row as any).lead_time_days);
+            if (!Number.isFinite(lead)) continue;
+            const prev = leadTimeMap.get(skuId);
+            if (typeof prev !== "number" || lead < prev) {
+              leadTimeMap.set(skuId, lead);
+            }
+          }
+        }
+      }
+
+      const items = Array.isArray(data)
+        ? data.map((row) => {
+            const mapped = mapEcomRow(row as Record<string, unknown>);
+            const lead = leadTimeMap.get(mapped.id);
+            return lead != null ? { ...mapped, lead_time_days: lead } : mapped;
+          })
+        : [];
+
+      return json(
+        { items, page, limit, total: typeof count === "number" ? count : items.length },
+        200,
+        CACHE_CONTROL,
+      );
+    }
 
     if (
       ids.length &&
@@ -157,26 +296,71 @@ export async function GET(request: Request) {
       !statusFilter &&
       !catalogProductIdFilter
     ) {
-      let query = supabase.from("catalog_products_v").select(PRODUCT_SELECT_COLUMNS).in("id", ids);
-      if (!isAdmin) {
-        query = query.eq("status", "published");
-      } else if (statusFilter) {
-        query = query.eq("status", statusFilter);
+      const items: Array<Record<string, unknown>> = [];
+      const skuMap = new Map<string, Record<string, unknown>>();
+
+      const { data: skuRows, error: skuError } = await supabase
+        .from("ecom_products")
+        .select(ECOM_SELECT_COLUMNS)
+        .in("id", ids);
+
+      const skuIds = Array.isArray(skuRows)
+        ? skuRows.map((row) => String((row as any)?.id ?? "")).filter(Boolean)
+        : [];
+      if (skuIds.length) {
+        const { data: leadRows, error: leadError } = await supabase
+          .from("supplier_skus")
+          .select("sku_id, lead_time_days")
+          .in("sku_id", skuIds);
+        if (!leadError && Array.isArray(leadRows)) {
+          leadTimeMap = new Map();
+          for (const row of leadRows) {
+            if (!row?.sku_id) continue;
+            const skuId = String((row as any).sku_id);
+            const lead = Number((row as any).lead_time_days);
+            if (!Number.isFinite(lead)) continue;
+            const prev = leadTimeMap.get(skuId);
+            if (typeof prev !== "number" || lead < prev) {
+              leadTimeMap.set(skuId, lead);
+            }
+          }
+        }
+      }
+      if (!skuError && Array.isArray(skuRows)) {
+        for (const row of skuRows) {
+          const id = row?.id != null ? String((row as any).id) : "";
+          if (!id) continue;
+          skuMap.set(id, mapEcomRow(row as Record<string, unknown>));
+        }
       }
 
-      const { data, error } = await query;
+      const missingIds = ids.filter((id) => !skuMap.has(id));
+      const catalogMap = new Map<string, Record<string, unknown>>();
 
-      if (error || !Array.isArray(data)) {
-        console.warn("ecom-products: direct lookup failed", { error, ids });
-        return json({ items: [], page: 1, limit: ids.length, total: 0 });
+      if (missingIds.length) {
+        let query = supabase.from("catalog_products_v").select(PRODUCT_SELECT_COLUMNS).in("id", missingIds);
+        if (!isAdmin) {
+          query = query.eq("status", "published");
+        } else if (statusFilter) {
+          query = query.eq("status", statusFilter);
+        }
+
+        const { data, error } = await query;
+        if (error || !Array.isArray(data)) {
+          console.warn("ecom-products: direct lookup failed", { error, ids: missingIds });
+        } else {
+          for (const row of data) {
+            const id = row?.id != null ? String((row as any).id) : "";
+            if (!id) continue;
+            catalogMap.set(id, mapRow(row as Record<string, unknown>));
+          }
+        }
       }
 
-      const items = data.map((row) => mapRow(row as Record<string, unknown>));
-      items.sort((a, b) => {
-        const ai = idsOrder.get(String(a.id)) ?? 0;
-        const bi = idsOrder.get(String(b.id)) ?? 0;
-        return ai - bi;
-      });
+      for (const id of ids) {
+        const item = skuMap.get(id) ?? catalogMap.get(id);
+        if (item) items.push(item);
+      }
 
       return json(
         {

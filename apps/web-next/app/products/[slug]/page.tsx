@@ -57,6 +57,7 @@ export async function generateMetadata({ params }: Pick<ProductPageProps, "param
   return {
     title: metaTitle,
     description: metaDescription,
+    robots: { index: true, follow: true },
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: "website",
@@ -99,7 +100,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <div className="bg-background">
       <ProductAnalytics
         product={{
-          id: product.id,
+          id: product.defaultSkuId ?? product.id,
           title: product.title,
           price: product.price,
           currency: product.currency,

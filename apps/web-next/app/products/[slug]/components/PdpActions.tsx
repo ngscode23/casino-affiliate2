@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@shared/lib/cn";
 
 import type { AdminStats, SelectionState } from "./pdp-types";
-import type { ProductData, ProductVariantGroup, ProductVariantOption } from "../data";
+import type { ProductData, ProductSkuOption, ProductVariantGroup, ProductVariantOption } from "../data";
 
 const ProductActionPanel = dynamic(() => import("../ProductActionPanel.client"), {
   ssr: false,
@@ -23,6 +23,11 @@ type PdpActionsProps = {
   onAdd: () => void;
   admin: AdminStats;
   paymentMethods: string[];
+  skuOptions: ProductSkuOption[];
+  selectedSkuId: string | null;
+  onSkuChange: (skuId: string) => void;
+  availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
+  currency?: string;
 };
 
 export function PdpActions({
@@ -37,6 +42,11 @@ export function PdpActions({
   onAdd,
   admin,
   paymentMethods,
+  skuOptions,
+  selectedSkuId,
+  onSkuChange,
+  availabilityCode,
+  currency,
 }: PdpActionsProps) {
   return (
     <div className="space-y-4 rounded-3xl border border-border/40 bg-card/70 p-6">
@@ -75,6 +85,9 @@ export function PdpActions({
 
       <ProductActionPanel
         productId={product.id}
+        skuOptions={skuOptions}
+        selectedSkuId={selectedSkuId}
+        onSkuChange={onSkuChange}
         title={product.title}
         formattedPrice={formattedPrice}
         compareAtPrice={compareAtPrice}
@@ -82,18 +95,18 @@ export function PdpActions({
         priceCents={Math.round(Math.max(0, finalPrice * 100))}
         dataset={product.dataset}
         category={product.category?.slug}
-        currency={product.currency}
+        currency={currency ?? product.currency}
         variantLabel={variantLabel}
         onAddAction={onAdd}
         analyticsParams={{
-          product_id: product.id,
+          product_id: selectedSkuId ?? product.id,
           slug: product.slug,
           variant: variantLabel ?? undefined,
           dataset: product.dataset,
         }}
         isAdmin={admin.isAdmin}
         paymentMethods={paymentMethods}
-        availabilityCode={product.availabilityCode}
+        availabilityCode={availabilityCode ?? product.availabilityCode}
       />
 
       <div className="pt-3 text-xs text-muted-foreground">

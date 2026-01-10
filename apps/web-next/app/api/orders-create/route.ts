@@ -76,6 +76,60 @@ function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+type SkuRow = {
+  id: string;
+  slug: string | null;
+  title: string | null;
+  price: number | string | null;
+  currency: string | null;
+  status: string | null;
+  is_available: boolean | null;
+  inventory_status: string | null;
+  catalog_product_id: string | null;
+};
+
+type CatalogRow = {
+  id: string;
+  status: string | null;
+  brand_slug: string | null;
+  brand_name: string | null;
+  category_slug: string | null;
+  category_title: string | null;
+};
+
+const ALLOWED_STATUSES = new Set(["published", "active"]);
+
+function normalizeStatus(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isSkuActive(row: SkuRow): boolean {
+  const status = normalizeStatus(row.status);
+  return !status || ALLOWED_STATUSES.has(status);
+}
+
+function isSkuAvailable(row: SkuRow): boolean {
+  if (row.is_available === false) return false;
+  const inventory = normalizeStatus(row.inventory_status);
+  if (inventory === "out_of_stock") return false;
+  return true;
+}
+
+function pickBestSku(rows: SkuRow[]): SkuRow | null {
+  const active = rows.filter(isSkuActive);
+  if (!active.length) return null;
+  const available = active.filter(isSkuAvailable);
+  const candidates = available.length ? available : active;
+  return candidates.sort((a, b) => {
+    const aPrice = Number(a.price ?? 0);
+    const bPrice = Number(b.price ?? 0);
+    if (!Number.isFinite(aPrice) && !Number.isFinite(bPrice)) return 0;
+    if (!Number.isFinite(aPrice)) return 1;
+    if (!Number.isFinite(bPrice)) return -1;
+    return aPrice - bPrice;
+  })[0] ?? null;
+}
+
 async function logPurchaseEvents(
   supabase: SupabaseClient,
   userId: string | null,
@@ -173,10 +227,12 @@ function extractCheckout(raw: unknown): CheckoutPayload | null {
 export async function POST(request: Request) {
   // Пытаемся определить пользователя, но не блокируем гостевой чекаут
   let userId: string | null = null;
+  let userEmail: string | null = null;
   try {
     const maybeAuth = await requireAuth(request);
     if (!("response" in maybeAuth)) {
       userId = maybeAuth.user.id;
+      userEmail = maybeAuth.user.email?.trim() || null;
     }
   } catch (error) {
     console.warn("[orders-create] requireAuth failed, continuing anonymously", error);
@@ -217,6 +273,17 @@ export async function POST(request: Request) {
     // Enforce 3-letter uppercase currency code to satisfy FK to public.currencies(code)
     const currency = normalizeCurrency3(payload.currency);
     const checkoutMeta = extractCheckout(payload.checkout ?? null);
+    const checkoutEmail = checkoutMeta?.contact?.email && checkoutMeta.contact.email.trim()
+      ? checkoutMeta.contact.email.trim()
+      : null;
+    const fallbackEmail = checkoutEmail || (userId ? userEmail?.trim() || null : null);
+    const checkoutMetaWithEmail = (() => {
+      if (!fallbackEmail) return checkoutMeta ?? null;
+      if (checkoutMeta && typeof checkoutMeta === "object") {
+        return { ...checkoutMeta, contact_email: fallbackEmail };
+      }
+      return { contact_email: fallbackEmail };
+    })();
     const couponCodes = Array.isArray(payload.coupons)
       ? payload.coupons.filter((code): code is string => typeof code === "string" && code.trim().length > 0)
       : [];
@@ -228,23 +295,69 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: productRows, error: productError } = await supabase
-      .from("catalog_products_v")
-      .select("id, slug, title, price, currency, status, brand_slug, brand_name, category_slug, category_title")
-      .in("id", items.map((item) => item.id));
+    const requestedIds = items.map((item) => item.id);
+    const { data: skuRows, error: skuError } = await supabase
+      .from("ecom_products")
+      .select("id, slug, title, price, currency, status, is_available, inventory_status, catalog_product_id")
+      .in("id", requestedIds);
 
-    if (productError || !Array.isArray(productRows)) {
-      console.error("orders-create: failed to load catalog products", productError);
-      return json({ ok: false, code: "catalog_lookup_failed", message: "Catalog lookup failed" }, 500);
+    if (skuError || !Array.isArray(skuRows)) {
+      console.error("orders-create: failed to load sku products", skuError);
+      return json({ ok: false, code: "sku_lookup_failed", message: "SKU lookup failed" }, 500);
     }
 
-    const productById = new Map<string, Record<string, unknown>>();
-    for (const row of productRows) {
-      const id = typeof row?.id === "string" ? row.id : row?.id != null ? String(row.id) : "";
-      if (id) productById.set(id, row as Record<string, unknown>);
+    const skuById = new Map<string, SkuRow>();
+    for (const row of skuRows as any[]) {
+      if (row?.id) skuById.set(String(row.id), row as SkuRow);
     }
 
-    const missingIds = items.map((item) => item.id).filter((id) => !productById.has(id));
+    const legacyModelIds = requestedIds.filter((id) => !skuById.has(id));
+    const legacySkuMap = new Map<string, SkuRow>();
+
+    if (legacyModelIds.length) {
+      const { data: legacyRows, error: legacyError } = await supabase
+        .from("ecom_products")
+        .select("id, slug, title, price, currency, status, is_available, inventory_status, catalog_product_id")
+        .in("catalog_product_id", legacyModelIds);
+
+      if (legacyError || !Array.isArray(legacyRows)) {
+        console.error("orders-create: failed legacy sku lookup", legacyError);
+        return json({ ok: false, code: "sku_lookup_failed", message: "SKU lookup failed" }, 500);
+      }
+
+      const grouped = new Map<string, SkuRow[]>();
+      for (const row of legacyRows as any[]) {
+        const modelId = typeof row?.catalog_product_id === "string" ? row.catalog_product_id : null;
+        if (!modelId) continue;
+        const arr = grouped.get(modelId) ?? [];
+        arr.push(row as SkuRow);
+        grouped.set(modelId, arr);
+      }
+
+      for (const modelId of legacyModelIds) {
+        const picked = pickBestSku(grouped.get(modelId) ?? []);
+        if (picked) legacySkuMap.set(modelId, picked);
+      }
+    }
+
+    const resolvedItems: Array<{ requestedId: string; sku: SkuRow; qty: number; legacyModelId: string | null }> = [];
+    const missingIds: string[] = [];
+
+    for (const item of items) {
+      let sku = skuById.get(item.id) ?? null;
+      let legacyModelId: string | null = null;
+      if (!sku) {
+        sku = legacySkuMap.get(item.id) ?? null;
+        if (sku) legacyModelId = item.id;
+      }
+
+      if (!sku) {
+        missingIds.push(item.id);
+        continue;
+      }
+      resolvedItems.push({ requestedId: item.id, sku, qty: item.qty, legacyModelId });
+    }
+
     if (missingIds.length) {
       return json(
         { ok: false, code: "missing_products", message: "Some products are missing", ids: missingIds },
@@ -252,13 +365,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const allowedStatuses = new Set(["published", "active"]);
-    const inactiveIds = items
-      .map((item) => item.id)
-      .filter((id) => {
-        const status = String((productById.get(id)?.status ?? "")).toLowerCase();
-        return status && !allowedStatuses.has(status);
-      });
+    const inactiveIds = resolvedItems
+      .filter(({ sku }) => !isSkuActive(sku) || !isSkuAvailable(sku))
+      .map((item) => item.requestedId);
     if (inactiveIds.length) {
       return json(
         { ok: false, code: "inactive_products", message: "Some products are inactive", ids: inactiveIds },
@@ -266,48 +375,105 @@ export async function POST(request: Request) {
       );
     }
 
-    const currencyFromProducts =
-      productRows
-        .map((row) => (typeof (row as any)?.currency === "string" ? String((row as any).currency).trim() : ""))
-        .find((value) => value) ?? undefined;
-    const effectiveCurrency = currency ?? currencyFromProducts ?? "EUR";
-    const mismatchedCurrency = productRows.some((row) => {
-      const rowCurrency = typeof (row as any)?.currency === "string" ? String((row as any).currency).trim() : "";
-      return rowCurrency && rowCurrency.toUpperCase() !== effectiveCurrency.toUpperCase();
-    });
-    if (mismatchedCurrency) {
+    const catalogIds = new Set<string>();
+    const missingCatalogLinks = resolvedItems
+      .filter(({ sku }) => {
+        const modelId = typeof sku.catalog_product_id === "string" ? sku.catalog_product_id.trim() : "";
+        if (modelId) {
+          catalogIds.add(modelId);
+          return false;
+        }
+        return true;
+      })
+      .map((item) => item.requestedId);
+
+    if (missingCatalogLinks.length) {
+      return json(
+        { ok: false, code: "missing_catalog_link", message: "Some SKUs are missing catalog links", ids: missingCatalogLinks },
+        400,
+      );
+    }
+
+    const { data: catalogRows, error: catalogError } = await supabase
+      .from("catalog_products_v")
+      .select("id, status, brand_slug, brand_name, category_slug, category_title")
+      .in("id", Array.from(catalogIds));
+
+    if (catalogError || !Array.isArray(catalogRows)) {
+      console.error("orders-create: failed to load catalog products", catalogError);
+      return json({ ok: false, code: "catalog_lookup_failed", message: "Catalog lookup failed" }, 500);
+    }
+
+    const catalogById = new Map<string, CatalogRow>();
+    for (const row of catalogRows as any[]) {
+      if (row?.id) catalogById.set(String(row.id), row as CatalogRow);
+    }
+
+    const inactiveModelIds = resolvedItems
+      .filter(({ sku }) => {
+        const modelId = String(sku.catalog_product_id ?? "");
+        const model = catalogById.get(modelId);
+        if (!model) return true;
+        const status = normalizeStatus(model.status);
+        return status && !ALLOWED_STATUSES.has(status);
+      })
+      .map((item) => item.requestedId);
+
+    if (inactiveModelIds.length) {
+      return json(
+        { ok: false, code: "inactive_products", message: "Some products are inactive", ids: inactiveModelIds },
+        400,
+      );
+    }
+
+    const currencyCandidates = resolvedItems
+      .map(({ sku }) => (typeof sku.currency === "string" ? sku.currency.trim().toUpperCase() : ""))
+      .filter((value) => value);
+    const currencySet = new Set(currencyCandidates);
+
+    if (currencySet.size > 1) {
       return json({ ok: false, code: "currency_mismatch", message: "Currency mismatch" }, 400);
     }
 
-    const orderItems = items.map((item) => {
-      const row = productById.get(item.id) ?? {};
-      const unitPriceRaw = Number((row as any).price ?? 0);
+    const currencyFromSkus = currencySet.size === 1 ? Array.from(currencySet)[0] : undefined;
+    const effectiveCurrency = currency ?? currencyFromSkus ?? "EUR";
+    if (currencyFromSkus && currencyFromSkus.toUpperCase() !== effectiveCurrency.toUpperCase()) {
+      return json({ ok: false, code: "currency_mismatch", message: "Currency mismatch" }, 400);
+    }
+
+    const orderItems = resolvedItems.map(({ sku, qty, legacyModelId }) => {
+      const unitPriceRaw = Number(sku.price ?? 0);
       const unitPrice = Number.isFinite(unitPriceRaw) ? Math.max(0, unitPriceRaw) : 0;
-      const total = roundCurrency(unitPrice * item.qty);
+      const total = roundCurrency(unitPrice * qty);
       const title =
-        typeof (row as any).title === "string" && (row as any).title.trim()
-          ? (row as any).title.trim()
-          : typeof (row as any).slug === "string"
-            ? (row as any).slug
+        typeof sku.title === "string" && sku.title.trim()
+          ? sku.title.trim()
+          : typeof sku.slug === "string"
+            ? sku.slug
             : "Product";
+
+      const modelId = String(sku.catalog_product_id ?? "");
+      const model = modelId ? catalogById.get(modelId) ?? null : null;
 
       return {
         order_id: "",
-        product_id: null,
-        qty: item.qty,
+        product_id: String(sku.id),
+        qty,
         title,
         unit_price: unitPrice,
         variant_id: null,
         meta: {
-          catalog_product_id: item.id,
-          slug: (row as any).slug ?? null,
-          brand_slug: (row as any).brand_slug ?? null,
-          brand_name: (row as any).brand_name ?? null,
-          category_slug: (row as any).category_slug ?? null,
-          category_title: (row as any).category_title ?? null,
+          sku_id: sku.id,
+          sku_slug: sku.slug ?? null,
+          catalog_product_id: modelId || null,
+          brand_slug: model?.brand_slug ?? null,
+          brand_name: model?.brand_name ?? null,
+          category_slug: model?.category_slug ?? null,
+          category_title: model?.category_title ?? null,
           currency: effectiveCurrency,
           unit_price: unitPrice,
           total,
+          ...(legacyModelId ? { legacy_model_id: legacyModelId, legacy_model_to_sku: true } : {}),
         },
       };
     });
@@ -329,7 +495,7 @@ export async function POST(request: Request) {
         amount_cents: Math.round(subtotal * 100),
         status: "pending",
         payment_status: "pending",
-        checkout_metadata: checkoutMeta ?? undefined,
+        checkout_metadata: checkoutMetaWithEmail ?? undefined,
         coupon_codes: couponCodes,
         applied_promotions: [],
       })

@@ -41,6 +41,20 @@ export type ProductVariantGroup = {
   options: ProductVariantOption[];
 };
 
+export type ProductSkuOption = {
+  id: string;
+  label: string;
+  price: number;
+  priceCents: number;
+  currency: string;
+  availabilityCode: AvailabilityCode;
+  availabilityLabel: string;
+  stockQuantity: number | null;
+  isAvailable: boolean | null;
+  inventoryStatus: string | null;
+  leadTimeDays: number | null;
+};
+
 export type ProductSpecsCard = {
   title: string;
   items: string[];
@@ -87,6 +101,8 @@ export type ProductData = {
   dataset: "shop" | "legacy";
   status: string;
   sku?: string | null;
+  skuOptions: ProductSkuOption[];
+  defaultSkuId: string | null;
   catalogProductId: string | null;
   category: { slug: string | null; name: string | null };
   tags: string[];
@@ -94,9 +110,7 @@ export type ProductData = {
   techSpecs: ProductTechSpecs | null;
   variants: ProductVariantGroup[];
   shippingEstimate: string | null;
-  // Человеко-читаемый статус наличия для витрины
   availabilityLabel: string;
-  // Машино-читаемый код наличия и сырой инвентаризационный статус
   availabilityCode?: "InStock" | "OutOfStock" | "PreOrder";
   stockQuantity?: number | null;
   isAvailable?: boolean | null;
@@ -269,6 +283,36 @@ function mapInventoryToAvailability(
 
 function mapStatusToAvailability(status: string | null | undefined): AvailabilityCode {
   return mapInventoryToAvailability(null, status);
+}
+
+function formatLeadTimeDays(days: number | null | undefined): string | null {
+  if (typeof days !== "number" || !Number.isFinite(days) || days <= 0) return null;
+  const rounded = Math.max(1, Math.round(days));
+  const mod10 = rounded % 10;
+  const mod100 = rounded % 100;
+  let suffix = "дней";
+  if (mod10 === 1 && mod100 !== 11) {
+    suffix = "день";
+  } else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    suffix = "дня";
+  }
+  return `${rounded} ${suffix}`;
+}
+
+function buildSkuAvailabilityLabel(code: AvailabilityCode, leadTimeDays: number | null | undefined): string {
+  const lead = formatLeadTimeDays(leadTimeDays);
+  if (code === "OutOfStock") return "Нет в наличии";
+  if (code === "PreOrder") return lead ? `Предзаказ • ${lead}` : "Предзаказ";
+  return lead ? `В наличии • ${lead}` : "В наличии";
+}
+
+function normalizeSkuLabel(input: { title?: string | null; sku?: string | null; id?: string | null }): string {
+  const title = castString(input.title ?? "").trim();
+  if (title) return title;
+  const sku = castString(input.sku ?? "").trim();
+  if (sku) return sku;
+  const id = castString(input.id ?? "").trim();
+  return id ? `SKU ${id.slice(0, 8)}` : "SKU";
 }
 
 function ensureCurrency(currency: string | null | undefined, dataset: "shop" | "legacy"): string {
@@ -561,6 +605,8 @@ function mapRpcProduct(payload: Record<string, unknown>): ProductData | null {
     dataset,
     status,
     sku: castString(row.sku ?? payload.sku ?? null) || null,
+    skuOptions: [],
+    defaultSkuId: null,
     category: { slug: categorySlug, name: categoryName },
     tags,
     specs: parsed.specs,
@@ -599,7 +645,102 @@ function getProductFetcher(slug: string) {
         if (error || !data) {
           return null;
         }
-        return mapRpcProduct(data as Record<string, unknown>);
+        const product = mapRpcProduct(data as Record<string, unknown>);
+        if (!product) return null;
+
+        if (product.catalogProductId) {
+          const { data: skuRows, error: skuError } = await admin
+            .from("ecom_products")
+            .select("id, sku, title, price, price_cents, currency, is_available, inventory_status, stock_quantity")
+            .eq("catalog_product_id", product.catalogProductId);
+
+          if (!skuError && Array.isArray(skuRows) && skuRows.length) {
+            const skuIds = skuRows.map((row) => String((row as any).id)).filter(Boolean);
+            let leadTimeMap = new Map<string, number>();
+            if (skuIds.length) {
+              const { data: leadRows, error: leadError } = await admin
+                .from("supplier_skus")
+                .select("sku_id, lead_time_days")
+                .in("sku_id", skuIds);
+              if (!leadError && Array.isArray(leadRows)) {
+                leadTimeMap = new Map();
+                for (const row of leadRows) {
+                  if (!row?.sku_id) continue;
+                  const skuId = String((row as any).sku_id);
+                  const lead = Number((row as any).lead_time_days);
+                  if (!Number.isFinite(lead)) continue;
+                  const prev = leadTimeMap.get(skuId);
+                  if (typeof prev !== "number" || lead < prev) {
+                    leadTimeMap.set(skuId, lead);
+                  }
+                }
+              }
+            }
+
+            const skuOptions: ProductSkuOption[] = skuRows
+              .map((row) => {
+                const id = String((row as any).id ?? "");
+                if (!id) return null;
+                const priceCentsRaw =
+                  typeof (row as any).price_cents === "number"
+                    ? (row as any).price_cents
+                    : Number((row as any).price_cents ?? NaN);
+                const priceRaw =
+                  typeof (row as any).price === "number"
+                    ? (row as any).price
+                    : Number((row as any).price ?? NaN);
+                const priceCents = Number.isFinite(priceCentsRaw)
+                  ? Math.round(priceCentsRaw)
+                  : Number.isFinite(priceRaw)
+                    ? Math.round(priceRaw * 100)
+                    : 0;
+                const price = Number.isFinite(priceRaw) ? priceRaw : priceCents / 100;
+                const currency = ensureCurrency(castString((row as any).currency ?? null), PUBLIC_DATASET);
+                const isAvailable = typeof (row as any).is_available === "boolean" ? (row as any).is_available : null;
+                const inventoryStatus =
+                  castString((row as any).inventory_status ?? null).trim() || null;
+                const stockQuantity =
+                  typeof (row as any).stock_quantity === "number"
+                    ? (row as any).stock_quantity
+                    : Number.isFinite(Number((row as any).stock_quantity))
+                      ? Number((row as any).stock_quantity)
+                      : null;
+
+                const availabilityCode = mapInventoryToAvailability(
+                  inventoryStatus,
+                  isAvailable === false ? "out_of_stock" : null,
+                );
+                const leadTimeDays =
+                  leadTimeMap.has(id) && Number.isFinite(leadTimeMap.get(id) as number)
+                    ? (leadTimeMap.get(id) as number)
+                    : null;
+                const availabilityLabel = buildSkuAvailabilityLabel(availabilityCode, leadTimeDays);
+
+                return {
+                  id,
+                  label: normalizeSkuLabel({ title: (row as any).title, sku: (row as any).sku, id }),
+                  price,
+                  priceCents,
+                  currency,
+                  availabilityCode,
+                  availabilityLabel,
+                  stockQuantity,
+                  isAvailable,
+                  inventoryStatus,
+                  leadTimeDays,
+                } satisfies ProductSkuOption;
+              })
+              .filter((row): row is ProductSkuOption => Boolean(row?.id));
+
+            skuOptions.sort((a, b) => a.price - b.price);
+            product.skuOptions = skuOptions;
+            const defaultSku =
+              skuOptions.find((sku) => sku.availabilityCode === "InStock") ?? skuOptions[0] ?? null;
+            product.defaultSkuId = defaultSku?.id ?? null;
+          }
+        }
+
+        return product;
       },
       ["product-page", slug],
       {

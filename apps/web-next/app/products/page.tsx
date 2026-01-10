@@ -80,6 +80,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
     return {
       title: BASE_TITLE,
       description: BASE_DESCRIPTION,
+      robots: { index: true, follow: true },
       alternates: { canonical: baseCanonical },
       openGraph: {
         type: "website",
@@ -129,6 +130,7 @@ export async function generateMetadata({ searchParams }: ProductsMetadataProps):
   return {
     title,
     description,
+    robots: { index: true, follow: true },
     alternates: { canonical },
     openGraph: {
       type: "website",

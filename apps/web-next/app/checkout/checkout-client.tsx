@@ -38,6 +38,43 @@ function formatPrice(value: number, currency = "EUR") {
   }
 }
 
+function normalizeInventoryStatus(value: string | null | undefined): string {
+  return (value ?? "").toLowerCase();
+}
+
+function isUnavailableProduct(product: {
+  isAvailable?: boolean | null;
+  inventoryStatus?: string | null;
+  stockQuantity?: number | null;
+}): boolean {
+  if (product.isAvailable === false) return true;
+  const inventory = normalizeInventoryStatus(product.inventoryStatus);
+  if (["out_of_stock", "sold_out", "unavailable", "inactive", "archived", "disabled"].includes(inventory)) {
+    return true;
+  }
+  if (typeof product.stockQuantity === "number" && product.stockQuantity <= 0) return true;
+  return false;
+}
+
+function formatAvailability(product: {
+  isAvailable?: boolean | null;
+  inventoryStatus?: string | null;
+  leadTimeDays?: number | null;
+  stockQuantity?: number | null;
+}): string {
+  if (isUnavailableProduct(product)) return "Out of stock";
+  const inventory = normalizeInventoryStatus(product.inventoryStatus);
+  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(inventory)) {
+    return "Preorder";
+  }
+  const lead = product.leadTimeDays;
+  if (typeof lead === "number" && Number.isFinite(lead) && lead > 0) {
+    const days = Math.max(1, Math.round(lead));
+    return `In stock - ${days} ${days === 1 ? "day" : "days"}`;
+  }
+  return "In stock";
+}
+
 type CheckoutSnapshot = { items: ReturnType<typeof useCart>["items"]; subtotal: number; currency: string };
 type CheckoutStep = "form" | "payment" | "complete";
 
@@ -74,7 +111,7 @@ export default function CheckoutClient() {
   const analyticsItems = useMemo(
     () =>
       items.map((row) => ({
-        id: row.product.id,
+        id: row.id,
         title: row.product.title,
         price: row.product.price,
         currency: orderCurrency,
@@ -305,6 +342,39 @@ export default function CheckoutClient() {
         }
         if (catalogCurrencies.size === 1) {
           checkoutCurrency = Array.from(catalogCurrencies)[0] as string;
+        }
+
+        const unavailableProducts = catalogProducts.filter((product) => isUnavailableProduct(product));
+        if (unavailableProducts.length) {
+          console.warn("[cart:validation]", {
+            stage: "out_of_stock",
+            product_ids: unavailableProducts.map((product) => product.id),
+          });
+          unavailableProducts.forEach((product) => {
+            const record = aggregated.get(product.id);
+            if (record) {
+              record.cartIds.forEach((cartId) => remove(cartId));
+            }
+          });
+          setError("SKU out of stock. Removed from your cart.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const leadTimeUpdated = catalogProducts.filter((product) => {
+          const cartItem = items.find((row) => row.id === product.id || row.product?.id === product.id);
+          const prevLead = typeof cartItem?.product?.leadTimeDays === "number" ? cartItem.product.leadTimeDays : null;
+          const nextLead = typeof product.leadTimeDays === "number" ? product.leadTimeDays : null;
+          return prevLead !== null && nextLead !== null && prevLead !== nextLead;
+        });
+        if (leadTimeUpdated.length) {
+          console.warn("[cart:validation]", {
+            stage: "lead_time_updated",
+            product_ids: leadTimeUpdated.map((product) => product.id),
+          });
+          setError("Lead time updated. Please review your cart and try again.");
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -604,8 +674,11 @@ export default function CheckoutClient() {
             <ul className="space-y-3">
               {items.map((row) => (
                 <li key={row.id} className="flex items-start justify-between gap-3 text-sm text-neutral-600">
-                  <span className="flex-1 truncate" title={row.product.title}>
-                    {row.product.title} x {row.qty}
+                  <span className="flex-1">
+                    <span className="block truncate" title={row.product.title}>
+                      {row.product.title} x {row.qty}
+                    </span>
+                    <span className="text-xs text-neutral-500">{formatAvailability(row.product)}</span>
                   </span>
                   <span className="text-right font-medium text-slate-900">{formatPrice(row.lineTotal)}</span>
                 </li>

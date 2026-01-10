@@ -227,11 +227,24 @@ function mapDbToProduct(p: any): Product {
   const images = Array.isArray(p?.images) ? p.images.map(String) : [];
   const currencyRaw = typeof p?.currency === "string" ? p.currency.trim() : "";
   const currency = currencyRaw ? currencyRaw.toUpperCase() : undefined;
+  const priceCentsRaw =
+    typeof p?.price_cents === "number"
+      ? p.price_cents
+      : Number.isFinite(Number(p?.price_cents))
+        ? Number(p?.price_cents)
+        : null;
+  const priceValue =
+    typeof p?.price === "number" ? p.price : priceCentsRaw != null ? priceCentsRaw / 100 : Number(p?.price ?? 0);
+  const isAvailable = typeof p?.is_available === "boolean" ? p.is_available : null;
+  const inventoryStatus = typeof p?.inventory_status === "string" ? p.inventory_status : null;
+  const stockQuantity = typeof p?.stock_quantity === "number" ? p.stock_quantity : null;
+  const leadTimeDays = typeof p?.lead_time_days === "number" ? p.lead_time_days : null;
   return {
     id: String(p.id),
     slug: String(p.slug),
     title: String(p.title ?? ""),
-    price: Number(p.price ?? 0),
+    price: Number(priceValue ?? 0),
+    priceCents: typeof priceCentsRaw === "number" ? priceCentsRaw : null,
     currency,
     rating: Number(p.rating ?? 0),
     images,
@@ -239,6 +252,10 @@ function mapDbToProduct(p: any): Product {
     tags: Array.isArray(p?.tags) ? (p.tags as string[]) : undefined,
     shortDesc: String(p.short_desc ?? ""),
     specs: (p.specs as Record<string, string>) || undefined,
+    isAvailable,
+    inventoryStatus,
+    stockQuantity,
+    leadTimeDays,
   };
 }
 
@@ -638,6 +655,49 @@ export async function getOrder(id: string): Promise<{
   }
   if (!res.ok) throw new Error(String((data && (data.message || data.code)) || raw || res.status));
   return { order: data.order, items: data.items || [], payment: data.payment || null };
+}
+
+export type OrderFulfillmentRow = {
+  order_id: string;
+  user_id: string | null;
+  order_status: string | null;
+  payment_status: string | null;
+  purchase_order_id: string | null;
+  purchase_order_status: string | null;
+  purchase_order_created_at: string | null;
+  purchase_order_sent_at: string | null;
+  purchase_order_confirmed_at: string | null;
+  purchase_order_shipped_at: string | null;
+  purchase_order_cancelled_at: string | null;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  shipment_id: string | null;
+  shipment_status: string | null;
+  carrier: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  eta: string | null;
+  last_event_at: string | null;
+  shipment_created_at: string | null;
+};
+
+export async function getOrderFulfillment(orderId: string): Promise<OrderFulfillmentRow[]> {
+  if (!HAS_SUPABASE) return [];
+  const headers = await authHeaders();
+  const res = await apiRequest(`/orders/${encodeURIComponent(orderId)}/fulfillment`, { headers });
+  const raw = await res.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(raw || "null");
+  } catch {
+    // ignore
+  }
+  if (!res.ok) {
+    throw new Error(String((data && (data.message || data.code)) || raw || res.status));
+  }
+  return Array.isArray(data?.items) ? (data.items as OrderFulfillmentRow[]) : [];
 }
 
 export async function cancelOrder(id: string) {

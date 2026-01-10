@@ -7,7 +7,7 @@ import Link from "next/link";
 import Section from "@ui/components/common/section";
 import Skeleton from "@ui/components/common/skeleton";
 import { toast } from "@ui/components/common/toast";
-import { getOrder, getProductsByIds } from "@shared/ecom/api/client";
+import { getOrder, getOrderFulfillment, getProductsByIds } from "@shared/ecom/api/client";
 
 type Props = { orderId: string };
 
@@ -34,6 +34,60 @@ function statusLabel(value: string | null | undefined) {
       return "Authorized";
     default:
       return value || "-";
+  }
+}
+
+function fulfillmentLabel(value: string | null | undefined) {
+  const normalized = (value ?? "").toLowerCase();
+  switch (normalized) {
+    case "pending":
+      return "Pending";
+    case "sent":
+      return "Sent";
+    case "confirmed":
+      return "Confirmed";
+    case "shipped":
+      return "Shipped";
+    case "in_transit":
+      return "In transit";
+    case "delivered":
+      return "Delivered";
+    case "exception":
+      return "Exception";
+    case "returned":
+      return "Returned";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
+    case "failed":
+      return "Failed";
+    default:
+      return value || "-";
+  }
+}
+
+function fulfillmentClass(value: string | null | undefined) {
+  const normalized = (value ?? "").toLowerCase();
+  switch (normalized) {
+    case "pending":
+      return "bg-amber-500/10 text-amber-200 border border-amber-500/30";
+    case "sent":
+    case "confirmed":
+      return "bg-sky-500/10 text-sky-200 border border-sky-500/30";
+    case "shipped":
+    case "in_transit":
+      return "bg-sky-500/10 text-sky-200 border border-sky-500/30";
+    case "delivered":
+      return "bg-emerald-500/10 text-emerald-200 border border-emerald-500/30";
+    case "exception":
+    case "returned":
+      return "bg-amber-500/10 text-amber-200 border border-amber-500/30";
+    case "cancelled":
+    case "canceled":
+    case "failed":
+      return "bg-rose-500/10 text-rose-200 border border-rose-500/30";
+    default:
+      return "bg-neutral-100 text-slate-700 border border-neutral-200 dark:bg-white/10 dark:text-white dark:border-white/20";
   }
 }
 
@@ -88,6 +142,7 @@ export function OrderDetailClient({ orderId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getOrder>> | null>(null);
   const [slugMap, setSlugMap] = useState<Record<string, string>>({});
+  const [fulfillmentRows, setFulfillmentRows] = useState<Awaited<ReturnType<typeof getOrderFulfillment>>>([]);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +160,14 @@ export function OrderDetailClient({ orderId }: Props) {
           for (const p of prods) map[String(p.id)] = String(p.slug || "");
           if (!active) return;
           setSlugMap(map);
+        }
+        try {
+          const fulfillment = await getOrderFulfillment(orderId);
+          if (!active) return;
+          setFulfillmentRows(fulfillment);
+        } catch {
+          if (!active) return;
+          setFulfillmentRows([]);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -182,6 +245,54 @@ export function OrderDetailClient({ orderId }: Props) {
                         <div className="text-xs text-white/50">Qty: {qty} × {unit}</div>
                       </div>
                       <div className="text-sm font-medium text-white">{total}</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-white/15 bg-black/30 p-4">
+            <div className="mb-2 text-xs text-white/60">Fulfillment</div>
+            {!fulfillmentRows.length ? (
+              <div className="text-sm text-white/70">Fulfillment updates will appear once your order is sent to the supplier.</div>
+            ) : (
+              <ul className="space-y-3">
+                {fulfillmentRows.map((row, index) => {
+                  const trackingLabel = row.tracking_number || row.tracking_url || "-";
+                  const eta = row.eta ? formatDate(row.eta) : "-";
+                  return (
+                    <li key={`${row.purchase_order_id ?? "po"}-${row.shipment_id ?? "ship"}-${index}`} className="rounded-lg border border-white/15 bg-black/40 p-3 text-sm text-white/80">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {row.supplier_name ? (
+                          <span className="text-xs text-white/60">{row.supplier_name}</span>
+                        ) : null}
+                        {row.purchase_order_status ? (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${fulfillmentClass(row.purchase_order_status)}`}>
+                            PO: {fulfillmentLabel(row.purchase_order_status)}
+                          </span>
+                        ) : null}
+                        {row.shipment_status ? (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${fulfillmentClass(row.shipment_status)}`}>
+                            Shipment: {fulfillmentLabel(row.shipment_status)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/60">
+                        <span>ETA: {eta}</span>
+                        {row.tracking_url ? (
+                          <a
+                            href={row.tracking_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-white/80 hover:underline"
+                          >
+                            Tracking: {trackingLabel}
+                          </a>
+                        ) : (
+                          <span>Tracking: {trackingLabel}</span>
+                        )}
+                      </div>
                     </li>
                   );
                 })}

@@ -18,6 +18,22 @@ function formatPrice(value: number, currency = "USD") {
   }
 }
 
+function formatAvailability(product: { isAvailable?: boolean | null; inventoryStatus?: string | null; leadTimeDays?: number | null }) {
+  const inventory = (product.inventoryStatus ?? "").toLowerCase();
+  if (product.isAvailable === false || ["out_of_stock", "sold_out", "unavailable"].includes(inventory)) {
+    return "Out of stock";
+  }
+  if (["preorder", "pre_order", "pre-order", "coming_soon"].includes(inventory)) {
+    return "Preorder";
+  }
+  const lead = product.leadTimeDays;
+  if (typeof lead === "number" && Number.isFinite(lead) && lead > 0) {
+    const days = Math.max(1, Math.round(lead));
+    return `In stock - ${days} ${days === 1 ? "day" : "days"}`;
+  }
+  return "In stock";
+}
+
 export default function CartPage() {
   const { items, subtotal, update, remove, clear } = useCart();
   const empty = items.length === 0;
@@ -77,7 +93,10 @@ export default function CartPage() {
                     <div className="line-clamp-1 font-medium text-slate-900" title={row.product.title}>
                       {row.product.title}
                     </div>
-                    <div className="text-sm text-neutral-500">{formatPrice(row.product.price || 0)} each</div>
+                    <div className="text-sm text-neutral-500">
+                      {formatPrice(row.product.price || 0, row.product.currency || cartCurrency)} each
+                    </div>
+                    <div className="text-xs text-neutral-500">{formatAvailability(row.product)}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <input

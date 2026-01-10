@@ -27,6 +27,10 @@ import {
   Tags,
   Package2,
   Building2,
+  Truck,
+  Link2,
+  History,
+  ClipboardList,
 } from "lucide-react";
 
 import { AdminProviders } from "./admin-providers";
@@ -57,6 +61,12 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Shop",
     items: [
       { href: "/admin/shop/products", label: "SKU", icon: Package },
+      { href: "/admin/suppliers", label: "Suppliers", icon: Truck },
+      { href: "/admin/supplier-skus", label: "Supplier SKUs", icon: Link2 },
+      { href: "/admin/supplier-feed", label: "Feed runs", icon: History },
+      { href: "/admin/purchase-orders", label: "Purchase Orders", icon: ClipboardList },
+      { href: "/admin/shipments", label: "Shipments", icon: Truck },
+      { href: "/admin/rma-requests", label: "RMA", icon: MessageSquare },
       { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
       { href: "/admin/customers", label: "Customers", icon: Users },
     ],

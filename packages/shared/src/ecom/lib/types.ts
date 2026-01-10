@@ -4,6 +4,7 @@ export type Product = {
   slug: string;
   sku?: string;
   price: number;
+  priceCents?: number | null;
   currency?: string;
   rating: number; // 0..5
   images: string[];
@@ -12,6 +13,10 @@ export type Product = {
   tags?: string[];
   shortDesc: string;
   specs?: Record<string, string>;
+  isAvailable?: boolean | null;
+  inventoryStatus?: string | null;
+  stockQuantity?: number | null;
+  leadTimeDays?: number | null;
 };
 
 export type Category = {

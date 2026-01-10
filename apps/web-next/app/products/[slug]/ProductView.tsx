@@ -10,7 +10,7 @@ import TrackClickButton from "@/app/products/components/TrackClickButton";
 import ProductSpecs from "@/components/ProductSpecs";
 import { RecommendationsWidget } from "@/components/RecommendationsWidget";
 import type { ProductGridItem } from "@/components/ProductGrid";
-import type { ProductData, ProductVariantGroup, ProductVariantOption } from "./data";
+import type { ProductData, ProductVariantGroup, ProductVariantOption, ProductSkuOption } from "./data";
 import { formatCurrency } from "../currency";
 import { track } from "@shared/lib/analytics";
 import { isRecsOptedOut, logRecEvent } from "@/lib/recs-events";
@@ -161,10 +161,14 @@ function formatVariantLabel(variants: ProductVariantGroup[], selection: Selectio
   return parts.length ? parts.join(", ") : null;
 }
 
-function computePrice(product: ProductData, selection: SelectionState): { raw: number; formatted: string } {
+function computePrice(
+  basePrice: number,
+  currency: string,
+  selection: SelectionState,
+): { raw: number; formatted: string } {
   const delta = Object.values(selection).reduce((sum, option) => sum + (option?.priceDelta ?? 0), 0);
-  const value = Number(product.price ?? 0) + delta;
-  return { raw: value, formatted: formatCurrency(value, product.currency) };
+  const value = Number(basePrice ?? 0) + delta;
+  return { raw: value, formatted: formatCurrency(value, currency) };
 }
 
 function composeGallery(product: ProductData, selection: SelectionState): string[] {
@@ -272,6 +276,13 @@ type ProductViewProps = {
 export default function ProductView({ product, breadcrumbs, admin, similar }: ProductViewProps) {
   const [selection, setSelection] = useState<SelectionState>(() => buildInitialSelection(product.variants));
   const [activeImage, setActiveImage] = useState<string | undefined>(product.gallery[0]);
+  const skuOptions: ProductSkuOption[] = product.skuOptions ?? [];
+  const initialSkuId = product.defaultSkuId ?? skuOptions[0]?.id ?? product.id;
+  const [selectedSkuId, setSelectedSkuId] = useState<string>(initialSkuId);
+  const selectedSku = useMemo(
+    () => skuOptions.find((sku) => sku.id === selectedSkuId) ?? null,
+    [skuOptions, selectedSkuId],
+  );
   const [reviewStats, setReviewStats] = useState<{ average: number; count: number }>(() => ({
     average: normalizeAverageRating(product.reviewSummary.average),
     count: normalizeRatingsCount(product.reviewSummary.count),
@@ -282,9 +293,11 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
   const [activeReviewFilter, setActiveReviewFilter] = useState<ReviewBucketScore | null>(null);
 
   const gallery = useMemo(() => composeGallery(product, selection), [product, selection]);
+  const basePrice = selectedSku?.price ?? product.price ?? 0;
+  const baseCurrency = selectedSku?.currency ?? product.currency;
   const { raw: finalPrice, formatted: formattedPrice } = useMemo(
-    () => computePrice(product, selection),
-    [product, selection],
+    () => computePrice(basePrice, baseCurrency, selection),
+    [basePrice, baseCurrency, selection],
   );
   const priceBucket = useMemo(
     () => resolvePriceBucket(finalPrice ?? product.price),
@@ -324,6 +337,18 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
   const reviewCount = Number.isFinite(reviewStats.count) ? reviewStats.count : 0;
   const reviewAverageLabel = reviewCount > 0 ? reviewAverage.toFixed(1) : "-";
   const resolvedFinalPrice = finalPrice ?? product.price ?? 0;
+  const availabilityCode = selectedSku?.availabilityCode ?? product.availabilityCode;
+  const availabilityLabelBase = selectedSku?.availabilityLabel ?? product.availabilityLabel;
+  const hasLeadTime = typeof selectedSku?.leadTimeDays === "number" && Number.isFinite(selectedSku.leadTimeDays);
+  const availabilityLabel =
+    availabilityCode === "InStock" && !hasLeadTime && !product.shippingEstimate
+      ? "Estimate unavailable"
+      : availabilityLabelBase;
+
+  useEffect(() => {
+    const next = product.defaultSkuId ?? skuOptions[0]?.id ?? product.id;
+    setSelectedSkuId((prev) => (skuOptions.some((sku) => sku.id === prev) ? prev : next));
+  }, [product.defaultSkuId, product.id, skuOptions]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -458,10 +483,11 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
 
   const onAdd = useCallback(() => {
     try {
+      const skuId = selectedSku?.id ?? product.id;
       track({
         name: "add_to_cart",
         params: {
-          product_id: product.id,
+          product_id: skuId,
           slug: product.slug,
           price: resolvedFinalPrice ?? product.price ?? 0,
           variant: variantLabel ?? undefined,
@@ -470,7 +496,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
     } catch {
       /* noop */
     }
-  }, [product.id, product.slug, product.price, resolvedFinalPrice, variantLabel]);
+  }, [product.id, product.slug, product.price, resolvedFinalPrice, selectedSku?.id, variantLabel]);
 
   return (
     <div className="space-y-12">
@@ -518,7 +544,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
           <PdpInfo
             title={product.title}
             categoryName={product.category?.name ?? undefined}
-            availabilityLabel={product.availabilityLabel}
+            availabilityLabel={availabilityLabel}
             reviewAverageLabel={reviewAverageLabel}
             reviewCount={reviewCount}
             reviewBuckets={reviewBuckets}
@@ -539,6 +565,11 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
             onAdd={onAdd}
             admin={admin}
             paymentMethods={PAYMENT_METHODS}
+            skuOptions={skuOptions}
+            selectedSkuId={selectedSku?.id ?? null}
+            onSkuChange={setSelectedSkuId}
+            availabilityCode={availabilityCode}
+            currency={baseCurrency}
           />
 
           <PdpAdminStats admin={admin} />
@@ -563,14 +594,14 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
         const resolvedPriceCents = Math.round(Math.max(0, resolvedFinalPrice * 100));
         return (
           <ProductStickyCTA
-            productId={product.id}
+            productId={selectedSku?.id ?? product.id}
             title={product.title}
             price={formattedPrice}
             dataset={product.dataset}
             selectedVariantLabel={variantLabel}
             priceCents={resolvedPriceCents}
             category={product.category?.slug}
-            currency={product.currency}
+            currency={baseCurrency}
             recMetadata={{ source: "sticky_cta" }}
             secondaryAction={
               admin.isAdmin ? (
@@ -578,7 +609,7 @@ export default function ProductView({ product, breadcrumbs, admin, similar }: Pr
               ) : null
             }
             analyticsParams={{
-              product_id: product.id,
+              product_id: selectedSku?.id ?? product.id,
               slug: product.slug,
               price: resolvedFinalPrice,
               variant: variantLabel ?? undefined,
