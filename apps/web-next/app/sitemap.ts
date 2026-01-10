@@ -32,6 +32,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const productEntries = await fetchProductEntries(supabase, origin);
   entries.push(...productEntries);
 
+  const smartphoneEntries = await fetchSmartphoneEntries(supabase, origin);
+  entries.push(...smartphoneEntries);
+
   // Category landing pages by query (?category=) create duplicate URLs; skip them in sitemap.
   // Google will reach category views via internal links.
 
@@ -42,7 +45,9 @@ function buildStaticEntries(origin: string): MetadataRoute.Sitemap {
   return [
     { url: `${origin}/`, priority: 1, changeFrequency: "weekly" },
     { url: `${origin}/products`, priority: 0.8, changeFrequency: "daily" },
+    { url: `${origin}/brand`, priority: 0.7, changeFrequency: "weekly" },
     { url: `${origin}/contact`, priority: 0.5, changeFrequency: "monthly" },
+    { url: `${origin}/legal/terms`, priority: 0.3, changeFrequency: "yearly" },
   ];
 }
 
@@ -107,5 +112,81 @@ function parseTimestamp(value: string | null | undefined): Date | undefined {
   if (!trimmed) return undefined;
   const ms = Date.parse(trimmed);
   return Number.isNaN(ms) ? undefined : new Date(ms);
+}
+
+type SmartphoneRow = {
+  brand_slug: string | null;
+  series_slug: string | null;
+  model_slug: string | null;
+};
+
+async function fetchSmartphoneEntries(supabase: SupabaseAdminClient, origin: string) {
+  const entries: MetadataRoute.Sitemap = [];
+  const { data, error } = await supabase
+    .from("catalog_smartphone_models_v")
+    .select("brand_slug, series_slug, model_slug")
+    .limit(5000);
+
+  if (error) {
+    console.error("[sitemap] failed to load smartphone entries", error);
+    return entries;
+  }
+
+  const rows = Array.isArray(data) ? (data as SmartphoneRow[]) : [];
+  const brands = new Set<string>();
+  const series = new Set<string>();
+  const models = new Set<string>();
+
+  for (const row of rows) {
+    const brandSlug = normalizeSlug(row.brand_slug);
+    const seriesSlug = normalizeSlug(row.series_slug);
+    const modelSlug = normalizeSlug(row.model_slug);
+    if (!brandSlug) continue;
+
+    brands.add(brandSlug);
+    if (seriesSlug) {
+      series.add(`${brandSlug}/${seriesSlug}`);
+    }
+    if (seriesSlug && modelSlug) {
+      models.add(`${brandSlug}/${seriesSlug}/${modelSlug}`);
+    }
+  }
+
+  for (const brand of brands) {
+    entries.push({
+      url: `${origin}/brand/${encodeURIComponent(brand)}`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    });
+    entries.push({
+      url: `${origin}/brand/${encodeURIComponent(brand)}/smartphones`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    });
+  }
+
+  for (const slug of series) {
+    const [brandSlug, seriesSlug] = slug.split("/");
+    if (!brandSlug || !seriesSlug) continue;
+    entries.push({
+      url: `${origin}/brand/${encodeURIComponent(brandSlug)}/smartphones/${encodeURIComponent(seriesSlug)}`,
+      changeFrequency: "weekly",
+      priority: 0.55,
+    });
+  }
+
+  for (const slug of models) {
+    const [brandSlug, seriesSlug, modelSlug] = slug.split("/");
+    if (!brandSlug || !seriesSlug || !modelSlug) continue;
+    entries.push({
+      url: `${origin}/brand/${encodeURIComponent(brandSlug)}/smartphones/${encodeURIComponent(
+        seriesSlug,
+      )}/${encodeURIComponent(modelSlug)}`,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    });
+  }
+
+  return entries;
 }
 

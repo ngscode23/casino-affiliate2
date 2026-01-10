@@ -34,6 +34,8 @@ apps/cms-admin/
 # Misc build cache & logs
 *.tsbuildinfo
 *.log
+log.txt
+apps/web-next/log.txt
 logs/
 !apps/web-next/app/api/admin/webhooks/logs/
 !apps/web-next/app/api/admin/webhooks/logs/route.ts

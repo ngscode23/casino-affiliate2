@@ -14,6 +14,7 @@ import { serializeJsonLd, makeOrganizationLD } from "@shared/lib/jsonld";
 import { loadProductsData } from "./products/data";
 import type { Product } from "./products/types";
 import { formatPrice } from "./products/utils";
+import { fetchTopBrandsSmartphones } from "@/lib/catalog/smartphones";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -41,7 +42,10 @@ export const dynamic = "force-static";
 export const fetchCache = "force-cache";
 
 export default async function HomePage() {
-  const { products, structuredData } = await loadProductsData();
+  const [{ products, structuredData }, topBrands] = await Promise.all([
+    loadProductsData(),
+    fetchTopBrandsSmartphones(12),
+  ]);
   const featuredProducts = products.slice(0, 4);
   const origin = (process.env.NEXT_SITE_URL || "").replace(/\/$/, "");
 
@@ -68,6 +72,38 @@ export default async function HomePage() {
       <Suspense fallback={<HeroSectionSkeleton />}>
         <HeroSection />
       </Suspense>
+      <section className="rounded-[28px] border border-border/40 bg-card/70 px-6 py-10 shadow-card sm:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted">Top brands</p>
+            <h2 className="text-2xl font-semibold text-fg sm:text-3xl">Pick a smartphone brand</h2>
+            <p className={mutedTextSmLegacy}>Start browsing by brand, then drill down by series and model.</p>
+          </div>
+          <Link
+            href="/brand"
+            className="inline-flex items-center justify-center rounded-full border border-border/40 bg-card/60 px-5 py-2 text-sm font-semibold text-muted transition hover:border-primary/40 hover:text-primary"
+          >
+            View all brands &rarr;
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {topBrands.length ? (
+            topBrands.map((brand) => (
+              <Link
+                key={brand.slug}
+                href={`/brand/${brand.slug}`}
+                className="rounded-2xl border border-border/40 bg-card/80 px-4 py-5 text-center text-base font-semibold text-fg shadow-soft transition hover:-translate-y-1 hover:border-primary/40"
+              >
+                {brand.name}
+              </Link>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-border/40 bg-card/70 px-4 py-5 text-sm text-muted">
+              Brands will appear here soon.
+            </div>
+          )}
+        </div>
+      </section>
       <Suspense fallback={<FeaturedSkeleton />}>
         <FeaturedProducts products={featuredProducts} totalProducts={products.length} />
       </Suspense>
