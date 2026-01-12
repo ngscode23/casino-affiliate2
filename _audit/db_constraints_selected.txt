@@ -1,0 +1,63 @@
+carts|f|carts_user_id_fkey|FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+carts|p|carts_pkey|PRIMARY KEY (id)
+ecom_products|c|chk_ecom_products_currency_len3|CHECK ((char_length(currency) = 3))
+ecom_products|c|chk_ecom_products_sku_format|CHECK ((sku ~ '^[A-Z0-9][A-Z0-9_-]*$'::text))
+ecom_products|c|chk_ecom_products_status_allowed|CHECK ((status = ANY ('{active,published,archived,draft}'::text[])))
+ecom_products|c|ecom_products_active_price_ck|CHECK (((status <> 'active'::text) OR (price > (0)::numeric)))
+ecom_products|c|ecom_products_currency_check|CHECK ((char_length(currency) = 3))
+ecom_products|c|ecom_products_image_path_matches_sku_chk|CHECK (((image_path IS NULL) OR (lower(image_path) ~~ (lower(sku) || '/%'::text))))
+ecom_products|f|ecom_products_catalog_product_fk|FOREIGN KEY (catalog_product_id) REFERENCES catalog.products(id) ON DELETE RESTRICT
+ecom_products|f|ecom_products_catalog_product_id_fkey|FOREIGN KEY (catalog_product_id) REFERENCES catalog.products(id)
+ecom_products|f|ecom_products_category_slug_fk|FOREIGN KEY (category_slug) REFERENCES catalog.categories(slug) ON DELETE RESTRICT
+ecom_products|f|ecom_products_category_slug_fkey|FOREIGN KEY (category_slug) REFERENCES catalog.categories(slug) ON DELETE SET NULL
+ecom_products|f|fk_ecom_products_currency|FOREIGN KEY (currency) REFERENCES currencies(code)
+ecom_products|p|ecom_products_pkey|PRIMARY KEY (id)
+ecom_products|u|ecom_products_slug_key|UNIQUE (slug)
+ecom_products|u|uq_ecom_products_sku|UNIQUE (sku)
+email_outbox|f|email_outbox_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
+email_outbox|f|email_outbox_user_id_fkey|FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+email_outbox|p|email_outbox_pkey|PRIMARY KEY (id)
+order_items|c|chk_order_items_qty_pos|CHECK ((qty >= 1))
+order_items|c|order_items_qty_check|CHECK ((qty > 0))
+order_items|f|fk_order_items_order|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+order_items|f|order_items_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+order_items|f|order_items_product_id_fkey|FOREIGN KEY (product_id) REFERENCES ecom_products(id)
+order_items|p|order_items_pkey|PRIMARY KEY (id)
+orders|c|chk_orders_currency_len3|CHECK ((char_length(currency) = 3))
+orders|c|orders_currency_check|CHECK ((char_length(currency) = 3))
+orders|c|orders_metadata_is_object|CHECK ((jsonb_typeof(checkout_metadata) = 'object'::text))
+orders|f|fk_orders_currency|FOREIGN KEY (currency) REFERENCES currencies(code)
+orders|f|orders_user_id_fkey|FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE RESTRICT
+orders|p|orders_pkey|PRIMARY KEY (id)
+payments|c|chk_payments_amount_pos|CHECK ((amount >= (0)::numeric))
+payments|f|fk_payments_order|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+payments|f|payments_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+payments|p|payments_pkey|PRIMARY KEY (id)
+processed_events|p|processed_events_pkey|PRIMARY KEY (event_id)
+purchase_order_items|f|purchase_order_items_order_item_id_fkey|FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE
+purchase_order_items|f|purchase_order_items_purchase_order_id_fkey|FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
+purchase_order_items|f|purchase_order_items_sku_id_fkey|FOREIGN KEY (sku_id) REFERENCES ecom_products(id) ON DELETE RESTRICT
+purchase_order_items|p|purchase_order_items_pkey|PRIMARY KEY (id)
+purchase_orders|f|purchase_orders_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+purchase_orders|f|purchase_orders_supplier_id_fkey|FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+purchase_orders|p|purchase_orders_pkey|PRIMARY KEY (id)
+purchase_orders|u|purchase_orders_order_id_supplier_id_key|UNIQUE (order_id, supplier_id)
+rma_requests|f|rma_requests_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+rma_requests|p|rma_requests_pkey|PRIMARY KEY (id)
+shipments|f|shipments_order_id_fkey|FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+shipments|f|shipments_purchase_order_id_fkey|FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
+shipments|p|shipments_pkey|PRIMARY KEY (id)
+stripe_webhooks|p|stripe_webhooks_pkey|PRIMARY KEY (id)
+stripe_webhooks_failed|p|stripe_webhooks_failed_pkey|PRIMARY KEY (surrogate_id)
+stripe_webhooks_failed|u|stripe_webhooks_failed_id_key|UNIQUE (id)
+supplier_feed_runs|c|supplier_feed_runs_status_check|CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text])))
+supplier_feed_runs|f|supplier_feed_runs_supplier_id_fkey|FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+supplier_feed_runs|p|supplier_feed_runs_pkey|PRIMARY KEY (id)
+supplier_skus|c|supplier_skus_miss_count_nonneg|CHECK ((miss_count >= 0))
+supplier_skus|f|supplier_skus_sku_id_fkey|FOREIGN KEY (sku_id) REFERENCES ecom_products(id) ON DELETE CASCADE
+supplier_skus|f|supplier_skus_supplier_id_fkey|FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+supplier_skus|p|supplier_skus_pkey|PRIMARY KEY (id)
+supplier_skus|u|supplier_skus_supplier_id_sku_id_key|UNIQUE (supplier_id, sku_id)
+supplier_skus|u|supplier_skus_supplier_id_supplier_sku_key|UNIQUE (supplier_id, supplier_sku)
+suppliers|p|suppliers_pkey|PRIMARY KEY (id)
+suppliers|u|suppliers_code_key|UNIQUE (code)

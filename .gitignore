@@ -49,6 +49,12 @@ backup_before_*/
 # Audit artifacts
 audit-*.txt
 
+# Local security tooling artifacts
+output/sqlmap_commands_public.ps1
+output/targets_public.txt
+tools/generate-sqlmap-targets.ps1
+tools/sqlmap/
+
 # Python / Lint leftovers
 __pycache__/
 *.pyc

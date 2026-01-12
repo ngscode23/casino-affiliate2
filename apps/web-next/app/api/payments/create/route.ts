@@ -22,6 +22,103 @@ function json(body: unknown, status = 200) {
   return jsonResponse(body, status);
 }
 
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeSkuId(value: unknown): string | null {
+  const trimmed = normalizeText(value);
+  return ORDER_ID_RE.test(trimmed) ? trimmed : null;
+}
+
+function normalizeStatus(value: unknown): string {
+  return normalizeText(value).toLowerCase();
+}
+
+type FulfillmentCheckFailure =
+  | { ok: false; code: "order_has_no_items" }
+  | { ok: false; code: "missing_supplier_skus"; sku_ids: string[] }
+  | { ok: false; code: "oos_or_unavailable"; sku_ids: string[] };
+
+type FulfillmentCheckResult = { ok: true } | FulfillmentCheckFailure;
+
+function isSupplierSkuAvailable(row: any): boolean {
+  if (row?.is_available === false) return false;
+  const inv = normalizeStatus(row?.inventory_status);
+  if (inv === "out_of_stock") return false;
+  const stock = typeof row?.stock_quantity === "number" ? Number(row.stock_quantity) : null;
+  if (stock != null && Number.isFinite(stock) && stock <= 0) return false;
+  return true;
+}
+
+async function ensureOrderFulfillable(
+  supabase: ReturnType<typeof getAdminClient>,
+  orderId: string,
+): Promise<FulfillmentCheckResult> {
+  const { data: rawItems, error: itemsError } = await supabase
+    .from("order_items")
+    .select("id, product_id, qty, meta")
+    .eq("order_id", orderId);
+
+  if (itemsError) {
+    throw itemsError;
+  }
+
+  const items = (rawItems ?? []) as any[];
+  if (!items.length) return { ok: false, code: "order_has_no_items" };
+
+  const skuIds = Array.from(
+    new Set(
+      items
+        .map((item) => {
+          const skuId = normalizeSkuId(item?.product_id);
+          if (skuId) return skuId;
+          const metaSkuId = normalizeSkuId(item?.meta?.sku_id);
+          return metaSkuId;
+        })
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
+  if (!skuIds.length) return { ok: false, code: "order_has_no_items" };
+
+  const { data: supplierRows, error: supplierError } = await supabase
+    .from("supplier_skus")
+    .select("supplier_id, sku_id, is_available, inventory_status, stock_quantity")
+    .in("sku_id", skuIds);
+
+  if (supplierError) {
+    throw supplierError;
+  }
+
+  const rows = (supplierRows ?? []) as any[];
+  const bySku = new Map<string, any[]>();
+
+  for (const row of rows) {
+    const skuId = normalizeSkuId(row?.sku_id);
+    const supplierId = normalizeSkuId(row?.supplier_id);
+    if (!skuId || !supplierId) continue;
+    const existing = bySku.get(skuId) ?? [];
+    existing.push(row);
+    bySku.set(skuId, existing);
+  }
+
+  const missingSkuIds = skuIds.filter((skuId) => !bySku.has(skuId));
+  if (missingSkuIds.length) {
+    return { ok: false, code: "missing_supplier_skus", sku_ids: missingSkuIds };
+  }
+
+  const oosSkuIds = skuIds.filter((skuId) => {
+    const candidates = bySku.get(skuId) ?? [];
+    return !candidates.some(isSupplierSkuAvailable);
+  });
+  if (oosSkuIds.length) {
+    return { ok: false, code: "oos_or_unavailable", sku_ids: oosSkuIds };
+  }
+
+  return { ok: true };
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await requireAuth(request);
@@ -60,8 +157,22 @@ export async function POST(request: Request) {
     }
 
     const status = String(orderRow.status || "").toLowerCase();
-    if (status === "succeeded" || orderRow.paid_at) {
+    if (status === "paid" || orderRow.paid_at) {
       return json({ ok: false, code: "already_paid" }, 409);
+    }
+
+    const fulfillmentCheck = await ensureOrderFulfillable(supabase, orderId);
+    if (!fulfillmentCheck.ok) {
+      return json(
+        {
+          ok: false,
+          code: "not_fulfillable",
+          reason: fulfillmentCheck.code,
+          ...(fulfillmentCheck.code === "missing_supplier_skus" ? { sku_ids: fulfillmentCheck.sku_ids } : {}),
+          ...(fulfillmentCheck.code === "oos_or_unavailable" ? { sku_ids: fulfillmentCheck.sku_ids } : {}),
+        },
+        409
+      );
     }
 
     const { amountCents, currency, source, itemsCount } = await resolveOrderAmount(supabase, orderId, orderRow);
@@ -106,7 +217,7 @@ export async function POST(request: Request) {
             supabase,
             orderId,
             {
-              status: "succeeded",
+              status: "paid",
               paid_at: fetched.created ? new Date(fetched.created * 1000).toISOString() : new Date().toISOString(),
               payment_intent_id: fetched.id,
               amount_cents: amountCents,
@@ -157,7 +268,7 @@ export async function POST(request: Request) {
       supabase,
       orderId,
       {
-        status: isSucceeded ? "succeeded" : "pending",
+        status: isSucceeded ? "paid" : "pending",
         paid_at: isSucceeded ? new Date().toISOString() : null,
         payment_intent_id: intent.id,
         amount_cents: amountCents,

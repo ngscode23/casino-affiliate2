@@ -1,0 +1,112 @@
+sync_order_on_payment|CREATE OR REPLACE FUNCTION public.sync_order_on_payment()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare st text;
+begin
+  -- normalize enum to lowercase text once
+  st := lower(new.status::text);
+
+  if st in ('paid','succeeded') then
+    update public.orders o
+       set payment_status = 'succeeded'::payment_status,
+           status = case when o.status in ('pending','failed','cancelled') then 'paid' else o.status end
+     where o.id = new.order_id;
+
+  elsif st in ('refunded','refund_succeeded','refund') then
+    update public.orders o
+       set payment_status = 'refunded'::payment_status,
+           status = case when o.status = 'paid' then 'refunded' else o.status end
+     where o.id = new.order_id;
+
+  elsif st in ('failed','canceled','cancelled') then
+    update public.orders o
+       set payment_status = 'failed'::payment_status,
+           status = case when o.status = 'pending' then 'cancelled' else o.status end
+     where o.id = new.order_id;
+
+  elsif st in ('requires_action','requires_payment_method','processing') then
+    update public.orders o
+       set payment_status = 'requires_action'::payment_status
+     where o.id = new.order_id
+       and o.payment_status is distinct from 'succeeded';
+  end if;
+  return null;
+end;$function$
+
+tr_payments_status_propagate|CREATE OR REPLACE FUNCTION public.tr_payments_status_propagate()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+BEGIN
+
+  -- Compare textual representations to avoid trying to coerce '' into the enum type
+
+  IF coalesce(old.status::text, '') = coalesce(new.status::text, '') THEN
+
+    RETURN NULL; -- nothing changed
+
+  END IF;
+
+
+
+  -- rest of logic follows (example: propagate status to related table)
+
+  -- INSERT YOUR EXISTING LOGIC HERE, using status::text or explicit casts when needed
+
+
+
+  RETURN NEW;
+
+END;
+
+$function$
+
+trg_payments_sync_order|CREATE OR REPLACE FUNCTION public.trg_payments_sync_order()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+declare v_from public.order_status;
+begin
+  if new.order_id is null then
+    return new;
+  end if;
+
+  select o.status into v_from
+  from public.orders o
+  where o.id = new.order_id
+  for update;
+
+  if not found then
+    return new;
+  end if;
+
+  if new.status in ('paid','succeeded','captured') then
+    if public._order_try_validate_transition(v_from, 'paid') then
+      update public.orders o
+         set status = 'paid',
+             paid_at = coalesce(o.paid_at, now()),
+             amount_cents = coalesce(nullif(o.amount_cents,0), (new.amount * 100)::bigint),
+             currency = upper(coalesce(o.currency, new.currency)),
+             payment_intent_id = coalesce(o.payment_intent_id, nullif(new.provider_ref, ''))
+       where o.id = new.order_id;
+    end if;
+
+  elsif new.status in ('failed','canceled') then
+    if v_from = 'pending' and public._order_try_validate_transition(v_from, 'cancelled') then
+      update public.orders o
+         set status = 'cancelled'
+       where o.id = new.order_id;
+    end if;
+  end if;
+
+  return new;
+end;
+$function$
+

@@ -776,6 +776,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -818,6 +825,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -848,9 +862,11 @@ export type Database = {
           id: string
           image_path: string | null
           images: Json
+          inventory_status: string | null
+          is_available: boolean
           main_image_url: string | null
           price: number
-          price_cents: string | null
+          price_cents: number | null
           rating: number
           seller_id: string | null
           short_desc: string | null
@@ -859,6 +875,7 @@ export type Database = {
           specs: Json
           status: string
           status_lc: string | null
+          stock_quantity: number
           tags: string[]
           title: string
           to_delete: boolean | null
@@ -873,9 +890,11 @@ export type Database = {
           id?: string
           image_path?: string | null
           images?: Json
+          inventory_status?: string | null
+          is_available?: boolean
           main_image_url?: string | null
           price: number
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number
           seller_id?: string | null
           short_desc?: string | null
@@ -884,6 +903,7 @@ export type Database = {
           specs?: Json
           status?: string
           status_lc?: string | null
+          stock_quantity?: number
           tags?: string[]
           title: string
           to_delete?: boolean | null
@@ -898,9 +918,11 @@ export type Database = {
           id?: string
           image_path?: string | null
           images?: Json
+          inventory_status?: string | null
+          is_available?: boolean
           main_image_url?: string | null
           price?: number
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number
           seller_id?: string | null
           short_desc?: string | null
@@ -909,6 +931,7 @@ export type Database = {
           specs?: Json
           status?: string
           status_lc?: string | null
+          stock_quantity?: number
           tags?: string[]
           title?: string
           to_delete?: boolean | null
@@ -918,6 +941,13 @@ export type Database = {
             foreignKeyName: "ecom_products_catalog_product_fk"
             columns: ["catalog_product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_product_brand"
+            referencedColumns: ["catalog_product_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
             referencedRelation: "catalog_product_meta"
             referencedColumns: ["id"]
           },
@@ -929,6 +959,41 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_with_brand"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["model_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_brand"
+            referencedColumns: ["catalog_product_id"]
+          },
+          {
             foreignKeyName: "ecom_products_catalog_product_id_fkey"
             columns: ["catalog_product_id"]
             isOneToOne: false
@@ -941,6 +1006,62 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalog_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_with_brand"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["model_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fk"
@@ -955,6 +1076,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -1028,6 +1177,13 @@ export type Database = {
             foreignKeyName: "ecom_wishlist_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -1070,6 +1226,13 @@ export type Database = {
             foreignKeyName: "ecom_wishlist_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -1085,6 +1248,83 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "v_products_flat"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          order_id: string | null
+          payload: Json
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          to_email: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id?: string | null
+          payload?: Json
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          to_email: string
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id?: string | null
+          payload?: Json
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          to_email?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "email_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_history_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "email_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -1597,6 +1837,13 @@ export type Database = {
             foreignKeyName: "fk_order_items_order"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "fk_order_items_order"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -1613,6 +1860,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "order_items_order_id_fkey"
@@ -1667,6 +1921,13 @@ export type Database = {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -1703,6 +1964,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -1764,6 +2032,13 @@ export type Database = {
             foreignKeyName: "order_status_audit_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_status_audit_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -1816,6 +2091,13 @@ export type Database = {
             foreignKeyName: "order_status_history_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -1837,7 +2119,7 @@ export type Database = {
       }
       orders: {
         Row: {
-          amount_cents: string | null
+          amount_cents: number | null
           applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
@@ -1858,7 +2140,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
@@ -1879,7 +2161,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           applied_promotions?: Json
           cancelled_at?: string | null
           checkout_metadata?: Json
@@ -1911,7 +2193,7 @@ export type Database = {
       }
       orders_archive: {
         Row: {
-          amount_cents: string | null
+          amount_cents: number | null
           archive_run_id: string
           archived_at: string
           archived_payload: Json
@@ -1933,7 +2215,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           archive_run_id: string
           archived_at?: string
           archived_payload?: Json
@@ -1955,7 +2237,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          amount_cents?: string | null
+          amount_cents?: number | null
           archive_run_id?: string
           archived_at?: string
           archived_payload?: Json
@@ -2161,6 +2443,13 @@ export type Database = {
             foreignKeyName: "payment_refunds_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "payment_refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -2216,6 +2505,13 @@ export type Database = {
             foreignKeyName: "fk_payments_order"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "fk_payments_order"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -2232,6 +2528,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "payments_order_id_fkey"
@@ -2333,6 +2636,13 @@ export type Database = {
             foreignKeyName: "product_attributes_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "product_attributes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2369,6 +2679,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_attributes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -2449,6 +2766,13 @@ export type Database = {
             foreignKeyName: "product_id_map_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "product_id_map_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2485,6 +2809,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_id_map_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -2574,6 +2905,13 @@ export type Database = {
             foreignKeyName: "product_impressions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2610,6 +2948,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -2654,99 +2999,7 @@ export type Database = {
           ratings_count?: number
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "_alert_dangling_category_slugs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "_alert_inactive_category_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "_alert_missing_thumbnails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "catalog_mv"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "ecom_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "ecom_products_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "ecom_products_with_ratings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "product"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "product_with_discount"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "product_with_discount_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "v_catalog"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_rating_stats_product_uid_fkey"
-            columns: ["product_uid"]
-            isOneToOne: true
-            referencedRelation: "v_products_flat"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       product_review_messages: {
         Row: {
@@ -2825,6 +3078,13 @@ export type Database = {
             foreignKeyName: "product_review_messages_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -2861,6 +3121,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_review_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -2962,121 +3229,53 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "_alert_dangling_category_slugs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "_alert_inactive_category_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "_alert_missing_thumbnails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "catalog_mv"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_with_ratings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "product"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "v_catalog"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "v_products_flat"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           avatar_url: string | null
+          country: string | null
+          currency: string | null
           full_name: string | null
           id: string
+          language: string | null
+          notify_marketing: boolean | null
+          notify_order_status: boolean | null
+          notify_product_updates: boolean | null
+          notify_review_replies: boolean | null
+          timezone: string | null
           updated_at: string | null
           username: string | null
           website: string | null
         }
         Insert: {
           avatar_url?: string | null
+          country?: string | null
+          currency?: string | null
           full_name?: string | null
           id: string
+          language?: string | null
+          notify_marketing?: boolean | null
+          notify_order_status?: boolean | null
+          notify_product_updates?: boolean | null
+          notify_review_replies?: boolean | null
+          timezone?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
         }
         Update: {
           avatar_url?: string | null
+          country?: string | null
+          currency?: string | null
           full_name?: string | null
           id?: string
+          language?: string | null
+          notify_marketing?: boolean | null
+          notify_order_status?: boolean | null
+          notify_product_updates?: boolean | null
+          notify_review_replies?: boolean | null
+          timezone?: string | null
           updated_at?: string | null
           username?: string | null
           website?: string | null
@@ -3250,6 +3449,13 @@ export type Database = {
             foreignKeyName: "promotion_usages_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "promotion_usages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -3363,6 +3569,273 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_order_items: {
+        Row: {
+          cost_cents: number | null
+          created_at: string
+          currency: string | null
+          id: string
+          metadata: Json
+          order_item_id: string
+          purchase_order_id: string
+          qty: number
+          sku_id: string
+          supplier_sku_snapshot: string | null
+          title_snapshot: string | null
+        }
+        Insert: {
+          cost_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json
+          order_item_id: string
+          purchase_order_id: string
+          qty: number
+          sku_id: string
+          supplier_sku_snapshot?: string | null
+          title_snapshot?: string | null
+        }
+        Update: {
+          cost_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          metadata?: Json
+          order_item_id?: string
+          purchase_order_id?: string
+          qty?: number
+          sku_id?: string
+          supplier_sku_snapshot?: string | null
+          title_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["purchase_order_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "v_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "v_products_flat"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          currency: string | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          order_id: string
+          sent_at: string | null
+          shipped_at: string | null
+          status: Database["public"]["Enums"]["po_status"]
+          supplier_id: string
+          total_cost_cents: number | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          order_id: string
+          sent_at?: string | null
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          supplier_id: string
+          total_cost_cents?: number | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          currency?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          order_id?: string
+          sent_at?: string | null
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["po_status"]
+          supplier_id?: string
+          total_cost_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_history_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["supplier_id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recent_views: {
         Row: {
           anon_id: string | null
@@ -3421,6 +3894,13 @@ export type Database = {
             foreignKeyName: "recent_views_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -3457,6 +3937,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_views_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -3577,6 +4064,65 @@ export type Database = {
         }
         Relationships: []
       }
+      rma_requests: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          order_id: string
+          reason: string | null
+          status: Database["public"]["Enums"]["rma_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          reason?: string | null
+          status?: Database["public"]["Enums"]["rma_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          reason?: string | null
+          status?: Database["public"]["Enums"]["rma_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rma_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "rma_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_history_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "rma_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rma_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduled_content: {
         Row: {
           created_at: string
@@ -3630,6 +4176,100 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      shipments: {
+        Row: {
+          carrier: string | null
+          created_at: string
+          delivered_at: string | null
+          eta: string | null
+          id: string
+          last_event_at: string | null
+          metadata: Json
+          notification_email: string | null
+          order_id: string
+          purchase_order_id: string
+          shipped_at: string | null
+          status: Database["public"]["Enums"]["shipment_status"]
+          tracking_number: string | null
+          tracking_url: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          eta?: string | null
+          id?: string
+          last_event_at?: string | null
+          metadata?: Json
+          notification_email?: string | null
+          order_id: string
+          purchase_order_id: string
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["shipment_status"]
+          tracking_number?: string | null
+          tracking_url?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          eta?: string | null
+          id?: string
+          last_event_at?: string | null
+          metadata?: Json
+          notification_email?: string | null
+          order_id?: string
+          purchase_order_id?: string
+          shipped_at?: string | null
+          status?: Database["public"]["Enums"]["shipment_status"]
+          tracking_number?: string | null
+          tracking_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_history_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["purchase_order_id"]
+          },
+          {
+            foreignKeyName: "shipments_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shop_clicks: {
         Row: {
@@ -3692,6 +4332,13 @@ export type Database = {
             foreignKeyName: "shop_clicks_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -3728,6 +4375,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_clicks_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -3814,6 +4468,13 @@ export type Database = {
             foreignKeyName: "shop_impressions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -3850,6 +4511,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_impressions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
             referencedColumns: ["id"]
           },
           {
@@ -4111,7 +4779,7 @@ export type Database = {
           api_version: string | null
           created_utc: string
           data: Json
-          expected_amount_cents: string | null
+          expected_amount_cents: number | null
           expected_currency: string | null
           id: string
           inserted_at: string | null
@@ -4126,7 +4794,7 @@ export type Database = {
           processing_error: string | null
           processing_state: string | null
           raw: Json | null
-          stripe_amount_cents: string | null
+          stripe_amount_cents: number | null
           stripe_currency: string | null
           type: string
         }
@@ -4134,7 +4802,7 @@ export type Database = {
           api_version?: string | null
           created_utc: string
           data: Json
-          expected_amount_cents?: string | null
+          expected_amount_cents?: number | null
           expected_currency?: string | null
           id: string
           inserted_at?: string | null
@@ -4149,7 +4817,7 @@ export type Database = {
           processing_error?: string | null
           processing_state?: string | null
           raw?: Json | null
-          stripe_amount_cents?: string | null
+          stripe_amount_cents?: number | null
           stripe_currency?: string | null
           type: string
         }
@@ -4157,7 +4825,7 @@ export type Database = {
           api_version?: string | null
           created_utc?: string
           data?: Json
-          expected_amount_cents?: string | null
+          expected_amount_cents?: number | null
           expected_currency?: string | null
           id?: string
           inserted_at?: string | null
@@ -4172,7 +4840,7 @@ export type Database = {
           processing_error?: string | null
           processing_state?: string | null
           raw?: Json | null
-          stripe_amount_cents?: string | null
+          stripe_amount_cents?: number | null
           stripe_currency?: string | null
           type?: string
         }
@@ -4211,6 +4879,270 @@ export type Database = {
           raw?: Json | null
           surrogate_id?: number
           type?: string | null
+        }
+        Relationships: []
+      }
+      supplier_feed_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          stats: Json
+          status: string
+          supplier_id: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          stats?: Json
+          status: string
+          supplier_id: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          stats?: Json
+          status?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_feed_runs_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["supplier_id"]
+          },
+          {
+            foreignKeyName: "supplier_feed_runs_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_skus: {
+        Row: {
+          cost_cents: number | null
+          created_at: string
+          currency: string | null
+          id: string
+          inventory_status: string | null
+          is_available: boolean | null
+          last_seen_at: string | null
+          last_synced_at: string | null
+          lead_time_days: number | null
+          miss_count: number
+          ship_from_country: string | null
+          ship_to_countries: string[] | null
+          sku_id: string
+          stock_quantity: number | null
+          supplier_id: string
+          supplier_sku: string
+          updated_at: string
+        }
+        Insert: {
+          cost_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          inventory_status?: string | null
+          is_available?: boolean | null
+          last_seen_at?: string | null
+          last_synced_at?: string | null
+          lead_time_days?: number | null
+          miss_count?: number
+          ship_from_country?: string | null
+          ship_to_countries?: string[] | null
+          sku_id: string
+          stock_quantity?: number | null
+          supplier_id: string
+          supplier_sku: string
+          updated_at?: string
+        }
+        Update: {
+          cost_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          inventory_status?: string | null
+          is_available?: boolean | null
+          last_seen_at?: string | null
+          last_synced_at?: string | null
+          lead_time_days?: number | null
+          miss_count?: number
+          ship_from_country?: string | null
+          ship_to_countries?: string[] | null
+          sku_id?: string
+          stock_quantity?: number | null
+          supplier_id?: string
+          supplier_sku?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "v_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "v_products_flat"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["supplier_id"]
+          },
+          {
+            foreignKeyName: "supplier_skus_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          api_base_url: string | null
+          code: string
+          contact_email: string | null
+          created_at: string
+          default_currency: string | null
+          id: string
+          metadata: Json
+          name: string
+          status: Database["public"]["Enums"]["supplier_status"]
+          updated_at: string
+        }
+        Insert: {
+          api_base_url?: string | null
+          code: string
+          contact_email?: string | null
+          created_at?: string
+          default_currency?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          status?: Database["public"]["Enums"]["supplier_status"]
+          updated_at?: string
+        }
+        Update: {
+          api_base_url?: string | null
+          code?: string
+          contact_email?: string | null
+          created_at?: string
+          default_currency?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          status?: Database["public"]["Enums"]["supplier_status"]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -4277,6 +5209,139 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json | null
+          product_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          product_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          product_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_products_flat"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_events: {
         Row: {
           anon_id: string
@@ -4288,7 +5353,7 @@ export type Database = {
           id: number
           metadata: Json | null
           price_bucket: string | null
-          price_cents: string | null
+          price_cents: number | null
           product_id: string | null
           referrer: string | null
           ts: string
@@ -4304,7 +5369,7 @@ export type Database = {
           id?: number
           metadata?: Json | null
           price_bucket?: string | null
-          price_cents?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
@@ -4320,11 +5385,29 @@ export type Database = {
           id?: number
           metadata?: Json | null
           price_bucket?: string | null
-          price_cents?: string | null
+          price_cents?: number | null
           product_id?: string | null
           referrer?: string | null
           ts?: string
           weight?: number
+        }
+        Relationships: []
+      }
+      user_favorites: {
+        Row: {
+          created_at: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          product_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -4373,6 +5456,148 @@ export type Database = {
         }
         Relationships: []
       }
+      user_reviews: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          product_id: string
+          rating: number
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          product_id: string
+          rating: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          product_id?: string
+          rating?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_dangling_category_slugs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_inactive_category_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "_alert_missing_thumbnails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_mv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "ecom_products_with_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_products_flat"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       _alert_dangling_category_slugs: {
@@ -4386,6 +5611,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -4395,6 +5648,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -4423,6 +5704,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -4432,6 +5741,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -4462,31 +5799,58 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string | null
+          is_active: boolean | null
           name: string | null
           slug: string | null
           status: string | null
-          is_active: boolean | null
           website: string | null
         }
         Insert: {
           created_at?: string | null
           description?: string | null
           id?: string | null
+          is_active?: boolean | null
           name?: string | null
           slug?: string | null
           status?: string | null
-          is_active?: boolean | null
           website?: string | null
         }
         Update: {
           created_at?: string | null
           description?: string | null
           id?: string | null
+          is_active?: boolean | null
           name?: string | null
           slug?: string | null
           status?: string | null
-          is_active?: boolean | null
           website?: string | null
+        }
+        Relationships: []
+      }
+      catalog_events_v: {
+        Row: {
+          anon_id: string | null
+          created_at: string | null
+          event_type: string | null
+          id: string | null
+          product_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          anon_id?: string | null
+          created_at?: string | null
+          event_type?: string | null
+          id?: string | null
+          product_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          anon_id?: string | null
+          created_at?: string | null
+          event_type?: string | null
+          id?: string | null
+          product_id?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -4506,6 +5870,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -4515,6 +5907,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -4531,6 +5951,14 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      catalog_product_brand: {
+        Row: {
+          brand_name: string | null
+          brand_slug: string | null
+          catalog_product_id: string | null
+        }
+        Relationships: []
       }
       catalog_product_meta: {
         Row: {
@@ -4587,6 +6015,215 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      catalog_products_recs_v: {
+        Row: {
+          brand_id: string | null
+          brand_name: string | null
+          brand_slug: string | null
+          category_id: string | null
+          category_is_primary: boolean | null
+          category_slug: string | null
+          category_title: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          last_viewed_at: string | null
+          price: number | null
+          slug: string | null
+          specs: Json | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+          views_total: number | null
+        }
+        Relationships: []
+      }
+      catalog_products_v: {
+        Row: {
+          brand_id: string | null
+          brand_name: string | null
+          brand_slug: string | null
+          category_id: string | null
+          category_is_primary: boolean | null
+          category_slug: string | null
+          category_title: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          price: number | null
+          slug: string | null
+          specs: Json | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      catalog_products_with_brand: {
+        Row: {
+          brand_id: string | null
+          brand_name: string | null
+          brand_slug: string | null
+          id: string | null
+          slug: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      catalog_smartphone_models_v: {
+        Row: {
+          brand_id: string | null
+          brand_name: string | null
+          brand_slug: string | null
+          category_id: string | null
+          category_slug: string | null
+          category_title: string | null
+          model_id: string | null
+          model_slug: string | null
+          model_title: string | null
+          series_id: string | null
+          series_slug: string | null
+          series_title: string | null
+        }
+        Relationships: []
+      }
+      catalog_smartphone_skus_v: {
+        Row: {
+          brand_name: string | null
+          brand_slug: string | null
+          category_slug: string | null
+          category_title: string | null
+          created_at: string | null
+          currency: string | null
+          image_path: string | null
+          inventory_status: string | null
+          is_available: boolean | null
+          main_image_url: string | null
+          model_id: string | null
+          model_slug: string | null
+          model_title: string | null
+          price: number | null
+          price_cents: number | null
+          rating: number | null
+          series_slug: string | null
+          series_title: string | null
+          sku_id: string | null
+          sku_slug: string | null
+          sku_status: string | null
+          sku_title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_brand"
+            referencedColumns: ["catalog_product_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_with_brand"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_fk"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["model_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_brand"
+            referencedColumns: ["catalog_product_id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_meta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_with_brand"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_products_catalog_product_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["model_id"]
+          },
+          {
+            foreignKeyName: "fk_ecom_products_currency"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       categories: {
         Row: {
@@ -4705,6 +6342,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -4747,6 +6391,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -4777,7 +6428,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           short_desc: string | null
           sku: string | null
@@ -4797,7 +6448,7 @@ export type Database = {
           images?: Json | null
           main_image_url?: never
           price?: number | null
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number | null
           short_desc?: string | null
           sku?: string | null
@@ -4817,7 +6468,7 @@ export type Database = {
           images?: Json | null
           main_image_url?: never
           price?: number | null
-          price_cents?: string | null
+          price_cents?: number | null
           rating?: number | null
           short_desc?: string | null
           sku?: string | null
@@ -4832,6 +6483,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -4841,6 +6520,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -4887,6 +6594,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -4896,6 +6631,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -4976,6 +6739,34 @@ export type Database = {
         }
         Relationships: []
       }
+      order_fulfillment_v: {
+        Row: {
+          carrier: string | null
+          delivered_at: string | null
+          eta: string | null
+          last_event_at: string | null
+          order_id: string | null
+          order_status: Database["public"]["Enums"]["order_status"] | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          purchase_order_cancelled_at: string | null
+          purchase_order_confirmed_at: string | null
+          purchase_order_created_at: string | null
+          purchase_order_id: string | null
+          purchase_order_sent_at: string | null
+          purchase_order_shipped_at: string | null
+          purchase_order_status: Database["public"]["Enums"]["po_status"] | null
+          shipment_created_at: string | null
+          shipment_id: string | null
+          shipment_status: Database["public"]["Enums"]["shipment_status"] | null
+          shipped_at: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          tracking_number: string | null
+          tracking_url: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       order_history_v: {
         Row: {
           amount: number | null
@@ -5047,6 +6838,13 @@ export type Database = {
             foreignKeyName: "fk_order_items_order"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "fk_order_items_order"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "order_history_v"
             referencedColumns: ["order_id"]
           },
@@ -5063,6 +6861,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_fulfillment_v"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "order_items_order_id_fkey"
@@ -5117,6 +6922,13 @@ export type Database = {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -5159,6 +6971,13 @@ export type Database = {
             foreignKeyName: "order_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -5188,6 +7007,7 @@ export type Database = {
           currency: string | null
           id: string | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
+          shipping_total: number | null
           status: Database["public"]["Enums"]["order_status"] | null
           user_id: string | null
         }
@@ -5200,6 +7020,7 @@ export type Database = {
           currency?: string | null
           id?: string | null
           payment_status?: never
+          shipping_total?: never
           status?: Database["public"]["Enums"]["order_status"] | null
           user_id?: string | null
         }
@@ -5212,6 +7033,7 @@ export type Database = {
           currency?: string | null
           id?: string | null
           payment_status?: never
+          shipping_total?: never
           status?: Database["public"]["Enums"]["order_status"] | null
           user_id?: string | null
         }
@@ -5230,7 +7052,7 @@ export type Database = {
           currency: string | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           sku: string | null
           updatedAt: string | null
         }
@@ -5375,110 +7197,18 @@ export type Database = {
           source_table: string | null
           status: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_dangling_category_slugs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_inactive_category_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_missing_thumbnails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "catalog_mv"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_with_ratings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "v_catalog"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "v_products_flat"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       product_with_discount: {
         Row: {
           amountOffCts: number | null
-          base_cents: string | null
+          base_cents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
           discount_id: string | null
           discount_name: string | null
-          effective_price_cents: string | null
+          effective_price_cents: number | null
           id: string | null
           percentOff: number | null
           sku: string | null
@@ -5486,6 +7216,34 @@ export type Database = {
           title: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
           {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
@@ -5499,6 +7257,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -5525,15 +7311,15 @@ export type Database = {
       }
       product_with_discount_public: {
         Row: {
-          basePriceCents: string | null
+          basePriceCents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
-          effectivePriceCents: string | null
+          effectivePriceCents: number | null
           hasDiscount: boolean | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
@@ -5541,6 +7327,34 @@ export type Database = {
           thumbnail_path: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
           {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
@@ -5554,6 +7368,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -5573,23 +7415,108 @@ export type Database = {
       }
       product_with_discount_with_dataset: {
         Row: {
-          basePriceCents: string | null
+          basePriceCents: number | null
           category_slug: string | null
           created_at: string | null
           currency: string | null
           dataset: string | null
-          effectivePriceCents: string | null
+          effectivePriceCents: number | null
           hasDiscount: boolean | null
           id: string | null
           name: string | null
-          priceCents: string | null
+          priceCents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
           thumbnail: string | null
           thumbnail_path: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "header_categories"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -5602,7 +7529,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -5618,6 +7545,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -5627,6 +7582,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -5656,7 +7639,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           slug: string | null
           source: string | null
           status: string | null
@@ -5670,7 +7653,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           sku: string | null
           slug: string | null
@@ -5678,24 +7661,6 @@ export type Database = {
           status: string | null
           tags_text: string[] | null
           title: string | null
-        }
-        Relationships: []
-      }
-      products_v: {
-        Row: {
-          image_path: string | null
-          slug: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          image_path?: string | null
-          slug?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          image_path?: string | null
-          slug?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -5923,99 +7888,7 @@ export type Database = {
           source_table: string | null
           status: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_dangling_category_slugs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_inactive_category_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "_alert_missing_thumbnails"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "catalog_mv"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "ecom_products_with_ratings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "product_with_discount_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "v_catalog"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_uid"]
-            isOneToOne: false
-            referencedRelation: "v_products_flat"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       settings: {
         Row: {
@@ -6107,6 +7980,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -6116,6 +8017,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -6173,6 +8102,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["sku_id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "ecom_products"
             referencedColumns: ["id"]
           },
@@ -6215,6 +8151,13 @@ export type Database = {
             foreignKeyName: "ecom_product_image_versions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "product_with_discount_with_dataset"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecom_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
@@ -6247,7 +8190,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6265,6 +8208,34 @@ export type Database = {
             foreignKeyName: "ecom_products_category_slug_fk"
             columns: ["category_slug"]
             isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fk"
+            columns: ["category_slug"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["slug"]
           },
@@ -6274,6 +8245,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "header_categories"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_recs_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_products_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_models_v"
+            referencedColumns: ["category_slug"]
+          },
+          {
+            foreignKeyName: "ecom_products_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "catalog_smartphone_skus_v"
+            referencedColumns: ["category_slug"]
           },
           {
             foreignKeyName: "ecom_products_category_slug_fkey"
@@ -6358,7 +8357,7 @@ export type Database = {
       _best_discount_for_product: {
         Args: { p_category: string; p_id: string }
         Returns: {
-          amount_off_cents: string
+          amount_off_cents: number
           percent_off: number
         }[]
       }
@@ -6369,7 +8368,6 @@ export type Database = {
       _mk_slug: { Args: { src: string }; Returns: string }
       _norm_slug: { Args: { _slug: string }; Returns: string }
       _order_try_validate_transition:
-        | { Args: { p_from: string; p_to: string }; Returns: undefined }
         | {
             Args: {
               from_status: Database["public"]["Enums"]["order_status"]
@@ -6377,6 +8375,7 @@ export type Database = {
             }
             Returns: boolean
           }
+        | { Args: { p_from: string; p_to: string }; Returns: undefined }
       _order_validate_transition: {
         Args: {
           from_status: Database["public"]["Enums"]["order_status"]
@@ -6562,10 +8561,18 @@ export type Database = {
         }
         Returns: string
       }
+      compute_inventory_status: {
+        Args: {
+          p_is_available: boolean
+          p_status: string
+          p_stock_quantity: number
+        }
+        Returns: string
+      }
       create_or_get_pending_order: {
         Args: { p_user_id: string }
         Returns: {
-          amount_cents: string | null
+          amount_cents: number | null
           applied_promotions: Json
           cancelled_at: string | null
           checkout_metadata: Json
@@ -6603,6 +8610,7 @@ export type Database = {
         }
         Returns: string
       }
+      csv_parse_line: { Args: { p_line: string }; Returns: string[] }
       debug_whoami: {
         Args: never
         Returns: {
@@ -6614,6 +8622,17 @@ export type Database = {
       ecom_wishlist_toggle: { Args: { p_product_id: string }; Returns: string }
       ensure_review_root: { Args: { _review_id: string }; Returns: string }
       expire_partner_pins: { Args: never; Returns: number }
+      get_brand_smartphones: {
+        Args: { brand_slug: string }
+        Returns: {
+          brand_name: string
+          brand_slug: string
+          models_count: number
+          series_slug: string
+          series_title: string
+          skus_count: number
+        }[]
+      }
       get_header_categories: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Views"]["categories"]["Row"][]
@@ -6725,7 +8744,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6762,7 +8781,7 @@ export type Database = {
           images: Json | null
           main_image_url: string | null
           price: number | null
-          price_cents: string | null
+          price_cents: number | null
           rating: number | null
           seller_id: string | null
           short_desc: string | null
@@ -6788,6 +8807,50 @@ export type Database = {
           score: number
         }[]
       }
+      get_series_models: {
+        Args: { brand_slug: string; series_slug: string }
+        Returns: {
+          avg_rating: number
+          model_id: string
+          model_slug: string
+          model_title: string
+          price_max_cents: number
+          price_min_cents: number
+          sku_count: number
+        }[]
+      }
+      get_top_brands_smartphones: {
+        Args: { limit_count?: number }
+        Returns: {
+          brand_name: string
+          brand_slug: string
+          models_count: number
+          skus_count: number
+        }[]
+      }
+      import_supplier_feed_core: {
+        Args: {
+          p_items: Json
+          p_miss_threshold: number
+          p_run_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
+      import_supplier_feed_csv: {
+        Args: {
+          p_csv: string
+          p_has_header?: boolean
+          p_miss_threshold?: number
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
+      import_supplier_feed_json: {
+        Args: { p_miss_threshold?: number; p_payload: Json }
+        Returns: Json
+      }
+      increment_views_total: { Args: { pid: string }; Returns: undefined }
       insert_product_impression: {
         Args: {
           p_ip?: unknown
@@ -6802,13 +8865,52 @@ export type Database = {
         Returns: number
       }
       is_admin: { Args: never; Returns: boolean }
+      list_smartphone_skus: {
+        Args: {
+          availability?: string
+          brand_slug: string
+          limit_count?: number
+          model_slug: string
+          offset_count?: number
+          price_max_cents?: number
+          price_min_cents?: number
+          rating_min?: number
+          series_slug: string
+          sort?: string
+        }
+        Returns: {
+          brand_name: string
+          brand_slug: string
+          currency: string
+          image_path: string
+          inventory_status: string
+          is_available: boolean
+          main_image_url: string
+          model_slug: string
+          model_title: string
+          price: number
+          price_cents: number
+          rating: number
+          series_slug: string
+          series_title: string
+          sku_id: string
+          sku_slug: string
+          sku_title: string
+          total_count: number
+        }[]
+      }
+      log_catalog_view_event: {
+        Args: { p_anon_id: string; p_product_id: string; p_user_id: string }
+        Returns: undefined
+      }
       log_click:
         | {
-            Args: { p_params?: Json; p_referrer?: string; p_slug: string }
-            Returns: undefined
-          }
-        | {
-            Args: { p_params?: Json; p_product_id: string; p_referrer?: string }
+            Args: {
+              ip: unknown
+              product_id: string
+              referrer?: string
+              user_agent?: string
+            }
             Returns: undefined
           }
         | {
@@ -6822,21 +8924,21 @@ export type Database = {
             Returns: undefined
           }
         | {
-            Args: {
-              ip: unknown
-              product_id: string
-              referrer?: string
-              user_agent?: string
-            }
+            Args: { p_params?: Json; p_product_id: string; p_referrer?: string }
+            Returns: undefined
+          }
+        | {
+            Args: { p_params?: Json; p_referrer?: string; p_slug: string }
             Returns: undefined
           }
       log_impression:
         | {
-            Args: { p_params?: Json; p_referrer?: string; p_slug: string }
-            Returns: undefined
-          }
-        | {
-            Args: { p_params?: Json; p_product_id: string; p_referrer?: string }
+            Args: {
+              ip: unknown
+              product_id: string
+              referrer?: string
+              user_agent?: string
+            }
             Returns: undefined
           }
         | {
@@ -6850,12 +8952,11 @@ export type Database = {
             Returns: undefined
           }
         | {
-            Args: {
-              ip: unknown
-              product_id: string
-              referrer?: string
-              user_agent?: string
-            }
+            Args: { p_params?: Json; p_product_id: string; p_referrer?: string }
+            Returns: undefined
+          }
+        | {
+            Args: { p_params?: Json; p_referrer?: string; p_slug: string }
             Returns: undefined
           }
       log_impression_v1: {
@@ -6988,7 +9089,7 @@ export type Database = {
           clicks: number
           conv_rate: number
           ctr: number
-          gmv_cents: string
+          gmv_cents: number
           impressions: number
           purchases: number
           revenue_per_click: number
@@ -7005,13 +9106,13 @@ export type Database = {
         Returns: undefined
       }
       refresh_product_rating_stats:
-        | { Args: { p_product_id: string }; Returns: undefined }
         | { Args: never; Returns: undefined }
+        | { Args: { p_product_id: string }; Returns: undefined }
       refresh_stripe_products_cache: { Args: never; Returns: undefined }
       refresh_user_interest_scores: { Args: never; Returns: undefined }
       refund_order_apply: {
         Args: {
-          p_amount_cents: string
+          p_amount_cents: number
           p_currency: string
           p_order_id: string
           p_reason?: string
@@ -7020,56 +9121,28 @@ export type Database = {
         Returns: boolean
       }
       request_anon_id: { Args: never; Returns: string }
-      search_products:
-        | {
-            Args: {
-              limit_count?: number
-              max_price?: number
-              min_price?: number
-              offset_count?: number
-              q?: string
-              sort_by?: string
-              sort_dir?: string
-              statuses?: string[]
-            }
-            Returns: {
-              currency: string | null
-              id: string | null
-              price_amount: number | null
-              price_cents: string | null
-              slug: string | null
-              source: string | null
-              status: string | null
-              title: string | null
-            }[]
-            SetofOptions: {
-              from: "*"
-              to: "products_unified"
-              isOneToOne: false
-              isSetofReturn: true
-            }
-          }
-        | {
-            Args: {
-              _category?: string
-              _limit?: number
-              _offset?: number
-              _q?: string
-            }
-            Returns: {
-              category_slug: string
-              currency: string
-              description: string
-              id: string
-              main_image_url: string
-              price: number
-              rank: number
-              rating: number
-              short_desc: string
-              slug: string
-              title: string
-            }[]
-          }
+      require_admin: { Args: never; Returns: undefined }
+      search_products: {
+        Args: {
+          _category?: string
+          _limit?: number
+          _offset?: number
+          _q?: string
+        }
+        Returns: {
+          category_slug: string
+          currency: string
+          description: string
+          id: string
+          main_image_url: string
+          price: number
+          rank: number
+          rating: number
+          short_desc: string
+          slug: string
+          title: string
+        }[]
+      }
       search_products_v2: {
         Args: {
           category_slugs?: string[]
@@ -7089,7 +9162,7 @@ export type Database = {
           currency: string | null
           id: string | null
           price_amount: number | null
-          price_cents: string | null
+          price_cents: number | null
           slug: string | null
           source: string | null
           status: string | null
@@ -7159,6 +9232,36 @@ export type Database = {
           slug: string
         }[]
       }
+      try_bigint: { Args: { p: string }; Returns: number }
+      try_bool: { Args: { p: string }; Returns: boolean }
+      try_int: { Args: { p: string }; Returns: number }
+      try_uuid: { Args: { p: string }; Returns: string }
+      upsert_shipment_admin: {
+        Args: {
+          p_carrier?: string
+          p_delivered_at?: string
+          p_eta?: string
+          p_last_event_at?: string
+          p_metadata?: Json
+          p_order_id?: string
+          p_purchase_order_id?: string
+          p_shipment_id?: string
+          p_shipped_at?: string
+          p_status?: string
+          p_tracking_number?: string
+          p_tracking_url?: string
+        }
+        Returns: Json
+      }
+      user_activity_exists: { Args: never; Returns: boolean }
+      user_favorites_cols: { Args: never; Returns: Json }
+      user_favorites_exists: { Args: never; Returns: boolean }
+      user_favorites_info: { Args: never; Returns: Json }
+      user_favorites_privs: { Args: never; Returns: Json }
+      user_reviews_cols: { Args: never; Returns: Json }
+      user_reviews_exists: { Args: never; Returns: boolean }
+      user_reviews_info: { Args: never; Returns: Json }
+      user_reviews_privs: { Args: never; Returns: Json }
     }
     Enums: {
       order_status:
@@ -7179,6 +9282,13 @@ export type Database = {
         | "refunded"
         | "partial_refund"
         | "requires_action"
+      po_status:
+        | "pending"
+        | "sent"
+        | "confirmed"
+        | "shipped"
+        | "cancelled"
+        | "failed"
       promotion_action_kind:
         | "percentage_discount"
         | "fixed_amount_discount"
@@ -7201,6 +9311,19 @@ export type Database = {
         | "active"
         | "expired"
         | "archived"
+      rma_status:
+        | "requested"
+        | "approved"
+        | "rejected"
+        | "received"
+        | "refunded"
+      shipment_status:
+        | "pending"
+        | "in_transit"
+        | "delivered"
+        | "exception"
+        | "returned"
+      supplier_status: "active" | "inactive" | "paused"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -7208,9 +9331,9 @@ export type Database = {
   }
 }
 
-export type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-export type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -7348,6 +9471,14 @@ export const Constants = {
         "partial_refund",
         "requires_action",
       ],
+      po_status: [
+        "pending",
+        "sent",
+        "confirmed",
+        "shipped",
+        "cancelled",
+        "failed",
+      ],
       promotion_action_kind: [
         "percentage_discount",
         "fixed_amount_discount",
@@ -7367,6 +9498,15 @@ export const Constants = {
         "custom",
       ],
       promotion_status: ["draft", "scheduled", "active", "expired", "archived"],
+      rma_status: ["requested", "approved", "rejected", "received", "refunded"],
+      shipment_status: [
+        "pending",
+        "in_transit",
+        "delivered",
+        "exception",
+        "returned",
+      ],
+      supplier_status: ["active", "inactive", "paused"],
     },
   },
 } as const

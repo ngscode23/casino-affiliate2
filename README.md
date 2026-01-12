@@ -170,9 +170,13 @@ Acceptance
 
 ## Cron tasks
 - Schedule `/api/admin/maintenance/cleanup-clicks` (POST with `x-admin-token`) or call the `cleanup_clicks_before` RPC directly to purge old click data
+- Dropshipping MVP cron (GitHub Actions scheduler recommended):
+  - `POST /api/admin/supplier-feed/cron` with header `x-cron-secret: $CRON_SECRET` (refresh availability/price)
+  - `POST /api/admin/email-outbox/process` with header `x-cron-secret: $CRON_SECRET` (send queued emails)
+  - Production requirement: `CRON_SECRET` must be a long random value (32+ chars) and must **not** use `NEXT_PUBLIC_*`.
 
 ## Orders archive
-- Edge function `archive-orders` runs daily at 03:00 UTC with payload `{ olderThanDays: 90, statuses: ["paid","refunded"], batchSize: 200, skipDelete: true }`. Keep `skipDelete` enabled for the first 1–2 days in production, monitor the audit log, then redeploy the schedule without it so old orders are physically removed.
+- Edge function `archive-orders` runs daily at 03:00 UTC with payload `{ olderThanDays: 90, statuses: ["paid","refunded"], batchSize: 200, skipDelete: true }`. Keep `skipDelete` enabled for the first 1-2 days in production, monitor the audit log, then redeploy the schedule without it so old orders are physically removed.
 - Secrets (Supabase vault or CLI):
   - `archive_orders_function_url` → `https://<project-ref>.functions.supabase.co/archive-orders`
   - `archive_orders_service_role` → service-role key scoped to archiving/restoring

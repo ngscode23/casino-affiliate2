@@ -81,6 +81,7 @@ type SkuRow = {
   slug: string | null;
   title: string | null;
   price: number | string | null;
+  price_cents: number | null;
   currency: string | null;
   status: string | null;
   is_available: boolean | null;
@@ -298,7 +299,7 @@ export async function POST(request: Request) {
     const requestedIds = items.map((item) => item.id);
     const { data: skuRows, error: skuError } = await supabase
       .from("ecom_products")
-      .select("id, slug, title, price, currency, status, is_available, inventory_status, catalog_product_id")
+      .select("id, slug, title, price, price_cents, currency, status, is_available, inventory_status, catalog_product_id")
       .in("id", requestedIds);
 
     if (skuError || !Array.isArray(skuRows)) {
@@ -317,7 +318,7 @@ export async function POST(request: Request) {
     if (legacyModelIds.length) {
       const { data: legacyRows, error: legacyError } = await supabase
         .from("ecom_products")
-        .select("id, slug, title, price, currency, status, is_available, inventory_status, catalog_product_id")
+        .select("id, slug, title, price, price_cents, currency, status, is_available, inventory_status, catalog_product_id")
         .in("catalog_product_id", legacyModelIds);
 
       if (legacyError || !Array.isArray(legacyRows)) {
@@ -442,8 +443,15 @@ export async function POST(request: Request) {
     }
 
     const orderItems = resolvedItems.map(({ sku, qty, legacyModelId }) => {
-      const unitPriceRaw = Number(sku.price ?? 0);
-      const unitPrice = Number.isFinite(unitPriceRaw) ? Math.max(0, unitPriceRaw) : 0;
+      const unitPriceCentsRaw = Number(sku.price_cents ?? NaN);
+      const unitPriceCents = Number.isFinite(unitPriceCentsRaw) && unitPriceCentsRaw >= 0
+        ? Math.round(unitPriceCentsRaw)
+        : (() => {
+            const unitPriceRaw = Number(sku.price ?? 0);
+            return Number.isFinite(unitPriceRaw) && unitPriceRaw >= 0 ? Math.round(unitPriceRaw * 100) : 0;
+          })();
+
+      const unitPrice = unitPriceCents / 100;
       const total = roundCurrency(unitPrice * qty);
       const title =
         typeof sku.title === "string" && sku.title.trim()

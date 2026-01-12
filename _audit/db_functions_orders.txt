@@ -1,0 +1,360 @@
+currency_upper|CREATE OR REPLACE FUNCTION public.currency_upper()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  new.currency := upper(new.currency);
+  return new;
+end $function$
+
+orders_enforce_owner|CREATE OR REPLACE FUNCTION public.orders_enforce_owner()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+BEGIN
+
+  IF NEW.user_id IS NULL THEN
+
+    NEW.user_id := auth.uid();    -- ð▒ðÁÐÇÐæð╝ ð©ðÀ JWT
+
+  END IF;
+
+
+
+  -- ð¥ð▒ÐïÐçð¢Ðïð╝ ÐÄðÀðÁÐÇð░ð╝ ðÀð░ð┐ÐÇðÁÐëð░ðÁð╝ ð┐ð©Ðüð░ÐéÐî ÐçÐâðÂð¥ð╣ user_id
+
+  IF auth.role() <> 'service_role' AND NEW.user_id IS DISTINCT FROM auth.uid() THEN
+
+    RAISE EXCEPTION 'user_id must equal auth.uid()';
+
+  END IF;
+
+
+
+  RETURN NEW;
+
+END;
+
+$function$
+
+orders_set_user_id|CREATE OR REPLACE FUNCTION public.orders_set_user_id()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+begin
+
+  if new.user_id is null then
+
+    new.user_id := auth.uid();
+
+  elsif auth.uid() is not null and new.user_id <> auth.uid() then
+
+    raise exception 'user_id mismatch' using errcode = '42501';
+
+  end if;
+
+  return new;
+
+end;
+
+$function$
+
+orders_status_guard|CREATE OR REPLACE FUNCTION public.orders_status_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  -- new orders must start as pending
+  if tg_op = 'INSERT' and new.status <> 'pending' then
+    raise exception 'new orders must start as pending';
+  end if;
+
+  if tg_op = 'UPDATE' and old.status is distinct from new.status then
+    if not (
+      (old.status = 'pending'  and new.status in ('paid','cancelled')) or
+      (old.status = 'paid'     and new.status = 'refunded') or
+      -- allow cancelled -> paid only if we truly have a successful payment recorded
+      (old.status = 'cancelled' and new.status = 'paid'
+         and exists (select 1 from public.payments p
+                     where p.order_id = new.id
+                       and p.status in ('paid','succeeded')))
+    ) then
+      raise exception 'invalid status transition: % -> %', old.status, new.status;
+    end if;
+  end if;
+
+  return new;
+end;
+$function$
+
+tr_recalc_after_orders|CREATE OR REPLACE FUNCTION public.tr_recalc_after_orders()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  perform public.recalc_order_totals(new.id);
+  return null;
+end$function$
+
+trg_orders_block_zero|CREATE OR REPLACE FUNCTION public.trg_orders_block_zero()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+declare
+
+  v_total numeric;
+
+begin
+
+  -- ð©ð¢ÐéðÁÐÇðÁÐüÐâÐÄÐé Ðéð¥ð╗Ðîð║ð¥ ð©ðÀð╝ðÁð¢ðÁð¢ð©ÐÅ ÐüÐéð░ÐéÐâÐüð░
+
+  if tg_op = 'UPDATE' and new.status is not distinct from old.status then
+
+    return new;
+
+  end if;
+
+
+
+  -- ÐüÐçð©Ðéð░ðÁð╝ ÐüÐâð╝ð╝Ðâ ð©ðÀ view
+
+  select amount_total into v_total
+
+  from public.order_v2
+
+  where id = new.id;
+
+
+
+  -- ð▒ð╗ð¥ð║ð©ÐÇÐâðÁð╝ Ðéð¥ð╗Ðîð║ð¥, ðÁÐüð╗ð© ÐåðÁð╗ðÁð▓ð¥ð╣ ÐüÐéð░ÐéÐâÐü ÐéÐÇðÁð▒ÐâðÁÐé ð┤ðÁð¢ðÁð│
+
+  if new.status in ('paid','refunded') then
+
+    if coalesce(v_total,0) <= 0 then
+
+      raise exception 'order_total_must_be_positive (calculated=%)', v_total using errcode='P0001';
+
+    end if;
+
+  end if;
+
+
+
+  -- ð¢ð░ cancelled ð¢ðÁ ÐÇÐâð│ð░ðÁð╝ÐüÐÅ, ð┐ÐâÐüÐéÐî ð│ð░Ðüð©ÐéÐüÐÅ
+
+  return new;
+
+end;
+
+$function$
+
+trg_orders_forbid_cancel_if_paid|CREATE OR REPLACE FUNCTION public.trg_orders_forbid_cancel_if_paid()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+begin
+
+  if tg_op='UPDATE'
+
+     and old.status='pending'
+
+     and new.status='cancelled'
+
+     and exists (
+
+       select 1 from public.payments p
+
+       where p.order_id = new.id
+
+         and p.status in ('paid','succeeded')
+
+     ) then
+
+    raise exception 'illegal_order_transition: already paid' using errcode='P0001';
+
+  end if;
+
+  return new;
+
+end; $function$
+
+trg_orders_guard_refund|CREATE OR REPLACE FUNCTION public.trg_orders_guard_refund()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+begin
+
+  -- ð▒ð╗ð¥ð║ð©ÐÇÐâðÁð╝ ð╗ÐÄð▒ÐïðÁ ð┐ð¥ð┐ÐïÐéð║ð© ð┐ð¥ÐüÐéð░ð▓ð©ÐéÐî refunded, ðÁÐüð╗ð© ð¢ðÁÐé ÐâÐüð┐ðÁÐêð¢ð¥ð│ð¥ ð┐ð╗ð░ÐéðÁðÂð░
+
+  if new.status = 'refunded' then
+
+    if not exists (
+
+      select 1
+
+      from public.payments p
+
+      where p.order_id = new.id
+
+        and p.status in ('paid','succeeded')
+
+    ) then
+
+      raise exception 'refund_without_successful_payment' using errcode='P0001';
+
+    end if;
+
+  end if;
+
+  return new;
+
+end;
+
+$function$
+
+trg_orders_inventory|CREATE OR REPLACE FUNCTION public.trg_orders_inventory()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+begin
+
+  if (tg_op = 'UPDATE') and (new.status is distinct from old.status) then
+
+    if lower(new.status::text) = 'paid' and coalesce(lower(old.status::text), '') <> 'paid' then
+
+      perform public._inventory_apply_delta(new.id, 'sold', -1);
+
+    end if;
+
+    if lower(new.status::text) = 'refunded' and lower(coalesce(old.status::text, '')) in ('paid','fulfilled') then
+
+      perform public._inventory_apply_delta(new.id, 'refund', +1);
+
+    end if;
+
+  end if;
+
+  return new;
+
+end;
+
+$function$
+
+trg_orders_log_status|CREATE OR REPLACE FUNCTION public.trg_orders_log_status()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+
+declare
+
+  v_actor uuid := null;
+
+begin
+
+  begin
+
+    v_actor := auth.uid();
+
+  exception when others then
+
+    v_actor := null;
+
+  end;
+
+
+
+  if tg_op = 'INSERT' then
+
+    insert into public.order_status_history(order_id, from_status, to_status, changed_by, reason)
+
+    values (new.id, null, new.status, v_actor, 'create');
+
+  elsif tg_op = 'UPDATE' and new.status is distinct from old.status then
+
+    insert into public.order_status_history(order_id, from_status, to_status, changed_by)
+
+    values (new.id, old.status, new.status, v_actor);
+
+  end if;
+
+
+
+  return new;
+
+end;
+
+$function$
+
+trg_orders_normalize_currency|CREATE OR REPLACE FUNCTION public.trg_orders_normalize_currency()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+begin
+  if new.currency is not null then
+    new.currency := upper(new.currency);
+  end if;
+  return new;
+end;
+$function$
+
+trg_orders_status_audit|CREATE OR REPLACE FUNCTION public.trg_orders_status_audit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+
+begin
+
+  if (tg_op = 'UPDATE') and (new.status is distinct from old.status) then
+
+    perform public._order_try_validate_transition(old.status, new.status);
+
+    insert into public.order_status_audit(order_id, old_status, new_status, changed_by, reason, source)
+
+    values (new.id, old.status, new.status, coalesce(auth.uid(), null), null, 'orders.update');
+
+  end if;
+
+  return new;
+
+end;
+
+$function$
+
+trg_orders_validate_status|CREATE OR REPLACE FUNCTION public.trg_orders_validate_status()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  if tg_op = 'UPDATE' and new.status is distinct from old.status then
+    -- exception: allow cancelled -> paid when there's a successful payment recorded
+    if not (old.status = 'cancelled' and new.status = 'paid' and
+            exists (select 1 from public.payments p
+                    where p.order_id = new.id
+                      and p.status in ('paid','succeeded'))) then
+      perform public.order_validate_transition(old.status::text, new.status::text);
+    end if;
+  end if;
+  return new;
+end;
+$function$
+

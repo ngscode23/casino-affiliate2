@@ -98,6 +98,12 @@ function buildSupabase(options: SupabaseOptions = {}) {
         return { select: processedSelect, insert: processedInsert };
       case "orders":
         return { select: orderSelect };
+      case "order_items":
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(async () => ({ data: [], error: null })),
+          })),
+        };
       case "stripe_webhooks":
         return { update: stripeUpdate, insert: stripeInsert, upsert: stripeUpsert };
       case "webhook_logs_app":
@@ -246,7 +252,7 @@ describe("POST /api/payments/webhook", () => {
       supabaseMock,
       orderId,
       expect.objectContaining({
-        status: "succeeded",
+        status: "paid",
         amount_cents: 4500,
         currency: "usd",
       }),

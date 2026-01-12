@@ -2,14 +2,13 @@ import { NextRequest } from "next/server";
 
 import { json } from "@/app/api/orders/utils";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { requireCronSecret } from "@/utils/cron/guard";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const RUN_ENDPOINT = "/api/admin/supplier-feed/run";
 
 export async function POST(request: NextRequest) {
-  if (!CRON_SECRET || request.headers.get("x-cron-secret") !== CRON_SECRET) {
-    return json({ ok: false, error: "unauthorized" }, 401);
-  }
+  const cronAuth = requireCronSecret(request);
+  if (!cronAuth.ok) return json({ ok: false, error: cronAuth.error }, cronAuth.status);
 
   const supabase = getAdminClient();
   const { data: suppliers, error } = await supabase
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-cron-secret": CRON_SECRET,
+          "x-cron-secret": process.env.CRON_SECRET!,
         },
         body: JSON.stringify({ supplier_id: supplierId, miss_threshold: 3, mode: "remote" }),
       });

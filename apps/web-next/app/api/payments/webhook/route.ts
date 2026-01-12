@@ -227,6 +227,9 @@ type SupplierSkuRow = {
   supplier_sku: string | null;
   cost_cents: number | null;
   currency: string | null;
+  is_available: boolean | null;
+  inventory_status: string | null;
+  stock_quantity: number | null;
 };
 
 function normalizeSkuId(value: unknown): string | null {
@@ -235,7 +238,25 @@ function normalizeSkuId(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function normalizeStatus(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isSupplierSkuAvailable(row: SupplierSkuRow): boolean {
+  if (row.is_available === false) return false;
+  const inv = normalizeStatus(row.inventory_status);
+  if (inv === "out_of_stock") return false;
+  const stock = typeof row.stock_quantity === "number" ? row.stock_quantity : null;
+  if (stock != null && Number.isFinite(stock) && stock <= 0) return false;
+  return true;
+}
+
 function pickSupplierSku(existing: SupplierSkuRow, incoming: SupplierSkuRow): SupplierSkuRow {
+  const existingAvailable = isSupplierSkuAvailable(existing);
+  const incomingAvailable = isSupplierSkuAvailable(incoming);
+  if (existingAvailable && !incomingAvailable) return existing;
+  if (!existingAvailable && incomingAvailable) return incoming;
+
   const existingCost = typeof existing.cost_cents === "number" ? existing.cost_cents : null;
   const incomingCost = typeof incoming.cost_cents === "number" ? incoming.cost_cents : null;
   if (existingCost == null) return incoming;
@@ -335,7 +356,7 @@ async function createPurchaseOrderForPaidOrder(params: {
     const skuIds = Array.from(new Set(resolvedItems.map((item) => item.skuId)));
     const { data: supplierRows, error: supplierError } = await supabase
       .from("supplier_skus")
-      .select("supplier_id, sku_id, supplier_sku, cost_cents, currency")
+      .select("supplier_id, sku_id, supplier_sku, cost_cents, currency, is_available, inventory_status, stock_quantity")
       .in("sku_id", skuIds);
 
     if (supplierError) {
@@ -363,38 +384,37 @@ async function createPurchaseOrderForPaidOrder(params: {
     }
 
     const missingSupplierSkus = skuIds.filter((id) => !supplierBySku.has(id));
-    const hasMultipleSuppliers = supplierIds.size > 1;
+    const unavailableSupplierSkus = skuIds.filter((id) => {
+      const picked = supplierBySku.get(id);
+      return picked ? !isSupplierSkuAvailable(picked) : false;
+    });
 
-    let supplierId: string | null = supplierIds.size === 1 ? Array.from(supplierIds)[0] : null;
-    if (!supplierId) {
-      supplierId = await resolveDefaultSupplierId(supabase);
-    }
-
-    if (!supplierId) {
-      await recordWebhookLog({
-        supabase,
-        type: "dropship.po.missing_supplier",
-        status: "error",
-        eventId,
-        message: "No supplier available to create PO",
-        payload: { orderId, missingSupplierSkus },
-      });
-      return;
-    }
-
-    if (missingSupplierSkus.length || missingSkuRefs.length || hasMultipleSuppliers) {
+    if (missingSupplierSkus.length || missingSkuRefs.length || unavailableSupplierSkus.length) {
       const parts: string[] = [];
       if (missingSupplierSkus.length) parts.push(`missing_supplier_skus:${missingSupplierSkus.join(",")}`);
       if (missingSkuRefs.length) parts.push(`missing_sku_refs:${missingSkuRefs.join(",")}`);
-      if (hasMultipleSuppliers) parts.push(`multiple_suppliers:${Array.from(supplierIds).join(",")}`);
+      if (unavailableSupplierSkus.length) parts.push(`unavailable_supplier_skus:${unavailableSupplierSkus.join(",")}`);
       const errorMessage = parts.join("; ").slice(0, 500);
+
+      const fallbackSupplierId = await resolveDefaultSupplierId(supabase);
+      if (!fallbackSupplierId) {
+        await recordWebhookLog({
+          supabase,
+          type: "dropship.po.missing_supplier",
+          status: "error",
+          eventId,
+          message: "No supplier available to create failed PO",
+          payload: { orderId, missingSupplierSkus },
+        });
+        return;
+      }
 
       const { data: poRow } = await supabase
         .from("purchase_orders")
         .upsert(
           {
             order_id: orderId,
-            supplier_id: supplierId,
+            supplier_id: fallbackSupplierId,
             status: "failed",
             currency: orderCurrency ?? null,
             error_message: errorMessage || "supplier_mapping_failed",
@@ -415,9 +435,13 @@ async function createPurchaseOrderForPaidOrder(params: {
       return;
     }
 
-    const itemsPayload = resolvedItems.map((item) => {
+    const itemsBySupplier = new Map<string, any[]>();
+
+    for (const item of resolvedItems) {
       const skuRow = supplierBySku.get(item.skuId)!;
-      return {
+      const supplierId = normalizeSkuId(skuRow.supplier_id);
+      if (!supplierId) continue;
+      const payload = {
         purchase_order_id: "",
         order_item_id: item.orderItemId,
         sku_id: item.skuId,
@@ -428,80 +452,80 @@ async function createPurchaseOrderForPaidOrder(params: {
         title_snapshot: item.title ?? null,
         metadata: {},
       };
-    });
+      const bucket = itemsBySupplier.get(supplierId) ?? [];
+      bucket.push(payload);
+      itemsBySupplier.set(supplierId, bucket);
+    }
 
-    let totalCostCents = 0;
-    let hasCost = false;
-    let currency = orderCurrency ?? null;
-    for (const item of itemsPayload) {
-      if (typeof item.cost_cents === "number") {
-        totalCostCents += item.cost_cents * item.qty;
-        hasCost = true;
+    for (const [supplierId, itemsPayload] of itemsBySupplier.entries()) {
+      let totalCostCents = 0;
+      let hasCost = false;
+      let currency = orderCurrency ?? null;
+
+      for (const item of itemsPayload) {
+        if (typeof item.cost_cents === "number") {
+          totalCostCents += item.cost_cents * item.qty;
+          hasCost = true;
+        }
+        if (!currency && item.currency) currency = item.currency;
       }
-      if (!currency && item.currency) currency = item.currency;
-    }
 
-    const { data: poInsert, error: poError } = await supabase
-      .from("purchase_orders")
-      .upsert(
-        {
-          order_id: orderId,
-          supplier_id: supplierId,
-          status: "pending",
-          currency,
-          total_cost_cents: hasCost ? totalCostCents : null,
-        },
-        { onConflict: "order_id,supplier_id", ignoreDuplicates: true }
-      )
-      .select("id")
-      .maybeSingle<{ id: string }>();
-
-    if (poError) {
-      await recordWebhookLog({
-        supabase,
-        type: "dropship.po.create_failed",
-        status: "error",
-        eventId,
-        message: poError.message || "purchase_orders_insert_failed",
-        payload: { orderId },
-        error: poError,
-      });
-      return;
-    }
-
-    let purchaseOrderId = poInsert?.id ?? null;
-    if (!purchaseOrderId) {
-      const { data: existingPo } = await supabase
+      const { data: poInsert, error: poError } = await supabase
         .from("purchase_orders")
+        .upsert(
+          {
+            order_id: orderId,
+            supplier_id: supplierId,
+            status: "pending",
+            currency,
+            total_cost_cents: hasCost ? totalCostCents : null,
+          },
+          { onConflict: "order_id,supplier_id", ignoreDuplicates: true }
+        )
         .select("id")
-        .eq("order_id", orderId)
-        .eq("supplier_id", supplierId)
         .maybeSingle<{ id: string }>();
-      purchaseOrderId = existingPo?.id ?? null;
-    }
 
-    if (!purchaseOrderId) {
-      await recordWebhookLog({
-        supabase,
-        type: "dropship.po.create_failed",
-        status: "error",
-        eventId,
-        message: "purchase_order_missing_after_insert",
-        payload: { orderId },
-      });
-      return;
-    }
+      if (poError) {
+        await recordWebhookLog({
+          supabase,
+          type: "dropship.po.create_failed",
+          status: "error",
+          eventId,
+          message: poError.message || "purchase_orders_insert_failed",
+          payload: { orderId, supplierId },
+          error: poError,
+        });
+        continue;
+      }
 
-    const { data: existingItem } = await supabase
-      .from("purchase_order_items")
-      .select("id")
-      .eq("purchase_order_id", purchaseOrderId)
-      .limit(1)
-      .maybeSingle<{ id: string }>();
+      let purchaseOrderId = poInsert?.id ?? null;
+      if (!purchaseOrderId) {
+        const { data: existingPo } = await supabase
+          .from("purchase_orders")
+          .select("id")
+          .eq("order_id", orderId)
+          .eq("supplier_id", supplierId)
+          .maybeSingle<{ id: string }>();
+        purchaseOrderId = existingPo?.id ?? null;
+      }
 
-    if (!existingItem) {
+      if (!purchaseOrderId) {
+        await recordWebhookLog({
+          supabase,
+          type: "dropship.po.create_failed",
+          status: "error",
+          eventId,
+          message: "purchase_order_missing_after_insert",
+          payload: { orderId, supplierId },
+        });
+        continue;
+      }
+
       const insertPayload = itemsPayload.map((item) => ({ ...item, purchase_order_id: purchaseOrderId! }));
-      const { error: itemsInsertError } = await supabase.from("purchase_order_items").insert(insertPayload);
+      const { error: itemsInsertError } = await supabase
+        .from("purchase_order_items")
+        .upsert(insertPayload, { onConflict: "purchase_order_id,order_item_id", ignoreDuplicates: true });
+
       if (itemsInsertError) {
         await recordWebhookLog({
           supabase,
@@ -509,28 +533,29 @@ async function createPurchaseOrderForPaidOrder(params: {
           status: "error",
           eventId,
           message: itemsInsertError.message || "purchase_order_items_insert_failed",
-          payload: { orderId, purchaseOrderId },
+          payload: { orderId, purchaseOrderId, supplierId },
           error: itemsInsertError,
         });
-        return;
+        continue;
       }
-    }
 
-    await recordWebhookLog({
-      supabase,
-      type: "dropship.po.created",
-      status: "info",
-      eventId,
-      message: "Purchase order created",
-      payload: {
-        orderId,
-        purchaseOrderId,
-        supplierId,
-        items: itemsPayload.length,
-        totalCostCents: hasCost ? totalCostCents : null,
-        currency,
-      },
-    });
+      await recordWebhookLog({
+        supabase,
+        type: "dropship.po.created",
+        status: "info",
+        eventId,
+        message: "Purchase order created",
+        payload: {
+          orderId,
+          purchaseOrderId,
+          supplierId,
+          items: itemsPayload.length,
+          totalCostCents: hasCost ? totalCostCents : null,
+          currency,
+          suppliersDetected: Array.from(supplierIds),
+        },
+      });
+    }
   } catch (error) {
     await recordWebhookLog({
       supabase,
@@ -630,7 +655,7 @@ export async function POST(request: Request) {
           supabase,
           orderId,
           {
-            status: "succeeded",
+            status: "paid",
             paid_at: new Date().toISOString(),
             payment_intent_id: intentId || orderRow.payment_intent_id,
             amount_cents: amountCents,
@@ -1001,7 +1026,7 @@ export async function POST(request: Request) {
       supabase,
       orderId,
       {
-        status: "succeeded",
+        status: "paid",
         paid_at: resolvePaidAt(intentSnapshot),
         payment_intent_id: intentSnapshot.id,
         amount_cents: amountForUpdate,
@@ -1026,7 +1051,7 @@ export async function POST(request: Request) {
     }
 
     await upsertPaymentRecord(supabase, orderId, intentSnapshot, currencyForUpdate, amountForUpdate);
-    void createPurchaseOrderForPaidOrder({
+    await createPurchaseOrderForPaidOrder({
       supabase,
       orderId,
       eventId,

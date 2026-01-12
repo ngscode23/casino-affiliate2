@@ -194,7 +194,6 @@ export function ShipmentsClient() {
                 try {
                   const res = await fetch("/api/admin/email-outbox/process", {
                     method: "POST",
-                    headers: { "x-cron-secret": (process.env.NEXT_PUBLIC_CRON_SECRET as string) || "" },
                   });
                   const json = await res.json();
                   toast(res.ok ? `Email outbox processed (sent ${json.sent ?? 0})` : json.message || "Process failed", {

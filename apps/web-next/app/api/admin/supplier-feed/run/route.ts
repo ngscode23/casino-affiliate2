@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { requireCronSecret } from "@/utils/cron/guard";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DEFAULT_MISS_THRESHOLD = 3;
@@ -111,10 +112,11 @@ function normalizeItems(rawItems: RawItem[]) {
 
 export async function POST(request: NextRequest) {
   // auth: admin or cron secret
-  const cronSecret = process.env.CRON_SECRET;
-  const headerSecret = request.headers.get("x-cron-secret");
-  const fromCron = cronSecret && headerSecret && cronSecret === headerSecret;
-  if (!fromCron) {
+  const hasCronHeader = Boolean(request.headers.get("x-cron-secret"));
+  if (hasCronHeader) {
+    const cronAuth = requireCronSecret(request);
+    if (!cronAuth.ok) return json({ ok: false, error: cronAuth.error }, cronAuth.status);
+  } else {
     const auth = await requireAdmin(request);
     if ("response" in auth) return auth.response;
   }

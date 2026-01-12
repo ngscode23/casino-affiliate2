@@ -2,6 +2,10 @@ name: Maintenance Jobs
 
 on:
   schedule:
+    # Dropship: refresh supplier feed every 15 minutes
+    - cron: "*/15 * * * *"
+    # Dropship: send queued emails every 5 minutes
+    - cron: "*/5 * * * *"
     # Cleanup clicks daily at 03:00 UTC
     - cron: "0 3 * * *"
     # Cleanup recent views daily at 03:30 UTC
@@ -11,6 +15,32 @@ on:
   workflow_dispatch:
 
 jobs:
+  dropship-supplier-feed:
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run supplier feed cron
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "$BASE_URL/api/admin/supplier-feed/cron"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
+  dropship-email-outbox:
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process email outbox
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "$BASE_URL/api/admin/email-outbox/process"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
   cleanup-clicks:
     if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -49,4 +79,3 @@ jobs:
             "$BASE_URL/api/admin/analytics/refresh"
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
-

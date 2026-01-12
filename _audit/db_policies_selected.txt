@@ -1,0 +1,108 @@
+carts|carts_owner_all|ALL|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|(( SELECT auth.uid() AS uid) = user_id)
+carts|carts_owner_del|DELETE|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|
+carts|carts_owner_ins|INSERT|{authenticated}|PERMISSIVE||(( SELECT auth.uid() AS uid) = user_id)
+carts|carts_owner_insert|INSERT|{authenticated}|PERMISSIVE||(user_id = auth.uid())
+carts|carts_owner_read|SELECT|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|
+carts|carts_owner_select|SELECT|{authenticated}|PERMISSIVE|(user_id = auth.uid())|
+carts|carts_owner_upd|UPDATE|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|(( SELECT auth.uid() AS uid) = user_id)
+carts|carts_owner_update|UPDATE|{authenticated}|PERMISSIVE|(user_id = auth.uid())|(user_id = auth.uid())
+ecom_products|ecom_products_admin_write|ALL|{authenticated}|PERMISSIVE|is_admin()|is_admin()
+ecom_products|ecom_products_all_sr|ALL|{service_role}|PERMISSIVE|true|true
+ecom_products|ecom_products_public_read|SELECT|{anon,authenticated}|PERMISSIVE|(COALESCE(status, ''::text) = ANY (ARRAY['active'::text, 'published'::text]))|
+ecom_products|ecom_products_select_public|SELECT|{anon,authenticated}|PERMISSIVE|(status = ANY (ARRAY['active'::text, 'published'::text]))|
+ecom_products|ecom_products_seller_insert|INSERT|{authenticated}|PERMISSIVE||((seller_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM trash.sellers s
+  WHERE ((s.id = ecom_products.seller_id) AND (s.user_id = auth.uid()) AND (s.status = 'active'::text)))))
+ecom_products|ecom_products_seller_select|SELECT|{authenticated}|PERMISSIVE|((seller_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM trash.sellers s
+  WHERE ((s.id = ecom_products.seller_id) AND (s.user_id = auth.uid()) AND (s.status = 'active'::text)))))|
+ecom_products|ecom_products_seller_update|UPDATE|{authenticated}|PERMISSIVE|((seller_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM trash.sellers s
+  WHERE ((s.id = ecom_products.seller_id) AND (s.user_id = auth.uid()) AND (s.status = 'active'::text)))))|((seller_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM trash.sellers s
+  WHERE ((s.id = ecom_products.seller_id) AND (s.user_id = auth.uid()) AND (s.status = 'active'::text)))))
+ecom_products|ecom_products_srv_all|ALL|{service_role}|PERMISSIVE|true|true
+ecom_products|public_read_ecom_products|SELECT|{anon,authenticated}|PERMISSIVE|true|
+ecom_products|read_active_for_public|SELECT|{anon,authenticated}|PERMISSIVE|(COALESCE(status, ''::text) = ANY (ARRAY['active'::text, 'published'::text]))|
+order_items|order_items_by_order_owner_all|ALL|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()))))|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = auth.uid()))))
+order_items|order_items_owner|ALL|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))
+order_items|order_items_owner_read|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))|
+order_items|order_items_owner_update|UPDATE|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))
+order_items|order_items_owner_write|INSERT|{authenticated}|PERMISSIVE||(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))
+order_items|order_items_select|SELECT|{public}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = order_items.order_id) AND ((o.user_id = auth.uid()) OR (COALESCE(NULLIF((auth.jwt() ->> 'role'::text), ''::text), ''::text) = 'support'::text)))))|
+order_items|order_items_srv_write|ALL|{service_role}|PERMISSIVE|true|true
+orders|orders_owner|ALL|{authenticated}|PERMISSIVE|(user_id = ( SELECT auth.uid() AS uid))|(user_id = ( SELECT auth.uid() AS uid))
+orders|orders_owner_insert|INSERT|{authenticated}|PERMISSIVE||(user_id = auth.uid())
+orders|orders_owner_read|SELECT|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|
+orders|orders_owner_select|SELECT|{authenticated}|PERMISSIVE|(user_id = auth.uid())|
+orders|orders_owner_update|UPDATE|{authenticated}|PERMISSIVE|(( SELECT auth.uid() AS uid) = user_id)|(( SELECT auth.uid() AS uid) = user_id)
+orders|orders_owner_write|INSERT|{authenticated}|PERMISSIVE||(( SELECT auth.uid() AS uid) = user_id)
+orders|orders_select_owner|SELECT|{public}|PERMISSIVE|((user_id = auth.uid()) OR (COALESCE(NULLIF((auth.jwt() ->> 'role'::text), ''::text), ''::text) = 'support'::text))|
+orders|orders_srv_write|ALL|{service_role}|PERMISSIVE|true|true
+payments|payments_admin_read|SELECT|{role_admin}|PERMISSIVE|true|
+payments|payments_owner_by_order|ALL|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))
+payments|payments_owner_read|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))|
+payments|payments_owner_select|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND (o.user_id = auth.uid()))))|
+payments|payments_owner_write|INSERT|{authenticated}|PERMISSIVE||(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND (o.user_id = ( SELECT auth.uid() AS uid)))))
+payments|payments_select|SELECT|{public}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = payments.order_id) AND ((o.user_id = auth.uid()) OR (COALESCE(NULLIF((auth.jwt() ->> 'role'::text), ''::text), ''::text) = 'support'::text)))))|
+payments|payments_srv_write|ALL|{service_role}|PERMISSIVE|true|true
+processed_events|pe_service_all|ALL|{service_role}|PERMISSIVE|true|true
+purchase_order_items|poi_select_own|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM (purchase_orders po
+     JOIN orders o ON ((o.id = po.order_id)))
+  WHERE ((po.id = purchase_order_items.purchase_order_id) AND (o.user_id = auth.uid()))))|
+purchase_order_items|purchase_order_items_service_all|ALL|{service_role}|PERMISSIVE|true|true
+purchase_orders|po_select_own|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = purchase_orders.order_id) AND (o.user_id = auth.uid()))))|
+purchase_orders|purchase_orders_service_all|ALL|{service_role}|PERMISSIVE|true|true
+rma_requests|rma_requests_service_all|ALL|{service_role}|PERMISSIVE|true|true
+rma_requests|rma_select_own|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = rma_requests.order_id) AND (o.user_id = auth.uid()))))|
+shipments|shipments_select_own|SELECT|{authenticated}|PERMISSIVE|(EXISTS ( SELECT 1
+   FROM orders o
+  WHERE ((o.id = shipments.order_id) AND (o.user_id = auth.uid()))))|
+shipments|shipments_service_all|ALL|{service_role}|PERMISSIVE|true|true
+stripe_webhooks|deny_write_webhooks|ALL|{authenticated}|PERMISSIVE|false|false
+stripe_webhooks|rls_sw_select_service|SELECT|{service_role}|PERMISSIVE|true|
+stripe_webhooks|stripe_webhooks_deny_client_write|ALL|{authenticated}|PERMISSIVE|false|false
+stripe_webhooks|stripe_webhooks_read_auth|SELECT|{authenticated}|PERMISSIVE|true|
+stripe_webhooks|sw_allow_service_all|ALL|{service_role}|PERMISSIVE|true|true
+stripe_webhooks_failed|rls_swf_select_service|SELECT|{service_role}|PERMISSIVE|true|
+stripe_webhooks_failed|stripe_webhooks_failed_srv_only|ALL|{service_role}|PERMISSIVE|true|true
+stripe_webhooks_failed|swf_allow_service_all|ALL|{service_role}|PERMISSIVE|true|true
+supplier_feed_runs|supplier_feed_runs_admin_all|ALL|{authenticated}|PERMISSIVE|is_admin()|is_admin()
+supplier_feed_runs|supplier_feed_runs_service_all|ALL|{service_role}|PERMISSIVE|true|true
+supplier_skus|supplier_skus_admin_write|ALL|{authenticated}|PERMISSIVE|is_admin()|is_admin()
+supplier_skus|supplier_skus_service_all|ALL|{service_role}|PERMISSIVE|true|true

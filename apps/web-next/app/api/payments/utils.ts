@@ -113,7 +113,8 @@ export function mapPaymentStatus(status: Stripe.PaymentIntent.Status): string {
     case "canceled":
       return "canceled";
     case "processing":
-      return "processing";
+      // DB enum payment_status does not include "processing"; keep order pending.
+      return "pending";
     case "requires_payment_method":
       return "failed";
     case "requires_confirmation":

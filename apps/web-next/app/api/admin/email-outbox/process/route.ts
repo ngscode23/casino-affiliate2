@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
+import { requireCronSecret } from "@/utils/cron/guard";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_LIMIT = 20;
@@ -47,10 +48,11 @@ function calcNextSchedule(attempts: number) {
 
 export async function POST(request: NextRequest) {
   // allow admin or cron secret
-  const cronSecret = process.env.CRON_SECRET;
-  const headerSecret = request.headers.get("x-cron-secret");
-  const fromCron = cronSecret && headerSecret && cronSecret === headerSecret;
-  if (!fromCron) {
+  const hasCronHeader = Boolean(request.headers.get("x-cron-secret"));
+  if (hasCronHeader) {
+    const cronAuth = requireCronSecret(request);
+    if (!cronAuth.ok) return json({ ok: false, error: cronAuth.error }, cronAuth.status);
+  } else {
     const auth = await requireAdmin(request);
     if ("response" in auth) return auth.response;
   }

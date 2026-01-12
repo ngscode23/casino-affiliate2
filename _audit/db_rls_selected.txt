@@ -1,0 +1,16 @@
+carts|t|t
+ecom_products|t|t
+email_outbox|f|f
+order_items|t|t
+orders|t|t
+payments|t|t
+processed_events|t|f
+purchase_order_items|t|f
+purchase_orders|t|f
+rma_requests|t|f
+shipments|t|f
+stripe_webhooks|t|f
+stripe_webhooks_failed|t|f
+supplier_feed_runs|t|f
+supplier_skus|t|f
+suppliers|t|f
