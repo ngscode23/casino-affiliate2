@@ -91,7 +91,7 @@ export default function RecentProducts({ currentSlug }: RecentProductsProps) {
         const optedOut = Boolean(response.opt_out);
         if (optedOut) setRecsOptOut(true);
 
-        let recentItems = optedOut ? [] : Array.isArray(response.recent) ? response.recent : [];
+        const recentItems = optedOut ? [] : Array.isArray(response.recent) ? response.recent : [];
         const recommendedItems = optedOut ? [] : Array.isArray(response.recommended) ? response.recommended : [];
 
         const serverSlugs = recentItems

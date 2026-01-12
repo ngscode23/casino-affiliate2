@@ -196,7 +196,7 @@ export function SupplierSkusClient() {
         toast(error?.message || "Failed to load suppliers.", { variant: "error" });
       });
     // Загружаем список поставщиков один раз на маунт
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   }, []);
 
   const loadMappings = useCallback(async () => {
