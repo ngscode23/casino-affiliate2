@@ -41,6 +41,17 @@ type ShipmentPayload = {
   notification_email?: string | null;
 };
 
+function shouldNotifyTrackingUpdate(prevStatus: string | null, nextStatus: string | null, isInsert: boolean): boolean {
+  const next = (nextStatus ?? "").trim().toLowerCase();
+  if (!next) return false;
+  if (next === "pending") return false;
+
+  if (isInsert) return true;
+
+  const prev = (prevStatus ?? "").trim().toLowerCase();
+  return prev !== next;
+}
+
 export async function GET(request: Request) {
   const auth = await requireAdmin(request);
   if ("response" in auth) return auth.response;
@@ -100,6 +111,12 @@ async function upsertShipment(payload: ShipmentPayload) {
 
   const existingId = normalizeString(payload.id ?? null);
   if (existingId) {
+    const { data: prev } = await supabase
+      .from("shipments")
+      .select("status")
+      .eq("id", existingId)
+      .maybeSingle();
+
     const { data, error } = await supabase
       .from("shipments")
       .update(record)
@@ -107,14 +124,22 @@ async function upsertShipment(payload: ShipmentPayload) {
       .select("*")
       .maybeSingle();
     if (error) return { error: error.message, status: 500 };
-    const emailResult = await enqueueTrackingEmail(
-      orderId,
-      record.tracking_number as string | null,
-      record.tracking_url as string | null,
-      record.status as string | null,
-      record.carrier as string | null,
-      record.eta as string | null,
+
+    const shouldNotify = shouldNotifyTrackingUpdate(
+      ((prev as any)?.status as string | null) ?? null,
+      (record.status as string | null) ?? null,
+      false,
     );
+    const emailResult = shouldNotify
+      ? await enqueueTrackingEmail(
+          orderId,
+          record.tracking_number as string | null,
+          record.tracking_url as string | null,
+          record.status as string | null,
+          record.carrier as string | null,
+          record.eta as string | null,
+        )
+      : { enqueued: false, reason: "status_unchanged_or_pending" };
     await updatePurchaseOrderStatus(purchaseOrderId, record.status as string, record.shipped_at as string | null);
     return { data, outbox: emailResult };
   }
@@ -123,7 +148,7 @@ async function upsertShipment(payload: ShipmentPayload) {
   if (trackingNumber) {
     const { data: existing } = await supabase
       .from("shipments")
-      .select("id")
+      .select("id, status")
       .eq("tracking_number", trackingNumber)
       .maybeSingle();
     if (existing?.id) {
@@ -134,14 +159,22 @@ async function upsertShipment(payload: ShipmentPayload) {
         .select("*")
         .maybeSingle();
       if (error) return { error: error.message, status: 500 };
-      const emailResult = await enqueueTrackingEmail(
-        orderId,
-        record.tracking_number as string | null,
-        record.tracking_url as string | null,
-        record.status as string | null,
-        record.carrier as string | null,
-        record.eta as string | null,
+
+      const shouldNotify = shouldNotifyTrackingUpdate(
+        ((existing as any)?.status as string | null) ?? null,
+        (record.status as string | null) ?? null,
+        false,
       );
+      const emailResult = shouldNotify
+        ? await enqueueTrackingEmail(
+            orderId,
+            record.tracking_number as string | null,
+            record.tracking_url as string | null,
+            record.status as string | null,
+            record.carrier as string | null,
+            record.eta as string | null,
+          )
+        : { enqueued: false, reason: "status_unchanged_or_pending" };
       await updatePurchaseOrderStatus(purchaseOrderId, record.status as string, record.shipped_at as string | null);
       return { data, outbox: emailResult };
     }
@@ -149,14 +182,17 @@ async function upsertShipment(payload: ShipmentPayload) {
 
   const { data, error } = await supabase.from("shipments").insert(record).select("*").maybeSingle();
   if (error) return { error: error.message, status: 500 };
-  const emailResult = await enqueueTrackingEmail(
-    orderId,
-    record.tracking_number as string | null,
-    record.tracking_url as string | null,
-    record.status as string | null,
-    record.carrier as string | null,
-    record.eta as string | null,
-  );
+  const shouldNotify = shouldNotifyTrackingUpdate(null, (record.status as string | null) ?? null, true);
+  const emailResult = shouldNotify
+    ? await enqueueTrackingEmail(
+        orderId,
+        record.tracking_number as string | null,
+        record.tracking_url as string | null,
+        record.status as string | null,
+        record.carrier as string | null,
+        record.eta as string | null,
+      )
+    : { enqueued: false, reason: "status_unchanged_or_pending" };
   await updatePurchaseOrderStatus(purchaseOrderId, record.status as string, record.shipped_at as string | null);
   return { data, outbox: emailResult };
 }

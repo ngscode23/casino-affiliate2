@@ -8,6 +8,7 @@ import { requireCronSecret } from "@/utils/cron/guard";
 
 const MAX_ATTEMPTS = 5;
 const BATCH_LIMIT = 20;
+const STALE_PROCESSING_MINUTES = 30;
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
@@ -65,22 +66,17 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getAdminClient();
-  const nowIso = new Date().toISOString();
   const { count: totalPending } = await supabase
     .from("email_outbox")
     .select("id", { count: "exact", head: true })
     .eq("status", "pending");
 
-  const { data: rows, error } = await supabase
-    .from("email_outbox")
-    .select("id, type, to_email, payload, attempts")
-    .eq("status", "pending")
-    .lte("scheduled_at", nowIso)
-    .lt("attempts", MAX_ATTEMPTS)
-    .order("scheduled_at", { ascending: true })
-    .limit(BATCH_LIMIT);
+  const { data: rows, error } = await supabase.rpc("email_outbox_claim_batch", {
+    p_limit: BATCH_LIMIT,
+    p_stale_minutes: STALE_PROCESSING_MINUTES,
+  });
 
-  if (error) return json({ ok: false, error: "fetch_failed", message: error.message }, 500);
+  if (error) return json({ ok: false, error: "claim_failed", message: error.message }, 500);
   if (!rows || !rows.length) return json({ ok: true, total_pending: totalPending ?? 0, eligible: 0, processed: 0 }, 200);
 
   let sent = 0;
@@ -104,22 +100,23 @@ export async function POST(request: NextRequest) {
 
       await supabase
         .from("email_outbox")
-        .update({ status: "sent", sent_at: new Date().toISOString(), attempts: attempts + 1, last_error: null })
-        .eq("id", id);
+        .update({ status: "sent", sent_at: new Date().toISOString(), last_error: null })
+        .eq("id", id)
+        .eq("status", "processing");
       sent += 1;
       results.push({ id, status: "sent" });
     } catch (err: any) {
-      const nextMinutes = calcNextSchedule(attempts + 1);
+      const nextMinutes = calcNextSchedule(attempts);
       const nextTime = new Date(Date.now() + nextMinutes * 60 * 1000).toISOString();
       await supabase
         .from("email_outbox")
         .update({
-          attempts: attempts + 1,
           last_error: err?.message ?? String(err),
           scheduled_at: nextTime,
-          status: attempts + 1 >= MAX_ATTEMPTS ? "failed" : "pending",
+          status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("status", "processing");
       results.push({ id, status: "retry" });
     }
   }
