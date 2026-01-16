@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import type { DiscountWithRelations } from "@/lib/discounts/types";
 import { evaluateDiscounts } from "@/lib/discounts/evaluator";
 
 vi.mock("@generated/prisma/client", () => ({
@@ -15,7 +16,7 @@ vi.mock("@generated/prisma/client", () => ({
   },
 }));
 
-type DiscountLike = Record<string, any>;
+type DiscountLike = DiscountWithRelations;
 type CouponUsageSnapshot = {
   couponId: string;
   discountId: string;
@@ -134,8 +135,6 @@ describe("evaluateDiscounts", () => {
           metadata: null,
           startsAt: null,
           endsAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
         },
       ],
     });

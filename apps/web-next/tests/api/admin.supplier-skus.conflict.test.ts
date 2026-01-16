@@ -18,8 +18,12 @@ function buildSupabaseConflict(params: { supplierId: string; skuId: string; conf
     data: { supplier_id: supplierId, sku_id: skuId },
     error: null,
   }));
-  const supplierSkusSelectExistingQuery = {
-    eq: vi.fn(() => supplierSkusSelectExistingQuery),
+  type SupplierSkusSelectQuery = {
+    eq: (column: string, value?: string) => SupplierSkusSelectQuery;
+    maybeSingle: () => Promise<{ data: any; error: any }>;
+  };
+  const supplierSkusSelectExistingQuery: SupplierSkusSelectQuery = {
+    eq: () => supplierSkusSelectExistingQuery,
     maybeSingle: supplierSkusSelectExistingMaybeSingle,
   };
 
@@ -27,8 +31,8 @@ function buildSupabaseConflict(params: { supplierId: string; skuId: string; conf
     data: { id: "map-conflict", sku_id: conflictSkuId, supplier_sku: "DUP-1" },
     error: null,
   }));
-  const supplierSkusSelectConflictQuery = {
-    eq: vi.fn(() => supplierSkusSelectConflictQuery),
+  const supplierSkusSelectConflictQuery: SupplierSkusSelectQuery = {
+    eq: () => supplierSkusSelectConflictQuery,
     maybeSingle: supplierSkusSelectConflictMaybeSingle,
   };
 

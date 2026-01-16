@@ -7,6 +7,7 @@ import { normalizeImageUrl } from "@/app/products/[slug]/data";
 import type { ProductGridItem } from "@/components/ProductGrid";
 import { resolveViewerIdentity } from "@/utils/auth/viewer";
 import { getAdminClient } from "@/utils/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const ALLOWED_EVENTS = new Set(["view", "click", "impression", "add_to_cart", "purchase", "search"]);
 const LEGACY_ANON_COOKIE_NAME = "anon_id";
@@ -152,6 +153,84 @@ function mapRowToGridItem(row: CatalogRecRow): ProductGridItem | null {
     meta: buildMeta(row),
     image,
   } satisfies ProductGridItem;
+}
+
+function normalizeImageList(input: unknown): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean);
+  }
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean);
+      }
+    } catch {
+      // ignore malformed json
+    }
+    return trimmed
+      .split(/[;,\n]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function pickFirstNormalizedImage(...inputs: unknown[]): string | null {
+  for (const input of inputs) {
+    const candidates = normalizeImageList(input);
+    for (const candidate of candidates) {
+      const normalized = normalizeImageUrl(candidate);
+      if (normalized) return normalized;
+    }
+  }
+  return null;
+}
+
+async function fillMissingThumbnails(
+  supabase: SupabaseClient,
+  rows: CatalogRecRow[],
+): Promise<void> {
+  const missingIds = sanitizeUuidList(
+    rows
+      .filter((row) => !normalizeImageUrl(row.thumbnail_url ?? null))
+      .map((row) => row.id),
+  );
+
+  if (!missingIds.length) return;
+
+  const { data, error } = await supabase
+    .from("ecom_products")
+    .select("catalog_product_id, images, main_image_url, image_path")
+    .in("catalog_product_id", missingIds);
+
+  if (error || !Array.isArray(data)) return;
+
+  const fallbackByCatalogId = new Map<string, string>();
+  for (const row of data as Array<Record<string, unknown>>) {
+    const catalogId =
+      typeof row.catalog_product_id === "string"
+        ? row.catalog_product_id.trim()
+        : String(row.catalog_product_id ?? "").trim();
+    if (!catalogId) continue;
+    const fallback = pickFirstNormalizedImage(row.images, row.main_image_url, row.image_path);
+    if (fallback) {
+      fallbackByCatalogId.set(catalogId, fallback);
+    }
+  }
+
+  if (!fallbackByCatalogId.size) return;
+
+  for (const row of rows) {
+    if (!row?.id || normalizeImageUrl(row.thumbnail_url ?? null)) continue;
+    const fallback = fallbackByCatalogId.get(row.id);
+    if (fallback) {
+      row.thumbnail_url = fallback;
+    }
+  }
 }
 
 function sanitizeUuidList(values: Array<string | null | undefined>): string[] {
@@ -390,6 +469,7 @@ export async function GET(request: Request) {
   }
 
   const trendingRows = (trendingRes.data as CatalogRecRow[] | null) ?? [];
+  await fillMissingThumbnails(supabase, trendingRows);
   const viewedIds = sanitizeUuidList((events as EventRow[] | null)?.map((row) => row.product_id) ?? []);
 
   if (!viewedIds.length) {
@@ -539,6 +619,11 @@ export async function GET(request: Request) {
     .filter((entry) => entry.row?.id && entry.row?.slug)
     .filter((entry) => normalizeStatus(entry.row.status) === PUBLISHED_STATUS)
     .filter((entry) => !viewedIds.includes(entry.row.id));
+
+  await fillMissingThumbnails(
+    supabase,
+    candidateRows.map((entry) => entry.row),
+  );
 
   const maxViews = Math.max(
     1,

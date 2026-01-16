@@ -38,8 +38,12 @@ function buildSupabaseCreate(params: { supplierId: string; vendorSku: string }) 
   const ecomProductsInsert = vi.fn(() => ({ select: ecomProductsInsertSelect }));
 
   const supplierSkusSelectMaybeSingle = vi.fn(async () => ({ data: null, error: null }));
-  const supplierSkusSelectQuery = {
-    eq: vi.fn(() => supplierSkusSelectQuery),
+  type SupplierSkusSelectQuery = {
+    eq: (column: string, value?: string) => SupplierSkusSelectQuery;
+    maybeSingle: () => Promise<{ data: any; error: any }>;
+  };
+  const supplierSkusSelectQuery: SupplierSkusSelectQuery = {
+    eq: () => supplierSkusSelectQuery,
     maybeSingle: supplierSkusSelectMaybeSingle,
   };
   const supplierSkusSelect = vi.fn(() => supplierSkusSelectQuery);
@@ -56,8 +60,12 @@ function buildSupabaseCreate(params: { supplierId: string; vendorSku: string }) 
     },
     error: null,
   }));
-  const unmappedSelectQuery = {
-    eq: vi.fn(() => unmappedSelectQuery),
+  type UnmappedSelectQuery = {
+    eq: (column: string, value?: string) => UnmappedSelectQuery;
+    maybeSingle: () => Promise<{ data: any; error: any }>;
+  };
+  const unmappedSelectQuery: UnmappedSelectQuery = {
+    eq: () => unmappedSelectQuery,
     maybeSingle: unmappedSelectMaybeSingle,
   };
   const unmappedSelect = vi.fn(() => unmappedSelectQuery);

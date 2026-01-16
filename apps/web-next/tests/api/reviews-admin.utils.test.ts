@@ -10,8 +10,12 @@ function createSupabaseMock(options: {
 }) {
   const maybeSingle = vi.fn(async () => ({ data: options.review ?? null, error: options.selectError ?? null }));
 
-  const selectChain = {
-    eq: vi.fn(() => selectChain),
+  type SelectChain = {
+    eq: (column: string, value?: string) => SelectChain;
+    maybeSingle: () => Promise<{ data: any; error: any }>;
+  };
+  const selectChain: SelectChain = {
+    eq: () => selectChain,
     maybeSingle,
   };
 
@@ -100,4 +104,3 @@ describe("applyReviewStatus", () => {
     });
   });
 });
-

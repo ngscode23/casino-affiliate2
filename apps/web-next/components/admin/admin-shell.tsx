@@ -31,6 +31,7 @@ import {
   Link2,
   History,
   ClipboardList,
+  Wrench,
 } from "lucide-react";
 
 import { AdminProviders } from "./admin-providers";
@@ -84,6 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "System",
     items: [
       { href: "/admin/dropship-health", label: "Dropship Health", icon: ClipboardList },
+      { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/admin/logs", label: "Logs", icon: MessageSquare },
       { href: "/admin/settings", label: "Settings", icon: Settings2 },
     ],
