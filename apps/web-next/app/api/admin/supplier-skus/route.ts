@@ -3,10 +3,8 @@ import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 
 const MAPPING_FIELDS =
-  "id, supplier_id, sku_id, supplier_sku, cost_cents, currency, lead_time_days, is_available, inventory_status, stock_quantity, last_synced_at, last_seen_at, miss_count, created_at, updated_at";
+  "id, supplier_id, sku_id, supplier_sku, cost_cents, currency, lead_time_days, last_synced_at, last_seen_at, miss_count, created_at, updated_at";
 const ECOM_JOIN_FIELDS = "id, sku, slug, title, currency, price_cents, is_available, inventory_status, stock_quantity";
-
-const INVENTORY_VALUES = new Set(["in_stock", "out_of_stock", "preorder", "backorder", "discontinued"]);
 
 const DEFAULT_LIMIT = 200;
 
@@ -18,9 +16,6 @@ type SupplierSkuPayload = {
   cost_cents?: number | string | null;
   currency?: string | null;
   lead_time_days?: number | string | null;
-  is_available?: boolean | null;
-  inventory_status?: string | null;
-  stock_quantity?: number | string | null;
   op?: string;
 };
 
@@ -49,12 +44,21 @@ function normalizeNumber(input: unknown): number | null {
   return null;
 }
 
-function normalizeInventoryStatus(input: unknown): string | null {
-  if (typeof input !== "string") return null;
-  const value = input.trim().toLowerCase();
-  if (!value) return null;
-  return INVENTORY_VALUES.has(value) ? value : value;
+async function findVendorSkuConflict(params: {
+  supabase: ReturnType<typeof getAdminClient>;
+  supplierId: string;
+  supplierSku: string;
+}) {
+  const { supabase, supplierId, supplierSku } = params;
+  const { data } = await supabase
+    .from("supplier_skus")
+    .select("id, sku_id, supplier_sku")
+    .eq("supplier_id", supplierId)
+    .eq("supplier_sku", supplierSku)
+    .maybeSingle();
+  return data as { id: string; sku_id: string; supplier_sku: string } | null;
 }
+
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const result: T[][] = [];
@@ -92,9 +96,6 @@ async function bulkMatchBySku(supplierId: string) {
           sku_id: String((row as any).id),
           supplier_sku: normalizeString((row as any).sku),
           currency: normalizeCurrency((row as any).currency, defaultCurrency),
-          is_available: (row as any).is_available ?? null,
-          inventory_status: (row as any).inventory_status ?? null,
-          stock_quantity: typeof (row as any).stock_quantity === "number" ? (row as any).stock_quantity : null,
         }))
         .filter((row) => row.supplier_sku && row.sku_id)
     : [];
@@ -199,6 +200,21 @@ export async function POST(request: Request) {
     return json({ ok: false, error: "supplier_sku_required" }, 400);
   }
 
+  const supabase = getAdminClient();
+  const conflict = await findVendorSkuConflict({ supabase, supplierId, supplierSku });
+  if (conflict?.sku_id && conflict.sku_id !== skuId) {
+    return json(
+      {
+        ok: false,
+        error: "vendor_sku_already_mapped",
+        message: "Vendor SKU already mapped for this supplier.",
+        sku_id: conflict.sku_id,
+        mapping_id: conflict.id,
+      },
+      409,
+    );
+  }
+
   const currency = normalizeCurrency(payload.currency, await resolveSupplierCurrency(supplierId));
   const record = {
     supplier_id: supplierId,
@@ -207,12 +223,8 @@ export async function POST(request: Request) {
     cost_cents: normalizeNumber(payload.cost_cents),
     currency,
     lead_time_days: normalizeNumber(payload.lead_time_days),
-    is_available: typeof payload.is_available === "boolean" ? payload.is_available : null,
-    inventory_status: normalizeInventoryStatus(payload.inventory_status),
-    stock_quantity: normalizeNumber(payload.stock_quantity),
   };
 
-  const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("supplier_skus")
     .upsert(record, { onConflict: "supplier_id,sku_id" })
@@ -221,7 +233,7 @@ export async function POST(request: Request) {
 
   if (error) {
     const status = error.code === "23505" ? 409 : 500;
-    const code = error.code === "23505" ? "duplicate" : "save_failed";
+    const code = error.code === "23505" ? "vendor_sku_already_mapped" : "save_failed";
     return json({ ok: false, error: code, message: error.message }, status);
   }
 
@@ -271,28 +283,55 @@ export async function PUT(request: Request) {
     updates.lead_time_days = normalizeNumber(payload.lead_time_days);
   }
 
-  if ("is_available" in payload) {
-    updates.is_available = typeof payload.is_available === "boolean" ? payload.is_available : null;
-  }
-
-  if ("inventory_status" in payload) {
-    updates.inventory_status = normalizeInventoryStatus(payload.inventory_status);
-  }
-
-  if ("stock_quantity" in payload) {
-    updates.stock_quantity = normalizeNumber(payload.stock_quantity);
-  }
-
   if (!Object.keys(updates).length) {
     return json({ ok: false, error: "no_updates" }, 400);
   }
 
   const supabase = getAdminClient();
+  const supplierSkuCandidate = normalizeOptionalString(payload.supplier_sku);
+  let resolvedSupplierId = supplierId;
+  let resolvedSkuId = skuId;
+
+  if (id && (!resolvedSupplierId || !resolvedSkuId)) {
+    const { data: existingRow, error: existingError } = await supabase
+      .from("supplier_skus")
+      .select("supplier_id, sku_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) {
+      return json({ ok: false, error: "lookup_failed", message: existingError.message }, 500);
+    }
+    if (!existingRow) {
+      return json({ ok: false, error: "not_found" }, 404);
+    }
+    resolvedSupplierId = resolvedSupplierId || normalizeString((existingRow as any).supplier_id);
+    resolvedSkuId = resolvedSkuId || normalizeString((existingRow as any).sku_id);
+  }
+
+  if (supplierSkuCandidate && resolvedSupplierId) {
+    const conflict = await findVendorSkuConflict({
+      supabase,
+      supplierId: resolvedSupplierId,
+      supplierSku: supplierSkuCandidate,
+    });
+    if (conflict?.sku_id && resolvedSkuId && conflict.sku_id !== resolvedSkuId) {
+      return json(
+        {
+          ok: false,
+          error: "vendor_sku_already_mapped",
+          message: "Vendor SKU already mapped for this supplier.",
+          sku_id: conflict.sku_id,
+          mapping_id: conflict.id,
+        },
+        409,
+      );
+    }
+  }
   let query = supabase.from("supplier_skus").update(updates);
   if (id) {
     query = query.eq("id", id);
   } else {
-    query = query.eq("supplier_id", supplierId).eq("sku_id", skuId);
+    query = query.eq("supplier_id", resolvedSupplierId).eq("sku_id", resolvedSkuId);
   }
 
   const { data, error } = await query
@@ -301,8 +340,47 @@ export async function PUT(request: Request) {
 
   if (error) {
     const status = error.code === "23505" ? 409 : 500;
-    const code = error.code === "23505" ? "duplicate" : "update_failed";
+    const code = error.code === "23505" ? "vendor_sku_already_mapped" : "update_failed";
     return json({ ok: false, error: code, message: error.message }, status);
+  }
+
+  if (!data) {
+    return json({ ok: false, error: "not_found" }, 404);
+  }
+
+  return json({ ok: true, item: data }, 200);
+}
+
+export async function DELETE(request: Request) {
+  const auth = await requireAdmin(request);
+  if ("response" in auth) return auth.response;
+
+  let payload: SupplierSkuPayload;
+  try {
+    payload = (await request.json()) as SupplierSkuPayload;
+  } catch {
+    return json({ ok: false, error: "bad_json" }, 400);
+  }
+
+  const id = normalizeString(payload.id);
+  const supplierId = normalizeString(payload.supplier_id);
+  const skuId = normalizeString(payload.sku_id);
+
+  if (!id && (!supplierId || !skuId)) {
+    return json({ ok: false, error: "id_required" }, 400);
+  }
+
+  const supabase = getAdminClient();
+  let query = supabase.from("supplier_skus").delete();
+  if (id) {
+    query = query.eq("id", id);
+  } else {
+    query = query.eq("supplier_id", supplierId).eq("sku_id", skuId);
+  }
+
+  const { data, error } = await query.select("id, sku_id, supplier_id, supplier_sku").maybeSingle();
+  if (error) {
+    return json({ ok: false, error: "delete_failed", message: error.message }, 500);
   }
 
   if (!data) {

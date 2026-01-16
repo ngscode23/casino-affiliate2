@@ -12,6 +12,25 @@ import { toast } from "@ui/components/common/toast";
 import { normalizeSku } from "@shared/lib/normalize";
 import { getValidAccessToken } from "@shared/lib/auth";
 
+const SUPPORTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const SUPPORTED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+
+function isSupportedImage(file: File): boolean {
+  if (file.type) {
+    return SUPPORTED_IMAGE_TYPES.has(file.type.toLowerCase());
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ext) return true;
+  return SUPPORTED_IMAGE_EXTS.has(ext);
+}
+
 interface ProductImagesFieldProps {
   label?: string;
   images: string[];
@@ -31,7 +50,7 @@ async function recordImageVersion(params: {
   onVersionCreated?: (payload: { id: string; publicUrl: string }) => void;
 }) {
   try {
-    const response = await fetch("/api/admin-product-images", {
+    const response = await fetch("/api/admin/shop/products/images", {
       method: "POST",
       headers: Object.fromEntries(
         Object.entries({
@@ -77,12 +96,15 @@ export function ProductImagesField({
   const [isDragOver, setIsDragOver] = useState(false);
 
   const uploadSingleFile = async (file: File) => {
+    if (!isSupportedImage(file)) {
+      throw new Error("Unsupported image type. Use JPG, PNG, WEBP, or GIF.");
+    }
     const accessToken = await getValidAccessToken().catch(() => null);
     const normalizedSku = normalizeSku(sku ?? undefined, slug ?? productId ?? undefined);
     if (!normalizedSku) throw new Error("Нужно сохранить SKU/slug, чтобы загрузить изображение");
     const ext = file.name.split(".").pop() ?? "webp";
 
-    const uploadResponse = await fetch("/api/admin-get-upload-url", {
+    const uploadResponse = await fetch("/api/admin/shop/products/upload-url", {
       method: "POST",
       headers: Object.fromEntries(
         Object.entries({
@@ -112,18 +134,30 @@ export function ProductImagesField({
       throw new Error("Upload URL response missing fields");
     }
 
+    const buildUploadBody = () => {
+      if (typeof FormData !== "undefined" && file instanceof Blob) {
+        const form = new FormData();
+        form.append("cacheControl", "3600");
+        // Supabase storage expects an unnamed file field for signed uploads.
+        form.append("", file);
+        return { body: form, contentType: null as string | null };
+      }
+      return { body: file, contentType: file.type || "application/octet-stream" };
+    };
+
+    const { body, contentType } = buildUploadBody();
+
     const putOnce = async (withAuth: boolean) =>
       fetch(uploadUrl, {
         method: "PUT",
         headers: Object.fromEntries(
           Object.entries({
-            "content-type": file.type || "application/octet-stream",
+            ...(contentType ? { "content-type": contentType } : null),
             "x-upsert": "true",
-            "cache-control": "no-cache",
             Authorization: withAuth ? `Bearer ${uploadToken}` : undefined,
           }).filter(([, v]) => v != null),
         ) as HeadersInit,
-        body: file,
+        body,
       });
 
     let putResponse = await putOnce(false);
@@ -301,7 +335,7 @@ export function ProductImagesField({
         ref={fileInput}
         className="hidden"
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
         multiple
         onChange={(event) => handleFiles(event.currentTarget.files)}
       />

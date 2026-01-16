@@ -207,6 +207,17 @@ function toStringArray(input: unknown): string[] {
   return [];
 }
 
+function pickFirstNormalizedImage(...inputs: unknown[]): string | null {
+  for (const input of inputs) {
+    const candidates = toStringArray(input);
+    for (const candidate of candidates) {
+      const normalized = normalizeImageUrl(candidate);
+      if (normalized) return normalized;
+    }
+  }
+  return null;
+}
+
 function dedupe<T>(values: T[]): T[] {
   const seen = new Set<string>();
   const result: T[] = [];
@@ -647,6 +658,38 @@ function getProductFetcher(slug: string) {
         }
         const product = mapRpcProduct(data as Record<string, unknown>);
         if (!product) return null;
+
+        if (!product.mainImage || product.gallery.length === 0) {
+          try {
+            const lookupId = product.catalogProductId ?? product.id;
+            if (lookupId) {
+              const { data: skuRows, error: skuError } = await admin
+                .from("ecom_products")
+                .select("images, main_image_url, image_path, created_at")
+                .eq("catalog_product_id", lookupId)
+                .order("created_at", { ascending: false, nullsFirst: false })
+                .limit(1);
+              const skuRow =
+                !skuError && Array.isArray(skuRows) && skuRows.length
+                  ? (skuRows[0] as Record<string, unknown>)
+                  : null;
+              if (skuRow) {
+                const fallback = pickFirstNormalizedImage(
+                  skuRow.images,
+                  skuRow.main_image_url,
+                  skuRow.image_path,
+                );
+                if (fallback) {
+                  const base = product.mainImage || fallback;
+                  product.mainImage = base;
+                  product.gallery = mergeGallery(base, product.gallery ?? [], product.fallbackImage);
+                }
+              }
+            }
+          } catch {
+            // ignore fallback failures
+          }
+        }
 
         if (product.catalogProductId) {
           const { data: skuRows, error: skuError } = await admin

@@ -18,7 +18,8 @@ export default function SupplierSkusPage() {
       sidebar={
         <AdminInfoPanel title="How it works">
           <p>Select a supplier and attach your SKU ids to vendor SKU references.</p>
-          <p>These mappings drive lead times, availability, and cost updates.</p>
+          <p>These mappings drive lead times and cost updates.</p>
+          <p>Availability and stock are managed in Supplier Inventory.</p>
         </AdminInfoPanel>
       }
     >

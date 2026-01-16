@@ -32,5 +32,32 @@ Style and changes
 - Make minimal, surgical changes consistent with the existing codebase.
 - Update documentation only where it relates to edited code.
 
+Catalog vs SKU (do not mix)
+- Catalog models live under /admin/catalog and map to catalog brands/products.
+- Storefront SKUs live under /admin/shop/products and map to ecom_products.
+- Use new SKU APIs: /api/admin/shop/products, /upload-url, /images.
+- Legacy SKU APIs are disabled (do not use /api/admin-products or /api/admin-get-upload-url).
+- Supplier mapping is done via supplier_skus (supplier_id + sku_id + supplier_sku).
+- Offers/inventory come from supplier_offers and supplier_inventory_levels.
+- Reference doc: docs/sku-catalog-map.md
+
+SKU photos: stable workflow
+- Create Brand + Model in /admin/catalog.
+- Create SKU in /admin/shop/products/new.
+- Upload images (jpg/png/webp/gif only; avoid AVIF).
+- Click Save after upload so ecom_products.images is persisted and catalog_products.thumbnail_url is synced.
+- Storefront reads catalog_products_v.thumbnail_url; if missing, check ecom_products.images.
+- If images still do not render, verify NEXT_PUBLIC_SUPABASE_URL in runtime env (Next Image allowlist).
+
+New session prompt (use verbatim)
+```
+Read AGENTS.md and docs/sku-catalog-map.md.
+Do not use legacy SKU APIs (/api/admin-products, /api/admin-get-upload-url).
+SKU = ecom_products; storefront reads catalog_products_v.thumbnail_url.
+After image upload, always Save SKU to persist images.
+If photos missing: check catalog_products.thumbnail_url and ecom_products.images.
+Use MCP Supabase for DB checks; do not inspect SQL in repo.
+```
+
 Note
 - The above "Skip" items are soft guidance to reduce noise. If editing or inspecting them is necessary to complete the migration correctly, proceed and explain the rationale in the summary.

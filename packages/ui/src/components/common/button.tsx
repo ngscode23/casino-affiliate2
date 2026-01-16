@@ -48,7 +48,7 @@
 import * as React from "react";
 import cn from "@shared/lib/cn";
 
-type Variant = "primary" | "soft" | "secondary" | "ghost" | "neutral";
+type Variant = "primary" | "soft" | "secondary" | "ghost" | "neutral" | "danger";
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
@@ -74,7 +74,9 @@ export default function Button({
     ghost:
       "bg-transparent text-[var(--text)] hover:bg-slate-100 dark:hover:bg-white/5",
     neutral:
-      "border border-slate-300 bg-white text-slate-900 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 hover:text-white disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+      "border border-slate-300 bg-white text-slate-900 shadow-sm transition hover:border-slate-700 hover:bg-slate-900 hover:text-white disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400",
+    danger:
+      "border border-admin-danger/30 bg-admin-danger/10 text-admin-danger shadow-sm hover:bg-admin-danger/20"
   };
 
   return (

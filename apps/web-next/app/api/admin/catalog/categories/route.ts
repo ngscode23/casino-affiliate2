@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { createAuthenticatedClient } from "@/utils/supabase";
+import { getAdminClient } from "@/utils/supabase/admin";
 import { HEADER_CATEGORIES_TAG } from "@/lib/catalog/categories";
 
 const CATEGORY_FIELDS = "id, slug, title, description, parent_id, sort_order, is_active";
@@ -69,8 +70,8 @@ export async function GET(request: Request) {
   const includeInactive = normalizeBoolean(url.searchParams.get("include_inactive"), true);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.floor(limitParam), 1), 200) : 200;
 
-  // Admin UI uses the public `categories` view exposed via REST.
-  const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
+  // Admin UI reads through service role to avoid RLS filtering the view.
+  const supabase = getAdminClient();
   let query = supabase
     .from("categories")
     .select(CATEGORY_FIELDS)
@@ -127,20 +128,15 @@ export async function POST(request: Request) {
   const id = normalizeString(payload.id) || undefined;
 
   const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
-  const record = {
-    slug,
-    title,
-    description,
-    sort_order: sortOrder,
-    is_active: isActive,
-    parent_id: null,
-  };
-
-  const query = id
-    ? supabase.from("categories").update(record).eq("id", id).select(CATEGORY_FIELDS).maybeSingle()
-    : supabase.from("categories").insert(record).select(CATEGORY_FIELDS).maybeSingle();
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc("admin_upsert_category", {
+    p_id: id ?? null,
+    p_slug: slug,
+    p_title: title,
+    p_description: description,
+    p_sort_order: sortOrder,
+    p_is_active: isActive,
+    p_parent_id: null,
+  });
 
   if (error) {
     const status = error.code === "23505" ? 409 : 500;
@@ -148,12 +144,13 @@ export async function POST(request: Request) {
     return json({ ok: false, error: code, message: error.message }, status);
   }
 
-  if (!data) {
+  const item = Array.isArray(data) ? data[0] : data;
+  if (!item) {
     return json({ ok: false, error: "not_found" }, 404);
   }
 
   await revalidateHeaderCategories();
-  return json({ ok: true, item: data }, 200);
+  return json({ ok: true, item }, 200);
 }
 
 export async function DELETE(request: Request) {
@@ -173,18 +170,14 @@ export async function DELETE(request: Request) {
   }
 
   const supabase = createAuthenticatedClient(auth.accessToken, "catalog-admin");
-  const { data, error } = await supabase
-    .from("categories")
-    .delete()
-    .eq("id", id)
-    .select(CATEGORY_FIELDS)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("admin_delete_category", { p_id: id });
 
   if (error) {
     return json({ ok: false, error: "delete_failed", message: error.message }, 500);
   }
 
-  if (!data) {
+  const item = Array.isArray(data) ? data[0] : data;
+  if (!item) {
     return json({ ok: false, error: "not_found" }, 404);
   }
 

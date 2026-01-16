@@ -1,26 +1,61 @@
-import { NextResponse } from "next/server";
+import { GET as imagesGet, POST as imagesPost } from "@/app/api/admin/shop/products/images/route";
 
-import { requireAdmin } from "@/utils/auth/guard";
-
-const MESSAGE = "Legacy product image API is disabled. Use the new catalog media workflow.";
-
-function json(body: unknown, status = 200) {
-  return NextResponse.json(body, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
+function normalizeString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export async function GET(request: Request) {
-  const auth = await requireAdmin(request);
-  if ("response" in auth) return auth.response;
+  const url = new URL(request.url);
+  const productId = normalizeString(url.searchParams.get("product_id"));
+  if (productId && !url.searchParams.get("productId")) {
+    url.searchParams.set("productId", productId);
+  }
 
-  return json({ ok: false, error: "deprecated", message: MESSAGE }, 410);
+  const nextRequest = new Request(url.toString(), {
+    method: "GET",
+    headers: request.headers,
+  });
+  return imagesGet(nextRequest);
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdmin(request);
-  if ("response" in auth) return auth.response;
+  let payload: Record<string, unknown> = {};
+  try {
+    const parsed = await request.json();
+    if (parsed && typeof parsed === "object") {
+      payload = parsed as Record<string, unknown>;
+    }
+  } catch {
+    payload = {};
+  }
 
-  return json({ ok: false, error: "deprecated", message: MESSAGE }, 410);
+  const mapped = {
+    ...payload,
+    productId:
+      normalizeString(payload.productId) ??
+      normalizeString(payload.product_id) ??
+      null,
+    versionId:
+      normalizeString(payload.versionId) ??
+      normalizeString(payload.version_id) ??
+      null,
+    sourceUrl:
+      normalizeString(payload.sourceUrl) ??
+      normalizeString(payload.source_url) ??
+      null,
+  };
+
+  const headers = new Headers(request.headers);
+  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+
+  const nextRequest = new Request(
+    request.url.replace("/api/admin-product-images", "/api/admin/shop/products/images"),
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(mapped),
+    },
+  );
+
+  return imagesPost(nextRequest);
 }

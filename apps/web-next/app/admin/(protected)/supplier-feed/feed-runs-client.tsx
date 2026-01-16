@@ -315,7 +315,21 @@ export function FeedRunsClient() {
                       <td className="px-3 py-3 text-admin-textSubtle">{formatDate(run.finished_at)}</td>
                       <td className="px-3 py-3 text-admin-textSubtle">{formatDuration(run.started_at, run.finished_at)}</td>
                       <td className="px-3 py-3 text-admin-textSubtle">
-                        {["received", "parsed", "failed", "upserted", "disabled"].map((key) => {
+                        {[
+                          "received",
+                          "processed",
+                          "parsed",
+                          "mapped",
+                          "unmapped",
+                          "invalid",
+                          "upserted",
+                          "offers_upserted",
+                          "inventory_upserted",
+                          "ecom_updated",
+                          "missing",
+                          "disabled",
+                          "unmapped_upserted",
+                        ].map((key) => {
                           const value = (stats as any)?.[key];
                           if (value == null) return null;
                           return (

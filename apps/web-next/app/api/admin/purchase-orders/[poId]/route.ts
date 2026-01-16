@@ -7,7 +7,7 @@ import { getAdminClient } from "@/utils/supabase/admin";
 const PO_FIELDS =
   "id, order_id, supplier_id, status, currency, total_cost_cents, sent_at, confirmed_at, shipped_at, cancelled_at, created_at, error_message, metadata";
 const ITEM_FIELDS =
-  "id, purchase_order_id, order_item_id, sku_id, qty, cost_cents, currency, supplier_sku_snapshot, title_snapshot, metadata";
+  "id, purchase_order_id, order_item_id, sku_id, qty, cost_cents, currency, supplier_sku_snapshot, title_snapshot, supplier_offer_id, metadata";
 const ALLOWED_STATUSES = new Set(["pending", "sent", "confirmed", "shipped", "failed", "cancelled"]);
 
 export async function GET(request: NextRequest, context: { params: Promise<{ poId: string }> }) {

@@ -184,29 +184,11 @@ export function ShipmentsClient() {
             />
           </div>
         </div>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button variant="neutral" onClick={load} disabled={loading}>
-              Refresh
-            </Button>
-            <Button
-              variant="soft"
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/admin/email-outbox/process", {
-                    method: "POST",
-                  });
-                  const json = await res.json();
-                  toast(res.ok ? `Email outbox processed (sent ${json.sent ?? 0})` : json.message || "Process failed", {
-                    variant: res.ok ? "success" : "error",
-                  });
-                } catch (err: any) {
-                  toast(err?.message || "Process failed", { variant: "error" });
-                }
-              }}
-            >
-              Process emails
-            </Button>
-          </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button variant="neutral" onClick={load} disabled={loading}>
+            Refresh
+          </Button>
+        </div>
       </AdminSurface>
 
       <AdminSurface>

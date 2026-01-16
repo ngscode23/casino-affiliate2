@@ -4,8 +4,7 @@ import { json } from "@/app/api/orders/utils";
 import { requireAdmin } from "@/utils/auth/guard";
 import { getAdminClient } from "@/utils/supabase/admin";
 
-const RUN_FIELDS =
-  "id, supplier_id, status, started_at, finished_at, error, stats, created_at, updated_at";
+const RUN_FIELDS = "id, supplier_id, status, started_at, finished_at, error, stats";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);

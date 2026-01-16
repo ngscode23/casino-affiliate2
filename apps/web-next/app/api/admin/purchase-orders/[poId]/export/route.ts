@@ -6,7 +6,7 @@ import { getAdminClient } from "@/utils/supabase/admin";
 const PO_FIELDS =
   "id, order_id, supplier_id, status, currency, total_cost_cents, sent_at, confirmed_at, shipped_at, cancelled_at, created_at, error_message";
 const ITEM_FIELDS =
-  "id, purchase_order_id, order_item_id, sku_id, qty, cost_cents, currency, supplier_sku_snapshot, title_snapshot";
+  "id, purchase_order_id, order_item_id, sku_id, qty, cost_cents, currency, supplier_sku_snapshot, title_snapshot, supplier_offer_id";
 
 function toCsvValue(value: unknown): string {
   if (value == null) return "";
@@ -86,12 +86,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ poI
       .join(","),
     "",
     ["Items:"].map(toCsvValue).join(","),
-    ["item_id", "sku_id", "supplier_sku", "title", "qty", "cost_cents", "currency"].map(toCsvValue).join(","),
+    ["item_id", "sku_id", "supplier_sku", "offer_id", "title", "qty", "cost_cents", "currency"]
+      .map(toCsvValue)
+      .join(","),
     ...items.map((item: any) =>
       [
         item.id,
         item.sku_id,
         item.supplier_sku_snapshot ?? "",
+        item.supplier_offer_id ?? "",
         item.title_snapshot ?? item.ecom_products?.title ?? "",
         item.qty,
         item.cost_cents ?? "",

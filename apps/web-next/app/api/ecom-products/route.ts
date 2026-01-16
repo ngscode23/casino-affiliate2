@@ -228,8 +228,16 @@ export async function GET(request: Request) {
         query = query.or(`sku.ilike.${pattern},slug.ilike.${pattern},title.ilike.${pattern}`);
       }
 
+      if (ids.length) {
+        query = query.in("id", ids);
+      }
+
       if (category) {
         query = query.eq("category_slug", category);
+      }
+
+      if (catalogProductIdFilter) {
+        query = query.eq("catalog_product_id", catalogProductIdFilter);
       }
 
       if (statusFilter) {

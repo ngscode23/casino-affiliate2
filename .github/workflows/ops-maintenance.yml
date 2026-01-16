@@ -4,6 +4,8 @@ on:
   schedule:
     # Dropship: refresh supplier feed every 15 minutes
     - cron: "*/15 * * * *"
+    # Dropship: reconcile paid orders / stale POs every 10 minutes
+    - cron: "*/10 * * * *"
     # Dropship: send queued emails every 5 minutes
     - cron: "*/5 * * * *"
     # Cleanup clicks daily at 03:00 UTC
@@ -38,6 +40,19 @@ jobs:
           curl -fsSL -X POST \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             "$BASE_URL/api/admin/email-outbox/process"
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
+  dropship-reconcile:
+    if: github.event.schedule == '*/10 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile dropship orders
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "$BASE_URL/api/admin/dropship/reconcile"
         env:
           BASE_URL: ${{ secrets.BASE_URL }}
 

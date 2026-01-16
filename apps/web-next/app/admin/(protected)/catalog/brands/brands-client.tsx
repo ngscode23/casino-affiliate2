@@ -407,11 +407,8 @@ export function BrandsClient() {
                           Edit
                         </Button>
                         <Button
-                          variant="soft"
-                          className={clsx(
-                            "min-h-[36px] px-3 py-2 text-sm text-rose-600",
-                            deletingId === brand.id && "opacity-60",
-                          )}
+                          variant="danger"
+                          className={clsx("min-h-[36px] px-3 py-2 text-sm", deletingId === brand.id && "opacity-60")}
                           disabled={deletingId === brand.id}
                           onClick={() => handleDelete(brand)}
                         >

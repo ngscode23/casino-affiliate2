@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
+import { ProductsClient } from "./products-client";
 
 export const metadata = {
-  title: "Admin | Legacy products",
+  title: "Admin | SKU",
 };
 
 export default function AdminProductsPage() {
-  redirect("/admin/catalog");
+  return <ProductsClient />;
 }

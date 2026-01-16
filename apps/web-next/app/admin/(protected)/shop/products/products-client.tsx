@@ -51,6 +51,7 @@ interface ProductRow {
   images?: string[] | null;
   short_desc?: string | null;
   tags?: string[] | null;
+  catalog_product_id?: string | null;
 }
 
 interface CategoryOption {
@@ -123,7 +124,7 @@ async function authorizedFetch(input: string, init?: RequestInit) {
 }
 
 async function fetchProducts(params: FetchParams) {
-  const url = new URL("/api/ecom-products", window.location.origin);
+  const url = new URL("/api/admin/shop/products", window.location.origin);
   if (params.q) url.searchParams.set("q", params.q);
   if (params.status && params.status !== "all") {
     url.searchParams.set("status", params.status);
@@ -140,6 +141,9 @@ async function fetchProducts(params: FetchParams) {
     throw new Error(await res.text());
   }
   const json = await res.json();
+  if (json?.ok === false) {
+    throw new Error(String(json?.message || json?.error || "Failed to load products"));
+  }
   return {
     items: Array.isArray(json?.items) ? (json.items as ProductRow[]) : [],
     total: Number(json?.total || 0),
@@ -309,7 +313,9 @@ export function ProductsClient() {
       slug: editing.slug,
       sku: editing.sku ?? undefined,
       price: resolvePriceValue(editing) ?? 0,
+      currency: editing.currency ?? undefined,
       category_slug: editing.category_slug ?? null,
+      catalog_product_id: editing.catalog_product_id ?? null,
       status: draftStatus,
       rating: editing.rating ?? undefined,
       short_desc: editing.short_desc ?? undefined,
@@ -392,7 +398,7 @@ export function ProductsClient() {
       if (!confirmed) return;
       setDeletingId(product.id);
       try {
-        const res = await authorizedFetch("/api/admin-products", {
+        const res = await authorizedFetch("/api/admin/shop/products", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ op: "delete", ids: [product.id] }),
@@ -437,7 +443,7 @@ export function ProductsClient() {
     async (product: ProductRow) => {
       setDuplicatingId(product.id);
       try {
-        const res = await authorizedFetch("/api/admin-products", {
+        const res = await authorizedFetch("/api/admin/shop/products", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ op: "duplicate", ids: [product.id] }),

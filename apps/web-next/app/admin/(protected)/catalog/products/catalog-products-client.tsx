@@ -287,11 +287,14 @@ export function CatalogProductsClient() {
       }
       setSkuLoading(true);
       try {
-        const url = new URL("/api/ecom-products", window.location.origin);
+        const url = new URL("/api/admin/shop/products", window.location.origin);
         url.searchParams.set("catalog_product_id", catalogProductId);
         url.searchParams.set("limit", "200");
         const res = await fetch(url.toString(), { credentials: "include" });
-        const payload = await res.json();
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || payload?.ok === false) {
+          throw new Error(payload?.message || payload?.error || "Не удалось загрузить SKU");
+        }
         const items = Array.isArray(payload?.items) ? payload.items : [];
         const mapped: SkuSummary[] = items
           .map((item: any) => ({
@@ -753,11 +756,8 @@ export function CatalogProductsClient() {
                               Редактировать
                             </Button>
                             <Button
-                              variant="soft"
-                              className={clsx(
-                                "min-h-9 px-3 py-2 text-sm text-rose-600",
-                                deletingId === model.id && "opacity-60",
-                              )}
+                              variant="danger"
+                              className={clsx("min-h-9 px-3 py-2 text-sm", deletingId === model.id && "opacity-60")}
                               disabled={deletingId === model.id}
                               onClick={() => handleArchive(model)}
                             >

@@ -38,7 +38,7 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
       try {
         setLoading(true);
         const accessToken = await getValidAccessToken().catch(() => null);
-        const response = await fetch(`/api/admin-product-images?productId=${encodeURIComponent(productId)}`, {
+        const response = await fetch(`/api/admin/shop/products/images?productId=${encodeURIComponent(productId)}`, {
           headers: Object.fromEntries(
             Object.entries({
               accept: "application/json",
@@ -70,7 +70,7 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
   const makeCurrent = async (versionId: string) => {
     try {
       const accessToken = await getValidAccessToken().catch(() => null);
-      const response = await fetch("/api/admin-product-images", {
+      const response = await fetch("/api/admin/shop/products/images", {
         method: "POST",
         headers: Object.fromEntries(
           Object.entries({
@@ -102,7 +102,7 @@ export function ProductImageHistory({ productId, refreshToken, onUseImage }: Pro
   const deleteVersion = async (versionId: string) => {
     const accessToken = await getValidAccessToken().catch(() => null);
     try {
-      const response = await fetch("/api/admin-product-images", {
+      const response = await fetch("/api/admin/shop/products/images", {
         method: "POST",
         headers: Object.fromEntries(
           Object.entries({

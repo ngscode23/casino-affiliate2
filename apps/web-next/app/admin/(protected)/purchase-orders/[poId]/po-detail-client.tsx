@@ -16,7 +16,13 @@ type PoItem = {
   cost_cents: number | null;
   currency: string | null;
   supplier_sku_snapshot: string | null;
+  supplier_offer_id?: string | null;
   title_snapshot: string | null;
+  metadata?: {
+    offer_price_cents?: number | null;
+    offer_currency?: string | null;
+    offer_lead_time_days?: number | null;
+  } | null;
   ecom_products?: { id: string; title: string; sku?: string | null; slug?: string | null; currency?: string | null } | null;
 };
 
@@ -62,10 +68,16 @@ function formatMoney(value: number | null | undefined, currency: string | null |
 }
 
 function formatDate(value?: string | null) {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function shortId(value: string | null | undefined) {
+  if (!value) return "-";
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
 
 async function fetchPo(id: string): Promise<PurchaseOrder> {
@@ -205,8 +217,10 @@ export function PurchaseOrderDetailClient({ poId }: { poId: string }) {
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.2em] text-admin-textSubtle">
                   <th className="px-3 py-2">Title</th>
+                  <th className="px-3 py-2">Offer</th>
                   <th className="px-3 py-2">Supplier SKU</th>
                   <th className="px-3 py-2">Qty</th>
+                  <th className="px-3 py-2">Price</th>
                   <th className="px-3 py-2">Cost</th>
                 </tr>
               </thead>
@@ -221,8 +235,43 @@ export function PurchaseOrderDetailClient({ poId }: { poId: string }) {
                         {item.ecom_products?.sku || item.ecom_products?.slug || item.sku_id}
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-admin-textSubtle">{item.supplier_sku_snapshot ?? "—"}</td>
+                    <td className="px-3 py-3 text-admin-textSubtle">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs">{shortId(item.supplier_offer_id)}</span>
+                        {item.supplier_offer_id ? (
+                          <button
+                            type="button"
+                            className="text-xs text-admin-textSoft underline decoration-dotted underline-offset-2 hover:text-admin-text"
+                            onClick={() => {
+                              if (!item.supplier_offer_id) return;
+                              const copyPromise = navigator.clipboard?.writeText(item.supplier_offer_id);
+                              if (!copyPromise) {
+                                toast("Clipboard unavailable", { variant: "error" });
+                                return;
+                              }
+                              copyPromise.then(
+                                () => toast("Offer ID copied", { variant: "success" }),
+                                () => toast("Failed to copy", { variant: "error" })
+                              );
+                            }}
+                          >
+                            Copy
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-admin-textSoft">
+                        {po.suppliers?.name ?? po.supplier_id}
+                        {po.suppliers?.code ? ` (${po.suppliers.code})` : ""}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-admin-textSubtle">{item.supplier_sku_snapshot ?? "-"}</td>
                     <td className="px-3 py-3 text-admin-textSubtle">{item.qty}</td>
+                    <td className="px-3 py-3 text-admin-textSubtle">
+                      {formatMoney(
+                        typeof item.metadata?.offer_price_cents === "number" ? item.metadata.offer_price_cents : null,
+                        item.metadata?.offer_currency ?? item.currency ?? po.currency
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-admin-textSubtle">
                       {formatMoney(item.cost_cents, item.currency ?? po.currency)}
                     </td>

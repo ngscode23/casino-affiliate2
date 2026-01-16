@@ -5,6 +5,7 @@ export default function StatusBadge({ status }: { status: string }) {
     pending: "bg-yellow-500/20 text-yellow-200 border-yellow-500/30",
     processing: "bg-amber-500/20 text-amber-200 border-amber-500/30",
     published: "bg-green-500/20 text-green-200 border-green-500/30",
+    active: "bg-green-500/20 text-green-200 border-green-500/30",
     paid: "bg-green-500/20 text-green-200 border-green-500/30",
     succeeded: "bg-green-500/20 text-green-200 border-green-500/30",
     captured: "bg-green-500/20 text-green-200 border-green-500/30",

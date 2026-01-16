@@ -320,6 +320,102 @@ function buildCachePayload(filters: ProductFilters, options?: LoadProductsOption
   };
 }
 
+function normalizeImageList(input: unknown): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    return input
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter(Boolean);
+      }
+    } catch {
+      // ignore malformed json
+    }
+    return trimmed
+      .split(/[;,\n]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function pickFirstImage(...inputs: unknown[]): string | null {
+  for (const input of inputs) {
+    const candidates = normalizeImageList(input);
+    if (candidates.length) {
+      return candidates[0] ?? null;
+    }
+  }
+  return null;
+}
+
+function hasThumbnail(row: Record<string, unknown>): boolean {
+  const candidate =
+    (typeof row.thumbnail_url === "string" ? row.thumbnail_url : null) ??
+    (typeof row.thumbnailUrl === "string" ? row.thumbnailUrl : null) ??
+    (typeof row.thumbnail_path === "string" ? row.thumbnail_path : null) ??
+    (typeof row.thumbnail === "string" ? row.thumbnail : null) ??
+    (typeof row.image_path === "string" ? row.image_path : null) ??
+    null;
+  return Boolean(candidate && candidate.trim());
+}
+
+async function fillMissingThumbnails(
+  rows: Array<Record<string, unknown>>,
+  supabase: SupabaseClient,
+): Promise<void> {
+  const missingIds = rows
+    .map((row) => ({
+      id: typeof row?.id === "string" ? row.id.trim() : String(row?.id ?? "").trim(),
+      hasThumb: hasThumbnail(row),
+    }))
+    .filter((row) => row.id && !row.hasThumb)
+    .map((row) => row.id);
+
+  if (!missingIds.length) return;
+
+  const { data, error } = await supabase
+    .from("ecom_products")
+    .select("catalog_product_id, images, main_image_url, image_path")
+    .in("catalog_product_id", missingIds);
+
+  if (error || !Array.isArray(data)) return;
+
+  const fallbackByCatalogId = new Map<string, string>();
+  for (const row of data as Array<Record<string, unknown>>) {
+    const catalogId =
+      typeof row.catalog_product_id === "string"
+        ? row.catalog_product_id.trim()
+        : String(row.catalog_product_id ?? "").trim();
+    if (!catalogId) continue;
+    const fallback = pickFirstImage(row.images, row.main_image_url, row.image_path);
+    if (fallback) {
+      fallbackByCatalogId.set(catalogId, fallback);
+    }
+  }
+
+  if (!fallbackByCatalogId.size) return;
+
+  for (const row of rows) {
+    if (hasThumbnail(row)) continue;
+    const id = typeof row?.id === "string" ? row.id.trim() : String(row?.id ?? "").trim();
+    if (!id) continue;
+    const fallback = fallbackByCatalogId.get(id);
+    if (fallback) {
+      row.thumbnail_url = fallback;
+    }
+  }
+}
+
 const PRODUCT_SELECT_COLUMNS = [
   "id",
   "slug",
@@ -611,6 +707,14 @@ async function loadProductsDataInternal(
       catalogName: CATALOG_NAME,
       totalCount: 0,
     };
+  }
+
+  try {
+    await fillMissingThumbnails(fetchedRows, supabase);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[catalog-debug] fillMissingThumbnails failed", error);
+    }
   }
 
   const products = mapRowsToProducts(fetchedRows, 0);

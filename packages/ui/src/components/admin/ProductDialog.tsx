@@ -13,7 +13,9 @@ export type ProductInput = {
   slug: string;
   sku: string;
   price: number;
+  currency?: string;
   category_slug: string | null;
+  catalog_product_id?: string | null;
   status: 'draft'|'published'|'archived';
   short_desc?: string;
   tags?: string[];
@@ -36,8 +38,19 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
   const [priceStr, setPriceStr] = useState<string>(
     initial?.price !== undefined && initial?.price !== null ? String(initial?.price) : ""
   );
+  const [currency, setCurrency] = useState<string>(
+    typeof initial?.currency === "string" && initial.currency.trim()
+      ? initial.currency.trim().toUpperCase()
+      : "EUR"
+  );
   const [category, setCategory] = useState<string>(initial?.category_slug || '');
-  const [status, setStatus] = useState<'draft'|'published'|'archived'>((initial?.status as any) || 'published');
+  const [status, setStatus] = useState<'draft'|'published'|'archived'>(
+    (initial?.status as any) === "archived"
+      ? "archived"
+      : (initial?.status as any) === "draft"
+        ? "draft"
+        : "published"
+  );
   const [saving, setSaving] = useState(false);
   const [shortDesc, setShortDesc] = useState(initial?.short_desc || '');
   const [tagsCsv, setTagsCsv] = useState((initial?.tags || []).join(', '));
@@ -51,8 +64,19 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
     setSlug(initial?.slug || '');
     setSku(initial?.sku || initial?.slug || '');
     setPriceStr(initial?.price !== undefined && initial?.price !== null ? String(initial?.price) : "");
+    setCurrency(
+      typeof initial?.currency === "string" && initial.currency.trim()
+        ? initial.currency.trim().toUpperCase()
+        : "EUR"
+    );
     setCategory(initial?.category_slug || '');
-    setStatus((initial?.status as any) || 'published');
+    setStatus(
+      (initial?.status as any) === "archived"
+        ? "archived"
+        : (initial?.status as any) === "draft"
+          ? "draft"
+          : "published"
+    );
     setShortDesc(initial?.short_desc || '');
     setTagsCsv((initial?.tags || []).join(', '));
     try { setImagesJson(JSON.stringify(initial?.images || [], null, 2)); } catch { setImagesJson('[]'); }
@@ -69,6 +93,19 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
     if (!title.trim()) { toast('Title is required', { variant: 'error' }); return; }
     const price = parseFloat(String(priceStr).replace(',', '.'));
     if (!Number.isFinite(price)) { toast('Price must be a number', { variant: 'error' }); return; }
+    const normalizedCurrency = (currency || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+      toast('Currency must be a 3-letter code', { variant: 'error' });
+      return;
+    }
+    if (!category) {
+      toast('Category is required', { variant: 'error' });
+      return;
+    }
+    if (!initial?.catalog_product_id) {
+      toast('Catalog model is missing. Open full editor to select it.', { variant: 'error' });
+      return;
+    }
     try {
       setSaving(true);
       let images: any = [];
@@ -84,9 +121,11 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
         slug: normalizedSlug,
         sku: normalizedSku,
         price,
+        currency: normalizedCurrency,
         rating: Number(initial?.rating || 0),
         short_desc: shortDesc,
         category_slug: category || null,
+        catalog_product_id: initial?.catalog_product_id || null,
         images,
         tags,
         specs: initial?.specs || {},
@@ -100,7 +139,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
         Authorization: `Bearer ${accessToken}`,
       };
 
-      const res = await adminFetch('/api/admin-products', {
+      const res = await adminFetch('/api/admin/shop/products', {
         method: 'POST',
         headers,
         body: JSON.stringify({ op: 'upsert', product: payload })
@@ -126,7 +165,7 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
               <label className="block text-sm mb-1">Title</label>
               <input className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={title} onChange={(e)=>setTitle(e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm mb-1">Slug</label>
                 <input className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60" value={slug} onChange={(e)=>setSlug(e.target.value)} required />
@@ -140,6 +179,18 @@ export default function ProductDialog({ open, onOpenChange, initial, categories,
                   className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
                   value={priceStr}
                   onChange={(e)=>setPriceStr(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Currency</label>
+                <input
+                  type="text"
+                  maxLength={3}
+                  placeholder="EUR"
+                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
+                  value={currency}
+                  onChange={(e)=>setCurrency(e.target.value.toUpperCase())}
                   required
                 />
               </div>
