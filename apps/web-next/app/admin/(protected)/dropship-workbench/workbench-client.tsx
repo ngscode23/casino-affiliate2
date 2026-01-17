@@ -1589,7 +1589,14 @@ export function DropshipWorkbenchClient() {
                             variant="neutral"
                             className="min-h-[32px] px-3 py-1 text-xs"
                             onClick={() => {
-                              window.location.href = "/admin/catalog/products";
+                              const catalogId = catalogInfo?.catalog?.id;
+                              if (!catalogId) {
+                                window.location.href = "/admin/catalog/products";
+                                return;
+                              }
+                              const url = new URL("/admin/catalog/products", window.location.origin);
+                              url.searchParams.set("id", catalogId);
+                              window.location.href = url.toString();
                             }}
                           >
                             Open catalog
@@ -1669,7 +1676,9 @@ export function DropshipWorkbenchClient() {
                               variant="ghost"
                               className="min-h-[28px] px-2 py-1 text-xs"
                               onClick={() => {
-                                window.location.href = "/admin/catalog/products";
+                                const url = new URL("/admin/catalog/products", window.location.origin);
+                                url.searchParams.set("id", suggestion.catalog_id);
+                                window.location.href = url.toString();
                               }}
                             >
                               Open catalog
