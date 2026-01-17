@@ -276,7 +276,9 @@ async function fetchSuggestions(supplierId: string, vendorSku: string) {
   const response = await fetch(url.toString(), { credentials: "include" });
   const payload = (await response.json().catch(() => ({}))) as SuggestionsResponse;
   if (!response.ok || !payload.ok) {
-    throw new Error(payload.message || payload.error || "Failed to load suggestions.");
+    const error = new Error(payload.message || payload.error || "Failed to load suggestions.") as ApiError;
+    error.code = payload.error;
+    throw error;
   }
   return {
     identifiers: payload.identifiers ?? {},
@@ -431,6 +433,7 @@ export function DropshipWorkbenchClient() {
   >({});
   const [suggestionsLoadingByVendorSku, setSuggestionsLoadingByVendorSku] = useState<Record<string, boolean>>({});
   const [suggestionsErrorByVendorSku, setSuggestionsErrorByVendorSku] = useState<Record<string, string>>({});
+  const [suggestionsNoteByVendorSku, setSuggestionsNoteByVendorSku] = useState<Record<string, string>>({});
   const [rowSkuQueryByVendorSku, setRowSkuQueryByVendorSku] = useState<Record<string, string>>({});
   const [rowSkuResultsByVendorSku, setRowSkuResultsByVendorSku] = useState<Record<string, SkuSearchItem[]>>({});
   const [rowSkuSearchingByVendorSku, setRowSkuSearchingByVendorSku] = useState<Record<string, boolean>>({});
@@ -477,6 +480,12 @@ export function DropshipWorkbenchClient() {
       return next;
     });
     setSuggestionsErrorByVendorSku((prev) => {
+      if (!prev[vendorSku]) return prev;
+      const next = { ...prev };
+      delete next[vendorSku];
+      return next;
+    });
+    setSuggestionsNoteByVendorSku((prev) => {
       if (!prev[vendorSku]) return prev;
       const next = { ...prev };
       delete next[vendorSku];
@@ -589,15 +598,25 @@ export function DropshipWorkbenchClient() {
       const vendorSku = record.vendor_sku;
       setSuggestionsLoadingByVendorSku((prev) => ({ ...prev, [vendorSku]: true }));
       setSuggestionsErrorByVendorSku((prev) => ({ ...prev, [vendorSku]: "" }));
+      setSuggestionsNoteByVendorSku((prev) => ({ ...prev, [vendorSku]: "" }));
       try {
         const result = await fetchSuggestions(selectedSupplierId, vendorSku);
         setSuggestionsByVendorSku((prev) => ({ ...prev, [vendorSku]: result.suggestions }));
         setSuggestionsMetaByVendorSku((prev) => ({ ...prev, [vendorSku]: result.identifiers }));
       } catch (error: any) {
-        setSuggestionsErrorByVendorSku((prev) => ({
-          ...prev,
-          [vendorSku]: error?.message || "Failed to load suggestions.",
-        }));
+        if (error?.code === "unmapped_not_found") {
+          setSuggestionsByVendorSku((prev) => ({ ...prev, [vendorSku]: [] }));
+          setSuggestionsMetaByVendorSku((prev) => ({ ...prev, [vendorSku]: {} }));
+          setSuggestionsNoteByVendorSku((prev) => ({
+            ...prev,
+            [vendorSku]: "Already mapped — suggestions are only available for unmapped vendor SKUs.",
+          }));
+        } else {
+          setSuggestionsErrorByVendorSku((prev) => ({
+            ...prev,
+            [vendorSku]: error?.message || "Failed to load suggestions.",
+          }));
+        }
       } finally {
         setSuggestionsLoadingByVendorSku((prev) => ({ ...prev, [vendorSku]: false }));
       }
@@ -1059,10 +1078,11 @@ export function DropshipWorkbenchClient() {
                           : price != null
                             ? formatCurrency(Math.round(price * 100), currency)
                             : "-";
-                      const suggestionItems = suggestionsByVendorSku[record.vendor_sku] ?? [];
-                      const suggestionMeta = suggestionsMetaByVendorSku[record.vendor_sku];
-                      const suggestionLoading = Boolean(suggestionsLoadingByVendorSku[record.vendor_sku]);
-                      const suggestionError = suggestionsErrorByVendorSku[record.vendor_sku];
+      const suggestionItems = suggestionsByVendorSku[record.vendor_sku] ?? [];
+      const suggestionMeta = suggestionsMetaByVendorSku[record.vendor_sku];
+      const suggestionLoading = Boolean(suggestionsLoadingByVendorSku[record.vendor_sku]);
+      const suggestionError = suggestionsErrorByVendorSku[record.vendor_sku];
+      const suggestionNote = suggestionsNoteByVendorSku[record.vendor_sku];
                       const rowSkuQuery = rowSkuQueryByVendorSku[record.vendor_sku] ?? "";
                       const rowSkuResults = rowSkuResultsByVendorSku[record.vendor_sku] ?? [];
                       const rowSkuSearching = Boolean(rowSkuSearchingByVendorSku[record.vendor_sku]);
@@ -1103,6 +1123,8 @@ export function DropshipWorkbenchClient() {
                             </div>
                             {suggestionError ? (
                               <div className="mt-2 text-xs text-red-600">{suggestionError}</div>
+                            ) : suggestionNote ? (
+                              <div className="mt-2 text-xs text-admin-textSoft">{suggestionNote}</div>
                             ) : suggestionItems.length ? (
                               <div className="mt-2 space-y-2">
                                 {suggestionItems.map((suggestion) => (
