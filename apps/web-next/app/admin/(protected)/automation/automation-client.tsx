@@ -243,6 +243,9 @@ export function AutomationClient() {
               <Button variant="soft" onClick={() => handleRun(true, false)} disabled={running}>
                 {running ? "Running..." : "Seed from unmapped"}
               </Button>
+              <Button variant="soft" onClick={() => handleRun(true, true)} disabled={running}>
+                {running ? "Running..." : "Seed + Auto-create"}
+              </Button>
               <Button onClick={() => handleRun(false, true)} disabled={running}>
                 {running ? "Running..." : "Auto-create"}
               </Button>
