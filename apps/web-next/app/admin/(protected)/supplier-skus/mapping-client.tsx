@@ -655,17 +655,18 @@ export function SupplierSkusClient() {
               {searchResults.length ? (
                 <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-admin-border bg-admin-surface">
                   {searchResults.map((item) => (
-                    <button
+                    <Button
                       key={item.id}
                       type="button"
-                      className="flex w-full flex-col gap-1 border-b border-admin-border/60 px-4 py-3 text-left text-sm hover:bg-admin-surfaceMuted"
+                      variant="ghost"
+                      className="w-full flex-col items-start justify-start gap-1 rounded-none border-b border-admin-border/60 px-4 py-3 text-left text-sm hover:bg-admin-surfaceMuted"
                       onClick={() => handleSelectSku(item)}
                     >
                       <span className="font-semibold text-admin-text">{item.title}</span>
                       <span className="text-xs text-admin-textSoft">
                         {item.sku || item.slug} - {item.id}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : null}

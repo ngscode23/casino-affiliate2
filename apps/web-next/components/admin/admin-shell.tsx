@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/shop/products", label: "SKU", icon: Package },
       { href: "/admin/suppliers", label: "Suppliers", icon: Truck },
       { href: "/admin/supplier-skus", label: "Supplier SKUs", icon: Link2 },
+      { href: "/admin/dropship-workbench", label: "Dropship Workbench", icon: ClipboardList },
       { href: "/admin/supplier-offers", label: "Supplier Offers", icon: Package },
       { href: "/admin/supplier-inventory", label: "Supplier Inventory", icon: ClipboardList },
       { href: "/admin/supplier-feed", label: "Feed runs", icon: History },

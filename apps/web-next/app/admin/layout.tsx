@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  // Force dark theme within the admin subtree regardless of global theme
+  // Keep admin theme consistent with admin tokens (light surface defaults).
   return (
-    <div className="dark theme-noir min-h-screen">
+    <div className="theme-admin min-h-screen">
       <AdminProviders>{children}</AdminProviders>
     </div>
   );

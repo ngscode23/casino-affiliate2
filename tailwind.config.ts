@@ -6,6 +6,8 @@ export const themeAdminTokens = {
   "--bg-rgb": "245 246 248",
   "--card-rgb": "255 255 255",
   "--fg-rgb": "31 41 55",
+  "--brand": "rgb(var(--secondary-rgb))",
+  "--brand-fg": "rgb(var(--fg-rgb))",
   "--muted-rgb": "243 244 246",
   "--mutedfg-rgb": "100 116 139",
   "--secondary-rgb": "249 250 251",

@@ -96,8 +96,8 @@ describe("POST /api/admin/shop/products image sync", () => {
 
     expect(response.status).toBe(200);
     expect(supabaseMock.catalogUpdate).toHaveBeenCalledWith({ thumbnail_url: imageUrl });
-    expect(revalidateTagMock).toHaveBeenCalledWith("products:list");
-    expect(revalidateTagMock).toHaveBeenCalledWith(`product:${slug}`);
+    expect(revalidateTagMock).toHaveBeenCalledWith("products:list", {});
+    expect(revalidateTagMock).toHaveBeenCalledWith(`product:${slug}`, {});
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
     expect(revalidatePathMock).toHaveBeenCalledWith(`/products/${slug}`);
   });

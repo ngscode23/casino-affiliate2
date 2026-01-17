@@ -10,6 +10,9 @@ export type SupplierFeedNormalizedItem = {
   is_available: boolean | null;
   inventory_status: string | null;
   lead_time_days: number | null;
+  gtin?: string | null;
+  mpn?: string | null;
+  brand?: string | null;
 };
 
 function normalizeString(input: unknown): string {
@@ -93,6 +96,26 @@ export function normalizeSupplierFeedItem(raw: SupplierFeedRawItem): SupplierFee
   const supplier_sku = normalizeString(
     raw.supplier_sku ?? raw.vendor_sku ?? raw.supplierSku ?? raw.article ?? raw.sku ?? "",
   );
+  const gtin = normalizeString(
+    raw.gtin ??
+      raw.gtin14 ??
+      raw.gtin13 ??
+      raw.ean ??
+      raw.ean13 ??
+      raw.upc ??
+      raw.upca ??
+      raw.barcode ??
+      "",
+  );
+  const mpn = normalizeString(
+    raw.mpn ??
+      raw.manufacturer_part_number ??
+      raw.mfr_part_number ??
+      raw.part_number ??
+      raw.partnumber ??
+      "",
+  );
+  const brand = normalizeString(raw.brand ?? raw.manufacturer ?? raw.mfr ?? raw.vendor ?? "");
   const currency = normalizeCurrency(raw.currency ?? null);
 
   const costRaw = parseNumber(raw.cost_cents ?? raw.cost ?? null);
@@ -118,6 +141,9 @@ export function normalizeSupplierFeedItem(raw: SupplierFeedRawItem): SupplierFee
     is_available: resolvedIsAvailable,
     inventory_status: resolvedInventoryStatus,
     lead_time_days: leadTimeDays == null ? null : Math.round(leadTimeDays),
+    gtin: gtin || null,
+    mpn: mpn || null,
+    brand: brand || null,
   };
 }
 
@@ -225,6 +251,18 @@ function parseCsvRows(rows: string[][]): SupplierFeedRawItem[] {
       sku_id: readValue(row, headerMap, ["sku_id", "skuid", "internal_sku_id"]) ?? undefined,
       supplier_sku:
         readValue(row, headerMap, ["supplier_sku", "vendor_sku", "article", "sku", "supplier_sku_id"]) ?? undefined,
+      gtin:
+        readValue(row, headerMap, ["gtin", "gtin14", "gtin13", "ean", "ean13", "upc", "upca", "barcode"]) ??
+        undefined,
+      mpn:
+        readValue(row, headerMap, [
+          "mpn",
+          "manufacturer_part_number",
+          "mfr_part_number",
+          "part_number",
+          "partnumber",
+        ]) ?? undefined,
+      brand: readValue(row, headerMap, ["brand", "manufacturer", "mfr", "vendor"]) ?? undefined,
       price_cents: priceNumber == null ? undefined : isPriceCents ? toPriceCents(priceNumber) : toMinorUnits(priceNumber),
       cost_cents: costNumber == null ? undefined : isCostCents ? toPriceCents(costNumber) : toMinorUnits(costNumber),
       currency: readValue(row, headerMap, ["currency", "curr"]) ?? undefined,

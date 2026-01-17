@@ -255,22 +255,24 @@ export function HeroAdminClient() {
             </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   {loading ? "Загрузка..." : `${items.length} шт.`}
-                  <button
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:text-foreground"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 w-9 min-h-0 rounded-full border border-border/60 p-0 text-muted-foreground hover:text-foreground"
                     onClick={async () => {
-                  setLoading(true);
-                  try {
-                    setItems(await fetchHeroes());
-                  } catch {
-                    toast("Не удалось обновить список", { variant: "error" });
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                aria-label="Обновить"
-              >
+                      setLoading(true);
+                      try {
+                        setItems(await fetchHeroes());
+                      } catch {
+                        toast("?? ??????? ???????? ??????", { variant: "error" });
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    aria-label="????????"
+                  >
                     <RefreshCw className={clsx("h-4 w-4", loading && "animate-spin")} />
-                  </button>
+                  </Button>
                 </div>
           </div>
 
@@ -279,15 +281,17 @@ export function HeroAdminClient() {
               <div className="mb-3 text-sm font-semibold text-muted-foreground">Кампании</div>
               <div className="flex flex-col gap-2">
                 {sortedItems.map((item) => (
-                  <button
+                  <Button
                     key={item.id}
-                    onClick={() => selectItem(item)}
+                    type="button"
+                    variant="ghost"
                     className={clsx(
-                      "flex items-start justify-between rounded-lg border px-3 py-2 text-left transition",
+                      "h-auto min-h-0 w-full items-start justify-between rounded-lg border px-3 py-2 text-left transition",
                       form.id === item.id
                         ? "border-primary/60 bg-primary/10 text-primary-foreground"
                         : "border-border/40 bg-card hover:border-primary/40",
                     )}
+                    onClick={() => selectItem(item)}
                   >
                     <div>
                       <div className="font-semibold">{item.title}</div>
@@ -301,7 +305,7 @@ export function HeroAdminClient() {
                         {item.end_at ? ` → ${item.end_at.slice(0, 10)}` : ""}
                       </div>
                     ) : null}
-                  </button>
+                  </Button>
                 ))}
                 {sortedItems.length === 0 && (
                   <div className="rounded-lg border border-dashed border-border/50 p-3 text-sm text-muted-foreground">

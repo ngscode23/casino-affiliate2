@@ -922,11 +922,12 @@ function SavedViewChips({
       {savedViews.map((view) => {
         const isActive = view.id === activeViewId;
         return (
-          <button
+          <Button
             key={view.id}
             type="button"
+            variant="ghost"
             className={clsx(
-              "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]",
+              "h-7 min-h-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]",
               isActive
                 ? "bg-admin-primary text-admin-primary-foreground"
                 : "border border-admin-border bg-admin-surface text-admin-text hover:bg-admin-surfaceMuted",
@@ -934,7 +935,7 @@ function SavedViewChips({
             onClick={() => onApplyView(view)}
           >
             {view.name}
-          </button>
+          </Button>
         );
       })}
     </div>
@@ -1136,11 +1137,12 @@ function SavedViewsList({
       {savedViews.map((view) => {
         const isActive = view.id === activeViewId;
         return (
-          <button
+          <Button
             key={view.id}
             type="button"
+            variant="ghost"
             className={clsx(
-              "flex items-center justify-between rounded-lg border px-3 py-2 text-sm",
+              "h-auto min-h-0 w-full justify-between rounded-lg border px-3 py-2 text-sm",
               isActive
                 ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
                 : "border-admin-border bg-admin-surface text-admin-text hover:bg-admin-surfaceMuted",
@@ -1148,8 +1150,8 @@ function SavedViewsList({
             onClick={() => onApplyView(view)}
           >
             <span>{view.name}</span>
-            {isActive ? <span className="text-xs uppercase tracking-[0.2em] text-admin-primary">Активно</span> : null}
-          </button>
+            {isActive ? <span className="text-xs uppercase tracking-[0.2em] text-admin-primary">???????</span> : null}
+          </Button>
         );
       })}
     </AdminStack>
