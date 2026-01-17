@@ -36,6 +36,38 @@ type SkuSearchItem = {
   status?: string | null;
 };
 
+type CatalogSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  status?: string | null;
+  brand_id?: string | null;
+  brand_name?: string | null;
+  brand_slug?: string | null;
+};
+
+type CatalogSuggestion = {
+  catalog_id: string;
+  title: string;
+  slug: string;
+  status?: string | null;
+  brand_id?: string | null;
+  brand_name?: string | null;
+  brand_slug?: string | null;
+  match_types: string[];
+  match_values: Record<string, string>;
+};
+
+type CatalogInfo = {
+  catalog: CatalogSummary | null;
+  identifiers: {
+    gtin?: string | null;
+    mpn?: string | null;
+    brand?: string | null;
+  };
+  suggestions: CatalogSuggestion[];
+};
+
 type SuggestionSku = {
   id: string;
   sku?: string | null;
@@ -286,6 +318,84 @@ async function fetchSuggestions(supplierId: string, vendorSku: string) {
   };
 }
 
+async function fetchCatalogInfo(skuId: string): Promise<CatalogInfo> {
+  const url = new URL("/api/admin/workbench/catalog", window.location.origin);
+  url.searchParams.set("sku_id", skuId);
+  const response = await fetch(url.toString(), { credentials: "include" });
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    catalog?: CatalogSummary | null;
+    identifiers?: { gtin?: string | null; mpn?: string | null; brand?: string | null };
+    suggestions?: CatalogSuggestion[];
+    error?: string;
+    message?: string;
+  };
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || payload.error || "Failed to load catalog info.");
+  }
+  return {
+    catalog: payload.catalog ?? null,
+    identifiers: payload.identifiers ?? {},
+    suggestions: Array.isArray(payload.suggestions) ? payload.suggestions : [],
+  };
+}
+
+async function searchCatalog(query: string): Promise<CatalogSummary[]> {
+  const url = new URL("/api/admin/workbench/catalog/search", window.location.origin);
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "20");
+  const response = await fetch(url.toString(), { credentials: "include" });
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    items?: CatalogSummary[];
+    error?: string;
+    message?: string;
+  };
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || payload.error || "Failed to search catalog.");
+  }
+  return Array.isArray(payload.items) ? payload.items : [];
+}
+
+async function linkCatalog(params: { skuId: string; catalogId: string }) {
+  const response = await fetch("/api/admin/workbench/catalog/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ sku_id: params.skuId, catalog_product_id: params.catalogId }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || payload.error || "Failed to link catalog model.");
+  }
+}
+
+async function unlinkCatalog(skuId: string) {
+  const response = await fetch("/api/admin/workbench/catalog/unlink", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ sku_id: skuId }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || payload.error || "Failed to unlink catalog model.");
+  }
+}
+
+async function createCatalogFromSku(skuId: string) {
+  const response = await fetch("/api/admin/workbench/catalog/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ sku_id: skuId }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || payload.error || "Failed to create catalog model.");
+  }
+}
+
 async function searchSkus(query: string): Promise<SkuSearchItem[]> {
   const url = new URL("/api/admin/shop/products", window.location.origin);
   url.searchParams.set("q", query);
@@ -445,6 +555,15 @@ export function DropshipWorkbenchClient() {
 
   const [readiness, setReadiness] = useState<ReadinessItem | null>(null);
   const [loadingReadiness, setLoadingReadiness] = useState(false);
+
+  const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
+  const [catalogSearchResults, setCatalogSearchResults] = useState<CatalogSummary[]>([]);
+  const [catalogSearching, setCatalogSearching] = useState(false);
+  const [catalogAction, setCatalogAction] = useState<string | null>(null);
+  const [catalogSearchOpen, setCatalogSearchOpen] = useState(false);
 
   const [mappingForm, setMappingForm] = useState<MappingFormState>(EMPTY_FORM);
   const [savingMapping, setSavingMapping] = useState(false);
@@ -665,6 +784,26 @@ export function DropshipWorkbenchClient() {
     [],
   );
 
+  const loadCatalogInfo = useCallback(async (skuId?: string | null) => {
+    if (!skuId) {
+      setCatalogInfo(null);
+      setCatalogError("");
+      return;
+    }
+    setCatalogLoading(true);
+    setCatalogError("");
+    setCatalogInfo(null);
+    try {
+      const info = await fetchCatalogInfo(skuId);
+      setCatalogInfo(info);
+    } catch (error: any) {
+      setCatalogError(error?.message || "Failed to load catalog info.");
+      setCatalogInfo(null);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
   const handleSearchSkus = useCallback(async () => {
     const query = skuQuery.trim();
     if (!query) {
@@ -686,12 +825,91 @@ export function DropshipWorkbenchClient() {
     setSelectedSku(item);
     setSkuResults([]);
     setSkuQuery("");
+    setCatalogSearchQuery("");
+    setCatalogSearchResults([]);
+    setCatalogSearchOpen(false);
     setMappingForm((prev) => ({
       ...prev,
       currency: (item.currency || selectedSupplier?.default_currency || "USD").toUpperCase(),
     }));
     loadReadiness(item.id).catch(() => undefined);
+    loadCatalogInfo(item.id).catch(() => undefined);
   };
+
+  const handleCatalogSearch = useCallback(async () => {
+    const query = catalogSearchQuery.trim();
+    if (!query) {
+      setCatalogSearchResults([]);
+      return;
+    }
+    setCatalogSearching(true);
+    try {
+      const items = await searchCatalog(query);
+      setCatalogSearchResults(items);
+    } catch (error: any) {
+      toast(error?.message || "Failed to search catalog.", { variant: "error" });
+    } finally {
+      setCatalogSearching(false);
+    }
+  }, [catalogSearchQuery]);
+
+  const handleLinkCatalog = useCallback(
+    async (catalogId: string) => {
+      if (!selectedSku) {
+        toast("Select a SKU first.", { variant: "error" });
+        return;
+      }
+      setCatalogAction(`link:${catalogId}`);
+      try {
+        await linkCatalog({ skuId: selectedSku.id, catalogId });
+        toast("Catalog model linked.", { variant: "success" });
+        await loadCatalogInfo(selectedSku.id);
+        setCatalogSearchOpen(false);
+        setCatalogSearchResults([]);
+      } catch (error: any) {
+        toast(error?.message || "Failed to link catalog model.", { variant: "error" });
+      } finally {
+        setCatalogAction(null);
+      }
+    },
+    [selectedSku, loadCatalogInfo],
+  );
+
+  const handleUnlinkCatalog = useCallback(async () => {
+    if (!selectedSku) {
+      toast("Select a SKU first.", { variant: "error" });
+      return;
+    }
+    const confirmed = window.confirm("Unlink catalog model from this SKU?");
+    if (!confirmed) return;
+    setCatalogAction("unlink");
+    try {
+      await unlinkCatalog(selectedSku.id);
+      toast("Catalog link removed.", { variant: "success" });
+      await loadCatalogInfo(selectedSku.id);
+    } catch (error: any) {
+      toast(error?.message || "Failed to unlink catalog model.", { variant: "error" });
+    } finally {
+      setCatalogAction(null);
+    }
+  }, [selectedSku, loadCatalogInfo]);
+
+  const handleCreateCatalogFromSku = useCallback(async () => {
+    if (!selectedSku) {
+      toast("Select a SKU first.", { variant: "error" });
+      return;
+    }
+    setCatalogAction("create");
+    try {
+      await createCatalogFromSku(selectedSku.id);
+      toast("Catalog model created.", { variant: "success" });
+      await loadCatalogInfo(selectedSku.id);
+    } catch (error: any) {
+      toast(error?.message || "Failed to create catalog model.", { variant: "error" });
+    } finally {
+      setCatalogAction(null);
+    }
+  }, [selectedSku, loadCatalogInfo]);
 
   const handleCreateFromUnmapped = async (record: UnmappedRecord, forceAllowSuffix = false) => {
     if (!selectedSupplierId) {
@@ -711,6 +929,7 @@ export function DropshipWorkbenchClient() {
         setCreatedByVendorSku((prev) => ({ ...prev, [record.vendor_sku]: createdSku }));
         setSelectedSku(createdSku);
         loadReadiness(createdSku.id).catch(() => undefined);
+        loadCatalogInfo(createdSku.id).catch(() => undefined);
       }
       setUnmappedItems((prev) => prev.filter((item) => item.vendor_sku !== record.vendor_sku));
       clearSuggestionState(record.vendor_sku);
@@ -763,6 +982,7 @@ export function DropshipWorkbenchClient() {
         }));
       }
       loadReadiness(skuId).catch(() => undefined);
+      loadCatalogInfo(skuId).catch(() => undefined);
     } catch (error: any) {
       handleApiError(error, "Failed to map vendor SKU.");
     } finally {
@@ -1324,6 +1544,192 @@ export function DropshipWorkbenchClient() {
             ) : (
               <p className="text-sm text-admin-textSoft">Select a SKU to see readiness and mappings.</p>
             )}
+
+            <div className="rounded-xl border border-admin-border bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-admin-text">Canonical Catalog</div>
+                  <div className="text-xs text-admin-textSoft">Link SKU to the product master model.</div>
+                </div>
+                <Button
+                  variant="neutral"
+                  onClick={() => loadCatalogInfo(selectedSku?.id)}
+                  disabled={!selectedSku || catalogLoading}
+                >
+                  {catalogLoading ? "Loading..." : "Refresh"}
+                </Button>
+              </div>
+
+              {!selectedSku ? (
+                <p className="mt-3 text-sm text-admin-textSoft">Select a SKU to view catalog linkage.</p>
+              ) : catalogError ? (
+                <p className="mt-3 text-sm text-red-600">{catalogError}</p>
+              ) : (
+                <div className="mt-4 space-y-3 text-sm text-admin-text">
+                  <div className="text-xs text-admin-textSoft">
+                    GTIN: {catalogInfo?.identifiers?.gtin || "-"} / MPN: {catalogInfo?.identifiers?.mpn || "-"} / Brand:{" "}
+                    {catalogInfo?.identifiers?.brand || "-"}
+                  </div>
+
+                  {catalogInfo?.catalog ? (
+                    <div className="rounded-lg border border-admin-border/60 bg-admin-surfaceMuted p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-admin-text">{catalogInfo.catalog.title}</div>
+                          <div className="text-xs text-admin-textSoft">
+                            {catalogInfo.catalog.slug} - {catalogInfo.catalog.id}
+                          </div>
+                          <div className="text-xs text-admin-textSoft">
+                            Brand: {catalogInfo.catalog.brand_name || catalogInfo.catalog.brand_id || "-"} / Status:{" "}
+                            {catalogInfo.catalog.status || "-"}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="neutral"
+                            className="min-h-[32px] px-3 py-1 text-xs"
+                            onClick={() => {
+                              window.location.href = "/admin/catalog/products";
+                            }}
+                          >
+                            Open catalog
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="min-h-[32px] px-3 py-1 text-xs"
+                            onClick={() => setCatalogSearchOpen((prev) => !prev)}
+                          >
+                            Change link
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="min-h-[32px] px-3 py-1 text-xs"
+                            disabled={catalogAction === "unlink"}
+                            onClick={handleUnlinkCatalog}
+                          >
+                            {catalogAction === "unlink" ? "Unlinking..." : "Unlink"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-admin-border/60 bg-admin-surfaceMuted p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-admin-text">No catalog model linked</div>
+                          <div className="text-xs text-admin-textSoft">
+                            Create a model from SKU or link an existing one.
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="soft"
+                            className="min-h-[32px] px-3 py-1 text-xs"
+                            disabled={catalogAction === "create"}
+                            onClick={handleCreateCatalogFromSku}
+                          >
+                            {catalogAction === "create" ? "Creating..." : "Create from SKU"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="min-h-[32px] px-3 py-1 text-xs"
+                            onClick={() => setCatalogSearchOpen((prev) => !prev)}
+                          >
+                            Link existing
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {catalogInfo?.suggestions?.length ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-admin-textSubtle">
+                        Suggested matches
+                      </div>
+                      {catalogInfo.suggestions.map((suggestion) => (
+                        <div key={suggestion.catalog_id} className="rounded-lg border border-admin-border/60 p-3">
+                          <div className="text-sm font-semibold text-admin-text">{suggestion.title}</div>
+                          <div className="text-xs text-admin-textSoft">
+                            {suggestion.slug} / {suggestion.brand_name || suggestion.brand_id || "-"}
+                          </div>
+                          <div className="text-xs text-admin-textSoft">
+                            Match: {suggestion.match_types.join(", ")}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                              variant="neutral"
+                              className="min-h-[28px] px-2 py-1 text-xs"
+                              disabled={catalogAction === `link:${suggestion.catalog_id}`}
+                              onClick={() => handleLinkCatalog(suggestion.catalog_id)}
+                            >
+                              {catalogAction === `link:${suggestion.catalog_id}` ? "Linking..." : "Confirm link"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="min-h-[28px] px-2 py-1 text-xs"
+                              onClick={() => {
+                                window.location.href = "/admin/catalog/products";
+                              }}
+                            >
+                              Open catalog
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {catalogSearchOpen ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-admin-textSubtle">
+                        Search catalog models
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Input
+                          value={catalogSearchQuery}
+                          onChange={(event) => setCatalogSearchQuery(event.target.value)}
+                          placeholder="Search by title or slug"
+                          className="min-w-[200px]"
+                        />
+                        <Button
+                          variant="neutral"
+                          onClick={handleCatalogSearch}
+                          disabled={catalogSearching}
+                        >
+                          {catalogSearching ? "Searching..." : "Search"}
+                        </Button>
+                      </div>
+                      {catalogSearchResults.length ? (
+                        <div className="rounded-lg border border-admin-border/60 bg-white">
+                          {catalogSearchResults.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex flex-wrap items-center justify-between gap-2 border-b border-admin-border/60 px-3 py-2 text-sm"
+                            >
+                              <div>
+                                <div className="font-semibold text-admin-text">{item.title}</div>
+                                <div className="text-xs text-admin-textSoft">
+                                  {item.slug} / {item.brand_name || item.brand_id || "-"}
+                                </div>
+                              </div>
+                              <Button
+                                variant="neutral"
+                                className="min-h-[28px] px-2 py-1 text-xs"
+                                disabled={catalogAction === `link:${item.id}`}
+                                onClick={() => handleLinkCatalog(item.id)}
+                              >
+                                {catalogAction === `link:${item.id}` ? "Linking..." : "Link"}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
 
             <div className="rounded-xl border border-admin-border bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
